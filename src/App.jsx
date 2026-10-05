@@ -27,6 +27,7 @@ import PayablesDashboard from './pages/PayablesDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
 import OperatingAnalysis from './pages/OperatingAnalysis';
+import FinancialPosition from './pages/FinancialPosition';
 import MyProfile from './pages/MyProfile';
 import InventoryAgingPage from './pages/InventoryAgingPage';
 
@@ -72,6 +73,7 @@ function App() {
               {/* <Route path="/salesman"           element={<ProtectedRoute pageKey="salesman"           element={<PlaceholderPage title="Salesman-wise Reporting" />} />} /> */}
               {/* <Route path="/bu-pack"            element={<ProtectedRoute pageKey="bu-pack"            element={<PlaceholderPage title="BU Financial Pack" />} />} /> */}
               <Route path="/pl" element={<ProtectedRoute pageKey="pl" element={<PLAnalytics />} />} />
+              <Route path="/financial-position" element={<ProtectedRoute pageKey="financial-position" element={<FinancialPosition />} />} />
               <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance-sheet" element={<BalanceSheet />} />} />
               <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses" element={<OperatingAnalysis />} />} />
               <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />

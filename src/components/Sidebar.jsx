@@ -14,6 +14,7 @@ const ROUTE_ICON = {
   '/exec-dashboard': Briefcase,
   '/dashboard': LayoutDashboard,
   '/pl': FileText,
+  '/financial-position': CircleDollarSign,
   '/balance-sheet': BookOpen,
   '/operating-expenses': BarChart2,
   '/revenue': DollarSign,
@@ -45,6 +46,7 @@ const NAV_BY_ROLE = {
 
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Reports' },
 
 
@@ -62,6 +64,7 @@ const NAV_BY_ROLE = {
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
 
     { to: '/pl', label: 'P&L Report', group: 'Financials' },
+    { to: '/financial-position', label: 'Financial Position', group: 'Financials' },
     { to: '/balance-sheet', label: 'Balance Sheet Analysis', group: 'Financials' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Financials' },
@@ -88,6 +91,7 @@ const NAV_BY_ROLE = {
 
     // { to: '/dashboard',           label: 'CFO Dashboard',                      group: 'Overview'         },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Reports' },
     // { to: '/working-capital',     label: 'Overview',                           group: 'Reports'          },
     // { to: '/country-performance', label: 'Country Performance',                group: 'Reports'          },
@@ -98,6 +102,7 @@ const NAV_BY_ROLE = {
     // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
     // { to: '/division',           label: 'Division Reports',                    group: 'Reports'          },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Reports' },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
     // { to: '/inventory',          label: 'Inventory Aging',                     group: 'Reports'          },
@@ -108,6 +113,7 @@ const NAV_BY_ROLE = {
     // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
     // { to: '/bu-pack',            label: 'BU Financial Pack',                   group: 'BU Reports'       },
     { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
+    { to: '/financial-position', label: 'Financial Position', group: 'BU Reports' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'BU Reports' },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'BU Reports'       },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'BU Reports'       },
@@ -118,6 +124,7 @@ const NAV_BY_ROLE = {
   accountant: [
     { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
     { to: '/pl', label: 'P&L Report', group: 'Finance' },
+    { to: '/financial-position', label: 'Financial Position', group: 'Finance' },
     { to: '/balance-sheet', label: 'Balance Sheet Analysis', group: 'Finance' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Finance' },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Finance'          },
