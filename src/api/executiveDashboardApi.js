@@ -195,17 +195,6 @@ export async function getExecProfitabilityByRegion(filters = {}) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   8. KEY FINANCIAL PARAMETERS
-   GET /api/executive-dashboard/key-financial-parameters
-   Params: as_of_date, period_type (PTD|YTD), reporting_currency,
-           legal_group_id, legal_entity_id, parent_division_id, subdivision_id
-───────────────────────────────────────────────────────────────────────────── */
-
-export async function getExecKeyFinancialParameters(filters = {}) {
-    return execGet('/key-financial-parameters', buildHierarchyParams(filters));
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
    FILE DOWNLOAD HELPER
 ───────────────────────────────────────────────────────────────────────────── */
 

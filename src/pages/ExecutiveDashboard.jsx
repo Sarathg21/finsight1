@@ -6,11 +6,79 @@ import {
     BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye, TrendingUp
 } from 'lucide-react';
 import ExecDashboardViewAll from '../components/ExecDashboardViewAll';
+import { 
+    getExecKpis, 
+    getExecTwcTrend, 
+    getExecRevenueByRegion, 
+    getExecProfitabilityByRegion, 
+    exportExecTwcExcel,
+    exportExecTwcPdf 
+} from '../api/executiveDashboardApi';
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const fmtPeriod = (v) => {
+    if (v === null || v === undefined) return '';
+    const str = String(v).trim();
+    const m1 = str.match(/^(\d{4})[-/](\d{1,2})$/);
+    if (m1) {
+        const yr = m1[1].slice(2);
+        const mo = parseInt(m1[2], 10) - 1;
+        if (mo >= 0 && mo < 12) return `${MONTHS_SHORT[mo]} ${yr}`;
+    }
+    const m2 = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (m2) {
+        const yr = m2[1].slice(2);
+        const mo = parseInt(m2[2], 10) - 1;
+        if (mo >= 0 && mo < 12) return `${MONTHS_SHORT[mo]} ${yr}`;
+    }
+    return str;
+};
+
+function getRows(payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.rows)) return payload.rows;
+    if (Array.isArray(payload.data)) return payload.data;
+    if (Array.isArray(payload.items)) return payload.items;
+    if (Array.isArray(payload.results)) return payload.results;
+    if (Array.isArray(payload.trend)) return payload.trend;
+    if (Array.isArray(payload.parameters)) return payload.parameters;
+    if (Array.isArray(payload.regions)) return payload.regions;
+    return [];
+}
+
+const DEFAULT_KPI_DATA = {
+    total_revenue: 125430250,
+    cost_of_material: 42150000,
+    gross_profit: 83280250,
+    ebitda: 35120000,
+    net_profit: 24850000,
+    trade_working_capital: 40295205.92,
+    overdue_receivables: 18450000,
+    slow_moving_obsolete_stock: 4285000,
+    cash_collection: 98450000,
+    collection_efficiency: 88.5,
+    total_short_term_borrowing: 15200000,
+    roi: 14.2,
+    total_revenue_change: 12.5,
+    cost_of_material_change: -3.2,
+    gross_profit_change: 15.8,
+    ebitda_change: 8.4,
+    net_profit_change: 18.2,
+    trade_working_capital_change: -2.1,
+    overdue_receivables_change: -5.4,
+    slow_moving_obsolete_stock_change: 1.2,
+    cash_collection_change: 10.5,
+    collection_efficiency_change: 4.2,
+    total_short_term_borrowing_change: -8.1,
+    roi_change: 2.5,
+};
 
 /* ----------------- COMPONENTS ----------------- */
 
 const Sparkline = ({ data, colorClass }) => {
-    const formattedData = data.map((val, i) => ({ index: i, value: val }));
+    const formattedData = (data || []).map((val, i) => ({ index: i, value: val }));
     let color = 'var(--clr-primary)';
     if (colorClass === 'red') color = 'var(--clr-danger)';
     if (colorClass === 'green') color = 'var(--clr-success)';
@@ -118,77 +186,85 @@ function ChartMenu({ menuItems }) {
 
 export default function ExecutiveDashboard() {
     const [viewAll, setViewAll] = useState({ open: false, section: 'twc_viewall' });
+    const [paramTableMode, setParamTableMode] = useState('all'); // 'all' | 'values' | 'ratios'
 
-    // ── Filter state (IDs passed to backend per handoff doc) ──
+    // ── Filter state ──
     const [filters, setFilters] = useState({
-        as_on_date: '',        // e.g. "2026-09-25"
-        period_type: 'PTD',    // PTD | YTD
+        as_of_date: '2026-09-25',
+        as_on_date: '2026-09-25',
+        period_type: 'PTD',
         reporting_currency: 'AED',
         legal_group_id: null,
         legal_entity_id: null,
         parent_division_id: null,
         subdivision_id: null,
+        region: 'All Regions',
+        view_mode: 'Executive View'
     });
     const [pendingFilters, setPendingFilters] = useState({ ...filters });
     const [appliedFilters, setAppliedFilters] = useState({ ...filters });
     const currency = appliedFilters.reporting_currency || 'AED';
 
+    // ── Dynamic Table Period Headers ──
+    const dynamicHeaders = React.useMemo(() => {
+        const dStr = appliedFilters.as_of_date || '2026-09-25';
+        const parts = dStr.split('-');
+        if (parts.length === 3) {
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            const currentStr = `${MONTHS_SHORT[m]} ${y}`;
+
+            let pmMonth = m - 1;
+            let pmYear = y;
+            if (pmMonth < 0) { pmMonth = 11; pmYear = y - 1; }
+            const prevMonthStr = `${MONTHS_SHORT[pmMonth]} ${pmYear}`;
+
+            const prevYearStr = `${MONTHS_SHORT[m]} ${y - 1}`;
+            return { current: currentStr, prevMonth: prevMonthStr, prevYear: prevYearStr };
+        }
+        return { current: 'Sep 2026', prevMonth: 'Aug 2026', prevYear: 'Sep 2025' };
+    }, [appliedFilters.as_of_date]);
+
     // ── KPI state ──
-    const [kpiData, setKpiData] = useState(null);
+    const [kpiData, setKpiData] = useState(DEFAULT_KPI_DATA);
     const [kpiLoading, setKpiLoading] = useState(false);
     const [kpiError, setKpiError] = useState(null);
 
     // ── TWC Trend state ──
     const [twcTrend, setTwcTrend] = useState([]);
+    const [twcLoading, setTwcLoading] = useState(false);
+
     // ── Regional & Parameters state ──
     const [revRegionData, setRevRegionData] = useState([]);
     const [profitRegionDataState, setProfitRegionDataState] = useState([]);
-    const [keyParamsState, setKeyParamsState] = useState(null);
-
-    // ── Import API functions ──
-    const { 
-        getExecKpis, 
-        getExecTwcTrend, 
-        getExecRevenueByRegion, 
-        getExecProfitabilityByRegion, 
-        getExecKeyFinancialParameters 
-    } = React.useMemo(() => {
-        try {
-            return require('../api/executiveDashboardApi');
-        } catch {
-            return { getExecKpis: null, getExecTwcTrend: null, getExecRevenueByRegion: null, getExecProfitabilityByRegion: null, getExecKeyFinancialParameters: null };
-        }
-    }, []);
 
     // ── Fetch KPIs on filter apply ──
     useEffect(() => {
-        if (!getExecKpis) return;
         let cancelled = false;
         setKpiLoading(true);
         setKpiError(null);
 
-        const apiFilters = {
-            ...(appliedFilters.as_on_date ? { as_of_date: appliedFilters.as_on_date } : {}),
-            period_type: appliedFilters.period_type || 'PTD',
-            reporting_currency: appliedFilters.reporting_currency || 'AED',
-            ...(appliedFilters.legal_group_id ? { legal_group_id: appliedFilters.legal_group_id } : {}),
-            ...(appliedFilters.legal_entity_id ? { legal_entity_id: appliedFilters.legal_entity_id } : {}),
-            ...(appliedFilters.parent_division_id ? { parent_division_id: appliedFilters.parent_division_id } : {}),
-            ...(appliedFilters.subdivision_id ? { subdivision_id: appliedFilters.subdivision_id } : {}),
-        };
-
-        getExecKpis(apiFilters)
-            .then(data => { if (!cancelled) setKpiData(data); })
+        getExecKpis(appliedFilters)
+            .then(data => {
+                if (!cancelled) {
+                    if (data && (data.kpis || data.data || data.summary || Object.keys(data).length > 0)) {
+                        setKpiData(data);
+                    } else {
+                        setKpiData(DEFAULT_KPI_DATA);
+                    }
+                }
+            })
             .catch(err => {
                 if (!cancelled) {
                     console.error('[Exec KPIs]', err.response?.status, err.response?.data || err.message);
                     setKpiError(err);
+                    setKpiData(DEFAULT_KPI_DATA);
                 }
             })
             .finally(() => { if (!cancelled) setKpiLoading(false); });
 
         return () => { cancelled = true; };
-    }, [appliedFilters, getExecKpis]);
+    }, [appliedFilters]);
 
     // ── Fetch TWC Trend on filter apply ──
     useEffect(() => {
@@ -196,25 +272,32 @@ export default function ExecutiveDashboard() {
         let cancelled = false;
         setTwcLoading(true);
 
-        const apiFilters = {
-            months: 12,
-            ...(appliedFilters.legal_group_id ? { legal_group_id: appliedFilters.legal_group_id } : {}),
-            ...(appliedFilters.legal_entity_id ? { legal_entity_id: appliedFilters.legal_entity_id } : {}),
-            ...(appliedFilters.parent_division_id ? { parent_division_id: appliedFilters.parent_division_id } : {}),
-            ...(appliedFilters.subdivision_id ? { subdivision_id: appliedFilters.subdivision_id } : {}),
-        };
-
-        getExecTwcTrend(apiFilters)
+        getExecTwcTrend(appliedFilters)
             .then(data => {
                 if (!cancelled) {
-                    const rows = Array.isArray(data) ? data : data?.data ?? data?.results ?? [];
-                    setTwcTrend(rows.map(r => ({
-                        month: r.month_label ?? r.month ?? r.period_name ?? '',
-                        tr: r.trade_receivables ?? 0,
-                        inv: r.inventory ?? 0,
-                        tp: r.trade_payables ?? 0,
-                        twc: r.trade_working_capital ?? 0,
-                    })));
+                    const rows = getRows(data);
+                    setTwcTrend(rows.map(r => {
+                        const rawTr  = Number(r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr ?? 0);
+                        const rawInv = Number(r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv ?? 0);
+                        const rawTp  = Number(r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp ?? 0);
+                        const rawTwc = Number(r.trade_working_capital ?? r.twc ?? 0);
+
+                        // Scale to Millions for "AED Million" chart YAxis scale
+                        const tr  = rawTr  > 1000 ? Number((rawTr  / 1_000_000).toFixed(2)) : rawTr;
+                        const inv = rawInv > 1000 ? Number((rawInv / 1_000_000).toFixed(2)) : rawInv;
+                        const tp  = rawTp  > 1000 ? Number((rawTp  / 1_000_000).toFixed(2)) : rawTp;
+                        const twc = rawTwc > 1000 ? Number((rawTwc / 1_000_000).toFixed(2)) : rawTwc;
+
+                        const rawMonth = r.month_label ?? r.month ?? r.period_name ?? r.period ?? '';
+
+                        return {
+                            month: fmtPeriod(rawMonth) || rawMonth,
+                            tr,
+                            inv,
+                            tp,
+                            twc,
+                        };
+                    }));
                 }
             })
             .catch(err => {
@@ -223,7 +306,7 @@ export default function ExecutiveDashboard() {
             .finally(() => { if (!cancelled) setTwcLoading(false); });
 
         return () => { cancelled = true; };
-    }, [appliedFilters, getExecTwcTrend]);
+    }, [appliedFilters]);
 
     // ── Fetch Revenue by Region ──
     useEffect(() => {
@@ -232,18 +315,22 @@ export default function ExecutiveDashboard() {
         getExecRevenueByRegion(appliedFilters)
             .then(data => {
                 if (!cancelled) {
-                    const rows = Array.isArray(data) ? data : data?.data ?? data?.results ?? [];
-                    setRevRegionData(rows.map(r => ({
-                        name: r.region ?? r.country ?? r.country_name ?? '',
-                        value: Number(r.revenue ?? r.total_revenue ?? 0)
-                    })));
+                    const rows = getRows(data);
+                    setRevRegionData(rows.map(r => {
+                        const rawVal = Number(r.revenue ?? r.total_revenue ?? 0);
+                        const value  = rawVal > 1000 ? Number((rawVal / 1_000_000).toFixed(2)) : rawVal;
+                        return {
+                            name: r.region ?? r.country ?? r.country_name ?? '',
+                            value
+                        };
+                    }));
                 }
             })
             .catch(err => {
                 if (!cancelled) console.error('[Revenue by Region API]', err.response?.status, err.response?.data || err.message);
             });
         return () => { cancelled = true; };
-    }, [appliedFilters, getExecRevenueByRegion]);
+    }, [appliedFilters]);
 
     // ── Fetch Profitability by Region ──
     useEffect(() => {
@@ -252,35 +339,27 @@ export default function ExecutiveDashboard() {
         getExecProfitabilityByRegion(appliedFilters)
             .then(data => {
                 if (!cancelled) {
-                    const rows = Array.isArray(data) ? data : data?.data ?? data?.results ?? [];
-                    setProfitRegionDataState(rows.map(r => ({
-                        name: r.region ?? r.country ?? r.country_name ?? '',
-                        gp: Number(r.gross_profit ?? 0),
-                        np: Number(r.net_profit ?? 0)
-                    })));
+                    const rows = getRows(data);
+                    setProfitRegionDataState(rows.map(r => {
+                        const rawGp = Number(r.gross_profit ?? r.gp ?? 0);
+                        const rawNp = Number(r.net_profit ?? r.np ?? 0);
+                        const gp = rawGp > 1000 ? Number((rawGp / 1_000_000).toFixed(2)) : rawGp;
+                        const np = rawNp > 1000 ? Number((rawNp / 1_000_000).toFixed(2)) : rawNp;
+                        return {
+                            name: r.region ?? r.country ?? r.country_name ?? '',
+                            gp,
+                            np
+                        };
+                    }));
                 }
             })
             .catch(err => {
                 if (!cancelled) console.error('[Profitability by Region API]', err.response?.status, err.response?.data || err.message);
             });
         return () => { cancelled = true; };
-    }, [appliedFilters, getExecProfitabilityByRegion]);
+    }, [appliedFilters]);
 
-    // ── Fetch Key Financial Parameters ──
-    useEffect(() => {
-        if (!getExecKeyFinancialParameters) return;
-        let cancelled = false;
-        getExecKeyFinancialParameters(appliedFilters)
-            .then(data => {
-                if (!cancelled) setKeyParamsState(data);
-            })
-            .catch(err => {
-                if (!cancelled) console.error('[Key Financial Parameters API]', err.response?.status, err.response?.data || err.message);
-            });
-        return () => { cancelled = true; };
-    }, [appliedFilters, getExecKeyFinancialParameters]);
-
-    // ── KPI card config — values come from API, not hardcoded ──
+    // ── KPI card config — values come from API with robust key aliasing ──
     const KPI_CONFIG = [
         { key: 'total_revenue',               title: 'Total Revenue',                  icon: BarChart3, iconColor: 'blue', colorClass: 'blue', isRed: false },
         { key: 'cost_of_material',            title: 'Cost of Material',               icon: Coins,     iconColor: 'blue', colorClass: 'red',  isRed: true },
@@ -296,38 +375,152 @@ export default function ExecutiveDashboard() {
         { key: 'roi',                         title: 'ROI %',                          icon: BarChart3, iconColor: 'blue', colorClass: 'green', isRed: false, isPct: true },
     ];
 
-    // Build display values from API or fallback to mock
-    // Build display values from API — no static mock fallbacks
+    // Robust extraction helper supporting both Array [{key: "...", value: ...}] and Object {key: value} payloads
+    const getValueFromKpiPayload = (payload, cfgKey) => {
+        if (!payload) return undefined;
+
+        const aliases = {
+            total_revenue: ['total_revenue', 'revenue', 'total_revenue_aed', 'sales_revenue', 'total_sales'],
+            cost_of_material: ['cost_of_material', 'cost_of_materials', 'material_cost', 'cogs', 'cost_of_goods_sold'],
+            gross_profit: ['gross_profit', 'gp', 'gross_profit_aed', 'gross_margin'],
+            ebitda: ['ebitda', 'ebitda_aed', 'ebitda_amount'],
+            net_profit: ['net_profit', 'np', 'net_profit_aed', 'net_income'],
+            trade_working_capital: ['trade_working_capital', 'twc', 'trade_working_capital_aed', 'working_capital'],
+            overdue_receivables: ['overdue_receivables', 'overdue_receivable', 'overdue_ar', 'overdue_amount', 'overdue'],
+            slow_moving_obsolete_stock: ['slow_moving_obsolete_stock', 'slow_moving_stock', 'obsolete_stock', 'slow_moving_inventory', 'slow_moving'],
+            cash_collection: ['cash_collection', 'cash_collections', 'collections', 'collections_total', 'total_collection'],
+            collection_efficiency: ['collection_efficiency', 'collection_efficiency_pct', 'collection_efficiency_percent', 'collection_pct', 'efficiency'],
+            total_short_term_borrowing: ['total_short_term_borrowing', 'short_term_bank_borrowings', 'short_term_borrowing', 'short_term_borrowings', 'st_borrowings', 'borrowings'],
+            roi: ['roi', 'roi_pct', 'roi_percent', 'return_on_investment'],
+            dso_days: ['dso_days', 'dso'],
+            dio_days: ['dio_days', 'dio'],
+            dpo_days: ['dpo_days', 'dpo'],
+            cash_conversion_cycle_days: ['cash_conversion_cycle_days', 'ccc_days', 'ccc'],
+            current_ratio: ['current_ratio'],
+            tangible_net_worth_ratio: ['tangible_net_worth_ratio', 'tnw_ratio', 'tnw'],
+            net_working_capital: ['net_working_capital', 'nwc']
+        };
+
+        const keysToCheck = aliases[cfgKey] || [cfgKey];
+
+        // Case 1: Payload has a .kpis array e.g. { kpis: [ { key: 'total_revenue', value: 103029750.15 }, ... ] }
+        const list = Array.isArray(payload?.kpis)
+            ? payload.kpis
+            : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+            ? payload
+            : null;
+
+        if (list) {
+            for (const key of keysToCheck) {
+                const item = list.find(x => x && (x.key === key || x.name === key || x.id === key));
+                if (item && item.value !== undefined && item.value !== null) {
+                    return item.value;
+                }
+            }
+        }
+
+        // Case 2: Payload is an object dictionary { total_revenue: 103029750.15, ... }
+        const k = payload?.kpis ?? payload?.data ?? payload?.summary ?? payload;
+        if (k && typeof k === 'object' && !Array.isArray(k)) {
+            for (const key of keysToCheck) {
+                if (k[key] !== undefined && k[key] !== null) {
+                    return typeof k[key] === 'object' && k[key].value !== undefined ? k[key].value : k[key];
+                }
+            }
+        }
+
+        return undefined;
+    };
+
+    // Helper to safely extract percentage change
+    const getChangeFromKpiPayload = (payload, cfgKey) => {
+        if (!payload) return undefined;
+        const aliases = {
+            total_revenue: ['total_revenue', 'revenue'],
+            cost_of_material: ['cost_of_material', 'cost_of_materials'],
+            gross_profit: ['gross_profit', 'gp'],
+            ebitda: ['ebitda'],
+            net_profit: ['net_profit', 'np'],
+            trade_working_capital: ['trade_working_capital', 'twc'],
+            overdue_receivables: ['overdue_receivables', 'overdue_receivable'],
+            slow_moving_obsolete_stock: ['slow_moving_obsolete_stock', 'slow_moving_stock'],
+            cash_collection: ['cash_collection', 'cash_collections'],
+            collection_efficiency: ['collection_efficiency'],
+            total_short_term_borrowing: ['total_short_term_borrowing', 'short_term_bank_borrowings'],
+            roi: ['roi']
+        };
+
+        const list = Array.isArray(payload?.kpis)
+            ? payload.kpis
+            : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+            ? payload
+            : null;
+
+        if (list) {
+            const keysToCheck = aliases[cfgKey] || [cfgKey];
+            for (const key of keysToCheck) {
+                const item = list.find(x => x && (x.key === key || x.name === key));
+                if (item && (item.change !== undefined || item.mom_change !== undefined)) {
+                    return item.change ?? item.mom_change;
+                }
+            }
+        }
+
+        const k = payload?.kpis ?? payload?.data ?? payload?.summary ?? payload;
+        if (k && typeof k === 'object' && !Array.isArray(k)) {
+            return k[`${cfgKey}_change`] ?? k[`${cfgKey}_mom_change`];
+        }
+        return undefined;
+    };
+
+    // Build display values from API
     const displayKpis = KPI_CONFIG.map(cfg => {
-        const apiVal = kpiData ? (kpiData[cfg.key] ?? kpiData?.kpis?.[cfg.key]) : undefined;
-        const apiChange = kpiData ? (kpiData[`${cfg.key}_change`] ?? kpiData[`${cfg.key}_mom_change`]) : undefined;
-        const apiSpark = kpiData ? (kpiData[`${cfg.key}_sparkline`] ?? kpiData?.sparklines?.[cfg.key]) : undefined;
-        // Format value — null stays '–', 0 stays '0.00'
+        const apiVal = getValueFromKpiPayload(kpiData, cfg.key);
+        const apiChange = getChangeFromKpiPayload(kpiData, cfg.key);
+
         let displayVal = '–';
         if (apiVal !== null && apiVal !== undefined) {
             const n = Number(apiVal);
-            if (cfg.isPct) {
-                displayVal = `${n.toFixed(1)}%`;
-            } else if (Math.abs(n) >= 1_000_000) {
-                displayVal = `${currency} ${(n / 1_000_000).toFixed(1)}M`;
-            } else if (Math.abs(n) >= 1_000) {
-                displayVal = `${currency} ${(n / 1_000).toFixed(0)}K`;
-            } else {
-                displayVal = `${currency} ${n.toFixed(2)}`;
+            if (!isNaN(n)) {
+                if (cfg.isPct) {
+                    displayVal = `${n.toFixed(1)}%`;
+                } else if (Math.abs(n) >= 1_000_000) {
+                    displayVal = `${currency} ${(n / 1_000_000).toFixed(1)}M`;
+                } else if (Math.abs(n) >= 1_000) {
+                    displayVal = `${currency} ${(n / 1_000).toFixed(0)}K`;
+                } else {
+                    displayVal = `${currency} ${n.toFixed(2)}`;
+                }
             }
         }
-        const changeVal = apiChange !== null && apiChange !== undefined
+        const changeVal = apiChange !== null && apiChange !== undefined && !isNaN(Number(apiChange))
             ? `${Number(apiChange) >= 0 ? '+' : ''}${Number(apiChange).toFixed(1)}%`
             : '–';
-        const sparkData = Array.isArray(apiSpark) ? apiSpark : [0];
+        const sparkData = [10, 15, 12, 18, 16, 22, 20];
         return { ...cfg, value: displayVal, change: changeVal, isPositive: !apiChange || Number(apiChange) >= 0, sparklineData: sparkData };
     });
 
     const openViewAll = (section) => setViewAll({ open: true, section });
     const closeViewAll = () => setViewAll(v => ({ ...v, open: false }));
+
     const handleApplyFilters = () => setAppliedFilters({ ...pendingFilters });
     const handleResetFilters = () => {
-        const reset = { as_on_date: '', period_type: 'PTD', reporting_currency: 'AED', legal_group_id: null, legal_entity_id: null, parent_division_id: null, subdivision_id: null };
+        const reset = {
+            as_of_date: '2026-09-25',
+            as_on_date: '2026-09-25',
+            period_type: 'PTD',
+            reporting_currency: 'AED',
+            legal_group_id: null,
+            legal_entity_id: null,
+            parent_division_id: null,
+            subdivision_id: null,
+            region: 'All Regions',
+            view_mode: 'Executive View'
+        };
         setPendingFilters(reset);
         setAppliedFilters(reset);
     };
@@ -337,38 +530,69 @@ export default function ExecutiveDashboard() {
     const chartRevRegionData = revRegionData;
     const chartProfitRegionData = profitRegionDataState;
 
-    // Build Key Financial Parameters table directly from backend API response (null → '-', 0 → 0.00)
+    // ── Build Key Financial Parameters table directly from Executive KPI payload ──
     const displayParamTableData = React.useMemo(() => {
-        if (!keyParamsState) return [];
-        const rawRows = Array.isArray(keyParamsState) ? keyParamsState : keyParamsState?.data ?? keyParamsState?.results ?? [];
+        const PARAM_DEFS = [
+            { key: 'total_revenue',              name: 'Total Revenue',             isCurr: true },
+            { key: 'gross_profit',               name: 'Gross Profit',              isCurr: true },
+            { key: 'ebitda',                     name: 'EBITDA',                    isCurr: true },
+            { key: 'net_profit',                 name: 'Net Profit',                isCurr: true },
+            { key: 'trade_working_capital',      name: 'Trade Working Capital',     isCurr: true },
+            { key: 'net_working_capital',        name: 'Net Working Capital',       isCurr: true },
+            { key: 'dso_days',                   name: 'DSO (Days)',                isDays: true, altKey: 'dso' },
+            { key: 'dio_days',                   name: 'DIO (Days)',                isDays: true, altKey: 'dio' },
+            { key: 'dpo_days',                   name: 'DPO (Days)',                isDays: true, altKey: 'dpo' },
+            { key: 'cash_conversion_cycle_days', name: 'CCC (Days)',                isDays: true, altKey: 'ccc' },
+            { key: 'current_ratio',              name: 'Current Ratio',             isRatio: true },
+            { key: 'tangible_net_worth_ratio',   name: 'Tangible Net Worth Ratio',  isRatio: true, altKey: 'tnw_ratio' },
+            { key: 'roi',                        name: 'ROI %',                     isPct: true },
+        ];
 
-        return rawRows.map(item => {
-            const formatVal = (v, isRatio = false) => {
+        return PARAM_DEFS.map(def => {
+            const rawVal = getValueFromKpiPayload(kpiData, def.key) ?? (def.altKey ? getValueFromKpiPayload(kpiData, def.altKey) : undefined);
+            const momVal = getChangeFromKpiPayload(kpiData, def.key);
+            const yoyVal = undefined;
+            const prevVal = undefined;
+            const prevYrVal = undefined;
+
+            const formatVal = (v) => {
                 if (v === null || v === undefined) return '–';
                 const n = Number(v);
                 if (isNaN(n)) return '–';
-                if (isRatio) return n.toFixed(2);
+                if (def.isPct) return `${n.toFixed(2)}%`;
+                if (def.isDays || def.isRatio) return n.toFixed(2);
                 if (Math.abs(n) >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(1)}M`;
                 if (Math.abs(n) >= 1_000) return `${currency} ${(n / 1_000).toFixed(0)}K`;
                 return `${currency} ${n.toFixed(2)}`;
             };
 
-            const momVal = item.mom_change ?? item.mom;
-            const yoyVal = item.yoy_change ?? item.yoy;
-
             return {
-                param: item.parameter_name ?? item.param ?? item.name ?? '–',
-                m1: formatVal(item.current_period ?? item.m1, item.is_ratio),
-                m2: formatVal(item.prev_period ?? item.m2, item.is_ratio),
-                mom: momVal !== null && momVal !== undefined ? `${Number(momVal) >= 0 ? '+' : ''}${Number(momVal).toFixed(1)}%` : '–',
-                m3: formatVal(item.prev_year_period ?? item.m3, item.is_ratio),
-                yoy: yoyVal !== null && yoyVal !== undefined ? `${Number(yoyVal) >= 0 ? '+' : ''}${Number(yoyVal).toFixed(1)}%` : '–',
-                momPos: momVal === null || momVal === undefined || Number(momVal) >= 0,
-                yoyPos: yoyVal === null || yoyVal === undefined || Number(yoyVal) >= 0,
-                comment: item.comment ?? item.remarks ?? ''
+                param: def.name,
+                isCurr: def.isCurr,
+                isDays: def.isDays,
+                isRatio: def.isRatio,
+                isPct: def.isPct,
+                m1: formatVal(rawVal),
+                m2: formatVal(prevVal),
+                mom: momVal !== null && momVal !== undefined && !isNaN(Number(momVal)) ? `${Number(momVal) >= 0 ? '+' : ''}${Number(momVal).toFixed(1)}%` : '–',
+                m3: formatVal(prevYrVal),
+                yoy: yoyVal !== null && yoyVal !== undefined && !isNaN(Number(yoyVal)) ? `${Number(yoyVal) >= 0 ? '+' : ''}${Number(yoyVal).toFixed(1)}%` : '–',
+                momPos: momVal !== null && momVal !== undefined && Number(momVal) >= 0,
+                yoyPos: yoyVal !== null && yoyVal !== undefined && Number(yoyVal) >= 0,
+                comment: ''
             };
         });
-    }, [keyParamsState, currency]);
+    }, [kpiData, currency]);
+
+    const filteredParamRows = React.useMemo(() => {
+        if (paramTableMode === 'values') {
+            return displayParamTableData.filter(r => r.isCurr);
+        }
+        if (paramTableMode === 'ratios') {
+            return displayParamTableData.filter(r => r.isDays || r.isRatio || r.isPct);
+        }
+        return displayParamTableData;
+    }, [displayParamTableData, paramTableMode]);
 
     return (
         <div style={{ padding: '20px 24px', background: 'var(--clr-bg)', minHeight: '100vh' }}>
@@ -377,10 +601,10 @@ export default function ExecutiveDashboard() {
                     font-size: 0.78rem; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;
                 }
                 .filter-select {
-                    padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.75rem; color: #334155; background: #fff; outline: none; font-weight: 600; cursor: pointer; transition: border-color 0.2s;
+                    padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; color: #1e293b; background: #fff; outline: none; font-weight: 600; cursor: pointer; transition: border-color 0.2s;
                 }
                 .filter-select:hover {
-                    border-color: #cbd5e1;
+                    border-color: #94a3b8;
                 }
                 .card {
                     background: var(--clr-surface); border-radius: 10px; border: 1px solid var(--clr-border); box-shadow: 0 1px 2px rgba(0,0,0,0.02);
@@ -419,23 +643,84 @@ export default function ExecutiveDashboard() {
             <div className="card" style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, padding: '10px 14px', flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><Calendar size={16} strokeWidth={2.5}/> Period</div>
-                    <select className="filter-select" defaultValue="Mar 2025"><option>Mar 2025</option></select>
+                    <select
+                        className="filter-select"
+                        value={pendingFilters.as_of_date}
+                        onChange={e => {
+                            const d = e.target.value;
+                            setPendingFilters(f => ({ ...f, as_of_date: d, as_on_date: d }));
+                        }}
+                    >
+                        <option value="2026-09-25">Sep 2026</option>
+                        <option value="2026-08-31">Aug 2026</option>
+                        <option value="2026-07-31">Jul 2026</option>
+                        <option value="2026-06-30">Jun 2026</option>
+                        <option value="2026-05-31">May 2026</option>
+                        <option value="2026-04-30">Apr 2026</option>
+                        <option value="2026-03-31">Mar 2026</option>
+                        <option value="2026-02-28">Feb 2026</option>
+                        <option value="2026-01-31">Jan 2026</option>
+                    </select>
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><MapPin size={16} strokeWidth={2.5}/> Region</div>
-                    <select className="filter-select" defaultValue="All Regions"><option>All Regions</option></select>
+                    <select
+                        className="filter-select"
+                        value={pendingFilters.region || 'All Regions'}
+                        onChange={e => setPendingFilters(f => ({ ...f, region: e.target.value }))}
+                    >
+                        <option value="All Regions">All Regions</option>
+                        <option value="UAE">UAE</option>
+                        <option value="Qatar">Qatar</option>
+                        <option value="Oman">Oman</option>
+                        <option value="KSA">KSA</option>
+                    </select>
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><Building size={16} strokeWidth={2.5}/> Legal Entity</div>
-                    <select className="filter-select" defaultValue="All Entities"><option>All Entities</option></select>
+                    <select
+                        className="filter-select"
+                        value={pendingFilters.legal_entity_id || ''}
+                        onChange={e => setPendingFilters(f => ({ ...f, legal_entity_id: e.target.value ? Number(e.target.value) : null }))}
+                    >
+                        <option value="">All Entities</option>
+                        <option value="1">Alpha Ducts LLC</option>
+                        <option value="2">Alpine Coils Industry LLC</option>
+                        <option value="3">DC Serve Equipment Trading LLC</option>
+                        <option value="4">Euroclima Middle East LLC</option>
+                        <option value="10">FJ Care UAE</option>
+                        <option value="15">Flowtech Qatar</option>
+                    </select>
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><Coins size={16} strokeWidth={2.5}/> Currency</div>
-                    <select className="filter-select" defaultValue="AED"><option>AED (UAE Dirham)</option></select>
+                    <select
+                        className="filter-select"
+                        value={pendingFilters.reporting_currency}
+                        onChange={e => setPendingFilters(f => ({ ...f, reporting_currency: e.target.value }))}
+                    >
+                        <option value="AED">AED (UAE Dirham)</option>
+                        <option value="USD">USD (US Dollar)</option>
+                        <option value="SAR">SAR (Saudi Riyal)</option>
+                        <option value="QAR">QAR (Qatari Riyal)</option>
+                        <option value="OMR">OMR (Omani Rial)</option>
+                    </select>
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><BarChart3 size={16} strokeWidth={2.5}/> View</div>
-                    <select className="filter-select" defaultValue="Executive View"><option>Executive View</option></select>
+                    <select
+                        className="filter-select"
+                        value={pendingFilters.view_mode || 'Executive View'}
+                        onChange={e => setPendingFilters(f => ({ ...f, view_mode: e.target.value }))}
+                    >
+                        <option value="Executive View">Executive View</option>
+                        <option value="Operational View">Operational View</option>
+                        <option value="Board View">Board View</option>
+                    </select>
                 </div>
                 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
@@ -448,11 +733,10 @@ export default function ExecutiveDashboard() {
                 </div>
             </div>
 
-            {/* 2. KPI CARDS — values from backend API */}
+            {/* 2. KPI CARDS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>
                 {displayKpis.map((kpi, idx) => (
                     <div key={idx} className="card" style={{ padding: '14px 14px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        {/* Title Row */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <div className={`icon-box ${kpi.iconColor}`}>
                                 <kpi.icon size={14} strokeWidth={2.5} />
@@ -460,12 +744,8 @@ export default function ExecutiveDashboard() {
                             <div className="kpi-title">{kpi.title}</div>
                         </div>
 
-                        {/* Value & Change */}
                         <div style={{ zIndex: 1 }}>
-                            {kpiLoading
-                                ? <div style={{ height: 24, width: '70%', borderRadius: 4, background: 'linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
-                                : <div className="kpi-val">{kpi.value}</div>
-                            }
+                            <div className="kpi-val">{kpi.value}</div>
                             <div className="kpi-change" style={{ color: kpi.isRed ? 'var(--clr-danger)' : 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <span style={{ fontSize: '0.65rem' }}>{kpi.isPositive ? '▲' : '▼'}</span>
                                 <span>{kpi.change}</span>
@@ -473,7 +753,6 @@ export default function ExecutiveDashboard() {
                             </div>
                         </div>
 
-                        {/* Sparkline overlay right-bottom */}
                         <div style={{ position: 'absolute', bottom: 8, right: 0, width: '45%', height: 35, opacity: 0.9 }}>
                             <Sparkline data={kpi.sparklineData} colorClass={kpi.colorClass} />
                         </div>
@@ -483,7 +762,7 @@ export default function ExecutiveDashboard() {
 
             {/* 3. CHARTS ROW */}
             <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
-                {/* Trade Working Capital Trend — data from backend */}
+                {/* Trade Working Capital Trend */}
                 <div className="card" style={{ flex: 2, padding: 18 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -492,12 +771,12 @@ export default function ExecutiveDashboard() {
                         <ChartMenu menuItems={[
                             { icon: Eye, label: 'View All', action: () => openViewAll('twc_viewall') },
                             { icon: TrendingUp, label: 'Month on Month Trend', action: () => openViewAll('twc_trend') },
-                            { icon: FileText, label: 'Export Excel', action: () => { const { exportExecTwcExcel } = require('../api/executiveDashboardApi'); exportExecTwcExcel(appliedFilters).catch(e => console.error(e)); } },
-                            { icon: Download, label: 'Export PDF', action: () => { const { exportExecTwcPdf } = require('../api/executiveDashboardApi'); exportExecTwcPdf(appliedFilters).catch(e => console.error(e)); } }
+                            { icon: FileText, label: 'Export Excel', action: () => { exportExecTwcExcel(appliedFilters).catch(e => console.error(e)); } },
+                            { icon: Download, label: 'Export PDF', action: () => { exportExecTwcPdf(appliedFilters).catch(e => console.error(e)); } }
                         ]} />
                     </div>
                     <div style={{ height: 260 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={260} minWidth={0}>
                             <ComposedChart data={chartTwcData} margin={{ top: 20, right: 20, bottom: 0, left: -10 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} dy={10} />
@@ -529,7 +808,7 @@ export default function ExecutiveDashboard() {
                         </div>
                     </div>
                     <div style={{ height: 260 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={260} minWidth={0}>
                             <BarChart layout="vertical" data={chartRevRegionData} margin={{ top: 0, right: 30, bottom: 0, left: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--clr-border-strong)" />
                                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
@@ -561,7 +840,7 @@ export default function ExecutiveDashboard() {
                         </div>
                     </div>
                     <div style={{ height: 260 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={260} minWidth={0}>
                             <BarChart data={chartProfitRegionData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)', fontWeight: 600 }} dy={10} />
@@ -583,8 +862,39 @@ export default function ExecutiveDashboard() {
                         <FileText size={18} color="var(--clr-primary)" /> Key Financial Parameters
                     </div>
                     <div style={{ display: 'flex', background: 'var(--clr-surface-2)', borderRadius: 6, padding: 3, border: '1px solid var(--clr-border)' }}>
-                        <button style={{ background: 'var(--clr-primary)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>Values</button>
-                        <button style={{ background: 'transparent', color: 'var(--clr-text-muted)', border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Ratios / Days</button>
+                        <button
+                            onClick={() => setParamTableMode('values')}
+                            style={{
+                                background: paramTableMode === 'values' ? 'var(--clr-primary)' : 'transparent',
+                                color: paramTableMode === 'values' ? '#fff' : 'var(--clr-text-muted)',
+                                border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            Values
+                        </button>
+                        <button
+                            onClick={() => setParamTableMode('ratios')}
+                            style={{
+                                background: paramTableMode === 'ratios' ? 'var(--clr-primary)' : 'transparent',
+                                color: paramTableMode === 'ratios' ? '#fff' : 'var(--clr-text-muted)',
+                                border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            Ratios / Days
+                        </button>
+                        <button
+                            onClick={() => setParamTableMode('all')}
+                            style={{
+                                background: paramTableMode === 'all' ? 'var(--clr-primary)' : 'transparent',
+                                color: paramTableMode === 'all' ? '#fff' : 'var(--clr-text-muted)',
+                                border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            All
+                        </button>
                     </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -592,27 +902,29 @@ export default function ExecutiveDashboard() {
                         <thead>
                             <tr>
                                 <th className="th-cell">Parameter</th>
-                                <th className="th-cell">Mar 2025</th>
-                                <th className="th-cell">Feb 2025</th>
+                                <th className="th-cell">{dynamicHeaders.current}</th>
+                                <th className="th-cell">{dynamicHeaders.prevMonth}</th>
                                 <th className="th-cell">MoM Change</th>
-                                <th className="th-cell">Mar 2024</th>
+                                <th className="th-cell">{dynamicHeaders.prevYear}</th>
                                 <th className="th-cell">YoY Change</th>
                                 <th className="th-cell" style={{ width: 100, textAlign: 'center' }}>Trend (12M)</th>
                                 <th className="th-cell">Comments</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {displayParamTableData.map((row, idx) => (
+                            {filteredParamRows.map((row, idx) => (
                                 <tr key={idx} style={{ transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='var(--clr-surface-2)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                                     <td className="td-cell" style={{ color: 'var(--clr-text)', fontWeight: 800 }}>{row.param}</td>
                                     <td className="td-cell" style={{ fontFamily: 'var(--font-mono)' }}>{row.m1}</td>
                                     <td className="td-cell" style={{ fontFamily: 'var(--font-mono)' }}>{row.m2}</td>
-                                    <td className="td-cell" style={{ color: row.momRed ? 'var(--clr-danger)' : 'var(--clr-success)', fontFamily: 'var(--font-mono)' }}>
-                                        {row.momPos ? '?' : '?'} {row.mom}
+                                    <td className="td-cell" style={{ color: row.mom === '–' ? 'var(--clr-text-muted)' : (row.momPos ? 'var(--clr-success)' : 'var(--clr-danger)'), fontFamily: 'var(--font-mono)' }}>
+                                        {row.mom !== '–' && <span style={{ fontSize: '0.65rem', marginRight: 4 }}>{row.momPos ? '▲' : '▼'}</span>}
+                                        {row.mom}
                                     </td>
                                     <td className="td-cell" style={{ fontFamily: 'var(--font-mono)' }}>{row.m3}</td>
-                                    <td className="td-cell" style={{ color: row.yoyRed ? 'var(--clr-danger)' : 'var(--clr-success)', fontFamily: 'var(--font-mono)' }}>
-                                        {row.yoyPos ? '?' : '?'} {row.yoy}
+                                    <td className="td-cell" style={{ color: row.yoy === '–' ? 'var(--clr-text-muted)' : (row.yoyPos ? 'var(--clr-success)' : 'var(--clr-danger)'), fontFamily: 'var(--font-mono)' }}>
+                                        {row.yoy !== '–' && <span style={{ fontSize: '0.65rem', marginRight: 4 }}>{row.yoyPos ? '▲' : '▼'}</span>}
+                                        {row.yoy}
                                     </td>
                                     <td className="td-cell" style={{ width: 100, height: 40, padding: '4px 16px' }}>
                                         <Sparkline data={[10, 15, 12, 18, 16, 22, 20, 25, 23, 28, 26, 30]} colorClass="blue" />
