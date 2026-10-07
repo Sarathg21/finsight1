@@ -1365,10 +1365,10 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           <div
             title={`Target: ${currency ? currency + ' ' : ''}${fmtAxisNum(target)} | Variance: ${variancePct != null ? (variancePct >= 0 ? '+' : '') + Number(variancePct).toFixed(1) + '%' : '—'}`}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
-              fontSize: '0.62rem', fontWeight: 600, color: '#475569',
-              marginTop: 4, padding: '2px 6px', background: 'rgba(0,0,0,0.035)', borderRadius: 6,
-              width: '100%', boxSizing: 'border-box', whiteSpace: 'nowrap'
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 4,
+              fontSize: '0.58rem', fontWeight: 600, color: '#475569',
+              marginTop: 4, padding: '2px 5px', background: 'rgba(0,0,0,0.035)', borderRadius: 6,
+              width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', whiteSpace: 'nowrap', overflow: 'visible'
             }}
           >
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -1377,10 +1377,9 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
             <span style={{
               color: variancePct >= 0 ? '#10b981' : '#ef4444',
               display: 'inline-flex', alignItems: 'center', gap: 1,
-              fontWeight: 700, flexShrink: 0, fontSize: '0.62rem'
+              fontWeight: 700, flexShrink: 0, fontSize: '0.58rem'
             }}>
-              {variancePct >= 0 ? '▲' : '▼'}
-              {variancePct != null ? `${Math.abs(Number(variancePct)).toFixed(1)}%` : '—'}
+              {variancePct >= 0 ? '▲' : '▼'}{variancePct != null ? `${Math.abs(Number(variancePct)).toFixed(1)}%` : '—'}
             </span>
           </div>
         )}
@@ -2697,19 +2696,19 @@ export default function SalesRevenueReport() {
 
   const parentDivisionMoMCols = [
     { label: 'Parent Division', key: 'parent_division', align: 'left', minWidth: '140px', whiteSpace: 'normal', fmt: (v, row) => v ?? row.division_name ?? '-', groupEnd: true },
-    { label: 'Jan', key: 'jan', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.jan) || 0), 0)) },
-    { label: 'Feb', key: 'feb', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.feb) || 0), 0)) },
-    { label: 'Mar', key: 'mar', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.mar) || 0), 0)) },
-    { label: 'Apr', key: 'apr', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.apr) || 0), 0)) },
-    { label: 'May', key: 'may', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.may) || 0), 0)) },
-    { label: 'Jun', key: 'jun', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.jun) || 0), 0)) },
-    { label: 'Jul', key: 'jul', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.jul) || 0), 0)) },
-    { label: 'Aug', key: 'aug', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.aug) || 0), 0)) },
-    { label: 'Sep', key: 'sep', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sep) || 0), 0)) },
-    { label: 'Oct', key: 'oct', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.oct) || 0), 0)) },
-    { label: 'Nov', key: 'nov', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.nov) || 0), 0)) },
-    { label: 'Dec', key: 'dec', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true, totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.dec) || 0), 0)) },
-    { label: 'Total', key: 'total_revenue', align: 'right', minWidth: '120px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.total_revenue) || 0), 0)) },
+    { label: 'Jan', key: 'jan', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.jan == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.jan) || 0), 0)) },
+    { label: 'Feb', key: 'feb', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.feb == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.feb) || 0), 0)) },
+    { label: 'Mar', key: 'mar', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.mar == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.mar) || 0), 0)) },
+    { label: 'Apr', key: 'apr', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.apr == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.apr) || 0), 0)) },
+    { label: 'May', key: 'may', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.may == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.may) || 0), 0)) },
+    { label: 'Jun', key: 'jun', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.jun == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.jun) || 0), 0)) },
+    { label: 'Jul', key: 'jul', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.jul == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.jul) || 0), 0)) },
+    { label: 'Aug', key: 'aug', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.aug == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.aug) || 0), 0)) },
+    { label: 'Sep', key: 'sep', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.sep == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.sep) || 0), 0)) },
+    { label: 'Oct', key: 'oct', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.oct == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.oct) || 0), 0)) },
+    { label: 'Nov', key: 'nov', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.nov == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.nov) || 0), 0)) },
+    { label: 'Dec', key: 'dec', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true, totalFn: rows => rows.every(r => r.dec == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.dec) || 0), 0)) },
+    { label: 'Total', key: 'total_revenue', align: 'right', minWidth: '120px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => rows.every(r => r.total_revenue == null) ? '—' : fmtCurrency(rows.reduce((s, r) => s + (Number(r.total_revenue) || 0), 0)) },
   ];
 
   const parentDivisionMoMHeaderGroups = [
@@ -3268,6 +3267,8 @@ export default function SalesRevenueReport() {
               {dataAsOf && ` • Last Updated On: ${dataAsOf}`}
               &nbsp;|&nbsp;
               <span style={{ color: C.green, fontWeight: 700 }}>Currency: {currentCurrency}</span>
+              &nbsp;|&nbsp;
+              <span style={{ color: '#4f46e5', fontWeight: 700 }}>Fetched from Salesmen-wise Invoice Costing Report</span>
             </p>
           </div>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -3386,11 +3387,12 @@ export default function SalesRevenueReport() {
 
           {filterOptions.salesmen.length > 2 && (
             <FilterField label="Salesperson">
-              <select id="filter-salesman" style={{ ...selStyle, width: 105, minWidth: 105, height: 32, opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1 }} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
+              <select id="filter-salesman" style={{ ...selStyle, width: 84, minWidth: 84, height: 32, padding: '0 16px 0 6px', fontSize: '0.78rem', opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1 }} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
                 {filterOptions.salesmen.map((o, idx) => {
-                  const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
-                  const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
-                  return <option key={`salesman-${idx}`} value={val} title={label}>{truncateLabel(label)}</option>;
+                  const rawLabel = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
+                  const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? rawLabel);
+                  const label = (val === 'All' || String(rawLabel).toLowerCase().includes('all sales')) ? 'All' : rawLabel;
+                  return <option key={`salesman-${idx}`} value={val} title={rawLabel}>{label}</option>;
                 })}
               </select>
             </FilterField>
@@ -3399,11 +3401,11 @@ export default function SalesRevenueReport() {
           <FilterField label="Customer Type">
             <select
               id="filter-customerType"
-              style={{ ...selStyle, width: 98, minWidth: 98, height: 32 }}
+              style={{ ...selStyle, width: 72, minWidth: 72, height: 32, padding: '0 16px 0 6px', fontSize: '0.78rem' }}
               value={filters.customerType}
               onChange={e => updateFilter('customerType', e.target.value)}
             >
-              <option value="All">All Customers</option>
+              <option value="All">All</option>
               <option value="Internal">Internal</option>
               <option value="External">External</option>
             </select>
@@ -3430,75 +3432,83 @@ export default function SalesRevenueReport() {
 
 
 
-          <FilterField label="From Date">
-            <div style={{ position: 'relative' }}>
-              <input
-                id="hidden-from-date" type="date" value={filters.fromDate}
-                onChange={e => updateFilter('fromDate', e.target.value)}
-                style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById('hidden-from-date');
-                  if (el) { el.showPicker ? el.showPicker() : el.click(); }
-                }}
-                style={{
-                    width: 120, height: 32, boxSizing: "border-box", border: "1px solid #dce3ee",
-                    borderRadius: 9, padding: "0 30px 0 11px", background: "#f4f7fb", color: "#173b8f",
-                    fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-                }}
-              >
-                {filters.fromDate ? filters.fromDate.split('-').reverse().join('-') : 'Select Date'}
-                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                    📅
-                </span>
-              </button>
-            </div>
-          </FilterField>
+          {(() => {
+            const currentSelectedYear = filters.fromDate ? filters.fromDate.split('-')[0] : '2026';
+            const yr2 = currentSelectedYear.slice(-2);
+            return (
+              <>
+                <FilterField label="Year">
+                  <select
+                    id="filter-year"
+                    style={{ ...selStyle, width: 72, minWidth: 72, height: 32, padding: '0 16px 0 6px', fontSize: '0.78rem' }}
+                    value={currentSelectedYear}
+                    onChange={e => {
+                      const yr = e.target.value;
+                      const mo = filters.fromDate ? (filters.fromDate.split('-')[1] || '10') : '10';
+                      const lastDay = new Date(parseInt(yr, 10), parseInt(mo, 10), 0).getDate();
+                      setFilters(prev => ({
+                        ...prev,
+                        fromDate: `${yr}-${mo}-01`,
+                        toDate: `${yr}-${mo}-${String(lastDay).padStart(2, '0')}`
+                      }));
+                    }}
+                  >
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </FilterField>
 
-          <FilterField label="To Date">
-            <div style={{ position: 'relative' }}>
-              <input
-                id="hidden-to-date" type="date" value={filters.toDate}
-                onChange={e => updateFilter('toDate', e.target.value)}
-                style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById('hidden-to-date');
-                  if (el) { el.showPicker ? el.showPicker() : el.click(); }
-                }}
-                style={{
-                    width: 120, height: 32, boxSizing: "border-box", border: "1px solid #dce3ee",
-                    borderRadius: 9, padding: "0 30px 0 11px", background: "#f4f7fb", color: "#173b8f",
-                    fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-                }}
-              >
-                {filters.toDate ? filters.toDate.split('-').reverse().join('-') : 'Select Date'}
-                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                    📅
-                </span>
-              </button>
-            </div>
-          </FilterField>
+                <FilterField label="Period">
+                  <select
+                    id="filter-period"
+                    style={{ ...selStyle, width: 86, minWidth: 86, height: 32, padding: '0 16px 0 6px', fontSize: '0.78rem' }}
+                    value={filters.fromDate ? (filters.fromDate.endsWith('-01-01') && filters.toDate.endsWith('-12-31') ? 'FY' : (filters.fromDate.endsWith('-01-01') && !filters.toDate.endsWith('-01-31') ? 'YTD' : filters.fromDate.split('-')[1])) : '10'}
+                    onChange={e => {
+                      const p = e.target.value;
+                      const yr = filters.fromDate ? filters.fromDate.split('-')[0] : '2026';
+                      if (p === 'YTD') {
+                        setFilters(prev => ({ ...prev, fromDate: `${yr}-01-01`, toDate: `${yr}-10-31` }));
+                      } else if (p === 'FY') {
+                        setFilters(prev => ({ ...prev, fromDate: `${yr}-01-01`, toDate: `${yr}-12-31` }));
+                      } else {
+                        const mo = String(p).padStart(2, '0');
+                        const lastDay = new Date(parseInt(yr, 10), parseInt(mo, 10), 0).getDate();
+                        setFilters(prev => ({ ...prev, fromDate: `${yr}-${mo}-01`, toDate: `${yr}-${mo}-${String(lastDay).padStart(2, '0')}` }));
+                      }
+                    }}
+                  >
+                    <option value="10">Oct-{yr2}</option>
+                    <option value="09">Sep-{yr2}</option>
+                    <option value="08">Aug-{yr2}</option>
+                    <option value="07">Jul-{yr2}</option>
+                    <option value="06">Jun-{yr2}</option>
+                    <option value="05">May-{yr2}</option>
+                    <option value="04">Apr-{yr2}</option>
+                    <option value="03">Mar-{yr2}</option>
+                    <option value="02">Feb-{yr2}</option>
+                    <option value="01">Jan-{yr2}</option>
+                    <option value="YTD">YTD</option>
+                    <option value="FY">Full Year</option>
+                  </select>
+                </FilterField>
+              </>
+            );
+          })()}
 
           {/* Action Buttons Cluster */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end', flexShrink: 0, paddingBottom: 1 }}>
             <button id="btn-apply-filter" onClick={handleApply} style={{
               ...headerBtn(C.blue, '#fff'),
-              height: 32, padding: '0 16px', fontWeight: 700, borderRadius: 8, whiteSpace: 'nowrap',
+              height: 32, padding: '0 14px', fontWeight: 700, borderRadius: 8, whiteSpace: 'nowrap',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
             }}>Apply</button>
-            <button id="btn-reset-filter" onClick={handleReset} style={{
-              background: 'none', border: 'none', color: C.slate,
-              height: 32, fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
-              padding: '0 6px', whiteSpace: 'nowrap',
+            <button id="btn-reset-filter" onClick={handleReset} title="Reset all filters" style={{
+              background: 'none', border: 'none', color: '#94a3b8',
+              height: 32, fontWeight: 500, fontSize: '0.68rem', cursor: 'pointer',
+              padding: '0 2px', whiteSpace: 'nowrap', opacity: 0.8,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-            }}>Reset</button>
+            }}>↺ Reset</button>
           </div>
         </div>
 
@@ -3507,7 +3517,7 @@ export default function SalesRevenueReport() {
         <div className="grid-cols-6" style={{
           marginBottom: 16,
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))',
           gap: 'var(--card-gap, 10px)'
         }}>
 
@@ -3555,15 +3565,11 @@ export default function SalesRevenueReport() {
           <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label={"Gross Profit (PTD)"}
             numericValue={grossMargin}
-            changePct={grossMarginChg}
-            changeLabel={summary?.target_gross_margin_ptd != null ? "vs Target" : "vs Mar 2024"}
-            up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
-            target={summary?.target_gross_margin_ptd ?? null}
-            variancePct={
-              (grossMargin != null && summary?.target_gross_margin_ptd)
-                ? ((grossMargin - summary.target_gross_margin_ptd) / summary.target_gross_margin_ptd) * 100
-                : (summary?.variance_target_gross_margin_ptd_pct ?? null)
-            }
+            changePct={null}
+            changeLabel="*As per Invoice Costing Report*"
+            up={null}
+            target={null}
+            variancePct={null}
             icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
             iconBg="#ede9fe"
             cardBg="#f5f3ff"
@@ -4537,24 +4543,24 @@ export default function SalesRevenueReport() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle', width: '180px', maxWidth: '200px' }}>Legal Entity</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle', width: '130px' }}>Sub-Division</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle', width: '120px' }}>Parent Division</th>
-                      <th colSpan={2} style={{ ...TH_S, textAlign: 'center', background: '#f8fafc', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
-                        Sales in Ledger Currency
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', width: '180px', maxWidth: '200px' }}>LEGAL ENTITY</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', width: '130px' }}>SUB-DIVISION</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', width: '120px' }}>PARENT DIVISION</th>
+                      <th colSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', background: '#f8fafc', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
+                        SALES IN LEDGER CURRENCY
                       </th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle', width: '110px' }}>Sales in {currentCurrency}</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle', width: '110px' }}>Target in {currentCurrency}</th>
-                      <th colSpan={2} style={{ ...TH_S, textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
-                        Variance
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', width: '110px' }}>SALES IN {currentCurrency}</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', width: '110px' }}>TARGET IN {currentCurrency}</th>
+                      <th colSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
+                        VARIANCE
                       </th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle', width: '80px' }}>% Share</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', width: '80px' }}>% SHARE</th>
                     </tr>
                     <tr>
-                      <th style={{ ...TH_S, textAlign: 'center', fontSize: '0.7rem', padding: '6px 10px', width: '65px', borderLeft: '1px solid #cbd5e1' }}>Currency</th>
-                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', width: '95px', borderRight: '1px solid #cbd5e1' }}>Amount</th>
-                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', width: '75px', borderLeft: '1px solid #cbd5e1' }}>PTD %</th>
-                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', width: '75px', borderRight: '1px solid #cbd5e1' }}>YTD %</th>
+                      <th style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', fontSize: '0.7rem', padding: '6px 8px', width: '82px', whiteSpace: 'nowrap', borderLeft: '1px solid #cbd5e1' }}>CURRENCY</th>
+                      <th style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', fontSize: '0.7rem', padding: '6px 8px', width: '90px', whiteSpace: 'nowrap', borderRight: '1px solid #cbd5e1' }}>AMOUNT</th>
+                      <th style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', fontSize: '0.7rem', padding: '6px 8px', width: '75px', whiteSpace: 'nowrap', borderLeft: '1px solid #cbd5e1' }}>PTD %</th>
+                      <th style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle', fontSize: '0.7rem', padding: '6px 8px', width: '75px', whiteSpace: 'nowrap', borderRight: '1px solid #cbd5e1' }}>YTD %</th>
                     </tr>
                   </thead>
                   <tbody>

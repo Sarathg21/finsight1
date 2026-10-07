@@ -42,25 +42,7 @@
  *   - PDF   -> Blob response
  */
 
-import axios from "axios";
-
-/* ─────────────────────────────────────────────
-   API BASE URL
-   ───────────────────────────────────────────── */
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
-
-/* ─────────────────────────────────────────────
-   AXIOS INSTANCE
-   ───────────────────────────────────────────── */
-
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-    },
-});
+import api from "./axios";
 
 /* ─────────────────────────────────────────────
    AUTH TOKEN
@@ -221,7 +203,7 @@ function buildExportParams(filters = {}) {
  * Returns the available Payables filter options.
  */
 export async function getPayablesFilterOptions() {
-    const response = await api.get("/api/payables/filter-options", {
+    const response = await api.get("/payables/filter-options", {
         headers: getAuthHeaders(),
     });
 
@@ -247,7 +229,7 @@ export async function getPayablesFilterOptions() {
 export async function getPayablesDashboard(filters = {}) {
     const params = buildDashboardParams(filters);
 
-    const response = await api.get("/api/payables/dashboard", {
+    const response = await api.get("/payables/dashboard", {
         params,
         headers: getAuthHeaders(),
     });
@@ -263,7 +245,7 @@ export async function getPayablesOtherBalances(filters = {}) {
     appendParam(params, "year", filters.year);
 
     const response = await api.get(
-        "/api/payables/other-balances",
+        "/payables/other-balances",
         {
             params,
             headers: getAuthHeaders(),
@@ -290,7 +272,7 @@ export async function getPayablesOtherBalances(filters = {}) {
 export async function getPayablesViewAll(filters = {}) {
     const params = buildViewAllParams(filters);
 
-    const response = await api.get("/api/payables/view-all", {
+    const response = await api.get("/payables/view-all", {
         params,
         headers: getAuthHeaders(),
     });
@@ -322,7 +304,7 @@ export async function getPayablesViewAll(filters = {}) {
 export async function getPayablesBySubdivision(filters = {}) {
     const params = buildDashboardParams(filters);
 
-    const response = await api.get("/api/payables/by-subdivision", {
+    const response = await api.get("/payables/by-subdivision", {
         params,
         headers: getAuthHeaders(),
     });
@@ -359,7 +341,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
 
     appendParam(params, "year", filters.year);
 
-    const response = await api.get("/api/payables/month-on-month", {
+    const response = await api.get("/payables/month-on-month", {
         params,
         headers: getAuthHeaders(),
     });
@@ -388,7 +370,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
 export async function exportPayablesExcel(filters = {}) {
     const params = buildExportParams(filters);
 
-    const response = await api.get("/api/payables/export/excel", {
+    const response = await api.get("/payables/export/excel", {
         params,
         headers: getAuthHeaders(),
         responseType: "blob",
@@ -418,7 +400,7 @@ export async function exportPayablesExcel(filters = {}) {
 export async function exportPayablesPdf(filters = {}) {
     const params = buildExportParams(filters);
 
-    const response = await api.get("/api/payables/export/pdf", {
+    const response = await api.get("/payables/export/pdf", {
         params,
         headers: getAuthHeaders(),
         responseType: "blob",
@@ -473,7 +455,7 @@ export async function getPayablesParentDivisionMonthOnMonth(filters = {}) {
     appendParam(params, "gl_code", filters.gl_code);
 
     const response = await api.get(
-        "/api/payables/month-on-month/parent-divisions",
+        "/payables/month-on-month/parent-divisions",
         {
             params,
             headers: getAuthHeaders(),
@@ -509,7 +491,7 @@ export async function exportPayablesParentDivisionMonthOnMonthExcel(
     appendParam(params, "gl_code", filters.gl_code);
 
     const response = await api.get(
-        "/api/payables/month-on-month/parent-divisions/export/excel",
+        "/payables/month-on-month/parent-divisions/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -546,7 +528,7 @@ export async function exportPayablesParentDivisionMonthOnMonthPdf(
     appendParam(params, "gl_code", filters.gl_code);
 
     const response = await api.get(
-        "/api/payables/month-on-month/parent-divisions/export/pdf",
+        "/payables/month-on-month/parent-divisions/export/pdf",
         {
             params,
             headers: getAuthHeaders(),

@@ -1,20 +1,6 @@
 
 
-import axios from "axios";
-
-/* ============================================================
-   WORKING CAPITAL API
-============================================================ */
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
-
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-    },
-});
+import api from "./axios";
 
 /* ============================================================
    AUTH
@@ -93,7 +79,7 @@ async function getWorkingCapital(endpoint, filters = {}) {
     const params = buildQueryParams(filters);
 
     const response = await api.get(
-        `/api/working-capital${endpoint}`,
+        `/working-capital${endpoint}`,
         {
             params,
             headers: getAuthHeaders(),
@@ -113,7 +99,7 @@ export async function getWorkingCapitalFilterOptions(
     const params = buildQueryParams(filters);
 
     const response = await api.get(
-        "/api/working-capital/filter-options",
+        "/working-capital/filter-options",
         {
             params,
             headers: getAuthHeaders(),
@@ -451,7 +437,7 @@ export async function exportWorkingCapitalViewAllExcel(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/api/working-capital/view-all/export/excel",
+        "/working-capital/view-all/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -475,7 +461,7 @@ export async function exportWorkingCapitalViewAllPdf(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/api/working-capital/view-all/export/pdf",
+        "/working-capital/view-all/export/pdf",
         {
             params,
             headers: getAuthHeaders(),
@@ -493,7 +479,7 @@ export async function exportWorkingCapitalCurrentAssetsExcel(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/api/working-capital/view-all/current-assets/export/excel",
+        "/working-capital/view-all/current-assets/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -508,7 +494,7 @@ export async function exportWorkingCapitalCurrentAssetsPdf(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/api/working-capital/view-all/current-assets/export/pdf",
+        "/working-capital/view-all/current-assets/export/pdf",
         {
             params,
             headers: getAuthHeaders(),
@@ -527,7 +513,7 @@ export async function exportWorkingCapitalCurrentLiabilitiesExcel(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/api/working-capital/view-all/current-liabilities/export/excel",
+        "/working-capital/view-all/current-liabilities/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -542,7 +528,7 @@ export async function exportWorkingCapitalCurrentLiabilitiesPdf(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/api/working-capital/view-all/current-liabilities/export/pdf",
+        "/working-capital/view-all/current-liabilities/export/pdf",
         {
             params,
             headers: getAuthHeaders(),
