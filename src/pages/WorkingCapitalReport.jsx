@@ -1,5 +1,4 @@
 
-
 // import React, { useEffect, useMemo, useRef, useState } from "react";
 // import { createPortal } from "react-dom";
 // import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
@@ -383,6 +382,24 @@
 //     return apiFilters;
 // }
 
+// /*
+//  * Always build Reset from the current backend filter options.
+//  * This keeps Reset consistent across the dashboard and every View All modal.
+//  */
+// function getWorkingCapitalDefaultFilters(filterOptions) {
+//     const options = filterOptions || {};
+//     return {
+//         legalGroups: [],
+//         legalEntities: [],
+//         parentDivisions: [],
+//         subDivisions: [],
+//         agingBasis: options.agingBases?.[0] || "DUE_DATE",
+//         asOnDate:
+//             options.operationalAsOnDate ||
+//             options.asOnDates?.[0] ||
+//             "",
+//     };
+// }
 
 
 // /*
@@ -4363,6 +4380,15 @@
 //                     fontFamily: "Inter, system-ui, sans-serif",
 //                 }}
 //             >
+//                 <colgroup>
+//                     <col style={{ width: 190 }} />
+//                     {periods.map((period) => (
+//                         <React.Fragment key={`col-${period}`}>
+//                             <col style={{ width: 94 }} />
+//                             <col style={{ width: 94 }} />
+//                         </React.Fragment>
+//                     ))}
+//                 </colgroup>
 //                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
 //                     <tr>
 //                         <th
@@ -4374,6 +4400,9 @@
 //                                 background: "#F8FAFC",
 //                                 borderBottom: "1px solid #E2E8F0",
 //                                 borderRight: "1px solid #E2E8F0",
+//                                 position: "sticky",
+//                                 left: 0,
+//                                 zIndex: 7,
 //                                 padding: "8px 10px",
 //                                 fontSize: "0.61rem",
 //                                 whiteSpace: "nowrap",
@@ -4406,8 +4435,9 @@
 //                                 <th
 //                                     style={{
 //                                         ...thRight,
-//                                         minWidth: 94,
 //                                         width: 94,
+//                                         minWidth: 94,
+//                                         maxWidth: 94,
 //                                         textAlign: "center",
 //                                         background: "#FBFCFE",
 //                                         borderLeft: "1px solid #E2E8F0",
@@ -4426,8 +4456,9 @@
 //                                 <th
 //                                     style={{
 //                                         ...thRight,
-//                                         minWidth: 64,
-//                                         width: 64,
+//                                         width: 94,
+//                                         minWidth: 94,
+//                                         maxWidth: 94,
 //                                         textAlign: "center",
 //                                         background: "#FBFCFE",
 //                                         borderLeft: "1px solid #E2E8F0",
@@ -4455,6 +4486,9 @@
 //                                     color: "#334155",
 //                                     background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
 //                                     borderRight: "1px solid #E2E8F0",
+//                                     position: "sticky",
+//                                     left: 0,
+//                                     zIndex: 2,
 //                                     whiteSpace: "nowrap",
 //                                     overflow: "hidden",
 //                                     textOverflow: "ellipsis",
@@ -4472,7 +4506,9 @@
 //                                         <td
 //                                             style={{
 //                                                 ...tdRight,
+//                                                 width: 94,
 //                                                 minWidth: 94,
+//                                                 maxWidth: 94,
 //                                                 padding: "8px 5px",
 //                                                 fontSize: "0.67rem",
 //                                                 whiteSpace: "nowrap",
@@ -4486,7 +4522,9 @@
 //                                         <td
 //                                             style={{
 //                                                 ...tdRight,
-//                                                 minWidth: 64,
+//                                                 width: 94,
+//                                                 minWidth: 94,
+//                                                 maxWidth: 94,
 //                                                 padding: "8px 5px",
 //                                                 fontSize: "0.67rem",
 //                                                 whiteSpace: "nowrap",
@@ -4581,11 +4619,22 @@
 //             legalEntities: baseFilters?.legalEntities || [],
 //             parentDivisions: baseFilters?.parentDivisions || [],
 //             subDivisions: baseFilters?.subDivisions || [],
+//             agingBasis: baseFilters?.agingBasis || "DUE_DATE",
 //             asOnDate: baseFilters?.asOnDate || "",
 //         });
+//         setSearch("");
 //         setPage(0);
 //         setCfoViewMode("detailed");
 //     }, [baseFilters, type]);
+
+//     const resetModalFilters = () => {
+//         const reset = getWorkingCapitalDefaultFilters(filterOptions);
+//         setLocalFilters(reset);
+//         setSearch("");
+//         setPage(0);
+//         setCfoViewMode("detailed");
+//         onApplyFilters?.(reset);
+//     };
 
 //     const cascaded = useMemo(
 //         () => cascadeViewAllOptions(filterOptions, localFilters),
@@ -4758,7 +4807,9 @@
 //                                 </button>
 //                             </div>
 //                         )}
-//                         <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
+//                         {!isCcc && (
+//                             <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
+//                         )}
 //                         {showModalExports && (
 //                             <>
 //                                 <button type="button" onClick={() => onExport?.("excel", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #A7D8BF", background: "#F8FFFC", color: "#168052", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>Excel</button>
@@ -4846,19 +4897,7 @@
 //                     <button type="button" onClick={() => { setPage(0); onApplyFilters?.(localFilters); }} disabled={loading} style={{ height: 32, padding: "0 14px", border: "none", borderRadius: 7, background: "#2563EB", color: "#FFFFFF", fontSize: "0.70rem", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
 //                         {loading ? "Loading..." : "Apply"}
 //                     </button>
-//                     <button type="button" onClick={() => {
-//                         const reset = {
-//                             legalGroups: baseFilters?.legalGroups || [],
-//                             legalEntities: baseFilters?.legalEntities || [],
-//                             parentDivisions: baseFilters?.parentDivisions || [],
-//                             subDivisions: baseFilters?.subDivisions || [],
-//                             agingBasis: baseFilters?.agingBasis || "DUE_DATE",
-//                             asOnDate: baseFilters?.asOnDate || "",
-//                         };
-//                         setLocalFilters(reset);
-//                         setPage(0);
-//                         onApplyFilters?.(reset);
-//                     }} disabled={loading} style={{ height: 32, padding: "0 9px", border: "none", background: "transparent", color: "#475569", fontSize: "0.70rem", fontWeight: 600, cursor: "pointer" }}>
+//                     <button type="button" onClick={resetModalFilters} disabled={loading} style={{ height: 32, padding: "0 9px", border: "none", background: "transparent", color: "#475569", fontSize: "0.70rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
 //                         Reset
 //                     </button>
 
@@ -5108,7 +5147,7 @@
 //                                         );
 //                                         return (
 //                                             <tr key={`${row.period}-${row.particular}-${index}`}>
-//                                                 <td style={td}>{row.period}</td>
+//                                                 <td style={td}>{isComponents ? formatDate(row.period) : row.period}</td>
 //                                                 <td style={td}>{row.particular}</td>
 //                                                 <td style={tdRight}>{modalFmt(row.amount)}</td>
 //                                                 <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
@@ -5725,20 +5764,14 @@
 //     }
 
 //     function resetFilters() {
-//         const next = {
-//             legalGroups: [],
-//             legalEntities: [],
-//             parentDivisions: [],
-//             subDivisions: [],
-//             agingBasis: filterOptions.agingBases?.[0] || "DUE_DATE",
-//             asOnDate:
-//                 filterOptions.operationalAsOnDate ||
-//                 filterOptions.asOnDates[0] ||
-//                 "",
-//         };
+//         const next = getWorkingCapitalDefaultFilters(filterOptions);
 
-//         setFilters(next);
-//         setAppliedFilters(next);
+//         // Update both the visible controls and the committed API scope.
+//         // A fresh object is used for each state so React always sees the reset.
+//         setFilters({ ...next });
+//         setAppliedFilters({ ...next });
+//         setViewAll(null);
+//         setError("");
 //     }
 
 //     function handleRefresh() {
@@ -5947,48 +5980,73 @@
 //         const activeFilters = overrideFilters || appliedFilters || filters;
 
 //         /*
-//          * Working Capital Components View All is built from the already-loaded
-//          * Components response. No new View-All request is needed, so Apply
-//          * remains an immediate action and never switches to "Loading...".
+//          * Working Capital Components View All must use the currently selected
+//          * View-All filters. The previous implementation reused componentData
+//          * from the dashboard, so Apply changed the filter state but left the
+//          * displayed component values unchanged. Fetch the components again
+//          * for the explicit View-All Apply action.
 //          */
 //         if (type === "components") {
-//             const componentRows = [
-//                 {
-//                     period: activeFilters?.asOnDate || operationalDate || "—",
-//                     particular: "Receivables",
-//                     amount: toNumber(getValue(componentData, "receivables", "total_receivables")),
-//                     percentage: null,
-//                 },
-//                 {
-//                     period: activeFilters?.asOnDate || operationalDate || "—",
-//                     particular: "Inventory",
-//                     amount: toNumber(getValue(componentData, "inventory", "total_inventory")),
-//                     percentage: null,
-//                 },
-//                 {
-//                     period: activeFilters?.asOnDate || operationalDate || "—",
-//                     particular: "(-) Payables",
-//                     amount: toNumber(getValue(componentData, "payables", "total_payables")),
-//                     percentage: null,
-//                 },
-//                 {
-//                     period: activeFilters?.asOnDate || operationalDate || "—",
-//                     particular: "Trade Working Capital",
-//                     amount: toNumber(getValue(componentData, "trade_working_capital", "trade_working_capital_value", "working_capital")),
-//                     percentage: null,
-//                 },
-//             ];
+//             setViewAllLoading(true);
+//             setError("");
 
-//             setViewAll({
-//                 type,
-//                 cfoViewLabel,
-//                 title: "Working Capital Components Detailed View",
-//                 rows: componentRows,
-//                 monthOnMonthRows: [],
-//                 filters: { ...activeFilters },
-//             });
-//             setViewAllLoading(false);
-//             return componentRows;
+//             try {
+//                 const componentApiFilters = buildApiFilters(
+//                     activeFilters,
+//                     filterOptions
+//                 );
+//                 const componentResponse = await getWorkingCapitalComponents(
+//                     componentApiFilters
+//                 );
+//                 const componentSource =
+//                     unwrapApiResponse(componentResponse) ?? {};
+
+//                 const componentRows = [
+//                     {
+//                         period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+//                         particular: "Receivables",
+//                         amount: toNumber(getValue(componentSource, "receivables", "total_receivables")),
+//                         percentage: null,
+//                     },
+//                     {
+//                         period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+//                         particular: "Inventory",
+//                         amount: toNumber(getValue(componentSource, "inventory", "total_inventory")),
+//                         percentage: null,
+//                     },
+//                     {
+//                         period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+//                         particular: "(-) Payables",
+//                         amount: toNumber(getValue(componentSource, "payables", "total_payables")),
+//                         percentage: null,
+//                     },
+//                     {
+//                         period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+//                         particular: "Trade Working Capital",
+//                         amount: toNumber(getValue(componentSource, "trade_working_capital", "trade_working_capital_value", "working_capital")),
+//                         percentage: null,
+//                     },
+//                 ];
+
+//                 setViewAll({
+//                     type,
+//                     cfoViewLabel,
+//                     title: "Working Capital Components Detailed View",
+//                     rows: componentRows,
+//                     monthOnMonthRows: [],
+//                     filters: { ...activeFilters },
+//                 });
+//                 return componentRows;
+//             } catch (err) {
+//                 setError(
+//                     err?.response?.data?.detail ||
+//                     err?.message ||
+//                     "Unable to load Working Capital Components."
+//                 );
+//                 return [];
+//             } finally {
+//                 setViewAllLoading(false);
+//             }
 //         }
 
 //         const apiFilters = buildApiFilters(
@@ -9403,7 +9461,6 @@
 
 
 
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
@@ -9661,11 +9718,6 @@ function normalizeFilterOptions(payload) {
         data.balanceSheetPeriods ??
         [];
 
-    const rawAgingBases =
-        data.aging_bases ??
-        data.agingBases ??
-        ["DUE_DATE"];
-
     return {
         legalGroups: optionList(
             data.legal_groups ?? data.legalGroups
@@ -9717,17 +9769,6 @@ function normalizeFilterOptions(payload) {
                 }))
                 .filter((item) => item.value)
             : [],
-        agingBases: Array.isArray(rawAgingBases)
-            ? rawAgingBases
-                .map((item) =>
-                    typeof item === "string"
-                        ? item
-                        : item?.value ??
-                        item?.code ??
-                        item?.name
-                )
-                .filter(Boolean)
-            : ["DUE_DATE"],
         reportingCurrency:
             data.reporting_currency ??
             data.reportingCurrency ??
@@ -9774,16 +9815,10 @@ function buildApiFilters(filters, options) {
         as_on_date:
             filters.asOnDate || undefined,
 
-        // Keep the approved backend default unless the user selects
-        // another basis explicitly provided by filter-options.
-        aging_basis:
-            filters.agingBasis ||
-            "DUE_DATE",
     };
 
     // Balance Sheet Period is intentionally not exposed on this page.
-    // Keep the operational aging basis at the backend default without
-    // rendering an Aging Basis control.
+    // Only the supported hierarchy/date filters are returned.
     return apiFilters;
 }
 
@@ -9798,7 +9833,6 @@ function getWorkingCapitalDefaultFilters(filterOptions) {
         legalEntities: [],
         parentDivisions: [],
         subDivisions: [],
-        agingBasis: options.agingBases?.[0] || "DUE_DATE",
         asOnDate:
             options.operationalAsOnDate ||
             options.asOnDates?.[0] ||
@@ -9836,7 +9870,6 @@ function buildCfoViewAllApiFilters(filters, options) {
             options.subDivisions,
             source.subDivisions
         ),
-        aging_basis: source.agingBasis || "DUE_DATE",
         as_on_date: source.asOnDate || undefined,
     };
 }
@@ -10235,7 +10268,7 @@ const styles = {
         borderRadius: "var(--radius-md)",
         padding: "10px 14px",
         display: "grid",
-        gridTemplateColumns: "118px 118px 118px 118px 118px 112px 130px 70px 60px",
+        gridTemplateColumns: "118px 118px 118px 118px 112px 130px 70px 60px",
         gap: "10px 6px",
         alignItems: "end",
         marginBottom: "16px",
@@ -10314,7 +10347,7 @@ const workingCapitalFilterResponsiveCss = `.wc-sales-page .wc-sales-kpis {
 }
 
 .wc-sales-page .wc-filter-grid {
-    grid-template-columns: 118px 118px 118px 118px 118px 112px 130px 70px 60px !important;
+    grid-template-columns: 118px 118px 118px 118px 112px 130px 70px 60px !important;
     gap: 10px 6px !important;
     align-items: end !important;
 }
@@ -14014,7 +14047,6 @@ function ViewAllModal({
         legalEntities: baseFilters?.legalEntities || [],
         parentDivisions: baseFilters?.parentDivisions || [],
         subDivisions: baseFilters?.subDivisions || [],
-        agingBasis: baseFilters?.agingBasis || "DUE_DATE",
         asOnDate: baseFilters?.asOnDate || "",
     }));
 
@@ -14024,7 +14056,6 @@ function ViewAllModal({
             legalEntities: baseFilters?.legalEntities || [],
             parentDivisions: baseFilters?.parentDivisions || [],
             subDivisions: baseFilters?.subDivisions || [],
-            agingBasis: baseFilters?.agingBasis || "DUE_DATE",
             asOnDate: baseFilters?.asOnDate || "",
         });
         setSearch("");
@@ -14106,7 +14137,7 @@ function ViewAllModal({
 
     if (!filterOptions) return null;
 
-    return (
+    return createPortal(
         <div
             role="dialog"
             aria-modal="true"
@@ -14117,10 +14148,11 @@ function ViewAllModal({
                 background: "rgba(15, 23, 42, 0.35)",
                 backdropFilter: "blur(6px)",
                 display: "flex",
-                alignItems: "center",
+                alignItems: "flex-start",
                 justifyContent: "center",
-                zIndex: 1000,
-                padding: 0,
+                zIndex: 10000,
+                padding: "8px 0",
+                boxSizing: "border-box",
             }}
         >
             <div
@@ -14128,7 +14160,8 @@ function ViewAllModal({
                 style={{
                     width: "96vw",
                     maxWidth: "1500px",
-                    height: "100vh",
+                    height: "calc(100vh - 16px)",
+                    maxHeight: "calc(100vh - 16px)",
                     background: "#FFFFFF",
                     borderRadius: 16,
                     border: "1px solid #E2E8F0",
@@ -14263,31 +14296,6 @@ function ViewAllModal({
                         >
                             {currency || "AED"}
                         </div>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-                        <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Aging Basis</span>
-                        <select
-                            value={localFilters.agingBasis || "DUE_DATE"}
-                            onChange={(event) => setLocalFilters((p) => ({ ...p, agingBasis: event.target.value }))}
-                            style={{
-                                width: 120,
-                                height: 32,
-                                border: "1px solid #CBD5E1",
-                                borderRadius: 7,
-                                background: "#FFFFFF",
-                                color: "#334155",
-                                padding: "0 8px",
-                                fontSize: "0.72rem",
-                                cursor: "pointer",
-                            }}
-                        >
-                            {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
-                                <option key={basis} value={basis}>
-                                    {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
-                                </option>
-                            ))}
-                        </select>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
@@ -14591,7 +14599,8 @@ function ViewAllModal({
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -14636,7 +14645,6 @@ export default function WorkingCapitalReport() {
         legalEntities: [],
         parentDivisions: [],
         subDivisions: [],
-        agingBasis: "DUE_DATE",
         asOnDate: "",
     });
 
@@ -14658,7 +14666,6 @@ export default function WorkingCapitalReport() {
             subDivisions: [],
             asOnDates: [],
             balanceSheetPeriods: [],
-            agingBases: ["DUE_DATE"],
             reportingCurrency: "",
             operationalAsOnDate: "",
         });
@@ -14718,16 +14725,11 @@ export default function WorkingCapitalReport() {
                 /*
                  * Filter dropdowns are populated only from the backend.
                  * No hierarchy lists are hardcoded in the frontend.
-                 *
-                 * The API supports the standard hierarchy parameters plus
-                 * aging_basis. On first load there are no hierarchy
-                 * selections yet, so only the approved default aging basis
-                 * is sent.
+                 * Aging Basis is not applicable to Working Capital, so it is
+                 * intentionally not requested, stored, rendered, or sent.
                  */
                 const response =
-                    await getWorkingCapitalFilterOptions({
-                        aging_basis: "DUE_DATE",
-                    });
+                    await getWorkingCapitalFilterOptions({});
 
                 if (!active) return;
 
@@ -16413,25 +16415,6 @@ export default function WorkingCapitalReport() {
                         >
                             {filterOptions.reportingCurrency || "AED"}
                         </div>
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                        <label style={styles.filterLabel}>Aging Basis</label>
-                        <select
-                            value={filters.agingBasis || "DUE_DATE"}
-                            onChange={(event) => updateFilter("agingBasis", event.target.value)}
-                            style={{
-                                ...styles.filterInput,
-                                height: "32px",
-                                cursor: "pointer",
-                            }}
-                        >
-                            {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
-                                <option key={basis} value={basis}>
-                                    {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
-                                </option>
-                            ))}
-                        </select>
                     </div>
 
                     <div style={{ minWidth: 0 }}>
