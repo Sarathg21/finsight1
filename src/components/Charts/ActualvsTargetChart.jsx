@@ -73,57 +73,57 @@
 
 //             actual:
 //                 actual !== null &&
-//                 actual !== undefined &&
-//                 actual !== ""
+//                     actual !== undefined &&
+//                     actual !== ""
 //                     ? Number(actual)
 //                     : null,
 
 //             target:
 //                 target !== null &&
-//                 target !== undefined &&
-//                 target !== ""
+//                     target !== undefined &&
+//                     target !== ""
 //                     ? Number(target)
 //                     : null,
 
 //             actualBackend:
 //                 actual !== null &&
-//                 actual !== undefined &&
-//                 actual !== ""
+//                     actual !== undefined &&
+//                     actual !== ""
 //                     ? String(actual)
 //                     : null,
 
 //             targetBackend:
 //                 target !== null &&
-//                 target !== undefined &&
-//                 target !== ""
+//                     target !== undefined &&
+//                     target !== ""
 //                     ? String(target)
 //                     : null,
 
 //             variancePtd:
 //                 variance !== null &&
-//                 variance !== undefined &&
-//                 variance !== ""
+//                     variance !== undefined &&
+//                     variance !== ""
 //                     ? Number(variance)
 //                     : null,
 
 //             variancePtdBackend:
 //                 variance !== null &&
-//                 variance !== undefined &&
-//                 variance !== ""
+//                     variance !== undefined &&
+//                     variance !== ""
 //                     ? String(variance)
 //                     : null,
 
 //             variancePtdPct:
 //                 variancePct !== null &&
-//                 variancePct !== undefined &&
-//                 variancePct !== ""
+//                     variancePct !== undefined &&
+//                     variancePct !== ""
 //                     ? Number(variancePct)
 //                     : null,
 
 //             variancePtdPctBackend:
 //                 variancePct !== null &&
-//                 variancePct !== undefined &&
-//                 variancePct !== ""
+//                     variancePct !== undefined &&
+//                     variancePct !== ""
 //                     ? String(variancePct)
 //                     : null,
 
@@ -208,6 +208,11 @@
 //                     "0 14px 34px rgba(15,23,42,0.16), 0 2px 8px rgba(79,70,229,0.08)",
 //                 backdropFilter: "blur(12px)",
 //                 WebkitBackdropFilter: "blur(12px)",
+
+//                 /* SUBTLE TOOLTIP EFFECT */
+//                 transform: "translateY(-2px)",
+//                 transition:
+//                     "opacity 160ms ease, transform 160ms ease",
 //             }}
 //         >
 //             <div
@@ -243,6 +248,11 @@
 //                 const backendValue =
 //                     getBackendValue(item?.dataKey);
 
+//                 const itemColor =
+//                     item?.dataKey === "actual"
+//                         ? "#DC2626"
+//                         : "#2563EB";
+
 //                 return (
 //                     <div
 //                         key={item.dataKey}
@@ -267,10 +277,11 @@
 //                                     width: 8,
 //                                     height: 8,
 //                                     borderRadius: "50%",
-//                                     background:
-//                                         item.color,
-//                                     boxShadow:
-//                                         `0 0 0 3px ${item.color}18`,
+//                                     background: itemColor,
+
+//                                     /* SUBTLE DOT GLOW */
+//                                     boxShadow: `0 0 0 3px ${itemColor}18, 0 0 8px ${itemColor}45`,
+
 //                                     flex: "0 0 auto",
 //                                 }}
 //                             />
@@ -279,11 +290,7 @@
 //                                 style={{
 //                                     fontSize: 11,
 //                                     fontWeight: 700,
-//                                     color:
-//                                         item?.dataKey ===
-//                                         "actual"
-//                                             ? "#5B3FE4"
-//                                             : "#64748B",
+//                                     color: itemColor,
 //                                     whiteSpace: "nowrap",
 //                                 }}
 //                             >
@@ -295,11 +302,7 @@
 //                             style={{
 //                                 fontSize: 12,
 //                                 fontWeight: 800,
-//                                 color:
-//                                     item?.dataKey ===
-//                                     "actual"
-//                                         ? "#5B3FE4"
-//                                         : "#64748B",
+//                                 color: itemColor,
 //                                 whiteSpace: "nowrap",
 //                                 fontVariantNumeric:
 //                                     "tabular-nums",
@@ -348,6 +351,10 @@
 //                         ? 800
 //                         : 700
 //                 }
+//                 style={{
+//                     transition:
+//                         "fill 180ms ease, font-weight 180ms ease",
+//                 }}
 //             >
 //                 {text}
 //             </text>
@@ -638,9 +645,9 @@
 //         );
 //     }, [chartData]);
 
-//     /* =========================================================
+//     /* =======================================================
 //        X AXIS TICK FORMAT
-//     ========================================================= */
+//     ======================================================= */
 
 //     const formatXAxis = (value) => {
 //         if (
@@ -651,7 +658,8 @@
 //             return "";
 //         }
 
-//         const millions = Number(value) / 1000000;
+//         const millions =
+//             Number(value) / 1000000;
 
 //         if (millions === 0) {
 //             return "0M";
@@ -681,6 +689,24 @@
 //                 boxSizing: "border-box",
 //                 display: "flex",
 //                 flexDirection: "column",
+
+//                 /* =================================================
+//                    SUBTLE CARD EFFECT
+//                 ================================================= */
+//                 transition:
+//                     "box-shadow 220ms ease, border-color 220ms ease",
+//             }}
+//             onMouseEnter={(event) => {
+//                 event.currentTarget.style.boxShadow =
+//                     "0 8px 24px rgba(15,23,42,0.08)";
+//                 event.currentTarget.style.borderColor =
+//                     "#D7DCE5";
+//             }}
+//             onMouseLeave={(event) => {
+//                 event.currentTarget.style.boxShadow =
+//                     "none";
+//                 event.currentTarget.style.borderColor =
+//                     "#E5E7EB";
 //             }}
 //         >
 //             {/* HEADER */}
@@ -755,6 +781,24 @@
 //                             alignItems: "center",
 //                             justifyContent: "center",
 //                             borderRadius: 5,
+//                             transition:
+//                                 "background 160ms ease, color 160ms ease, transform 160ms ease",
+//                         }}
+//                         onMouseEnter={(event) => {
+//                             event.currentTarget.style.background =
+//                                 "#F1F5F9";
+//                             event.currentTarget.style.color =
+//                                 "#334155";
+//                             event.currentTarget.style.transform =
+//                                 "scale(1.05)";
+//                         }}
+//                         onMouseLeave={(event) => {
+//                             event.currentTarget.style.background =
+//                                 "transparent";
+//                             event.currentTarget.style.color =
+//                                 "#64748B";
+//                             event.currentTarget.style.transform =
+//                                 "scale(1)";
 //                         }}
 //                     >
 //                         <MoreVertical
@@ -818,6 +862,8 @@
 //                                         onViewAll
 //                                             ? 1
 //                                             : 0.5,
+//                                     transition:
+//                                         "background 140ms ease",
 //                                 }}
 //                                 onMouseEnter={(
 //                                     event
@@ -887,6 +933,8 @@
 //                                             "excel"
 //                                             ? 0.6
 //                                             : 1,
+//                                     transition:
+//                                         "background 140ms ease",
 //                                 }}
 //                                 onMouseEnter={(
 //                                     event
@@ -959,6 +1007,8 @@
 //                                             "pdf"
 //                                             ? 0.6
 //                                             : 1,
+//                                     transition:
+//                                         "background 140ms ease",
 //                                 }}
 //                                 onMouseEnter={(
 //                                     event
@@ -1028,7 +1078,10 @@
 //                         }}
 //                     >
 //                         <defs>
-//                             {/* ACTUAL GRADIENT */}
+
+//                             {/* =================================================
+//                                SPENT / ACTUAL RED GRADIENT
+//                             ================================================= */}
 
 //                             <linearGradient
 //                                 id="actualVsTargetActualGradient"
@@ -1039,21 +1092,23 @@
 //                             >
 //                                 <stop
 //                                     offset="0%"
-//                                     stopColor="#4338CA"
+//                                     stopColor="#B91C1C"
 //                                 />
 
 //                                 <stop
 //                                     offset="55%"
-//                                     stopColor="#6366F1"
+//                                     stopColor="#DC2626"
 //                                 />
 
 //                                 <stop
 //                                     offset="100%"
-//                                     stopColor="#818CF8"
+//                                     stopColor="#F87171"
 //                                 />
 //                             </linearGradient>
 
-//                             {/* TARGET GREY GRADIENT */}
+//                             {/* =================================================
+//                                TARGET BLUE GRADIENT
+//                             ================================================= */}
 
 //                             <linearGradient
 //                                 id="actualVsTargetTargetGradient"
@@ -1064,53 +1119,73 @@
 //                             >
 //                                 <stop
 //                                     offset="0%"
-//                                     stopColor="#64748B"
+//                                     stopColor="#1D4ED8"
 //                                 />
 
 //                                 <stop
 //                                     offset="55%"
-//                                     stopColor="#94A3B8"
+//                                     stopColor="#2563EB"
 //                                 />
 
 //                                 <stop
 //                                     offset="100%"
-//                                     stopColor="#CBD5E1"
+//                                     stopColor="#60A5FA"
 //                                 />
 //                             </linearGradient>
 
-//                             {/* ACTUAL HOVER GLOW */}
+//                             {/* =================================================
+//                                SPENT / ACTUAL RED HOVER GLOW
+//                             ================================================= */}
 
 //                             <filter
 //                                 id="actualVsTargetActualGlow"
-//                                 x="-20%"
-//                                 y="-80%"
-//                                 width="160%"
-//                                 height="260%"
+//                                 x="-30%"
+//                                 y="-100%"
+//                                 width="180%"
+//                                 height="300%"
 //                             >
 //                                 <feDropShadow
 //                                     dx="0"
 //                                     dy="2"
-//                                     stdDeviation="3"
-//                                     floodColor="#4F46E5"
-//                                     floodOpacity="0.40"
+//                                     stdDeviation="4"
+//                                     floodColor="#DC2626"
+//                                     floodOpacity="0.48"
+//                                 />
+
+//                                 <feDropShadow
+//                                     dx="0"
+//                                     dy="0"
+//                                     stdDeviation="1.5"
+//                                     floodColor="#F87171"
+//                                     floodOpacity="0.35"
 //                                 />
 //                             </filter>
 
-//                             {/* TARGET HOVER GLOW */}
+//                             {/* =================================================
+//                                TARGET BLUE HOVER GLOW
+//                             ================================================= */}
 
 //                             <filter
 //                                 id="actualVsTargetTargetGlow"
-//                                 x="-20%"
-//                                 y="-80%"
-//                                 width="160%"
-//                                 height="260%"
+//                                 x="-30%"
+//                                 y="-100%"
+//                                 width="180%"
+//                                 height="300%"
 //                             >
 //                                 <feDropShadow
 //                                     dx="0"
 //                                     dy="2"
-//                                     stdDeviation="3"
-//                                     floodColor="#64748B"
-//                                     floodOpacity="0.32"
+//                                     stdDeviation="4"
+//                                     floodColor="#2563EB"
+//                                     floodOpacity="0.42"
+//                                 />
+
+//                                 <feDropShadow
+//                                     dx="0"
+//                                     dy="0"
+//                                     stdDeviation="1.5"
+//                                     floodColor="#60A5FA"
+//                                     floodOpacity="0.30"
 //                                 />
 //                             </filter>
 //                         </defs>
@@ -1173,9 +1248,9 @@
 //                             }
 //                             cursor={{
 //                                 fill:
-//                                     "rgba(79,70,229,0.055)",
+//                                     "rgba(37,99,235,0.055)",
 //                                 stroke:
-//                                     "rgba(79,70,229,0.20)",
+//                                     "rgba(37,99,235,0.20)",
 //                                 strokeWidth: 1,
 //                             }}
 //                         />
@@ -1198,8 +1273,8 @@
 //                         />
 
 //                         {/* =================================================
-//                            ACTUAL
-// ========================================================= */}
+//                            SPENT / ACTUAL
+//                         ================================================= */}
 
 //                         <Bar
 //                             dataKey="actual"
@@ -1213,11 +1288,16 @@
 //                             ]}
 //                             barSize={12}
 //                             maxBarSize={12}
-//                             animationDuration={850}
+
+//                             /* SMOOTH ENTRANCE EFFECT */
+//                             animationDuration={1100}
+//                             animationBegin={80}
 //                             animationEasing="ease-out"
+
 //                             label={
 //                                 <ActualBarLabel />
 //                             }
+
 //                             onMouseEnter={(
 //                                 data,
 //                                 index
@@ -1232,6 +1312,7 @@
 //                                     null
 //                                 );
 //                             }}
+
 //                             onMouseLeave={() => {
 //                                 setHoveredBar(null);
 //                                 setHoveredCategory(null);
@@ -1242,23 +1323,27 @@
 //                                     <Cell
 //                                         key={`actual-cell-${index}`}
 //                                         fill="url(#actualVsTargetActualGradient)"
+
+//                                         /* SMOOTH HOVER FADE */
 //                                         opacity={
 //                                             hoveredBar &&
-//                                             hoveredBar !==
+//                                                 hoveredBar !==
 //                                                 `${index}-actual` &&
-//                                             hoveredBar !==
+//                                                 hoveredBar !==
 //                                                 `${index}-target`
-//                                                 ? 0.28
+//                                                 ? 0.20
 //                                                 : 1
 //                                         }
+
 //                                         style={{
 //                                             filter:
 //                                                 hoveredBar ===
 //                                                     `${index}-actual`
 //                                                     ? "url(#actualVsTargetActualGlow)"
 //                                                     : "none",
+
 //                                             transition:
-//                                                 "opacity 220ms ease, filter 220ms ease",
+//                                                 "opacity 240ms ease, filter 240ms ease",
 //                                         }}
 //                                     />
 //                                 )
@@ -1267,7 +1352,7 @@
 
 //                         {/* =================================================
 //                            TARGET
-// ========================================================= */}
+//                         ================================================= */}
 
 //                         <Bar
 //                             dataKey="target"
@@ -1281,11 +1366,16 @@
 //                             ]}
 //                             barSize={12}
 //                             maxBarSize={12}
-//                             animationDuration={1000}
+
+//                             /* SMOOTH ENTRANCE EFFECT */
+//                             animationDuration={1250}
+//                             animationBegin={180}
 //                             animationEasing="ease-out"
+
 //                             label={
 //                                 <TargetBarLabel />
 //                             }
+
 //                             onMouseEnter={(
 //                                 data,
 //                                 index
@@ -1300,6 +1390,7 @@
 //                                     null
 //                                 );
 //                             }}
+
 //                             onMouseLeave={() => {
 //                                 setHoveredBar(null);
 //                                 setHoveredCategory(null);
@@ -1310,23 +1401,27 @@
 //                                     <Cell
 //                                         key={`target-cell-${index}`}
 //                                         fill="url(#actualVsTargetTargetGradient)"
+
+//                                         /* SMOOTH HOVER FADE */
 //                                         opacity={
 //                                             hoveredBar &&
-//                                             hoveredBar !==
+//                                                 hoveredBar !==
 //                                                 `${index}-actual` &&
-//                                             hoveredBar !==
+//                                                 hoveredBar !==
 //                                                 `${index}-target`
-//                                                 ? 0.28
+//                                                 ? 0.20
 //                                                 : 1
 //                                         }
+
 //                                         style={{
 //                                             filter:
 //                                                 hoveredBar ===
 //                                                     `${index}-target`
 //                                                     ? "url(#actualVsTargetTargetGlow)"
 //                                                     : "none",
+
 //                                             transition:
-//                                                 "opacity 220ms ease, filter 220ms ease",
+//                                                 "opacity 240ms ease, filter 240ms ease",
 //                                         }}
 //                                     />
 //                                 )
@@ -1504,6 +1599,7 @@ function CustomTooltip({
     payload,
     label,
     reportingCurrency = "AED",
+    displayUnit = "AED",
 }) {
     if (
         !active ||
@@ -1515,19 +1611,19 @@ function CustomTooltip({
 
     const row = payload[0]?.payload || {};
 
-    const getBackendValue = (dataKey) => {
+    const getDisplayValue = (dataKey) => {
         if (dataKey === "actual") {
-            return row.actualBackend;
+            return row.actual;
         }
 
         if (dataKey === "target") {
-            return row.targetBackend;
+            return row.target;
         }
 
         return null;
     };
 
-    const formatBackendDisplay = (value) => {
+    const formatDisplayValue = (value) => {
         if (
             value === null ||
             value === undefined ||
@@ -1540,6 +1636,20 @@ function CustomTooltip({
 
         if (Number.isNaN(numericValue)) {
             return "—";
+        }
+
+        if (displayUnit === "AED_MILLIONS") {
+            const millions = numericValue;
+
+            if (Math.abs(millions) >= 100) {
+                return `${reportingCurrency} ${millions.toFixed(0)}M`;
+            }
+
+            if (Math.abs(millions) >= 10) {
+                return `${reportingCurrency} ${millions.toFixed(1)}M`;
+            }
+
+            return `${reportingCurrency} ${millions.toFixed(2)}M`;
         }
 
         return `${reportingCurrency} ${numericValue.toLocaleString(
@@ -1602,7 +1712,7 @@ function CustomTooltip({
 
             {payload.map((item) => {
                 const backendValue =
-                    getBackendValue(item?.dataKey);
+                    getDisplayValue(item?.dataKey);
 
                 const itemColor =
                     item?.dataKey === "actual"
@@ -1664,7 +1774,7 @@ function CustomTooltip({
                                     "tabular-nums",
                             }}
                         >
-                            {formatBackendDisplay(
+                            {formatDisplayValue(
                                 backendValue
                             )}
                         </span>
@@ -1722,7 +1832,7 @@ function CustomYAxisTick({
    CUSTOM BAR LABEL
 ========================================================= */
 
-function formatMillions(value) {
+function formatBarValue(value, displayUnit = "AED") {
     if (
         value === null ||
         value === undefined ||
@@ -1733,17 +1843,23 @@ function formatMillions(value) {
     }
 
     const number = Number(value);
-    const millions = number / 1000000;
 
-    if (Math.abs(millions) >= 100) {
-        return `${millions.toFixed(0)}M`;
+    if (displayUnit === "AED_MILLIONS") {
+        if (Math.abs(number) >= 100) {
+            return `${number.toFixed(0)}M`;
+        }
+
+        if (Math.abs(number) >= 10) {
+            return `${number.toFixed(1)}M`;
+        }
+
+        return `${number.toFixed(2)}M`;
     }
 
-    if (Math.abs(millions) >= 10) {
-        return `${millions.toFixed(1)}M`;
-    }
-
-    return `${millions.toFixed(2)}M`;
+    return number.toLocaleString("en-US", {
+        maximumFractionDigits: 0,
+        minimumFractionDigits: 0,
+    });
 }
 
 /* =========================================================
@@ -1755,8 +1871,12 @@ function ActualBarLabel({
     y,
     width,
     value,
+    displayUnit = "AED",
 }) {
-    const formatted = formatMillions(value);
+    const formatted = formatBarValue(
+        value,
+        displayUnit
+    );
 
     if (formatted === "—") {
         return null;
@@ -1789,8 +1909,12 @@ function TargetBarLabel({
     y,
     width,
     value,
+    displayUnit = "AED",
 }) {
-    const formatted = formatMillions(value);
+    const formatted = formatBarValue(
+        value,
+        displayUnit
+    );
 
     if (formatted === "—") {
         return null;
@@ -1834,6 +1958,7 @@ export default function ActualVsTargetChart({
     ======================================================= */
 
     const [menuOpen, setMenuOpen] = useState(false);
+    const [displayUnit, setDisplayUnit] = useState("AED");
     const [hoveredBar, setHoveredBar] = useState(null);
     const [hoveredCategory, setHoveredCategory] =
         useState(null);
@@ -1932,12 +2057,33 @@ export default function ActualVsTargetChart({
         [data]
     );
 
+    const displayChartData = useMemo(() => {
+        const divisor =
+            displayUnit === "AED_MILLIONS"
+                ? 1000000
+                : 1;
+
+        return chartData.map((item) => ({
+            ...item,
+            actual:
+                item.actual === null ||
+                    item.actual === undefined
+                    ? item.actual
+                    : item.actual / divisor,
+            target:
+                item.target === null ||
+                    item.target === undefined
+                    ? item.target
+                    : item.target / divisor,
+        }));
+    }, [chartData, displayUnit]);
+
     /* =======================================================
        X AXIS MAXIMUM
     ======================================================= */
 
     const xAxisMax = useMemo(() => {
-        const values = chartData
+        const values = displayChartData
             .flatMap((item) => [
                 item.actual,
                 item.target,
@@ -1950,56 +2096,46 @@ export default function ActualVsTargetChart({
             );
 
         if (!values.length) {
-            return 1000;
+            return displayUnit === "AED_MILLIONS"
+                ? 1
+                : 1000;
         }
 
         const maxValue = Math.max(...values);
+        const calculatedMax = maxValue * 1.2;
 
-        const calculatedMax =
-            maxValue * 1.2;
+        if (displayUnit === "AED_MILLIONS") {
+            if (calculatedMax <= 1) return 1;
+            if (calculatedMax <= 5) return 5;
+            if (calculatedMax <= 10) return 10;
+            if (calculatedMax <= 25) return 25;
+            if (calculatedMax <= 50) return 50;
+            if (calculatedMax <= 100) return 100;
+            if (calculatedMax <= 250) return 250;
+            if (calculatedMax <= 500) return 500;
+            if (calculatedMax <= 1000) return 1000;
 
-        if (calculatedMax <= 1000) {
-            return 1000;
+            return (
+                Math.ceil(calculatedMax / 1000) * 1000
+            );
         }
 
-        if (calculatedMax <= 5000) {
-            return 5000;
-        }
-
-        if (calculatedMax <= 10000) {
-            return 10000;
-        }
-
-        if (calculatedMax <= 25000) {
-            return 25000;
-        }
-
-        if (calculatedMax <= 50000) {
-            return 50000;
-        }
-
-        if (calculatedMax <= 100000) {
-            return 100000;
-        }
-
-        if (calculatedMax <= 250000) {
-            return 250000;
-        }
-
-        if (calculatedMax <= 500000) {
-            return 500000;
-        }
-
-        if (calculatedMax <= 1000000) {
-            return 1000000;
-        }
+        if (calculatedMax <= 1000) return 1000;
+        if (calculatedMax <= 5000) return 5000;
+        if (calculatedMax <= 10000) return 10000;
+        if (calculatedMax <= 25000) return 25000;
+        if (calculatedMax <= 50000) return 50000;
+        if (calculatedMax <= 100000) return 100000;
+        if (calculatedMax <= 250000) return 250000;
+        if (calculatedMax <= 500000) return 500000;
+        if (calculatedMax <= 1000000) return 1000000;
 
         return (
             Math.ceil(
                 calculatedMax / 1000000
             ) * 1000000
         );
-    }, [chartData]);
+    }, [displayChartData, displayUnit]);
 
     /* =======================================================
        X AXIS TICK FORMAT
@@ -2014,22 +2150,23 @@ export default function ActualVsTargetChart({
             return "";
         }
 
-        const millions =
-            Number(value) / 1000000;
+        const number = Number(value);
 
-        if (millions === 0) {
-            return "0M";
+        if (displayUnit === "AED_MILLIONS") {
+            if (number === 0) return "0M";
+            if (Math.abs(number) >= 100) {
+                return `${number.toFixed(0)}M`;
+            }
+            if (Math.abs(number) >= 10) {
+                return `${number.toFixed(1)}M`;
+            }
+            return `${number.toFixed(2)}M`;
         }
 
-        if (Math.abs(millions) >= 100) {
-            return `${millions.toFixed(0)}M`;
-        }
-
-        if (Math.abs(millions) >= 10) {
-            return `${millions.toFixed(1)}M`;
-        }
-
-        return `${millions.toFixed(2)}M`;
+        return number.toLocaleString("en-US", {
+            maximumFractionDigits: 0,
+            minimumFractionDigits: 0,
+        });
     };
 
     return (
@@ -2107,6 +2244,101 @@ export default function ActualVsTargetChart({
                     >
                         Compare actual PTD costs against target PTD by expense category
                     </div>
+                </div>
+
+                {/* AED / AED MILLIONS TOGGLE */}
+
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                        marginLeft: "auto",
+                        marginRight: 8,
+                        padding: 2,
+                        background: "#FFFFFF",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: 7,
+                        boxSizing: "border-box",
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => setDisplayUnit("AED")}
+                        aria-pressed={displayUnit === "AED"}
+                        style={{
+                            border: "none",
+
+                            // Selected = purple
+                            background:
+                                displayUnit === "AED"
+                                    ? "#5B3FE4"
+                                    : "#FFFFFF",
+
+                            // Selected = white text
+                            color:
+                                displayUnit === "AED"
+                                    ? "#FFFFFF"
+                                    : "#173B8F",
+
+                            padding: "5px 12px",
+                            borderRadius: 5,
+                            fontSize: 10,
+                            lineHeight: "14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+
+                            boxShadow: "none",
+
+                            transition:
+                                "background 140ms ease, color 140ms ease",
+
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        AED
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setDisplayUnit("AED_MILLIONS")
+                        }
+                        aria-pressed={
+                            displayUnit === "AED_MILLIONS"
+                        }
+                        style={{
+                            border: "none",
+
+                            // Selected = purple
+                            background:
+                                displayUnit === "AED_MILLIONS"
+                                    ? "#5B3FE4"
+                                    : "#FFFFFF",
+
+                            // Selected = white text
+                            color:
+                                displayUnit === "AED_MILLIONS"
+                                    ? "#FFFFFF"
+                                    : "#173B8F",
+
+                            padding: "5px 12px",
+                            borderRadius: 5,
+                            fontSize: 10,
+                            lineHeight: "14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+
+                            boxShadow: "none",
+
+                            transition:
+                                "background 140ms ease, color 140ms ease",
+
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        AED Millions
+                    </button>
                 </div>
 
                 {/* THREE DOT MENU */}
@@ -2418,7 +2650,7 @@ export default function ActualVsTargetChart({
                     height="100%"
                 >
                     <BarChart
-                        data={chartData}
+                        data={displayChartData}
                         layout="vertical"
                         margin={{
                             top: 20,
@@ -2651,7 +2883,11 @@ export default function ActualVsTargetChart({
                             animationEasing="ease-out"
 
                             label={
-                                <ActualBarLabel />
+                                <ActualBarLabel
+                                    displayUnit={
+                                        displayUnit
+                                    }
+                                />
                             }
 
                             onMouseEnter={(
@@ -2729,7 +2965,11 @@ export default function ActualVsTargetChart({
                             animationEasing="ease-out"
 
                             label={
-                                <TargetBarLabel />
+                                <TargetBarLabel
+                                    displayUnit={
+                                        displayUnit
+                                    }
+                                />
                             }
 
                             onMouseEnter={(
@@ -2798,7 +3038,11 @@ export default function ActualVsTargetChart({
                     marginTop: -2,
                 }}
             >
-                Amount ({reportingCurrency})
+                Amount (
+                {displayUnit === "AED_MILLIONS"
+                    ? "AED Millions"
+                    : reportingCurrency}
+                )
             </div>
         </div>
     );

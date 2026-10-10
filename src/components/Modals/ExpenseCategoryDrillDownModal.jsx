@@ -1,8 +1,8 @@
 
-
 // // import React, { useMemo, useState, useEffect, useRef } from "react";
 // // import ExportButtons from "../Common/ExportButtons";
 // // import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
+// // import { exportOpexCategoryBreakdown } from "../../api/opexApi";
 
 // // /* =========================================================
 // //    FORMAT NUMBER
@@ -1098,87 +1098,91 @@
 // //        COMMON EXPORT HANDLER
 // //     ===================================================== */
 
-// //     const handleExport = (type) => {
+// //     const handleExport = async (type) => {
 // //         if (!rows.length) {
 // //             return;
 // //         }
 
-// //         const exportRows = [];
+// //         /* =====================================================
+// //            EXCEL
+// //            Keep the existing frontend CSV export unchanged.
+// //         ===================================================== */
+// //         if (type === "excel") {
+// //             const exportRows = [];
 
-// //         rows.forEach((row) => {
-// //             const category = getValue(row, [
-// //                 "category",
-// //                 "name",
-// //             ]);
+// //             rows.forEach((row) => {
+// //                 const category = getValue(row, [
+// //                     "category",
+// //                     "name",
+// //                 ]);
 
-// //             exportRows.push({
-// //                 "Expense Category": category || "—",
-// //                 [`Actual PTD (${currency})`]:
-// //                     getValue(row, [
-// //                         "actual_ptd_aed",
-// //                         "actual_ptd",
-// //                     ]) ?? "",
-// //                 [`Target PTD (${currency})`]:
-// //                     getValue(row, [
-// //                         "target_ptd_aed",
-// //                         "target_ptd",
-// //                     ]) ?? "",
-// //                 [`Variance PTD (${currency})`]:
-// //                     getValue(row, [
-// //                         "variance_ptd_aed",
-// //                         "variance_ptd",
-// //                     ]) ?? "",
-// //                 "Variance PTD %":
-// //                     getValue(row, [
-// //                         "variance_ptd_pct",
-// //                     ]) ?? "",
-// //                 [`Actual YTD (${currency})`]:
-// //                     getValue(row, [
-// //                         "actual_ytd_aed",
-// //                         "actual_ytd",
-// //                     ]) ?? "",
-// //                 [`Target YTD (${currency})`]:
-// //                     getValue(row, [
-// //                         "target_ytd_aed",
-// //                         "target_ytd",
-// //                     ]) ?? "",
-// //                 [`Variance YTD (${currency})`]:
-// //                     getValue(row, [
-// //                         "variance_ytd_aed",
-// //                         "variance_ytd",
-// //                     ]) ?? "",
-// //                 "Variance YTD %":
-// //                     getValue(row, [
-// //                         "variance_ytd_pct",
-// //                     ]) ?? "",
-// //             });
-
-// //             const accounts =
-// //                 detailData[category] || [];
-
-// //             accounts.forEach((account) => {
 // //                 exportRows.push({
-// //                     "Expense Category":
-// //                         `${category || "—"} - Natural Account`,
-// //                     "Natural Account":
-// //                         account.account_code || "—",
-// //                     "Account Name":
-// //                         account.account_name || "—",
+// //                     "Expense Category": category || "—",
 // //                     [`Actual PTD (${currency})`]:
-// //                         getValue(account, [
+// //                         getValue(row, [
 // //                             "actual_ptd_aed",
 // //                             "actual_ptd",
 // //                         ]) ?? "",
+// //                     [`Target PTD (${currency})`]:
+// //                         getValue(row, [
+// //                             "target_ptd_aed",
+// //                             "target_ptd",
+// //                         ]) ?? "",
+// //                     [`Variance PTD (${currency})`]:
+// //                         getValue(row, [
+// //                             "variance_ptd_aed",
+// //                             "variance_ptd",
+// //                         ]) ?? "",
+// //                     "Variance PTD %":
+// //                         getValue(row, [
+// //                             "variance_ptd_pct",
+// //                         ]) ?? "",
 // //                     [`Actual YTD (${currency})`]:
-// //                         getValue(account, [
+// //                         getValue(row, [
 // //                             "actual_ytd_aed",
 // //                             "actual_ytd",
 // //                         ]) ?? "",
+// //                     [`Target YTD (${currency})`]:
+// //                         getValue(row, [
+// //                             "target_ytd_aed",
+// //                             "target_ytd",
+// //                         ]) ?? "",
+// //                     [`Variance YTD (${currency})`]:
+// //                         getValue(row, [
+// //                             "variance_ytd_aed",
+// //                             "variance_ytd",
+// //                         ]) ?? "",
+// //                     "Variance YTD %":
+// //                         getValue(row, [
+// //                             "variance_ytd_pct",
+// //                         ]) ?? "",
+// //                 });
+
+// //                 const accounts =
+// //                     detailData[category] || [];
+
+// //                 accounts.forEach((account) => {
+// //                     exportRows.push({
+// //                         "Expense Category":
+// //                             `${category || "—"} - Natural Account`,
+// //                         "Natural Account":
+// //                             account.account_code || "—",
+// //                         "Account Name":
+// //                             account.account_name || "—",
+// //                         [`Actual PTD (${currency})`]:
+// //                             getValue(account, [
+// //                                 "actual_ptd_aed",
+// //                                 "actual_ptd",
+// //                             ]) ?? "",
+// //                         [`Actual YTD (${currency})`]:
+// //                             getValue(account, [
+// //                                 "actual_ytd_aed",
+// //                                 "actual_ytd",
+// //                             ]) ?? "",
+// //                     });
 // //                 });
 // //             });
-// //         });
 
-// //         if (type === "excel") {
 // //             const headers = Object.keys(
 // //                 exportRows[0] || {}
 // //             );
@@ -1222,177 +1226,114 @@
 // //             document.body.removeChild(link);
 
 // //             URL.revokeObjectURL(url);
-
 // //             return;
 // //         }
 
+// //         /* =====================================================
+// //            PDF
+// //            IMPORTANT:
+// //            Use the backend category-breakdown PDF API directly.
+// //            Do NOT open a print window and do NOT call window.print().
+
+// //            The filters below are the same filters currently selected
+// //            in this View All modal, including Parent Division.
+// //         ===================================================== */
 // //         if (type === "pdf") {
-// //             const printWindow =
-// //                 window.open(
-// //                     "",
-// //                     "_blank",
-// //                     "width=1200,height=800"
-// //                 );
+// //             const apiFilters = {
+// //                 year:
+// //                     viewAllFilters.year?.length
+// //                         ? viewAllFilters.year
+// //                         : undefined,
 
-// //             if (!printWindow) {
-// //                 return;
-// //             }
+// //                 legal_entity_id:
+// //                     viewAllFilters.legal_entity?.length
+// //                         ? viewAllFilters.legal_entity
+// //                         : undefined,
 
-// //             const filterRows = [
-// //                 ["Year", viewAllFilters.year.join(", ")],
-// //                 ["Period", viewAllFilters.period.join(", ")],
-// //                 ["Currency", currency],
-// //                 ["Legal Entity", viewAllFilters.legal_entity.join(", ")],
-// //                 ["Parent Division", viewAllFilters.parent_division.join(", ")],
-// //                 ["Subdivision", viewAllFilters.subdivision.join(", ")],
-// //             ].filter(
-// //                 ([, value]) =>
-// //                     value !== null &&
-// //                     value !== undefined &&
-// //                     value !== ""
-// //             );
+// //                 parent_division_id:
+// //                     viewAllFilters.parent_division?.length
+// //                         ? viewAllFilters.parent_division
+// //                         : undefined,
 
-// //             const tableRows = exportRows
-// //                 .map(
-// //                     (row) => `
-// //                         <tr>
-// //                             <td>${row["Expense Category"] || "—"}</td>
-// //                             <td>${row["Natural Account"] || "—"}</td>
-// //                             <td>${row["Account Name"] || "—"}</td>
-// //                             <td>${row[`Actual PTD (${currency})`] || "—"}</td>
-// //                             <td>${row[`Target PTD (${currency})`] || "—"}</td>
-// //                             <td>${row[`Variance PTD (${currency})`] || "—"}</td>
-// //                             <td>${row["Variance PTD %"] || "—"}</td>
-// //                             <td>${row[`Actual YTD (${currency})`] || "—"}</td>
-// //                             <td>${row[`Target YTD (${currency})`] || "—"}</td>
-// //                             <td>${row[`Variance YTD (${currency})`] || "—"}</td>
-// //                             <td>${row["Variance YTD %"] || "—"}</td>
-// //                         </tr>
-// //                     `
-// //                 )
-// //                 .join("");
+// //                 subdivision_id:
+// //                     viewAllFilters.subdivision?.length
+// //                         ? viewAllFilters.subdivision
+// //                         : undefined,
 
-// //             printWindow.document.write(`
-// //                 <html>
-// //                     <head>
-// //                         <title>Expense Category Drill-Down</title>
+// //                 period_name:
+// //                     viewAllFilters.period?.length
+// //                         ? viewAllFilters.period
+// //                         : undefined,
 
-// //                         <style>
-// //                             body {
-// //                                 font-family: Arial, sans-serif;
-// //                                 padding: 24px;
-// //                                 color: #111827;
-// //                             }
+// //                 reporting_currency:
+// //                     currency ||
+// //                     reportingCurrency ||
+// //                     "AED",
+// //             };
 
-// //                             h1 {
-// //                                 font-size: 20px;
-// //                                 margin-bottom: 5px;
-// //                             }
+// //             try {
+// //                 const response =
+// //                     await exportOpexCategoryBreakdown(
+// //                         apiFilters,
+// //                         "pdf"
+// //                     );
 
-// //                             .subtitle {
-// //                                 color: #64748b;
-// //                                 font-size: 12px;
-// //                                 margin-bottom: 16px;
-// //                             }
+// //                 if (!response) {
+// //                     return;
+// //                 }
 
-// //                             .filters {
-// //                                 display: flex;
-// //                                 flex-wrap: wrap;
-// //                                 gap: 6px;
-// //                                 margin-bottom: 16px;
-// //                             }
-
-// //                             .filter {
-// //                                 padding: 5px 8px;
-// //                                 border: 1px solid #e2e8f0;
-// //                                 border-radius: 5px;
-// //                                 font-size: 10px;
-// //                             }
-
-// //                             table {
-// //                                 width: 100%;
-// //                                 border-collapse: collapse;
-// //                                 font-size: 9px;
-// //                             }
-
-// //                             th,
-// //                             td {
-// //                                 border: 1px solid #d1d5db;
-// //                                 padding: 6px;
-// //                                 text-align: right;
-// //                             }
-
-// //                             th:first-child,
-// //                             td:first-child {
-// //                                 text-align: left;
-// //                             }
-
-// //                             th {
-// //                                 background: #f8fafc;
-// //                                 font-weight: 700;
-// //                             }
-
-// //                             @media print {
-// //                                 body {
-// //                                     padding: 10px;
+// //                 const blob =
+// //                     response?.data instanceof Blob
+// //                         ? response.data
+// //                         : response instanceof Blob
+// //                             ? response
+// //                             : new Blob(
+// //                                 [response?.data ?? response],
+// //                                 {
+// //                                     type: "application/pdf",
 // //                                 }
-// //                             }
-// //                         </style>
-// //                     </head>
+// //                             );
 
-// //                     <body>
-// //                         <h1>
-// //                             Expense Category Drill-Down
-// //                         </h1>
+// //                 const contentDisposition =
+// //                     response?.headers?.["content-disposition"] ||
+// //                     response?.headers?.["Content-Disposition"] ||
+// //                     "";
 
-// //                         <div class="subtitle">
-// //                             Detailed PTD and YTD expense category analysis
-// //                         </div>
+// //                 const fileNameMatch =
+// //                     contentDisposition.match(
+// //                         /filename\*?=(?:UTF-8''|\")?([^;\"]+)/i
+// //                     );
 
-// //                         <div class="filters">
-// //                             ${filterRows
-// //                     .map(
-// //                         ([label, value]) =>
-// //                             `<div class="filter"><strong>${label}:</strong> ${value}</div>`
-// //                     )
-// //                     .join("")}
-// //                         </div>
+// //                 const fileName =
+// //                     fileNameMatch?.[1]
+// //                         ? decodeURIComponent(
+// //                             fileNameMatch[1].replace(/\"/g, "").trim()
+// //                         )
+// //                         : "expense-category-drill-down.pdf";
 
-// //                         <table>
-// //                             <thead>
-// //                                 <tr>
-// //                                     <th>Expense Category</th>
-// //                                     <th>Natural Account</th>
-// //                                     <th>Account Name</th>
-// //                                     <th>Actual PTD</th>
-// //                                     <th>Target PTD</th>
-// //                                     <th>Variance PTD</th>
-// //                                     <th>Variance PTD %</th>
-// //                                     <th>Actual YTD</th>
-// //                                     <th>Target YTD</th>
-// //                                     <th>Variance YTD</th>
-// //                                     <th>Variance YTD %</th>
-// //                                 </tr>
-// //                             </thead>
+// //                 const url =
+// //                     window.URL.createObjectURL(blob);
 
-// //                             <tbody>
-// //                                 ${tableRows}
-// //                             </tbody>
-// //                         </table>
-// //                     </body>
-// //                 </html>
-// //             `);
+// //                 const link =
+// //                     document.createElement("a");
 
-// //             printWindow.document.close();
+// //                 link.href = url;
+// //                 link.download = fileName;
+// //                 link.style.display = "none";
 
-// //             printWindow.focus();
+// //                 document.body.appendChild(link);
+// //                 link.click();
+// //                 document.body.removeChild(link);
 
-// //             setTimeout(() => {
-// //                 printWindow.print();
-// //             }, 300);
+// //                 window.URL.revokeObjectURL(url);
+// //             } catch (error) {
+// //                 console.error(
+// //                     "Failed to export Expense Category Drill-Down PDF:",
+// //                     error
+// //                 );
+// //             }
 // //         }
 // //     };
-
 // //     /* =====================================================
 // //        DON'T RENDER
 // //     ===================================================== */
@@ -3036,6 +2977,7 @@
 // import React, { useMemo, useState, useEffect, useRef } from "react";
 // import ExportButtons from "../Common/ExportButtons";
 // import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
+// import { exportOpexCategoryBreakdown } from "../../api/opexApi";
 
 // /* =========================================================
 //    FORMAT NUMBER
@@ -3647,6 +3589,38 @@
 //         subdivision: [],
 //         period: [],
 //     });
+
+//     // View All display-only toggle. Backend/API values remain unchanged.
+//     const [displayUnit, setDisplayUnit] = useState("AED");
+
+//     const formatDisplayNumber = (value) => {
+//         if (
+//             value === null ||
+//             value === undefined ||
+//             value === "" ||
+//             value === "-"
+//         ) {
+//             return "—";
+//         }
+
+//         const number = Number(value);
+
+//         if (!Number.isFinite(number)) {
+//             return "—";
+//         }
+
+//         const displayValue =
+//             displayUnit === "AED_MILLIONS"
+//                 ? number / 1000000
+//                 : number;
+
+//         return displayValue.toLocaleString("en-US", {
+//             minimumFractionDigits:
+//                 displayUnit === "AED_MILLIONS" ? 0 : 0,
+//             maximumFractionDigits:
+//                 displayUnit === "AED_MILLIONS" ? 2 : 0,
+//         });
+//     };
 //     const getSelectedFilterValues = (value) => {
 //         if (
 //             value === undefined ||
@@ -4131,87 +4105,91 @@
 //        COMMON EXPORT HANDLER
 //     ===================================================== */
 
-//     const handleExport = (type) => {
+//     const handleExport = async (type) => {
 //         if (!rows.length) {
 //             return;
 //         }
 
-//         const exportRows = [];
+//         /* =====================================================
+//            EXCEL
+//            Keep the existing frontend CSV export unchanged.
+//         ===================================================== */
+//         if (type === "excel") {
+//             const exportRows = [];
 
-//         rows.forEach((row) => {
-//             const category = getValue(row, [
-//                 "category",
-//                 "name",
-//             ]);
+//             rows.forEach((row) => {
+//                 const category = getValue(row, [
+//                     "category",
+//                     "name",
+//                 ]);
 
-//             exportRows.push({
-//                 "Expense Category": category || "—",
-//                 [`Actual PTD (${currency})`]:
-//                     getValue(row, [
-//                         "actual_ptd_aed",
-//                         "actual_ptd",
-//                     ]) ?? "",
-//                 [`Target PTD (${currency})`]:
-//                     getValue(row, [
-//                         "target_ptd_aed",
-//                         "target_ptd",
-//                     ]) ?? "",
-//                 [`Variance PTD (${currency})`]:
-//                     getValue(row, [
-//                         "variance_ptd_aed",
-//                         "variance_ptd",
-//                     ]) ?? "",
-//                 "Variance PTD %":
-//                     getValue(row, [
-//                         "variance_ptd_pct",
-//                     ]) ?? "",
-//                 [`Actual YTD (${currency})`]:
-//                     getValue(row, [
-//                         "actual_ytd_aed",
-//                         "actual_ytd",
-//                     ]) ?? "",
-//                 [`Target YTD (${currency})`]:
-//                     getValue(row, [
-//                         "target_ytd_aed",
-//                         "target_ytd",
-//                     ]) ?? "",
-//                 [`Variance YTD (${currency})`]:
-//                     getValue(row, [
-//                         "variance_ytd_aed",
-//                         "variance_ytd",
-//                     ]) ?? "",
-//                 "Variance YTD %":
-//                     getValue(row, [
-//                         "variance_ytd_pct",
-//                     ]) ?? "",
-//             });
-
-//             const accounts =
-//                 detailData[category] || [];
-
-//             accounts.forEach((account) => {
 //                 exportRows.push({
-//                     "Expense Category":
-//                         `${category || "—"} - Natural Account`,
-//                     "Natural Account":
-//                         account.account_code || "—",
-//                     "Account Name":
-//                         account.account_name || "—",
+//                     "Expense Category": category || "—",
 //                     [`Actual PTD (${currency})`]:
-//                         getValue(account, [
+//                         getValue(row, [
 //                             "actual_ptd_aed",
 //                             "actual_ptd",
 //                         ]) ?? "",
+//                     [`Target PTD (${currency})`]:
+//                         getValue(row, [
+//                             "target_ptd_aed",
+//                             "target_ptd",
+//                         ]) ?? "",
+//                     [`Variance PTD (${currency})`]:
+//                         getValue(row, [
+//                             "variance_ptd_aed",
+//                             "variance_ptd",
+//                         ]) ?? "",
+//                     "Variance PTD %":
+//                         getValue(row, [
+//                             "variance_ptd_pct",
+//                         ]) ?? "",
 //                     [`Actual YTD (${currency})`]:
-//                         getValue(account, [
+//                         getValue(row, [
 //                             "actual_ytd_aed",
 //                             "actual_ytd",
 //                         ]) ?? "",
+//                     [`Target YTD (${currency})`]:
+//                         getValue(row, [
+//                             "target_ytd_aed",
+//                             "target_ytd",
+//                         ]) ?? "",
+//                     [`Variance YTD (${currency})`]:
+//                         getValue(row, [
+//                             "variance_ytd_aed",
+//                             "variance_ytd",
+//                         ]) ?? "",
+//                     "Variance YTD %":
+//                         getValue(row, [
+//                             "variance_ytd_pct",
+//                         ]) ?? "",
+//                 });
+
+//                 const accounts =
+//                     detailData[category] || [];
+
+//                 accounts.forEach((account) => {
+//                     exportRows.push({
+//                         "Expense Category":
+//                             `${category || "—"} - Natural Account`,
+//                         "Natural Account":
+//                             account.account_code || "—",
+//                         "Account Name":
+//                             account.account_name || "—",
+//                         [`Actual PTD (${currency})`]:
+//                             getValue(account, [
+//                                 "actual_ptd_aed",
+//                                 "actual_ptd",
+//                             ]) ?? "",
+//                         [`Actual YTD (${currency})`]:
+//                             getValue(account, [
+//                                 "actual_ytd_aed",
+//                                 "actual_ytd",
+//                             ]) ?? "",
+//                     });
 //                 });
 //             });
-//         });
 
-//         if (type === "excel") {
 //             const headers = Object.keys(
 //                 exportRows[0] || {}
 //             );
@@ -4255,212 +4233,114 @@
 //             document.body.removeChild(link);
 
 //             URL.revokeObjectURL(url);
-
 //             return;
 //         }
 
+//         /* =====================================================
+//            PDF
+//            IMPORTANT:
+//            Use the backend category-breakdown PDF API directly.
+//            Do NOT open a print window and do NOT call window.print().
+
+//            The filters below are the same filters currently selected
+//            in this View All modal, including Parent Division.
+//         ===================================================== */
 //         if (type === "pdf") {
-//             const printWindow =
-//                 window.open(
-//                     "",
-//                     "_blank",
-//                     "width=1200,height=800"
-//                 );
+//             const apiFilters = {
+//                 year:
+//                     viewAllFilters.year?.length
+//                         ? viewAllFilters.year
+//                         : undefined,
 
-//             if (!printWindow) {
-//                 return;
-//             }
+//                 legal_entity_id:
+//                     viewAllFilters.legal_entity?.length
+//                         ? viewAllFilters.legal_entity
+//                         : undefined,
 
-//             const filterRows = [
-//                 ["Year", viewAllFilters.year.join(", ")],
-//                 ["Period", viewAllFilters.period.join(", ")],
-//                 ["Currency", currency],
-//                 ["Legal Entity", viewAllFilters.legal_entity.join(", ")],
-//                 ["Parent Division", viewAllFilters.parent_division.join(", ")],
-//                 ["Subdivision", viewAllFilters.subdivision.join(", ")],
-//             ].filter(
-//                 ([, value]) =>
-//                     value !== null &&
-//                     value !== undefined &&
-//                     value !== ""
-//             );
+//                 parent_division_id:
+//                     viewAllFilters.parent_division?.length
+//                         ? viewAllFilters.parent_division
+//                         : undefined,
 
-//             /*
-//              * PDF-ONLY TOTAL ROW
-//              * This does not change the UI table, API data, or Excel export.
-//              */
-//             const pdfTotalRow = `
-//                 <tr class="pdf-total-row">
-//                     <td>Total</td>
-//                     <td>—</td>
-//                     <td>—</td>
-//                     <td>${formatNumber(totals.actualPTD)}</td>
-//                     <td>${hasValue(totals.targetPTD) ? formatNumber(totals.targetPTD) : "—"}</td>
-//                     <td>${hasValue(totals.variancePTD) ? formatNumber(totals.variancePTD) : "—"}</td>
-//                     <td>${hasValue(totalVariancePTDPercent) ? formatPercentage(totalVariancePTDPercent) : "—"}</td>
-//                     <td>${formatNumber(totals.actualYTD)}</td>
-//                     <td>${hasValue(totals.targetYTD) ? formatNumber(totals.targetYTD) : "—"}</td>
-//                     <td>${hasValue(totals.varianceYTD) ? formatNumber(totals.varianceYTD) : "—"}</td>
-//                     <td>${hasValue(totalVarianceYTDPercent) ? formatPercentage(totalVarianceYTDPercent) : "—"}</td>
-//                 </tr>
-//             `;
+//                 subdivision_id:
+//                     viewAllFilters.subdivision?.length
+//                         ? viewAllFilters.subdivision
+//                         : undefined,
 
-//             const tableRows = exportRows
-//                 .map(
-//                     (row) => `
-//                         <tr>
-//                             <td>${row["Expense Category"] || "—"}</td>
-//                             <td>${row["Natural Account"] || "—"}</td>
-//                             <td>${row["Account Name"] || "—"}</td>
-//                             <td>${row[`Actual PTD (${currency})`] || "—"}</td>
-//                             <td>${row[`Target PTD (${currency})`] || "—"}</td>
-//                             <td>${row[`Variance PTD (${currency})`] || "—"}</td>
-//                             <td>${row["Variance PTD %"] || "—"}</td>
-//                             <td>${row[`Actual YTD (${currency})`] || "—"}</td>
-//                             <td>${row[`Target YTD (${currency})`] || "—"}</td>
-//                             <td>${row[`Variance YTD (${currency})`] || "—"}</td>
-//                             <td>${row["Variance YTD %"] || "—"}</td>
-//                         </tr>
-//                     `
-//                 )
-//                 .join("") + pdfTotalRow;
+//                 period_name:
+//                     viewAllFilters.period?.length
+//                         ? viewAllFilters.period
+//                         : undefined,
 
-//             printWindow.document.write(`
-//                 <html>
-//                     <head>
-//                         <title>Expense Category Drill-Down</title>
+//                 reporting_currency:
+//                     currency ||
+//                     reportingCurrency ||
+//                     "AED",
+//             };
 
-//                         <style>
-//                             body {
-//                                 font-family: Arial, sans-serif;
-//                                 padding: 24px;
-//                                 color: #111827;
-//                             }
+//             try {
+//                 const response =
+//                     await exportOpexCategoryBreakdown(
+//                         apiFilters,
+//                         "pdf"
+//                     );
 
-//                             h1 {
-//                                 font-size: 20px;
-//                                 margin-bottom: 5px;
-//                             }
+//                 if (!response) {
+//                     return;
+//                 }
 
-//                             .subtitle {
-//                                 color: #64748b;
-//                                 font-size: 12px;
-//                                 margin-bottom: 16px;
-//                             }
-
-//                             .filters {
-//                                 display: flex;
-//                                 flex-wrap: wrap;
-//                                 gap: 6px;
-//                                 margin-bottom: 16px;
-//                             }
-
-//                             .filter {
-//                                 padding: 5px 8px;
-//                                 border: 1px solid #e2e8f0;
-//                                 border-radius: 5px;
-//                                 font-size: 10px;
-//                             }
-
-//                             table {
-//                                 width: 100%;
-//                                 border-collapse: collapse;
-//                                 font-size: 9px;
-//                             }
-
-//                             th,
-//                             td {
-//                                 border: 1px solid #d1d5db;
-//                                 padding: 6px;
-//                                 text-align: right;
-//                             }
-
-//                             th:first-child,
-//                             td:first-child {
-//                                 text-align: left;
-//                             }
-
-//                             th {
-//                                 background: #f8fafc;
-//                                 font-weight: 700;
-//                             }
-
-//                             /* PDF-ONLY TOTAL ROW HIGHLIGHT */
-//                             .pdf-total-row td {
-//                                 background: #e2e8f0 !important;
-//                                 font-weight: 700;
-//                                 color: #0f172a;
-//                             }
-
-//                             @media print {
-//                                 body {
-//                                     padding: 10px;
+//                 const blob =
+//                     response?.data instanceof Blob
+//                         ? response.data
+//                         : response instanceof Blob
+//                             ? response
+//                             : new Blob(
+//                                 [response?.data ?? response],
+//                                 {
+//                                     type: "application/pdf",
 //                                 }
-//                             }
-//                         </style>
-//                     </head>
+//                             );
 
-//                     <body>
-//                         <div style="display: flex; align-items: center; margin-bottom: 10px;">
-//                             <img
-//                                 src="/images/FinSightLogo.jpeg"
-//                                 alt="FinSight"
-//                                 style="width: 150px; height: auto; object-fit: contain;"
-//                             />
-//                         </div>
+//                 const contentDisposition =
+//                     response?.headers?.["content-disposition"] ||
+//                     response?.headers?.["Content-Disposition"] ||
+//                     "";
 
-//                         <h1>
-//                             Expense Category Drill-Down
-//                         </h1>
+//                 const fileNameMatch =
+//                     contentDisposition.match(
+//                         /filename\*?=(?:UTF-8''|\")?([^;\"]+)/i
+//                     );
 
-//                         <div class="subtitle">
-//                             Detailed PTD and YTD expense category analysis
-//                         </div>
+//                 const fileName =
+//                     fileNameMatch?.[1]
+//                         ? decodeURIComponent(
+//                             fileNameMatch[1].replace(/\"/g, "").trim()
+//                         )
+//                         : "expense-category-drill-down.pdf";
 
-//                         <div class="filters">
-//                             ${filterRows
-//                     .map(
-//                         ([label, value]) =>
-//                             `<div class="filter"><strong>${label}:</strong> ${value}</div>`
-//                     )
-//                     .join("")}
-//                         </div>
+//                 const url =
+//                     window.URL.createObjectURL(blob);
 
-//                         <table>
-//                             <thead>
-//                                 <tr>
-//                                     <th>Expense Category</th>
-//                                     <th>Natural Account</th>
-//                                     <th>Account Name</th>
-//                                     <th>Actual PTD</th>
-//                                     <th>Target PTD</th>
-//                                     <th>Variance PTD</th>
-//                                     <th>Variance PTD %</th>
-//                                     <th>Actual YTD</th>
-//                                     <th>Target YTD</th>
-//                                     <th>Variance YTD</th>
-//                                     <th>Variance YTD %</th>
-//                                 </tr>
-//                             </thead>
+//                 const link =
+//                     document.createElement("a");
 
-//                             <tbody>
-//                                 ${tableRows}
-//                             </tbody>
-//                         </table>
-//                     </body>
-//                 </html>
-//             `);
+//                 link.href = url;
+//                 link.download = fileName;
+//                 link.style.display = "none";
 
-//             printWindow.document.close();
+//                 document.body.appendChild(link);
+//                 link.click();
+//                 document.body.removeChild(link);
 
-//             printWindow.focus();
-
-//             setTimeout(() => {
-//                 printWindow.print();
-//             }, 300);
+//                 window.URL.revokeObjectURL(url);
+//             } catch (error) {
+//                 console.error(
+//                     "Failed to export Expense Category Drill-Down PDF:",
+//                     error
+//                 );
+//             }
 //         }
 //     };
-
 //     /* =====================================================
 //        DON'T RENDER
 //     ===================================================== */
@@ -4677,7 +4557,7 @@
 //                                 }}
 //                             >
 //                                 Detailed PTD and YTD expense
-//                                 category analysis   <span style={{ fontWeight: 900 }}>Amounts in {reportingCurrency || "AED"}</span>
+//                                 category analysis   <span style={{ fontWeight: 900 }}>Amounts in {displayUnit === "AED_MILLIONS" ? "AED Millions" : "AED"}</span>
 //                             </div>
 //                         </div>
 
@@ -4765,6 +4645,84 @@
 //                             selectedValues={viewAllFilters.period}
 //                             onChange={(vals) => handleFilterChange("period", vals)}
 //                         />
+
+//                         {/* AED / AED MILLIONS DISPLAY TOGGLE */}
+//                         <div
+//                             style={{
+//                                 display: "inline-flex",
+//                                 alignItems: "center",
+//                                 height: "38px",
+//                                 padding: "3px",
+//                                 border: "1px solid #e0e6ed",
+//                                 borderRadius: "10px",
+//                                 background: "#f8fafc",
+//                                 boxSizing: "border-box",
+//                             }}
+//                         >
+//                             <button
+//                                 type="button"
+//                                 onClick={() => setDisplayUnit("AED")}
+//                                 style={{
+//                                     height: "30px",
+//                                     padding: "0 12px",
+//                                     border: "none",
+//                                     borderRadius: "7px",
+//                                     background:
+//                                         displayUnit === "AED"
+//                                             ? "#ffffff"
+//                                             : "transparent",
+//                                     color:
+//                                         displayUnit === "AED"
+//                                             ? "#2b3b75"
+//                                             : "#64748b",
+//                                     fontSize: "12px",
+//                                     fontWeight:
+//                                         displayUnit === "AED" ? 700 : 600,
+//                                     cursor: "pointer",
+//                                     boxShadow:
+//                                         displayUnit === "AED"
+//                                             ? "0 1px 3px rgba(15, 23, 42, 0.10)"
+//                                             : "none",
+//                                     outline: "none",
+//                                 }}
+//                             >
+//                                 AED
+//                             </button>
+
+//                             <button
+//                                 type="button"
+//                                 onClick={() =>
+//                                     setDisplayUnit("AED_MILLIONS")
+//                                 }
+//                                 style={{
+//                                     height: "30px",
+//                                     padding: "0 12px",
+//                                     border: "none",
+//                                     borderRadius: "7px",
+//                                     background:
+//                                         displayUnit === "AED_MILLIONS"
+//                                             ? "#ffffff"
+//                                             : "transparent",
+//                                     color:
+//                                         displayUnit === "AED_MILLIONS"
+//                                             ? "#2b3b75"
+//                                             : "#64748b",
+//                                     fontSize: "12px",
+//                                     fontWeight:
+//                                         displayUnit === "AED_MILLIONS"
+//                                             ? 700
+//                                             : 600,
+//                                     cursor: "pointer",
+//                                     boxShadow:
+//                                         displayUnit === "AED_MILLIONS"
+//                                             ? "0 1px 3px rgba(15, 23, 42, 0.10)"
+//                                             : "none",
+//                                     outline: "none",
+//                                 }}
+//                             >
+//                                 AED Millions
+//                             </button>
+//                         </div>
 
 //                         {/* Apply / Reset & Export Controls */}
 //                         <div
@@ -4896,7 +4854,7 @@
 //                                     {[
 //                                         {
 //                                             label: "PTD Actual",
-//                                             value: `${currency} ${formatNumber(
+//                                             value: `${currency} ${formatDisplayNumber(
 //                                                 totals.actualPTD
 //                                             )}`,
 //                                             accent: "#4f46e5",
@@ -4916,7 +4874,7 @@
 //                                         },
 //                                         {
 //                                             label: "YTD Actual",
-//                                             value: `${currency} ${formatNumber(
+//                                             value: `${currency} ${formatDisplayNumber(
 //                                                 totals.actualYTD
 //                                             )}`,
 //                                             accent: "#059669",
@@ -5361,7 +5319,7 @@
 //                                                                             "nowrap",
 //                                                                     }}
 //                                                                 >
-//                                                                     <span style={{ color: getNumberColor(actualPTD) }}>{formatNumber(actualPTD)}</span>
+//                                                                     <span style={{ color: getNumberColor(actualPTD) }}>{formatDisplayNumber(actualPTD)}</span>
 //                                                                 </td>
 
 //                                                                 <td
@@ -5378,7 +5336,7 @@
 //                                                                             "nowrap",
 //                                                                     }}
 //                                                                 >
-//                                                                     <span style={{ color: getNumberColor(targetPTD) }}>{formatNumber(targetPTD)}</span>
+//                                                                     <span style={{ color: getNumberColor(targetPTD) }}>{formatDisplayNumber(targetPTD)}</span>
 //                                                                 </td>
 
 //                                                                 <td
@@ -5395,7 +5353,7 @@
 //                                                                             "nowrap",
 //                                                                     }}
 //                                                                 >
-//                                                                     <span style={{ color: getNumberColor(variancePTD) }}>{formatNumber(variancePTD)}</span>
+//                                                                     <span style={{ color: getNumberColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
 //                                                                 </td>
 
 //                                                                 <td
@@ -5431,7 +5389,7 @@
 //                                                                             "nowrap",
 //                                                                     }}
 //                                                                 >
-//                                                                     <span style={{ color: getNumberColor(actualYTD) }}>{formatNumber(actualYTD)}</span>
+//                                                                     <span style={{ color: getNumberColor(actualYTD) }}>{formatDisplayNumber(actualYTD)}</span>
 //                                                                 </td>
 
 //                                                                 <td
@@ -5448,7 +5406,7 @@
 //                                                                             "nowrap",
 //                                                                     }}
 //                                                                 >
-//                                                                     <span style={{ color: getNumberColor(targetYTD) }}>{formatNumber(targetYTD)}</span>
+//                                                                     <span style={{ color: getNumberColor(targetYTD) }}>{formatDisplayNumber(targetYTD)}</span>
 //                                                                 </td>
 
 //                                                                 <td
@@ -5465,7 +5423,7 @@
 //                                                                             "nowrap",
 //                                                                     }}
 //                                                                 >
-//                                                                     <span style={{ color: getNumberColor(varianceYTD) }}>{formatNumber(varianceYTD)}</span>
+//                                                                     <span style={{ color: getNumberColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
 //                                                                 </td>
 
 //                                                                 <td
@@ -6717,6 +6675,41 @@ export default function ExpenseCategoryDrillDownModal({
         subdivision: [],
         period: [],
     });
+
+    // View All display-only toggle. Backend/API values remain unchanged.
+    const [displayUnit, setDisplayUnit] = useState("AED");
+
+    const formatDisplayNumber = (value) => {
+        if (
+            value === null ||
+            value === undefined ||
+            value === "" ||
+            value === "-"
+        ) {
+            return "—";
+        }
+
+        const number = Number(value);
+
+        if (!Number.isFinite(number)) {
+            return "—";
+        }
+
+        const displayValue =
+            displayUnit === "AED_MILLIONS"
+                ? number / 1000000
+                : number;
+
+        const formattedValue = displayValue.toLocaleString("en-US", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits:
+                displayUnit === "AED_MILLIONS" ? 2 : 0,
+        });
+
+        return displayUnit === "AED_MILLIONS"
+            ? `${formattedValue} M`
+            : formattedValue;
+    };
     const getSelectedFilterValues = (value) => {
         if (
             value === undefined ||
@@ -7653,7 +7646,7 @@ export default function ExpenseCategoryDrillDownModal({
                                 }}
                             >
                                 Detailed PTD and YTD expense
-                                category analysis   <span style={{ fontWeight: 900 }}>Amounts in {reportingCurrency || "AED"}</span>
+                                category analysis   <span style={{ fontWeight: 900 }}>Amounts in {displayUnit === "AED_MILLIONS" ? "AED Millions" : "AED"}</span>
                             </div>
                         </div>
 
@@ -7741,6 +7734,84 @@ export default function ExpenseCategoryDrillDownModal({
                             selectedValues={viewAllFilters.period}
                             onChange={(vals) => handleFilterChange("period", vals)}
                         />
+
+                        {/* AED / AED MILLIONS DISPLAY TOGGLE */}
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                height: "38px",
+                                padding: "3px",
+                                border: "1px solid #e0e6ed",
+                                borderRadius: "10px",
+                                background: "#f8fafc",
+                                boxSizing: "border-box",
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setDisplayUnit("AED")}
+                                style={{
+                                    height: "30px",
+                                    padding: "0 12px",
+                                    border: "none",
+                                    borderRadius: "7px",
+                                    background:
+                                        displayUnit === "AED"
+                                            ? "#ffffff"
+                                            : "transparent",
+                                    color:
+                                        displayUnit === "AED"
+                                            ? "#2b3b75"
+                                            : "#64748b",
+                                    fontSize: "12px",
+                                    fontWeight:
+                                        displayUnit === "AED" ? 700 : 600,
+                                    cursor: "pointer",
+                                    boxShadow:
+                                        displayUnit === "AED"
+                                            ? "0 1px 3px rgba(15, 23, 42, 0.10)"
+                                            : "none",
+                                    outline: "none",
+                                }}
+                            >
+                                AED
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setDisplayUnit("AED_MILLIONS")
+                                }
+                                style={{
+                                    height: "30px",
+                                    padding: "0 12px",
+                                    border: "none",
+                                    borderRadius: "7px",
+                                    background:
+                                        displayUnit === "AED_MILLIONS"
+                                            ? "#ffffff"
+                                            : "transparent",
+                                    color:
+                                        displayUnit === "AED_MILLIONS"
+                                            ? "#2b3b75"
+                                            : "#64748b",
+                                    fontSize: "12px",
+                                    fontWeight:
+                                        displayUnit === "AED_MILLIONS"
+                                            ? 700
+                                            : 600,
+                                    cursor: "pointer",
+                                    boxShadow:
+                                        displayUnit === "AED_MILLIONS"
+                                            ? "0 1px 3px rgba(15, 23, 42, 0.10)"
+                                            : "none",
+                                    outline: "none",
+                                }}
+                            >
+                                AED Millions
+                            </button>
+                        </div>
 
                         {/* Apply / Reset & Export Controls */}
                         <div
@@ -7872,7 +7943,7 @@ export default function ExpenseCategoryDrillDownModal({
                                     {[
                                         {
                                             label: "PTD Actual",
-                                            value: `${currency} ${formatNumber(
+                                            value: `${currency} ${formatDisplayNumber(
                                                 totals.actualPTD
                                             )}`,
                                             accent: "#4f46e5",
@@ -7883,7 +7954,7 @@ export default function ExpenseCategoryDrillDownModal({
                                             value: hasValue(
                                                 totals.targetPTD
                                             )
-                                                ? `${currency} ${formatNumber(
+                                                ? `${currency} ${formatDisplayNumber(
                                                     totals.targetPTD
                                                 )}`
                                                 : "—",
@@ -7892,7 +7963,7 @@ export default function ExpenseCategoryDrillDownModal({
                                         },
                                         {
                                             label: "YTD Actual",
-                                            value: `${currency} ${formatNumber(
+                                            value: `${currency} ${formatDisplayNumber(
                                                 totals.actualYTD
                                             )}`,
                                             accent: "#059669",
@@ -7903,7 +7974,7 @@ export default function ExpenseCategoryDrillDownModal({
                                             value: hasValue(
                                                 totals.targetYTD
                                             )
-                                                ? `${currency} ${formatNumber(
+                                                ? `${currency} ${formatDisplayNumber(
                                                     totals.targetYTD
                                                 )}`
                                                 : "—",
@@ -8337,7 +8408,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(actualPTD) }}>{formatNumber(actualPTD)}</span>
+                                                                    <span style={{ color: getNumberColor(actualPTD) }}>{formatDisplayNumber(actualPTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8354,7 +8425,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(targetPTD) }}>{formatNumber(targetPTD)}</span>
+                                                                    <span style={{ color: getNumberColor(targetPTD) }}>{formatDisplayNumber(targetPTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8371,7 +8442,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(variancePTD) }}>{formatNumber(variancePTD)}</span>
+                                                                    <span style={{ color: getNumberColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8407,7 +8478,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(actualYTD) }}>{formatNumber(actualYTD)}</span>
+                                                                    <span style={{ color: getNumberColor(actualYTD) }}>{formatDisplayNumber(actualYTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8424,7 +8495,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(targetYTD) }}>{formatNumber(targetYTD)}</span>
+                                                                    <span style={{ color: getNumberColor(targetYTD) }}>{formatDisplayNumber(targetYTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8441,7 +8512,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(varianceYTD) }}>{formatNumber(varianceYTD)}</span>
+                                                                    <span style={{ color: getNumberColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8653,7 +8724,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         ),
                                                                                     }}
                                                                                 >
-                                                                                    {formatNumber(
+                                                                                    {formatDisplayNumber(
                                                                                         getValue(account, [
                                                                                             "actual_ptd_aed",
                                                                                             "actual_ptd",
@@ -8742,7 +8813,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         ),
                                                                                     }}
                                                                                 >
-                                                                                    {formatNumber(
+                                                                                    {formatDisplayNumber(
                                                                                         getValue(account, [
                                                                                             "actual_ytd_aed",
                                                                                             "actual_ytd",
@@ -8890,7 +8961,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatNumber(totals.actualPTD)}</span>
+                                                    <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatDisplayNumber(totals.actualPTD)}</span>
                                                 </td>
 
                                                 <td
@@ -8909,7 +8980,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatNumber(totals.targetPTD)}</span>
+                                                    <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatDisplayNumber(totals.targetPTD)}</span>
                                                 </td>
 
                                                 <td
@@ -8928,7 +8999,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatNumber(totals.variancePTD)}</span>
+                                                    <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
                                                 </td>
 
                                                 <td
@@ -8968,7 +9039,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatNumber(totals.actualYTD)}</span>
+                                                    <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatDisplayNumber(totals.actualYTD)}</span>
                                                 </td>
 
                                                 <td
@@ -8987,7 +9058,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatNumber(totals.targetYTD)}</span>
+                                                    <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatDisplayNumber(totals.targetYTD)}</span>
                                                 </td>
 
                                                 <td
@@ -9006,7 +9077,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatNumber(totals.varianceYTD)}</span>
+                                                    <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
                                                 </td>
 
                                                 <td

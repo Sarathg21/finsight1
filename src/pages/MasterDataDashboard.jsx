@@ -728,9 +728,9 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          error?.message ||
-          "Unable to create Parent Division"
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to create Parent Division"
       );
 
       throw error;
@@ -755,8 +755,7 @@ export default function MasterDataDashboard() {
       });
 
       toast.success(
-        `Legal Group ${
-          nextActive ? "activated" : "deactivated"
+        `Legal Group ${nextActive ? "activated" : "deactivated"
         } successfully`
       );
 
@@ -769,8 +768,8 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          "Unable to update Legal Group status"
+        error?.response?.data?.message ||
+        "Unable to update Legal Group status"
       );
     }
   };
@@ -792,8 +791,7 @@ export default function MasterDataDashboard() {
       });
 
       toast.success(
-        `Legal Entity ${
-          entity.active ? "deactivated" : "activated"
+        `Legal Entity ${entity.active ? "deactivated" : "activated"
         } successfully`
       );
 
@@ -838,8 +836,7 @@ export default function MasterDataDashboard() {
       });
 
       toast.success(
-        `Parent Division ${
-          nextActive ? "activated" : "deactivated"
+        `Parent Division ${nextActive ? "activated" : "deactivated"
         } successfully`
       );
 
@@ -852,8 +849,8 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          "Unable to update Parent Division status"
+        error?.response?.data?.message ||
+        "Unable to update Parent Division status"
       );
     }
   };
@@ -927,7 +924,7 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-          "Unable to update Sub Division status"
+        "Unable to update Sub Division status"
       );
     }
   };
@@ -966,8 +963,8 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail?.[0]?.msg ||
-          error?.response?.data?.message ||
-          "Unable to update Business Unit status"
+        error?.response?.data?.message ||
+        "Unable to update Business Unit status"
       );
     }
   };
@@ -991,8 +988,7 @@ export default function MasterDataDashboard() {
       });
 
       toast.success(
-        `Analysis Code ${
-          item.active ? "deactivated" : "activated"
+        `Analysis Code ${item.active ? "deactivated" : "activated"
         } successfully`
       );
 
@@ -1031,8 +1027,7 @@ export default function MasterDataDashboard() {
       });
 
       toast.success(
-        `Currency ${
-          nextActive ? "activated" : "deactivated"
+        `Currency ${nextActive ? "activated" : "deactivated"
         } successfully`
       );
 
@@ -1268,16 +1263,16 @@ export default function MasterDataDashboard() {
                 activeTab === "legal-groups"
                   ? "Legal Group"
                   : activeTab === "legal-entities"
-                  ? "Legal Entity"
-                  : activeTab === "parent-divisions"
-                  ? "Parent Division"
-                  : activeTab === "sub-divisions"
-                  ? "Sub Division"
-                  : activeTab === "business-units"
-                  ? "Business Unit"
-                  : activeTab === "analysis-codes"
-                  ? "Analysis Code"
-                  : "Currency"
+                    ? "Legal Entity"
+                    : activeTab === "parent-divisions"
+                      ? "Parent Division"
+                      : activeTab === "sub-divisions"
+                        ? "Sub Division"
+                        : activeTab === "business-units"
+                          ? "Business Unit"
+                          : activeTab === "analysis-codes"
+                            ? "Analysis Code"
+                            : "Currency"
               }
               onAdd={() => {
                 if (activeTab === "legal-groups") {
@@ -1442,6 +1437,8 @@ export default function MasterDataDashboard() {
               onAnnotate={() =>
                 console.log("Annotate")
               }
+
+
               onStatusChange={(value) => {
                 if (!selectedGroup) return;
 
@@ -1466,6 +1463,7 @@ export default function MasterDataDashboard() {
               onAnnotate={() =>
                 console.log("Annotate")
               }
+
               onStatusChange={(value) =>
                 console.log(value)
               }
@@ -1955,7 +1953,7 @@ export default function MasterDataDashboard() {
                 console.error(
                   "Parent Division Legal Entity mapping error:",
                   error?.response?.data ||
-                    error
+                  error
                 );
 
                 toast.error(
