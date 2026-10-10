@@ -413,10 +413,10 @@ function buildPLParams(filters = {}) {
   };
 
   return {
-    legal_group_id: activeIds(filters.legalGroupId),
-    legal_entity_id: activeIds(filters.legalEntityId),
-    parent_division_id: activeIds(filters.parentDivisionId),
-    subdivision_id: activeIds(filters.subdivisionId),
+    legal_group_id: activeStrings(filters.legalGroupId),
+    legal_entity_id: activeStrings(filters.legalEntityId),
+    parent_division_id: activeStrings(filters.parentDivisionId),
+    subdivision_id: activeStrings(filters.subdivisionId),
 
     year: active(filters.year),
 

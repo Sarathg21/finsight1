@@ -14,7 +14,7 @@ import { getApiBaseUrl } from '../utils/apiBase';
 // IMPORTANT: Keep ?? (not ||) here.
 // When VITE_API_BASE_URL is empty (""), API_BASE stays "" so that all requests
 // use relative paths (/api/...) which are intercepted by the Vite dev proxy
-// → http://13.233.207.68:8000.  Using || would bypass the proxy and cause
+// → http://13.204.174.81:8000.  Using || would bypass the proxy and cause
 // CORS errors because the browser would hit the backend directly.
 export const API_BASE = getApiBaseUrl();
 

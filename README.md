@@ -21,7 +21,7 @@ Create a `.env` file in the root directory. The following environment variables 
 
 - `VITE_API_BASE_URL`: The base URL of the backend API.
   - **Local Development**: Leave this empty so that API calls use relative paths (e.g., `/api/...`) and are intercepted by the Vite dev proxy.
-  - **Production Deployment**: Set this to the full backend URL (e.g., `http://13.233.207.68:8000`).
+  - **Production Deployment**: Set this to the full backend URL (e.g., `http://13.204.174.81:8000`).
 
 ## Available Scripts
 

@@ -300,7 +300,7 @@ const operatingAnalysisUniformStyles = `
 
         width: 100%;
         min-height: 100%;
-        padding: 20px 0 32px;
+        padding: 0 0 24px;
         margin: 0;
         overflow-x: hidden;
 
@@ -3456,7 +3456,7 @@ Only the View All API is refreshed.
     ===================================================== */
 
     return (
-        <div className="page-content relative operating-analysis-page">
+        <div className="relative operating-analysis-page">
             <style>{operatingAnalysisUniformStyles}</style>
 
             <div className="oa-header-wrap">

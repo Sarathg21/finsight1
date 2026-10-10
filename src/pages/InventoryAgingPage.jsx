@@ -4,12 +4,12 @@
 function formatDisplayDateGlobal(d) {
   if (!d || d === "All") return "Selected Date";
   const str = String(d).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    const [y, m, day] = str.split('-');
-    return `${day}-${m}-${y}`;
-  }
-  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
-    return str;
+  const dateObj = new Date(str);
+  if (!isNaN(dateObj.getTime())) {
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${day}-${month}-${year}`;
   }
   return str;
 }
@@ -17,10 +17,12 @@ function formatDisplayDateGlobal(d) {
 function getRawDateForInputGlobal(d) {
   if (!d || d === "All") return "";
   const str = String(d).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
-    const [day, m, y] = str.split('-');
-    return `${y}-${m}-${day}`;
+  const dateObj = new Date(str);
+  if (!isNaN(dateObj.getTime())) {
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${year}-${month}-${day}`;
   }
   return "";
 }
@@ -47,16 +49,24 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
             }
         }
     };
+    const todayStr = (() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    })();
     const handleDateChange = (event) => {
         const selectedDate = event.target.value;
         if (!selectedDate) return;
+        // Issue 9: Reject future dates
+        if (selectedDate > todayStr) {
+            if (typeof toast !== 'undefined') {
+                toast.error("Future dates are not allowed. Please select a date on or before today.");
+            }
+            return;
+        }
         onChange(selectedDate);
     };
     const formatDisplayDate = (d) => {
-        if (!d || d === "All") return "Selected Date";
-        const parts = d.split("-");
-        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-        return d;
+        return formatDisplayDateGlobal(d);
     };
 
     const displayText = formatDisplayDate(value);
@@ -97,6 +107,7 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
                 ref={dateInputRef}
                 type="date"
                 value={value || ""}
+                max={todayStr}
                 onChange={handleDateChange}
                 style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
             />
@@ -125,6 +136,9 @@ export default function InventoryOverview() {
 
 
   const handleExport = async (type, section = null, customFilters = null, drilldownFilters = null) => {
+    if (section === 'aging') {
+      return handleExportAgingSummary(type);
+    }
     setIsExporting(true);
     const toastId = toast.loading(`Exporting ${section || 'data'}...`);
     try {
@@ -314,6 +328,7 @@ export default function InventoryOverview() {
       asOnDate: "All",
   });
 const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [lastFetchedAt, setLastFetchedAt] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [detailPage, setDetailPage] = useState(0);
@@ -736,14 +751,30 @@ const [loading, setLoading] = useState(true);
   const currentCurrency = (appliedFilters.currency && appliedFilters.currency !== "All") ? appliedFilters.currency : (mockData.reporting_currency || "AED");
 
   const fmtAED = (v) => {
-      if (v === null || v === undefined) return "-";
+      if (v === null || v === undefined) return "—";
       const n = Number(v);
-      if (isNaN(n)) return "-";
+      if (isNaN(n)) return "—";
       const cur = currentCurrency;
-      if (Math.abs(n) >= 1_000_000_000) return `${cur} ${Math.round(n / 1_000_000_000).toLocaleString()}B`;
-      if (Math.abs(n) >= 1_000_000) return `${cur} ${Math.round(n / 1_000_000).toLocaleString()}M`;
-      if (Math.abs(n) >= 1_000) return `${cur} ${Math.round(n / 1_000).toLocaleString()}K`;
+      if (Math.abs(n) >= 1_000_000_000) return `${cur} ${(n / 1_000_000_000).toFixed(2)}B`;
+      if (Math.abs(n) >= 1_000_000) return `${cur} ${(n / 1_000_000).toFixed(2)}M`;
+      if (Math.abs(n) >= 1_000) return `${cur} ${(n / 1_000).toFixed(1)}K`;
       return `${cur} ${Math.round(n).toLocaleString()}`;
+  };
+
+  // Golden UI VarBadge convention (matches SalesRevenueReport.jsx VarBadge):
+  //   ▲ (isUp, val >= 0) = green #16a34a (favorable for normal metrics)
+  //   ▼ (isDown, val < 0) = red  #dc2626 (unfavorable for normal metrics)
+  //   lowerIsBetter=true (Obsolete, DIO): colors are inverted
+  const fmtVarBadge = (val, lowerIsBetter = false) => {
+    if (val === null || val === undefined || val === "" || isNaN(Number(val))) {
+      return { display: "—", color: "#64748b", arrow: "" };
+    }
+    const n = Number(val);
+    const isUp = n >= 0;
+    const isFavorable = lowerIsBetter ? !isUp : isUp;
+    const color = isFavorable ? "#16a34a" : "#dc2626";
+    const arrow = isUp ? "▲" : "▼";
+    return { display: `${Math.abs(n).toFixed(2)}%`, color, arrow };
   };
 
   const formatChartValueCompact = (value, currency = null) => {
@@ -776,6 +807,199 @@ const [loading, setLoading] = useState(true);
           return parsed.toLocaleDateString("en-US", { month: "short", year: "numeric" });
       }
       return text;
+  };
+
+  // Automatically fetch cascaded options when pending filters change
+  useEffect(() => {
+    const fetchOptions = async () => {
+      const getApiVal = (val) => {
+        if (!val || val === "All") return null;
+        if (Array.isArray(val)) {
+            const c = val.filter(v => v !== "All");
+            return c.length > 0 ? c : null;
+        }
+        return [val];
+      };
+      
+      const apiFilters = {};
+      if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
+      if (getApiVal(filters.legalEntity)) apiFilters.legal_entity_id = getApiVal(filters.legalEntity);
+      if (getApiVal(filters.parentDivision)) apiFilters.parent_division_id = getApiVal(filters.parentDivision);
+      if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
+      if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
+      
+      try {
+        const filterRes = await getInventoryFilters(apiFilters);
+        const fData = filterRes.data || {};
+        
+        const dedupeOptions = (arr) => {
+            if (!arr) return [];
+            const map = new Map();
+            arr.forEach(i => {
+                const label = i.label || i.name || i.desc || i;
+                const value = i.value || i.id || i;
+                if (!map.has(label)) {
+                    map.set(label, { label, value });
+                }
+            });
+            return Array.from(map.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+        };
+        
+        setMockData(prev => ({
+            ...prev,
+            filters: {
+                ...prev.filters,
+                legalGroups: dedupeOptions(fData.legal_groups || prev.filters.legalGroups),
+                legalEntities: dedupeOptions(fData.legal_entities),
+                parentDivisions: dedupeOptions(fData.parent_divisions),
+                subdivisions: dedupeOptions(fData.subdivisions),
+                subinventories: dedupeOptions(fData.subinventories),
+            }
+        }));
+      } catch (err) {
+        console.warn("Failed to update filter options", err);
+      }
+    };
+    fetchOptions();
+  }, [filters.legalGroup, filters.legalEntity, filters.parentDivision, filters.subdivision, filters.subinventory]);
+
+  const handleExportAgingSummary = async (format = "excel") => {
+    setIsExporting(true);
+    const toastId = toast.loading(`Exporting Inventory Aging Summary to ${format.toUpperCase()}...`);
+    try {
+      const asOnDateStr = (appliedFilters.asOnDate && appliedFilters.asOnDate !== "All")
+        ? formatDisplayDateGlobal(appliedFilters.asOnDate)
+        : (mockData.dataAsOf ? formatDisplayDateGlobal(mockData.dataAsOf) : new Date().toLocaleDateString("en-GB"));
+
+      const agingDefs = [
+        { code: "0_30", label: "0 - 30 Days", status: "Current" },
+        { code: "31_60", label: "31 - 60 Days", status: "Active" },
+        { code: "61_90", label: "61 - 90 Days", status: "Active" },
+        { code: "91_120", label: "91 - 120 Days", status: "Active" },
+        { code: "121_180", label: "121 - 180 Days", status: "Active" },
+        { code: "181_365", label: "181 - 365 Days", status: "Slow Moving" },
+        { code: "366_730", label: "366 - 730 Days", status: "Obsolete" },
+        { code: "above_730", label: "Above 730 Days", status: "Obsolete" },
+      ];
+
+      const totalVal = Number(mockData.totalInventory || agingTotal || 0);
+
+      const rowsData = agingDefs.map(def => {
+        const item = (mockData.aging || []).find(a => {
+          const c = toAgingBucketCode(a.bucket_code || a.name || a.code);
+          return c === def.code || String(a.name).toLowerCase().includes(def.code.replace('_', '-'));
+        });
+        const amount = item ? Number(item.value || 0) : 0;
+        const pct = totalVal > 0 ? (amount / totalVal) * 100 : (item ? Number(item.percentage || 0) : 0);
+        return {
+          bucket: def.label,
+          status: def.status,
+          amount: Math.round(amount),
+          percentage: `${Math.round(pct)}%`,
+        };
+      });
+
+      if (format === "excel") {
+        const headerRow = [
+          "Aging Bucket",
+          "Status",
+          `Amount (${currentCurrency})`,
+          "% Total"
+        ];
+        const dataRows = rowsData.map(r => [
+          r.bucket,
+          r.status,
+          r.amount,
+          r.percentage
+        ]);
+        const totalRow = [
+          "Total",
+          "—",
+          Math.round(totalVal),
+          "100%"
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet([
+          ["Inventory Aging Summary"],
+          [`Reporting Currency: ${currentCurrency} | As on Date: ${asOnDateStr} | Generated: ${new Date().toLocaleDateString()}`],
+          [],
+          headerRow,
+          ...dataRows,
+          totalRow
+        ]);
+
+        ws["!cols"] = [{ wch: 22 }, { wch: 16 }, { wch: 24 }, { wch: 14 }];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Aging_Summary");
+        XLSX.writeFile(wb, `Inventory_Aging_Summary_${asOnDateStr.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+        toast.success("Aging Summary exported to Excel successfully", { id: toastId });
+      } else {
+        const { default: jsPDF } = await import("jspdf");
+        const { default: autoTable } = await import("jspdf-autotable");
+        const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+
+        doc.setFontSize(16);
+        doc.setTextColor(30, 58, 138);
+        doc.text("Inventory Aging Summary", 40, 45);
+
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Reporting Currency: ${currentCurrency}   |   As on Date: ${asOnDateStr}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
+
+        const tableHeaders = [["Aging Bucket", "Status", `Amount (${currentCurrency})`, "% Total"]];
+        const tableBody = rowsData.map(r => [
+          r.bucket,
+          r.status,
+          r.amount.toLocaleString("en-US"),
+          r.percentage
+        ]);
+        tableBody.push([
+          "Total",
+          "—",
+          Math.round(totalVal).toLocaleString("en-US"),
+          "100%"
+        ]);
+
+        autoTable(doc, {
+          head: tableHeaders,
+          body: tableBody,
+          startY: 80,
+          theme: "grid",
+          headStyles: {
+            fillColor: [30, 58, 138],
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            halign: "center"
+          },
+          columnStyles: {
+            0: { halign: "left" },
+            1: { halign: "center" },
+            2: { halign: "right" },
+            3: { halign: "right" },
+          },
+          styles: {
+            fontSize: 9,
+            cellPadding: 7,
+          },
+          didParseCell: (data) => {
+            if (data.row.index === tableBody.length - 1) {
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.fillColor = [241, 245, 249];
+              data.cell.styles.textColor = [15, 23, 42];
+            }
+          }
+        });
+
+        doc.save(`Inventory_Aging_Summary_${asOnDateStr.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+        toast.success("Aging Summary exported to PDF successfully", { id: toastId });
+      }
+    } catch (err) {
+      console.error("Failed to export aging summary", err);
+      toast.error("Failed to export aging summary: " + (err.message || "Unknown error"), { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const loadData = useCallback(async () => {
@@ -1187,6 +1411,7 @@ const [loading, setLoading] = useState(true);
                 return [{ value: "All", label: "All" }, ...list];
               };
 
+              setLoadError(null);
               setMockData({
                   filters: {
                       legalGroups: dedupeOptions(fData.legal_groups),
@@ -1217,6 +1442,7 @@ const [loading, setLoading] = useState(true);
               });
           } catch (err) {
               console.error(err);
+              setLoadError(err?.message || 'Failed to load inventory data. Please check your connection and try again.');
           } finally {
               setLastFetchedAt(new Date());
               setLoading(false);
@@ -1583,39 +1809,11 @@ const [loading, setLoading] = useState(true);
 
   const KpiCard = ({ item }) => {
     const hasVariance = item.variance !== null && item.variance !== undefined && item.variance !== "";
-    
-    // Parse numeric value from variance
-    let numVariance = null;
-    if (typeof item.variance === 'number') {
-      numVariance = item.variance;
-    } else if (typeof item.variance === 'string') {
-      const match = item.variance.match(/[-+]?[0-9]*\.?[0-9]+/);
-      if (match) {
-        numVariance = parseFloat(match[0]);
-        if (item.variance.includes('-')) numVariance = -Math.abs(numVariance);
-      }
-    }
-
-    // Direction: up (true) if >= 0, down (false) if < 0. Fallback to explicit direction if provided
-    const isUp = numVariance !== null ? numVariance >= 0 : (item.direction === "up");
-
-    // Behavior of figure:
-    // If lowerIsBetter is true (e.g. Obsolete Stock, DIO / Holding Days):
-    //   Up (increase) is UNFAVORABLE (RED: #dc2626)
-    //   Down (decrease) is FAVORABLE (GREEN: #16a34a)
-    // If lowerIsBetter is false (e.g. Turnover, Total Inventory, etc.):
-    //   Up (increase) is FAVORABLE (GREEN: #16a34a)
-    //   Down (decrease) is UNFAVORABLE (RED: #dc2626)
     const lowerIsBetter = item.lowerIsBetter ?? (item.key === 'obsolete' || item.key === 'dio');
-    const arrowColor = item.arrowColor || (lowerIsBetter
-      ? (isUp ? "#dc2626" : "#16a34a")
-      : (isUp ? "#16a34a" : "#dc2626"));
-
-    // Clean variance display to avoid double "+ " or "- " with arrow
-    const numVar = Number(item.variance);
-    const displayVariance = !isNaN(numVar) && item.variance !== null && item.variance !== ""
-      ? `${Math.abs(numVar).toFixed(2)}%`
-      : String(item.variance).replace(/^[+-]/, '').trim();
+    const badge = fmtVarBadge(item.variance, lowerIsBetter);
+    const arrowColor = item.arrowColor || badge.color;
+    const displayVariance = hasVariance ? badge.display : "";
+    const isUp = badge.arrow === "▲";
 
     const [hover, setHover] = useState(false);
     const accent = item.titleColor || "#2563eb";
@@ -1693,7 +1891,7 @@ const [loading, setLoading] = useState(true);
               textOverflow: "ellipsis",
             }}
           >
-            {item.value || "- "}
+            {item.value || "—"}
           </div>
 
           {(hasVariance || item.subtitle) && (
@@ -2373,6 +2571,20 @@ const [loading, setLoading] = useState(true);
     const radius = half - strokeWidth / 2 - 2;
     const circumference = 2 * Math.PI * radius;
 
+    // Issue 15: No-data state - when there are no segments, show a placeholder
+    if (!data || data.length === 0 || data.every(d => !d.value || Number(d.value) === 0)) {
+      return (
+        <div style={{ width: size, height: size, flex: `0 0 ${size}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+            <circle cx={half} cy={half} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', lineHeight: 1.3 }}>No data<br />available</div>
+          </div>
+        </div>
+      );
+    }
+
     let offset = 0;
     const segments = (data || []).map((item) => {
       const dash = (item.percentage / 100) * circumference;
@@ -2668,9 +2880,8 @@ const [loading, setLoading] = useState(true);
           const prevVal = Number(hoveredMom.previous_value ?? hoveredMom.previous ?? 0);
           const variance = curVal - prevVal;
           const variancePct = prevVal > 0 ? (variance / prevVal) * 100 : 0;
-          const isPositive = variance > 0;
-          const isNegative = variance < 0;
-          const varColor = isPositive ? "#dc2626" : (isNegative ? "#16a34a" : "#64748b");
+          const varBadge = fmtVarBadge(variancePct, false); // total inventory, so lowerIsBetter=false
+          const varColor = variance === 0 ? "#64748b" : varBadge.color;
 
           return (
           <div
@@ -3101,9 +3312,9 @@ const [loading, setLoading] = useState(true);
 
     if (variant === "table") {
       return (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid #e2e8f0", background: "#fff", gap: 8, borderRadius: "10px 10px 0 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #e2e8f0", background: "#fff", gap: 8, borderRadius: "10px 10px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
-            <span style={{ fontWeight: 800, fontSize: "0.86rem", color: "#1e293b", letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
+            <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a", letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
             {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
           </div>
           {actionButtons}
@@ -3113,8 +3324,8 @@ const [loading, setLoading] = useState(true);
 
     if (extra) {
       return (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 0", marginBottom: 8, gap: 8 }}>
-          <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 0", marginBottom: 8, gap: 8 }}>
+          <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
             <span title={title}>{title}</span>
             {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
           </div>
@@ -3127,8 +3338,8 @@ const [loading, setLoading] = useState(true);
     }
 
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 0", marginBottom: 8, gap: 8 }}>
-        <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 0", marginBottom: 8, gap: 8 }}>
+        <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
           <span title={title}>{title}</span>
           {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
         </div>
@@ -3145,291 +3356,6 @@ const [loading, setLoading] = useState(true);
    MODAL MULTI-SELECT (Matching Sales Revenue Consolidated View All)
    ================================================================ */
 
-function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'All', style }) {
-  const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const ref = useRef(null);
-  const searchRef = useRef(null);
-
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
-        setOpen(false);
-        setSearchQuery('');
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  useEffect(() => {
-    if (open && searchRef.current) {
-      setTimeout(() => searchRef.current && searchRef.current.focus(), 0);
-    }
-    if (!open) setSearchQuery('');
-  }, [open]);
-
-  // Deduplicate and normalize options by label
-  const uniqueOptions = useMemo(() => {
-    const list = [];
-    const seen = new Set();
-    (options || []).forEach(o => {
-      if (o == null) return;
-      const rawVal = typeof o === 'object' ? (o.value !== undefined ? o.value : o.id) : o;
-      const rawLbl = typeof o === 'object' ? (o.label !== undefined ? o.label : (o.name !== undefined ? o.name : rawVal)) : o;
-      const strVal = String(rawVal ?? '');
-      const strLbl = typeof rawLbl === 'object' ? String(rawLbl?.label || rawLbl?.name || rawVal || '') : String(rawLbl ?? '');
-      const key = strLbl.trim().toLowerCase();
-      if (!key || key === 'all') return;
-      if (!seen.has(key)) {
-        seen.add(key);
-        list.push({ id: strVal || strLbl, name: strLbl, value: strVal, label: strLbl });
-      }
-    });
-    return list;
-  }, [options]);
-
-  const q = searchQuery.trim().toLowerCase();
-  const visibleOptions = q
-    ? uniqueOptions.filter(o => o.name.toLowerCase().includes(q))
-    : uniqueOptions;
-
-  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
-
-  const isOptionSelected = (opt) => {
-    if (isAll) return false;
-    const optVal = String(opt.value ?? opt.id).toLowerCase();
-    const optName = String(opt.name ?? opt.label).toLowerCase();
-    return (value || []).some(v => {
-      const sv = String(v).toLowerCase();
-      return sv === optVal || sv === optName;
-    });
-  };
-
-  const toggle = (opt) => {
-    const optVal = String(opt.value ?? opt.id);
-    const optName = String(opt.name ?? opt.label);
-    
-    // When currently "All", selecting one item sets value to ONLY this item
-    const cur = isAll ? [] : (value || []).filter(v => String(v) !== 'All').map(String);
-    const selected = isOptionSelected(opt);
-
-    let next;
-    if (selected) {
-      next = cur.filter(v => {
-        const sv = v.toLowerCase();
-        return sv !== optVal.toLowerCase() && sv !== optName.toLowerCase();
-      });
-    } else {
-      next = [...cur, optVal];
-    }
-
-    if (next.length === 0 || (uniqueOptions.length > 0 && next.length === uniqueOptions.length)) {
-      onChange(['All']);
-    } else {
-      onChange(next);
-    }
-  };
-
-  const selectedVals = uniqueOptions.filter(o => isOptionSelected(o));
-  const label = isAll
-    ? placeholder
-    : selectedVals.length === 1
-      ? selectedVals[0].name
-      : `${selectedVals.length} selected`;
-
-  return (
-    <div ref={ref} style={{ position: 'relative', width: '100%', minWidth: 0, ...style }}>
-      <div
-        onClick={() => setOpen(o => !o)}
-        style={{
-          padding: '0 24px 0 9px',
-          fontSize: 11,
-          fontWeight: 600,
-          color: '#29427f',
-          background: '#fff',
-          border: open ? '1.5px solid #2563eb' : '1px solid #d9e1ee',
-          borderRadius: 5,
-          cursor: 'pointer',
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-          height: 34,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          userSelect: 'none',
-          position: 'relative',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
-          {label}
-        </span>
-        <span style={{ fontSize: '0.65rem', color: '#173b8f', position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}>
-          {open ? '▲' : '▼'}
-        </span>
-      </div>
-
-      {open && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, minWidth: '220px', maxWidth: '320px',
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-          boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 1000, marginTop: 4, display: 'flex', flexDirection: 'column'
-        }}>
-          {/* Search box with clear button */}
-          <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.3-4.3"/>
-              </svg>
-              <input
-                ref={searchRef}
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.74rem', width: '100%', color: '#334155' }}
-              />
-              {searchQuery && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }}
-                  style={{ fontSize: '0.65rem', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  ✕
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Select All / Clear action bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            <span
-              onClick={(e) => { e.stopPropagation(); onChange(['All']); }}
-              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
-            >
-              Select All
-            </span>
-            <span
-              onClick={(e) => { e.stopPropagation(); onChange(['All']); }}
-              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
-            >
-              Clear
-            </span>
-          </div>
-
-          {/* Options list */}
-          <div style={{ maxHeight: '190px', overflowY: 'auto', padding: '4px 0' }}>
-            {/* "All" row */}
-            <div
-              onClick={() => onChange(['All'])}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-                cursor: 'pointer', fontSize: '0.74rem', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400,
-                background: isAll ? '#eff6ff' : 'transparent', borderBottom: '1px solid #f1f5f9'
-              }}
-              onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }}
-              onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = 'transparent'; }}
-            >
-              <input
-                type="checkbox"
-                checked={isAll}
-                readOnly
-                style={{ cursor: 'pointer', accentColor: '#2563eb' }}
-              />
-              <span>All</span>
-            </div>
-
-            {visibleOptions.map((opt) => {
-              const selected = isOptionSelected(opt);
-              return (
-                <div
-                  key={opt.id}
-                  onClick={() => toggle(opt)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-                    cursor: 'pointer', fontSize: '0.74rem', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400,
-                    background: selected ? '#eff6ff' : 'transparent', transition: 'background 0.1s'
-                  }}
-                  onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }}
-                  onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    readOnly
-                    style={{ cursor: 'pointer', accentColor: '#2563eb' }}
-                  />
-                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.name}</span>
-                </div>
-              );
-            })}
-
-            {visibleOptions.length === 0 && (
-              <div style={{ padding: '12px', textAlign: 'center', color: '#94a3b8', fontSize: '0.74rem' }}>
-                No options found
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-  const FilterField = ({
-    label,
-    value,
-    options = [],
-    onChange,
-    date = false,
-    minWidth = 110,
-  }) => {
-    const uniqueOptions = [];
-    const seen = new Set();
-    options.forEach(opt => {
-      const lbl = typeof opt === 'object' ? opt.label : opt;
-      const val = typeof opt === 'object' ? opt.value : opt;
-      if (!seen.has(lbl)) {
-        seen.add(lbl);
-        uniqueOptions.push({ value: val, label: lbl });
-      }
-    });
-
-    return (
-      <div style={{ ...styles.filterField, minWidth }}>
-        <label style={styles.filterLabel}>{label}</label>
-
-        {date || label === "Reporting Currency" || label === "Currency" ? (
-          <div style={styles.selectWrapper}>
-            <select
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              style={styles.select}
-            >
-              {uniqueOptions.map((opt, __idx) => (
-                <option key={`${opt.value}-${__idx}`} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <div style={{ ...styles.selectWrapper, border: "none", background: "transparent", padding: 0 }}>
-            <MultiSelectDropdown 
-              options={uniqueOptions.filter(o => o.value !== "All")} 
-              value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
-              onChange={(valArr) => onChange(valArr)} 
-              placeholder="All"
-              label={label}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // ============================================================
   // DERIVED TOTALS
@@ -3783,7 +3709,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
 
       <div className="page-header" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0, padding: 0, lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0f172a', margin: 0, padding: 0, lineHeight: 1.2 }}>
             Inventory Overview
           </h1>
           <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '4px 0 0 0', padding: 0, fontWeight: 500 }}>
@@ -3927,6 +3853,57 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                </div>
            </div>
         )}
+
+      {/* Error Banner (Issue 16) */}
+      {loadError && (
+        <div style={{
+          margin: '0 0 14px 0',
+          padding: '14px 18px',
+          background: '#fff1f2',
+          border: '1.5px solid #fecdd3',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#be123c' }}>
+                Failed to load inventory data
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#9f1239', marginTop: 2 }}>
+                {loadError}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => loadData()}
+              style={{
+                padding: '6px 14px', borderRadius: 7, fontWeight: 700, fontSize: '0.74rem',
+                background: '#be123c', color: '#fff', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              🔄 Retry
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              style={{
+                padding: '6px 14px', borderRadius: 7, fontWeight: 700, fontSize: '0.74rem',
+                background: '#fff', color: '#be123c', border: '1.5px solid #fecdd3', cursor: 'pointer',
+              }}
+            >
+              Reset Filters
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
           KPI CARDS
@@ -4123,7 +4100,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             title={`Inventory Aging Summary (${currentCurrency})`}
             info="Summary of inventory value by aging bucket"
             onViewAll={() => openInventoryViewAll({ viewType: "aging", globalFilters: appliedFilters, drilldownFilters: {} })}
-            onExport={(type) => handleExport(type || "excel")}
+            onExport={(type) => handleExportAgingSummary(type || "excel")}
           />
 
           <div style={styles.agingContent}>
@@ -4195,10 +4172,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   Total
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  {formatChartValueCompact(mockData.totalInventory || agingTotal, currentCurrency)}
+                  {(mockData.totalInventory || agingTotal) > 0 ? formatChartValueCompact(mockData.totalInventory || agingTotal, currentCurrency) : "—"}
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  100%
+                  {(mockData.totalInventory || agingTotal) > 0 ? "100%" : "—"}
                 </div>
               </div>
             </div>
@@ -4223,6 +4200,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     <th style={{ width: "36%", textAlign: "left", verticalAlign: "bottom", padding: "6px 5px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Description</th>
                     <th style={{ width: "18%", textAlign: "left", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Code</th>
                     <th style={{ width: "16%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Qty<br />(Nos)</th>
+                    <th style={{ width: "16%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Unit Cost<br />({currentCurrency} per unit)</th>
                     <th style={{ width: "18%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Value<br />({currentCurrency})</th>
                     <th style={{ width: "14%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem", lineHeight: 1.25 }}>Holding<br />Days</th>
                   </tr>
@@ -4358,30 +4336,33 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               )}
             </tbody>
             {filteredDetails.length > 0 && (() => {
-              const totals = filteredDetails.reduce((acc, row) => {
-                acc.totalVal += Number(row.total_stock_value || 0);
-                acc.d30 += Number(row.aging_0_30 || 0);
-                acc.d60 += Number(row.aging_31_60 || 0);
-                acc.d90 += Number(row.aging_61_90 || 0);
-                acc.d120 += Number(row.aging_91_120 || 0);
-                acc.d180 += Number(row.aging_121_180 || 0);
-                acc.d365 += Number(row.aging_181_365 || 0);
-                acc.obs += (Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0));
-                return acc;
-              }, { totalVal: 0, d30: 0, d60: 0, d90: 0, d120: 0, d180: 0, d365: 0, obs: 0 });
+              // Issue 19: Use server total for the total row, not client-side sum of the current page.
+              const totalVal = mockData.totalInventory || 0;
+              let d30 = 0, d60 = 0, d90 = 0, d120 = 0, d180 = 0, d365 = 0, obs = 0;
+              (mockData.aging || []).forEach(a => {
+                  const k = String(a.bucket_code || a.name || a.code).toLowerCase();
+                  const val = Number(a.value || 0) * 10000000;
+                  if (k.includes('0_30')) d30 += val;
+                  else if (k.includes('31_60')) d60 += val;
+                  else if (k.includes('61_90')) d90 += val;
+                  else if (k.includes('91_120')) d120 += val;
+                  else if (k.includes('121_180')) d180 += val;
+                  else if (k.includes('181_365')) d365 += val;
+              });
+              obs = mockData.rawKpis?.inventory_above_365 ? Number(mockData.rawKpis.inventory_above_365) : 0;
 
               return (
-                <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
-                  <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                    <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({filteredDetails.length} items)</td>
-                    <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 110, minWidth: 100, maxWidth: 125 }}>{Math.round(totals.totalVal).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d30).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d60).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d90).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d120).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{Math.round(totals.d180).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{Math.round(totals.d365).toLocaleString("en-US")}</td>
-                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 800, background: "#f8fafc", width: 85, minWidth: 78 }}>{Math.round(totals.obs).toLocaleString("en-US")}</td>
+                <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#eff6ff" }}>
+                  <tr style={{ fontWeight: 800, borderTop: "3px solid #1e3a8a", background: "#eff6ff", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
+                    <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#eff6ff" }}>Total (Full Inventory)</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 110, minWidth: 100, maxWidth: 125 }}>{Math.round(totalVal).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 65, minWidth: 55 }}>{Math.round(d30).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 65, minWidth: 55 }}>{Math.round(d60).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 65, minWidth: 55 }}>{Math.round(d90).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 65, minWidth: 55 }}>{Math.round(d120).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 68, minWidth: 58 }}>{Math.round(d180).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 68, minWidth: 58 }}>{Math.round(d365).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 800, background: "#eff6ff", width: 85, minWidth: 78 }}>{Math.round(obs).toLocaleString("en-US")}</td>
                   </tr>
                 </tfoot>
               );
@@ -4575,15 +4556,18 @@ const detailsSource = modalFilteredDetails || [];
                 obsoleteStockVal = mockData.rawKpis?.inventory_above_365 ? Number(mockData.rawKpis.inventory_above_365) : 0;
             }
 
-          const formatKPICompact = (val) => {
-            if (!val || isNaN(val)) return `${currentCurrency} 0.00M`;
-            const inM = Number(val) / 1000000;
-            return `${currentCurrency} ${inM.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
-          };
-
           const isMillions = momCurrencyMode === "AED_MILLIONS";
           const scale = isMillions ? 1000000 : 1;
           const currencyHeader = isMillions ? `${currentCurrency} Millions` : currentCurrency;
+
+          const formatKPICompact = (val) => {
+            if (!val || isNaN(val)) return `${currentCurrency} 0.00`;
+            const scaled = Number(val) / scale;
+            if (isMillions) {
+              return `${currentCurrency} ${scaled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
+            }
+            return `${currentCurrency} ${Math.round(scaled).toLocaleString("en-US")}`;
+          };
 
           const SummaryCard = ({
             icon,
@@ -4804,6 +4788,8 @@ const detailsSource = modalFilteredDetails || [];
                         onClick={() => {
                           if (modalActiveTab === "momObsolete" || modalActiveTab === "mom" || slowMovingViewMode === "mom") {
                             handleExportMoM("excel", true);
+                          } else if (modalActiveTab === "aging") {
+                            handleExportAgingSummary("excel");
                           } else if (modalActiveTab === "slowMoving" || slowMovingViewMode === "stock") {
                             handleExport("excel", "slow-moving", slowMovingFilters);
                           } else {
@@ -4836,6 +4822,8 @@ const detailsSource = modalFilteredDetails || [];
                         onClick={() => {
                           if (modalActiveTab === "momObsolete" || modalActiveTab === "mom" || slowMovingViewMode === "mom") {
                             handleExportMoM("pdf", true);
+                          } else if (modalActiveTab === "aging") {
+                            handleExportAgingSummary("pdf");
                           } else if (modalActiveTab === "slowMoving" || slowMovingViewMode === "stock") {
                             handleExport("pdf", "slow-moving", slowMovingFilters);
                           } else {
@@ -5667,11 +5655,21 @@ const detailsSource = modalFilteredDetails || [];
                                       <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontVariantNumeric: "tabular-nums" }}>
                                         {rawPrev !== null ? Math.round(rawPrev / scale).toLocaleString("en-US") : "-"}
                                       </td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variance === null ? "#64748b" : (variance < 0 ? "#16a34a" : "#dc2626"), fontVariantNumeric: "tabular-nums" }}>
-                                        {variance !== null ? `${variance > 0 ? '+' : ''}${Math.round(variance / scale).toLocaleString("en-US")}` : "-"}
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variance === null ? "#64748b" : fmtVarBadge(variance, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                        {variance !== null ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                            <span>{fmtVarBadge(variance, false).arrow}</span>
+                                            <span>{`${variance > 0 ? '+' : ''}${Math.round(variance / scale).toLocaleString("en-US")}`}</span>
+                                          </div>
+                                        ) : "-"}
                                       </td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variancePct === null ? "#64748b" : (variancePct < 0 ? "#16a34a" : "#dc2626"), fontVariantNumeric: "tabular-nums" }}>
-                                        {variancePct !== null ? `${variancePct > 0 ? '+' : ''}${variancePct.toFixed(1)}%` : "-"}
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variancePct === null ? "#64748b" : fmtVarBadge(variancePct, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                        {variancePct !== null ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                            <span>{fmtVarBadge(variancePct, false).arrow}</span>
+                                            <span>{`${variancePct > 0 ? '+' : ''}${variancePct.toFixed(1)}%`}</span>
+                                          </div>
+                                        ) : "-"}
                                       </td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
                                         {typeof turnover === "number" ? turnover.toFixed(1) : turnover}x
@@ -6277,8 +6275,8 @@ const detailsSource = modalFilteredDetails || [];
                               <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                                 {allMonths.map(m => (
                                   <React.Fragment key={`${m}-sub`}>
-                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", width: 70, borderBottom: "1px solid #e2e8f0" }}>{viewAllSection === "parentDivision" ? "TOTAL INV" : (viewAllSection === "slowMoving" ? "SLOW MOVING" : "OBSOLETE")}</th>
-                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", width: 40, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>DIO</th>
+                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 80, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{viewAllSection === "parentDivision" ? "TOTAL INV" : (viewAllSection === "slowMoving" ? "SLOW MOVING" : "OBSOLETE")}</th>
+                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 45, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>DIO</th>
                                   </React.Fragment>
                                 ))}
                               </tr>
@@ -6325,11 +6323,17 @@ const detailsSource = modalFilteredDetails || [];
                                     <td style={{ padding: "7px 10px", textAlign: "right", color: "#1d4ed8", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }} title={`Previous month obsolete details for ${row.name}`}>
                                       {Math.round(row.prevMonth / scale).toLocaleString("en-US")}
                                     </td>
-                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: row.variance < 0 ? "#16a34a" : "#dc2626", fontVariantNumeric: "tabular-nums" }}>
-                                      {row.variance > 0 ? "+" : ""}{Math.round(row.variance / scale).toLocaleString("en-US")}
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variance, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                        <span>{fmtVarBadge(row.variance, false).arrow}</span>
+                                        <span>{row.variance > 0 ? "+" : ""}{Math.round(row.variance / scale).toLocaleString("en-US")}</span>
+                                      </div>
                                     </td>
-                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: row.variancePct < 0 ? "#16a34a" : "#dc2626", fontVariantNumeric: "tabular-nums" }}>
-                                      {row.variancePct > 0 ? "+" : ""}{Math.round(row.variancePct)}%
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variancePct, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                        <span>{fmtVarBadge(row.variancePct, false).arrow}</span>
+                                        <span>{row.variancePct > 0 ? "+" : ""}{Math.round(row.variancePct)}%</span>
+                                      </div>
                                     </td>
                                   </tr>
                                 ))
@@ -6355,11 +6359,17 @@ const detailsSource = modalFilteredDetails || [];
                                   <td style={{ padding: "9px 10px", textAlign: "right", color: "#475569", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(totalPrev / scale).toLocaleString("en-US")}
                                   </td>
-                                  <td style={{ padding: "9px 10px", textAlign: "right", color: totalVariance < 0 ? "#16a34a" : "#dc2626", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
-                                    {totalVariance > 0 ? "+" : ""}{Math.round(totalVariance / scale).toLocaleString("en-US")}
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: fmtVarBadge(totalVariance, false).color, background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                      <span>{fmtVarBadge(totalVariance, false).arrow}</span>
+                                      <span>{totalVariance > 0 ? "+" : ""}{Math.round(totalVariance / scale).toLocaleString("en-US")}</span>
+                                    </div>
                                   </td>
-                                  <td style={{ padding: "9px 10px", textAlign: "right", color: totalVariancePct < 0 ? "#16a34a" : "#dc2626", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
-                                    {totalVariancePct > 0 ? "+" : ""}{Math.round(totalVariancePct)}%
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: fmtVarBadge(totalVariancePct, false).color, background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                      <span>{fmtVarBadge(totalVariancePct, false).arrow}</span>
+                                      <span>{totalVariancePct > 0 ? "+" : ""}{Math.round(totalVariancePct)}%</span>
+                                    </div>
                                   </td>
                                 </tr>
                               </tfoot>
@@ -6389,7 +6399,8 @@ const detailsSource = modalFilteredDetails || [];
                                   <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 95, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Item<br />Code</th>
                                   <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 220, minWidth: 180, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Item<br />Description</th>
                                   <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Qty<br />(Nos)</th>
-                                  <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currencyHeader})</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 90, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Unit Cost<br />({currencyHeader} per unit)</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currencyHeader})</th>
                                   <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
                                   <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>31-60<br />Days</th>
                                   <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>61-90<br />Days</th>
@@ -6415,7 +6426,8 @@ const detailsSource = modalFilteredDetails || [];
                                       <td style={{ padding: "7px 10px", color: "#1e3a8a", fontWeight: 600, width: 110, minWidth: 95, whiteSpace: "normal", wordBreak: "break-word" }}>{row.item_code}</td>
                                       <td style={{ padding: "7px 10px", color: "#334155", width: 220, minWidth: 180, whiteSpace: "normal", wordBreak: "break-word" }}>{row.item_description}</td>
                                       <td style={{ padding: "7px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{row.quantity ? Number(row.quantity).toLocaleString() : "0"}</td>
-                                      <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.total_stock_value)}</td>
+                                        <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(Number(row.total_stock_value || 0) / (Number(row.quantity) || 1))}</td>
+                                        <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.total_stock_value)}</td>
                                       <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_0_30)}</td>
                                       <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_31_60)}</td>
                                       <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_61_90)}</td>
@@ -6431,34 +6443,45 @@ const detailsSource = modalFilteredDetails || [];
                                 )}
                               </tbody>
                               {modalFilteredDetails.length > 0 && (() => {
-                                const totals = modalFilteredDetails.reduce((acc, row) => {
-                                  acc.qty += Number(row.quantity || 0);
-                                  acc.totalVal += Number(row.total_stock_value || 0);
-                                  acc.d30 += Number(row.aging_0_30 || 0);
-                                  acc.d60 += Number(row.aging_31_60 || 0);
-                                  acc.d90 += Number(row.aging_61_90 || 0);
-                                  acc.d120 += Number(row.aging_91_120 || 0);
-                                  acc.d180 += Number(row.aging_121_180 || 0);
-                                  acc.d365 += Number(row.aging_181_365 || 0);
-                                  acc.d730 += Number(row.aging_366_730 || 0);
-                                  acc.dAbove730 += Number(row.aging_above_730 || 0);
-                                  return acc;
-                                }, { qty: 0, totalVal: 0, d30: 0, d60: 0, d90: 0, d120: 0, d180: 0, d365: 0, d730: 0, dAbove730: 0 });
+                                // Issue 20: View All Details footer should show server totals, not page totals.
+                                const isGlobal = !hasDrilldown;
+                                const totalVal = isGlobal ? mockData.totalInventory : (modalApiData?.dashKpis?.total_inventory || 0);
+                                const qty = isGlobal ? (mockData.rawKpis?.total_quantity || 0) : (modalApiData?.dashKpis?.total_quantity || 0);
+                                
+                                let d30 = 0, d60 = 0, d90 = 0, d120 = 0, d180 = 0, d365 = 0, d730 = 0, dAbove730 = 0;
+                                const agingSource = isGlobal ? mockData.aging : (modalApiData?.dashAging || []);
+                                const agingList = Array.isArray(agingSource) ? agingSource : Object.entries(agingSource).map(([k,v]) => ({ bucket_code: k, amount: v }));
+                                
+                                agingList.forEach(a => {
+                                  const k = String(a.bucket_code || a.name || a.code).toLowerCase();
+                                  const val = Number(a.amount || a.value || 0) * (isGlobal && !a.amount ? 10000000 : 1);
+                                  if (k.includes('0_30')) d30 += val;
+                                  else if (k.includes('31_60')) d60 += val;
+                                  else if (k.includes('61_90')) d90 += val;
+                                  else if (k.includes('91_120')) d120 += val;
+                                  else if (k.includes('121_180')) d180 += val;
+                                  else if (k.includes('181_365')) d365 += val;
+                                  else if (k.includes('366_730') || k.includes('above_365')) d730 += val; // note: dashAging might combine above 365
+                                  else if (k.includes('above_730')) dAbove730 += val;
+                                });
+                                // fallback if obsolete bucket is missing but total obsolete is present
+                                const obsKPI = isGlobal ? mockData.rawKpis?.inventory_above_365 : modalApiData?.dashKpis?.inventory_above_365;
+                                if (d730 === 0 && dAbove730 === 0 && obsKPI) d730 = Number(obsKPI);
 
                                 return (
-                                  <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
-                                    <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                                      <td colSpan={6} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
-                                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e3a8a", background: "#f8fafc" }}>{Math.round(totals.qty).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.totalVal)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d30)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d60)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d90)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d120)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d180)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d365)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d730)}</td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 800, background: "#f8fafc" }}>{formatDetailVal(totals.dAbove730)}</td>
+                                  <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#eff6ff" }}>
+                                    <tr style={{ fontWeight: 800, borderTop: "3px solid #1e3a8a", background: "#eff6ff", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
+                                      <td colSpan={6} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#eff6ff" }}>Total (Full Inventory)</td>
+                                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e3a8a", background: "#eff6ff" }}>{qty ? Math.round(qty).toLocaleString("en-US") : "-"}</td>
+                                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(totalVal)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d30)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d60)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d90)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d120)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d180)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d365)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#eff6ff" }}>{formatDetailVal(d730)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 800, background: "#eff6ff" }}>{formatDetailVal(dAbove730)}</td>
                                       <td style={{ padding: "9px 6px" }} />
                                       <td style={{ padding: "9px 6px" }} />
                                     </tr>
@@ -6654,7 +6677,7 @@ const styles = {
   subtitle: {
     marginTop: 4,
     color: "#64748b",
-    fontSize: "0.78rem",
+    fontSize: "0.75rem",
     lineHeight: 1.5,
   },
 
@@ -6736,16 +6759,10 @@ const styles = {
   },
 
   resetButton: {
-    height: 32,
-    padding: "0 8px",
-    border: "none",
-    background: "transparent",
-    color: "#dc2626",
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
+    background: 'none', border: 'none', color: '#94a3b8',
+    height: 32, fontWeight: 500, fontSize: '0.68rem', cursor: 'pointer',
+    padding: '0 2px', whiteSpace: 'nowrap', opacity: 0.8,
+    display: 'inline-flex', alignItems: 'center'
   },
 
   kpiGrid: {
@@ -7088,7 +7105,9 @@ if (
       text-align: left;
       padding: 6px 6px !important;
       border-bottom: 2px solid #e2e8f0;
-      font-size: 0.72rem;
+      font-size: 0.69rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
       word-break: break-word;
     }
 
@@ -7213,6 +7232,303 @@ if (
 
 
 
+
+
+
+function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'All', style }) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const ref = useRef(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (open && searchRef.current) {
+      setTimeout(() => searchRef.current && searchRef.current.focus(), 0);
+    }
+    if (!open) setSearchQuery('');
+  }, [open]);
+
+  // Deduplicate and normalize options by label
+  const uniqueOptions = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    (options || []).forEach(o => {
+      if (o == null) return;
+      const rawVal = typeof o === 'object' ? (o.value !== undefined ? o.value : o.id) : o;
+      const rawLbl = typeof o === 'object' ? (o.label !== undefined ? o.label : (o.name !== undefined ? o.name : rawVal)) : o;
+      const strVal = String(rawVal ?? '');
+      const strLbl = typeof rawLbl === 'object' ? String(rawLbl?.label || rawLbl?.name || rawVal || '') : String(rawLbl ?? '');
+      const key = strLbl.trim().toLowerCase();
+      if (!key || key === 'all') return;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push({ id: strVal || strLbl, name: strLbl, value: strVal, label: strLbl });
+      }
+    });
+    return list;
+  }, [options]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const visibleOptions = q
+    ? uniqueOptions.filter(o => o.name.toLowerCase().includes(q))
+    : uniqueOptions;
+
+  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+
+  const isOptionSelected = (opt) => {
+    if (isAll) return false;
+    const optVal = String(opt.value ?? opt.id).toLowerCase();
+    const optName = String(opt.name ?? opt.label).toLowerCase();
+    return (value || []).some(v => {
+      const sv = String(v).toLowerCase();
+      return sv === optVal || sv === optName;
+    });
+  };
+
+  const toggle = (opt) => {
+    const optVal = String(opt.value ?? opt.id);
+    const optName = String(opt.name ?? opt.label);
+    
+    // When currently "All", selecting one item sets value to ONLY this item
+    const cur = isAll ? [] : (value || []).filter(v => String(v) !== 'All').map(String);
+    const selected = isOptionSelected(opt);
+
+    let next;
+    if (selected) {
+      next = cur.filter(v => {
+        const sv = v.toLowerCase();
+        return sv !== optVal.toLowerCase() && sv !== optName.toLowerCase();
+      });
+    } else {
+      next = [...cur, optVal];
+    }
+
+    if (next.length === 0 || (uniqueOptions.length > 0 && next.length === uniqueOptions.length)) {
+      onChange(['All']);
+    } else {
+      onChange(next);
+    }
+  };
+
+  const selectedVals = uniqueOptions.filter(o => isOptionSelected(o));
+  const label = isAll
+    ? placeholder
+    : selectedVals.length === 1
+      ? selectedVals[0].name
+      : `${selectedVals.length} selected`;
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%', minWidth: 0, ...style }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          padding: '0 24px 0 9px',
+          fontSize: 11,
+          fontWeight: 600,
+          color: '#29427f',
+          background: '#fff',
+          border: open ? '1.5px solid #2563eb' : '1px solid #d9e1ee',
+          borderRadius: 5,
+          cursor: 'pointer',
+          outline: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+          height: 34,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          userSelect: 'none',
+          position: 'relative',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span title={label} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
+          {label}
+        </span>
+        <span style={{ fontSize: '0.65rem', color: '#173b8f', position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}>
+          {open ? '▲' : '▼'}
+        </span>
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, minWidth: '280px', maxWidth: '480px', width: 'max-content',
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+          boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 1000, marginTop: 4, display: 'flex', flexDirection: 'column'
+        }}>
+          {/* Search box with clear button */}
+          <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.74rem', width: '100%', color: '#334155' }}
+              />
+              {searchQuery && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }}
+                  style={{ fontSize: '0.65rem', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  ✕
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Select All / Clear action bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            <span
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation();
+                const allVals = uniqueOptions.map(o => String(o.value ?? o.id));
+                onChange(allVals.length > 0 ? allVals : ['All']);
+              }}
+              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
+            >
+              Select All
+            </span>
+            <span
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange([]);
+              }}
+              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+            >
+              Clear
+            </span>
+          </div>
+
+          {/* Options list */}
+          <div style={{ maxHeight: '190px', overflowY: 'auto', padding: '4px 0' }}>
+            {/* "All" row */}
+            <div
+              onClick={() => onChange(['All'])}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                cursor: 'pointer', fontSize: '0.74rem', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400,
+                background: isAll ? '#eff6ff' : 'transparent', borderBottom: '1px solid #f1f5f9'
+              }}
+              onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }}
+              onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <input
+                type="checkbox"
+                checked={isAll}
+                readOnly
+                style={{ cursor: 'pointer', accentColor: '#2563eb' }}
+              />
+              <span>All</span>
+            </div>
+
+            {visibleOptions.map((opt) => {
+              const selected = isOptionSelected(opt);
+              return (
+                <div
+                  key={opt.id}
+                  onClick={() => toggle(opt)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                    cursor: 'pointer', fontSize: '0.74rem', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400,
+                    background: selected ? '#eff6ff' : 'transparent', transition: 'background 0.1s'
+                  }}
+                  onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }}
+                  onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    readOnly
+                    style={{ cursor: 'pointer', accentColor: '#2563eb' }}
+                  />
+                  <span style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>{opt.name}</span>
+                </div>
+              );
+            })}
+
+            {visibleOptions.length === 0 && (
+              <div style={{ padding: '12px', textAlign: 'center', color: '#94a3b8', fontSize: '0.74rem' }}>
+                No options found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+  const FilterField = ({
+    label,
+    value,
+    options = [],
+    onChange,
+    date = false,
+    minWidth = 110,
+  }) => {
+    const uniqueOptions = [];
+    const seen = new Set();
+    options.forEach(opt => {
+      const lbl = typeof opt === 'object' ? opt.label : opt;
+      const val = typeof opt === 'object' ? opt.value : opt;
+      if (!seen.has(lbl)) {
+        seen.add(lbl);
+        uniqueOptions.push({ value: val, label: lbl });
+      }
+    });
+
+    return (
+      <div style={{ ...styles.filterField, minWidth }}>
+        <label style={styles.filterLabel}>{label}</label>
+
+        {date || label === "Reporting Currency" || label === "Currency" ? (
+          <div style={styles.selectWrapper}>
+            <select
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              style={styles.select}
+            >
+              {uniqueOptions.map((opt, __idx) => (
+                <option key={`${opt.value}-${__idx}`} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div style={{ ...styles.selectWrapper, border: "none", background: "transparent", padding: 0 }}>
+            <MultiSelectDropdown 
+              options={uniqueOptions.filter(o => o.value !== "All")} 
+              value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
+              onChange={(valArr) => onChange(valArr)} 
+              placeholder="All"
+              label={label}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
 
 

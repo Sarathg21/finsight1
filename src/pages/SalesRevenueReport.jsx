@@ -516,6 +516,17 @@ function DetailApiModal({
   }, [isOpen, activeFilters, fetchFn]);
 
   const handleApply = () => {
+    if (dateFiltersConfig) {
+      for (const cfg of dateFiltersConfig) {
+        const from = pendingDateFilters[cfg.fromKey];
+        const to = pendingDateFilters[cfg.toKey];
+        if (from && to && new Date(from) > new Date(to)) {
+          setError("From Date cannot be greater than To Date");
+          return;
+        }
+      }
+    }
+    setError(null);
     setLocalFiltersState(pendingLocalFilters);
     setDateFiltersState(pendingDateFilters);
     setPage(0);
@@ -625,7 +636,7 @@ function DetailApiModal({
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {canExport && <ExportButtons endpoint={endpoint} filters={activeFilters} />}
+            {canExport && <ExportButtons endpoint={endpoint} filters={{ ...activeFilters, unit: typeof modalUnit !== 'undefined' ? modalUnit : 'aed' }} />}
             {showUnitToggle && (
               <UnitToggle
                 unit={modalUnit}
@@ -789,9 +800,21 @@ function DetailApiModal({
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
               </span>
             )}
-            {canExport && <ExportButtons endpoint={endpoint} filters={activeFilters} />}
+            {canExport && <ExportButtons endpoint={endpoint} filters={{ ...activeFilters, unit: typeof modalUnit !== 'undefined' ? modalUnit : 'aed' }} />}
           </div>
         </div>
+
+        {/* ── Date validation error banner ── */}
+        {error && error.includes('Date') && (
+          <div style={{
+            margin: '0 0 8px', padding: '8px 16px',
+            background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8,
+            color: '#92400e', fontSize: '0.74rem', fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: 6
+          }}>
+            ⚠ {error}
+          </div>
+        )}
 
         {tabs && tabs.length > 0 && (
           <div style={{ padding: '12px 20px 0' }}>
@@ -1336,7 +1359,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         {loading ? (
           <Skeleton h={18} w={80} />
         ) : error ? (
-          <span style={{ fontSize: '0.72rem', color: '#f43f5e' }}>Error</span>
+          <span style={{ fontSize: '0.82rem', color: C.muted, fontWeight: 600 }}>—</span>
         ) : (
           <div style={{
             fontSize: '1.02rem',
@@ -1944,7 +1967,10 @@ export default function SalesRevenueReport() {
     if (!iso) return '';
     const d = new Date(iso + 'T00:00:00');
     if (isNaN(d)) return iso;
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
   };
   const appliedPeriodLabel = (() => {
     const from = fmtDisplayDate(appliedFilters.fromDate);
@@ -2904,7 +2930,7 @@ export default function SalesRevenueReport() {
         const s = Number(row.sales_aed) || 0;
         const gm = Number(row.gross_margin_aed) || 0;
         if (s === 0) return '-';
-        return fmtPctCol(((gm / s) * 100), 1);
+        return fmtP2((gm / s) * 100);
      }, noTotal: true
     },
     { label: '% Share of Sales',    key: 'percentage',              align: 'right', fmt: v => fmtPctCol(v, 2), noTotal: true },
@@ -3664,17 +3690,15 @@ export default function SalesRevenueReport() {
                   return null;
                 })()}
               </div>
-              <ChartMenu onViewAll={() => setOpenModal('trend')} endpoint="trend" filters={appliedFilters} />
+              <ChartMenu onViewAll={() => setOpenModal('trend')} endpoint="trend" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
             </div>
 
             <AnimatePresence mode="wait">
 
             {loading.trend ? (
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8, margin: '12px 0' }} />
-            ) : errors.trend ? (
-              <div style={{ textAlign: 'center', color: '#ef4444', fontSize: '0.78rem', paddingTop: 60 }}>⚠ Failed to load</div>
-            ) : trendData.length === 0 ? (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No trend data available</div>
+            ) : (errors.trend || trendData.length === 0) ? (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
             ) : (() => {
               const activePts = trendData.filter(d => d.currentYear != null && d.currentYear > 0);
               const isSingle  = activePts.length <= 1;
@@ -3897,7 +3921,7 @@ export default function SalesRevenueReport() {
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Legal Entity</div>
                 <div style={{ fontSize: '0.72rem', color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{currentCurrency} contribution — 100% breakdown</div>
               </div>
-              <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={appliedFilters} />
+              <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
             </div>
 
             {loading.legalEnt ? (
@@ -4023,7 +4047,7 @@ export default function SalesRevenueReport() {
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Parent Division</div>
                 <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3, fontWeight: 500 }}>{currentCurrency} — top divisions ranked</div>
               </div>
-              <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={appliedFilters} />
+              <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
             </div>
 
             {loading.parentDiv ? (
@@ -4175,7 +4199,7 @@ export default function SalesRevenueReport() {
                   </div>
                   Include Others
                 </button>
-                <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
+                <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
               </div>
             </div>
 
@@ -4319,7 +4343,7 @@ export default function SalesRevenueReport() {
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales ({currentCurrency})</div>
-              <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
+              <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
             </div>
             {loading.topCustomers ? (
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
@@ -4385,7 +4409,7 @@ export default function SalesRevenueReport() {
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesperson ({currentCurrency})</div>
-              <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
+              <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
             </div>
             {loading.salesmanSummary ? (
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
@@ -4451,7 +4475,7 @@ export default function SalesRevenueReport() {
                 Amounts in {currentCurrency}{inMillions ? ' (M)' : ''}
               </span>
             </div>
-            <ChartMenu onViewAll={() => setOpenModal('consolidatedView')} endpoint="subdivision-detail" filters={appliedFilters} />
+            <ChartMenu onViewAll={() => setOpenModal('consolidatedView')} endpoint="subdivision-detail" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
           </div>
 
           {/* Table body */}
@@ -4682,7 +4706,7 @@ export default function SalesRevenueReport() {
         fetchFn={(f) => fetchLegalEntityDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={legalEntityCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={legalEntityHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4707,7 +4731,7 @@ export default function SalesRevenueReport() {
         fetchFn={(f) => fetchParentDivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={parentDivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={parentDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4735,7 +4759,7 @@ export default function SalesRevenueReport() {
         fetchFn={(f) => fetchSubdivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4790,7 +4814,7 @@ export default function SalesRevenueReport() {
           { id: 'mom', label: 'Month-on-Month', onClick: () => setConsolidatedTab('mom') }
         ]}
         activeTabId={consolidatedTab}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4815,7 +4839,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSalesmanSummary}
         columnDefs={salesmanSummaryCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={salesmanSummaryHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4840,7 +4864,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSalesmanDetail}
         columnDefs={salesmanDetailCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={salesmanSummaryHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4861,7 +4885,7 @@ export default function SalesRevenueReport() {
         endpoint="customer-summary"
         fetchFn={fetchCustomerSummary}
         columnDefs={customerSummaryCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId', label: 'Groups', options: filterOptions.legalGroups },
             { key: 'legalEntityId', label: 'Entities', options: filterOptions.legalEntities },
@@ -4886,7 +4910,7 @@ export default function SalesRevenueReport() {
         endpoint="customer-detail"
         fetchFn={fetchCustomerDetail}
         columnDefs={customerDetailCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -4905,7 +4929,7 @@ export default function SalesRevenueReport() {
         title="Sales Revenue Consolidated Report"
         endpoint="summary-detail"
         fetchFn={fetchSummaryDetail}
-        filters={appliedFilters}
+        filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }}
         localFiltersConfig={[
           { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
             { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },

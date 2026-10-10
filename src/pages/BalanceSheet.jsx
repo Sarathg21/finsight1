@@ -236,16 +236,17 @@ const calcMovement = (cur, cmp) => {
 const extractBSMetrics = (summary) => {
   if (!summary?.sections) {
     return {
-      totalAssets: 0,
-      totalLiabilities: 0,
-      totalEquity: 0,
-      currentAssets: 0,
-      nonCurrentAssets: 0,
-      nonCurrentLiab: 0,
-      currentLiab: 0,
-      longTermBorrowings: 0,
-      shortTermBorrowings: 0,
-      totalDebt: 0,
+      noData: true,
+      totalAssets: null,
+      totalLiabilities: null,
+      totalEquity: null,
+      currentAssets: null,
+      nonCurrentAssets: null,
+      nonCurrentLiab: null,
+      currentLiab: null,
+      longTermBorrowings: null,
+      shortTermBorrowings: null,
+      totalDebt: null,
       currentRatio: null,
       debtToEquity: null,
       liabilityToEquity: null,
@@ -484,7 +485,7 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     ? normOptions.filter(o => String(o.id) !== 'All' && o.name.toLowerCase().includes(q))
     : normOptions;
 
-  const isAll = !value || (value.length === 1 && String(value[0]) === 'All');
+  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
   const allRealIds = normOptions.filter(o => String(o.id) !== 'All').map(o => String(o.id));
 
   const toggle = (optId) => {
@@ -496,7 +497,9 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
       ? cur.filter(v => v !== targetId)
       : [...cur, targetId];
 
-    if (allRealIds.length > 0 && next.length === allRealIds.length) {
+    // If all items are selected, or the result is empty (last item deselected),
+    // collapse back to ['All'] so the trigger never shows "0 selected".
+    if (next.length === 0 || (allRealIds.length > 0 && next.length === allRealIds.length)) {
       onChange(['All']);
     } else {
       onChange(next);
@@ -549,7 +552,7 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
                 style={{ fontSize: '0.75rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
               >Select All</span>
               <span
-                onClick={() => onChange([])}
+                onClick={() => onChange(['All'])}
                 style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
               >Clear</span>
             </div>
@@ -803,7 +806,7 @@ function VarBadge({ v, isPct = false }) {
 }
 
 /* ── KPI Card ──────────────────────────────────────────────────────── */
-function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, lowerIsBetter = false, compareLabel, color, iconBg, icon, loading, error, valueColor }) {
+function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, lowerIsBetter = false, compareLabel, color, iconBg, icon, loading, error, valueColor, cardBg }) {
   const [hover, setHover] = useState(false);
   const accent = color || C.primary;
   const up = isRatio ? ((changeDiff ?? 0) >= 0) : ((changePct ?? 0) >= 0);
@@ -817,45 +820,72 @@ function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = 
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        flex: 1, minWidth: 140,
-        background: `linear-gradient(145deg, #fff 0%, ${iconBg}80 100%)`,
-        borderRadius: 12, padding: '12px 14px',
-        boxShadow: hover ? `0 8px 24px ${accent}25` : '0 2px 8px rgba(0,0,0,0.04)',
-        border: `1px solid ${hover ? accent + '30' : 'rgba(0,0,0,0.04)'}`,
+        background: cardBg || '#fff',
+        borderRadius: 12,
+        padding: '10px 10px',
+        boxShadow: hover ? `0 8px 24px ${accent}20` : 'none',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', alignItems: 'center', gap: 12,
-        overflow: 'hidden', position: 'relative', minHeight: 82,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        overflow: 'visible',
+        position: 'relative',
+        minHeight: 74,
       }}
     >
+      {/* Left: Icon */}
       <div style={{
-        width: 44, height: 44, borderRadius: '50%', background: iconBg,
+        width: 32, height: 32, borderRadius: '50%', background: iconBg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0, color: accent, fontSize: '1.2rem',
+        flexShrink: 0, color: accent,
       }}>
         {icon}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: accent, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+
+      {/* Right: Text Stack */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1, justifyContent: 'center' }}>
+        <span style={{
+          fontSize: '0.68rem', fontWeight: 700, color: accent,
+          lineHeight: 1.2,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word'
+        }}>
           {label}
         </span>
-        {loading ? <Skeleton h={16} w={90} /> : error ? (
-          <span style={{ fontSize: '0.68rem', color: C.rose }}>Error loading</span>
+
+        {loading ? (
+          <Skeleton h={18} w={80} />
+        ) : error ? (
+          <span style={{ fontSize: '0.72rem', color: '#f43f5e' }}>Error</span>
         ) : (
-          <>
-            <div style={{ fontSize: '0.98rem', fontWeight: 800, color: valueColor || '#0f172a', lineHeight: 1.15, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>
-              {value}
+          <div style={{
+            fontSize: '1.02rem',
+            fontWeight: 800, color: valueColor || '#0f172a', lineHeight: 1.1,
+            letterSpacing: '-0.02em',
+            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word'
+          }}>
+            {value}
+          </div>
+        )}
+
+        {/* Existing Change Info */}
+        {showChange && !loading && !error && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap',
+            fontSize: '0.62rem', fontWeight: 600, color: '#64748b',
+            lineHeight: 1.1
+          }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 2,
+              padding: '2px 6px', borderRadius: 4,
+              background: up ? (lowerIsBetter ? '#fef2f2' : '#f0fdf4') : (lowerIsBetter ? '#f0fdf4' : '#fef2f2'),
+              color: up ? (lowerIsBetter ? '#ef4444' : '#16a34a') : (lowerIsBetter ? '#16a34a' : '#ef4444'),
+              fontWeight: 700, fontSize: '0.6rem'
+            }}>
+              {up ? '▲' : '▼'} {isRatio ? Math.abs(changeDiff).toFixed(2) : `${Math.abs(changePct).toFixed(2)}%`}
             </div>
-            {subValue && <div style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 500 }}>{subValue}</div>}
-            {showChange && (
-              <div style={{ fontSize: '0.62rem', fontWeight: 600, lineHeight: 1.1, marginTop: 2 }}>
-                <span style={{ color: lowerIsBetter ? (up ? C.rose : C.green) : (up ? C.green : C.rose), marginRight: 3 }}>
-                  {up ? '▲' : '▼'} {isRatio ? Math.abs(changeDiff).toFixed(2) : `${Math.abs(changePct).toFixed(2)}%`}
-                </span>
-                <span style={{ color: C.muted }}>{compareLabel}</span>
-              </div>
-            )}
-          </>
+            {compareLabel && <span>{compareLabel}</span>}
+          </div>
         )}
       </div>
     </div>
@@ -984,9 +1014,10 @@ const ChartTooltip = ({ active, payload, label, currency = 'AED' }) => {
 ══════════════════════════════════════════════════════════════════════ */
 
 const MTH = {
-  padding: '10px 14px', textAlign: 'right', fontSize: '0.73rem',
+  padding: '10px 14px', textAlign: 'right', fontSize: '0.74rem',
   fontWeight: 700, color: '#1e3a8a', background: '#f8fafc',
   borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1,
+  textTransform: 'uppercase',
 };
 const MTH_L = { ...MTH, textAlign: 'left', whiteSpace: 'normal', minWidth: '130px' };
 const MTD   = { padding: '9px 14px', textAlign: 'right', fontSize: '0.74rem', color: '#334155', borderBottom: '1px solid #f1f5f9' };
@@ -1259,13 +1290,13 @@ function StatementCards({
   if (!statementData) return null;
 
   const STH = {
-    padding: '8px 8px',
+    padding: '10px 16px',
     textAlign: 'right',
-    fontSize: '0.67rem',
+    fontSize: '0.74rem',
     fontWeight: 700,
     color: '#1e3a8a',
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
+    borderBottom: '2px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
   const STH_L = { ...STH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'nowrap', minWidth: 120, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', position: 'sticky', left: 0, zIndex: 2, background: '#f8fafc' };
@@ -1335,13 +1366,13 @@ function StatementCards({
   const renderHeaders = (unit = 'aed') => (
     <thead>
       <tr>
-        <th style={{ ...STH_L, minWidth: 175 }}>Particulars</th>
-        <th style={{ ...STH, minWidth: 92 }}>As on {periodLabel}</th>
+        <th style={{ ...STH_L, minWidth: 175 }}>PARTICULARS / ACCOUNT</th>
+        <th style={{ ...STH, minWidth: 92 }}>AS ON {periodLabel}</th>
         {hasCompare && (
           <>
-            <th style={{ ...STH, minWidth: 92 }}>As on {comparePeriodLabel}</th>
-            <th style={{ ...STH, minWidth: 90 }}>Variance ({unit === 'millions' ? `${currency} M` : currency})</th>
-            <th style={{ ...STH, minWidth: 72 }}>Variance (%)</th>
+            <th style={{ ...STH, minWidth: 92 }}>AS ON {comparePeriodLabel}</th>
+            <th style={{ ...STH, minWidth: 90 }}>VARIANCE ({unit === 'millions' ? `${currency} M` : currency})</th>
+            <th style={{ ...STH, minWidth: 72 }}>VARIANCE (%)</th>
           </>
         )}
       </tr>
@@ -1651,13 +1682,27 @@ function StatementViewAll({
 }) {
   const [modalFilters, setModalFilters] = useState({
     legalGroup: appliedFilters?.legalGroup || ['All'],
-    legalEntity: appliedFilters?.legalEntity || [],
-    parentDivision: appliedFilters?.parentDivision || [],
-    subdivision: appliedFilters?.subdivision || [],
+    legalEntity: appliedFilters?.legalEntity || ['All'],
+    parentDivision: appliedFilters?.parentDivision || ['All'],
+    subdivision: appliedFilters?.subdivision || ['All'],
     period: appliedFilters?.period || '',
     comparePeriod: appliedFilters?.comparePeriod || '',
     currency: currency || 'AED',
   });
+
+  // Re-sync whenever the parent page's appliedFilters or currency changes
+  // (e.g. user changes period/currency on main page then opens View All)
+  useEffect(() => {
+    setModalFilters({
+      legalGroup:     appliedFilters?.legalGroup     || ['All'],
+      legalEntity:    appliedFilters?.legalEntity    || ['All'],
+      parentDivision: appliedFilters?.parentDivision || ['All'],
+      subdivision:    appliedFilters?.subdivision    || ['All'],
+      period:         appliedFilters?.period         || '',
+      comparePeriod:  appliedFilters?.comparePeriod  || '',
+      currency:       currency || 'AED',
+    });
+  }, [appliedFilters, currency]);
 
   const [modalUnit, setModalUnit] = useState('aed');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1674,13 +1719,16 @@ function StatementViewAll({
   const collapseAll = () => setExpanded({ currentAssets: false, nonCurrentAssets: false, currentLiab: false, nonCurrentLiab: false, equity: false });
 
   const handleApply = () => {
-    if (onApplyFilters) onApplyFilters(modalFilters);
+    // Intentionally local-only: View All filters work on the already-loaded
+    // statementData and do NOT push changes back to the main page context.
+    // Main page filters are controlled exclusively via the main filter bar.
   };
 
   const handleExcel = () => {
     exportStatementToExcel(initialStatementData, modalFilters.currency, {
       period: modalFilters.period || periodLabel,
       comparePeriod: modalFilters.comparePeriod || comparePeriodLabel,
+      unit: modalUnit,
       ...modalFilters
     });
   };
@@ -1689,6 +1737,7 @@ function StatementViewAll({
     exportStatementToPDF(initialStatementData, modalFilters.currency, {
       period: modalFilters.period || periodLabel,
       comparePeriod: modalFilters.comparePeriod || comparePeriodLabel,
+      unit: modalUnit,
       ...modalFilters
     });
   };
@@ -1712,14 +1761,15 @@ function StatementViewAll({
   const isQueryActive = Boolean(query);
 
   const VTH = {
-    padding: '9px 12px',
+    padding: '10px 16px',
     textAlign: 'right',
-    fontSize: '0.70rem',
+    fontSize: '0.74rem',
     fontWeight: 700,
     color: '#1e3a8a',
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
+    borderBottom: '2px solid #e2e8f0',
     whiteSpace: 'nowrap',
+    textTransform: 'uppercase',
   };
   const VTH_L = { ...VTH, textAlign: 'left', whiteSpace: 'normal', minWidth: '120px' };
 
@@ -1957,6 +2007,24 @@ function StatementViewAll({
         >
           Apply Filters
         </button>
+        <button
+          onClick={() => setModalFilters({
+            legalGroup:     appliedFilters?.legalGroup     || ['All'],
+            legalEntity:    appliedFilters?.legalEntity    || ['All'],
+            parentDivision: appliedFilters?.parentDivision || ['All'],
+            subdivision:    appliedFilters?.subdivision    || ['All'],
+            period:         appliedFilters?.period         || '',
+            comparePeriod:  appliedFilters?.comparePeriod  || '',
+            currency:       currency || 'AED',
+          })}
+          style={{
+            padding: '7px 12px', background: 'none', color: C.slate,
+            border: 'none', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer',
+            alignSelf: 'flex-end',
+          }}
+        >
+          Reset
+        </button>
       </div>
 
       {/* ── Toolbar: Search, Expand/Collapse & Exports ── */}
@@ -2193,7 +2261,7 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <UnitToggle unit={subdivModalUnit} onToggle={setSubdivModalUnit} currency={currency} />
           <button
-            onClick={() => exportSubDivisionToExcel(data, currency, { period: periodLabel, ...appliedFilters })}
+            onClick={() => exportSubDivisionToExcel(data, currency, { period: periodLabel, unit: subdivModalUnit, ...appliedFilters })}
             style={{
               padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, borderRadius: 6,
               border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d',
@@ -2204,7 +2272,7 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
             📊 Excel
           </button>
           <button
-            onClick={() => exportSubDivisionToPDF(data, currency, { period: periodLabel, ...appliedFilters })}
+            onClick={() => exportSubDivisionToPDF(data, currency, { period: periodLabel, unit: subdivModalUnit, ...appliedFilters })}
             style={{
               padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, borderRadius: 6,
               border: '1px solid #fecdd3', background: '#fff1f2', color: '#be123c',
@@ -2266,13 +2334,25 @@ function TrendViewAll({
   loading,
 }) {
   const [modalFilters, setModalFilters] = useState({
-    legalGroup: appliedFilters?.legalGroup || ['All'],
-    legalEntity: appliedFilters?.legalEntity || [],
-    parentDivision: appliedFilters?.parentDivision || [],
-    subdivision: appliedFilters?.subdivision || [],
-    period: appliedFilters?.period || '',
-    currency: currency || 'AED',
+    legalGroup:     appliedFilters?.legalGroup     || ['All'],
+    legalEntity:    appliedFilters?.legalEntity    || ['All'],
+    parentDivision: appliedFilters?.parentDivision || ['All'],
+    subdivision:    appliedFilters?.subdivision    || ['All'],
+    period:         appliedFilters?.period         || '',
+    currency:       currency || 'AED',
   });
+
+  // Re-sync whenever parent appliedFilters or currency changes
+  useEffect(() => {
+    setModalFilters({
+      legalGroup:     appliedFilters?.legalGroup     || ['All'],
+      legalEntity:    appliedFilters?.legalEntity    || ['All'],
+      parentDivision: appliedFilters?.parentDivision || ['All'],
+      subdivision:    appliedFilters?.subdivision    || ['All'],
+      period:         appliedFilters?.period         || '',
+      currency:       currency || 'AED',
+    });
+  }, [appliedFilters, currency]);
 
   const series = trendData?.series || [];
 
@@ -2534,13 +2614,25 @@ function CompositionViewAll({
   loading,
 }) {
   const [modalFilters, setModalFilters] = useState({
-    legalGroup: appliedFilters?.legalGroup || ['All'],
-    legalEntity: appliedFilters?.legalEntity || [],
-    parentDivision: appliedFilters?.parentDivision || [],
-    subdivision: appliedFilters?.subdivision || [],
-    period: appliedFilters?.period || '',
-    currency: currency || 'AED',
+    legalGroup:     appliedFilters?.legalGroup     || ['All'],
+    legalEntity:    appliedFilters?.legalEntity    || ['All'],
+    parentDivision: appliedFilters?.parentDivision || ['All'],
+    subdivision:    appliedFilters?.subdivision    || ['All'],
+    period:         appliedFilters?.period         || '',
+    currency:       currency || 'AED',
   });
+
+  // Re-sync whenever parent appliedFilters or currency changes
+  useEffect(() => {
+    setModalFilters({
+      legalGroup:     appliedFilters?.legalGroup     || ['All'],
+      legalEntity:    appliedFilters?.legalEntity    || ['All'],
+      parentDivision: appliedFilters?.parentDivision || ['All'],
+      subdivision:    appliedFilters?.subdivision    || ['All'],
+      period:         appliedFilters?.period         || '',
+      currency:       currency || 'AED',
+    });
+  }, [appliedFilters, currency]);
 
   if (!statementData) {
     return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No composition data available</div>;
@@ -3241,6 +3333,9 @@ export default function BalanceSheet() {
 
   const isFirstFilterLoad = useRef(true);
   const defaultLegalGroupId = useRef(['All']);
+  // Always holds the latest filters object so cascade effects avoid stale closures
+  const filtersRef = useRef(DEFAULT_FILTERS);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   /* ── Load filter options (supports cascading) ─────────────────── */
   const loadFilterOptions = useCallback(async (currentFilters = {}) => {
@@ -3299,13 +3394,17 @@ export default function BalanceSheet() {
   }, []);
 
   /* ── Cascading filter options on hierarchy change ──────────────── */
+  // NOTE: parentDivision is intentionally excluded from hierarchyKey.
+  // Including it caused a double-fetch blink: when LG/LE changed, setFilters
+  // reset parentDivision to ['All'] which changed hierarchyKey a second time,
+  // triggering another loadFilterOptions and making the PD dropdown flicker.
+  // Subdivisions only cascade from LG + LE, so PD does not need to be a key.
   const hierarchyKey = useMemo(
     () => JSON.stringify({
       lg: filters.legalGroup,
       le: filters.legalEntity,
-      pd: filters.parentDivision,
     }),
-    [filters.legalGroup, filters.legalEntity, filters.parentDivision]
+    [filters.legalGroup, filters.legalEntity]
   );
 
   const isInitialMount = useRef(true);
@@ -3316,9 +3415,9 @@ export default function BalanceSheet() {
       return;
     }
     loadFilterOptions({
-      legalGroup: filters.legalGroup,
-      legalEntity: filters.legalEntity,
-      parentDivision: filters.parentDivision,
+      legalGroup:     filtersRef.current.legalGroup,
+      legalEntity:    filtersRef.current.legalEntity,
+      parentDivision: filtersRef.current.parentDivision,
       isCascade: true,
     });
   }, [hierarchyKey, loadFilterOptions]);
@@ -3529,61 +3628,61 @@ export default function BalanceSheet() {
     {
       id: 'total-assets',
       label: 'Total Assets',
-      value: loading.summary ? '—' : fmtKPI(currentMetrics.totalAssets, currency),
+      value: (loading.summary || currentMetrics.noData) ? '—' : fmtKPI(currentMetrics.totalAssets, currency),
       subValue: `${periodLabel} • ${currency}`,
       changePct: movements.assets,
       compareLabel: compareLbl,
-      color: '#2563eb', iconBg: '#eff6ff',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
+      color: '#2563eb', iconBg: '#dbeafe', cardBg: '#f0f5ff',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
     },
     {
       id: 'total-liabilities',
       lowerIsBetter: true,
       label: 'Total Liabilities',
-      value: loading.summary ? '—' : fmtKPI(currentMetrics.totalLiabilities, currency),
+      value: (loading.summary || currentMetrics.noData) ? '—' : fmtKPI(currentMetrics.totalLiabilities, currency),
       subValue: `${periodLabel} • ${currency}`,
       changePct: movements.liabilities,
       compareLabel: compareLbl,
-      color: '#ea580c', iconBg: '#fff7ed',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+      color: '#ea580c', iconBg: '#fed7aa', cardBg: '#fff7ed',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
     },
     {
       id: 'total-equity',
       label: 'Total Equity',
-      value: loading.summary ? '—' : fmtKPI(currentMetrics.totalEquity, currency),
+      value: (loading.summary || currentMetrics.noData) ? '—' : fmtKPI(currentMetrics.totalEquity, currency),
       subValue: `${periodLabel} • ${currency}`,
       changePct: movements.equity,
       compareLabel: compareLbl,
-      color: '#9333ea', iconBg: '#faf5ff',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/></svg>,
+      color: '#9333ea', iconBg: '#e9d5ff', cardBg: '#faf5ff',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/></svg>,
     },
     {
       id: 'debt-to-equity',
         lowerIsBetter: true,
       label: 'Debt-to-Equity Ratio',
-      value: loading.summary ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)} : 1` : '—'),
+      value: (loading.summary || currentMetrics.noData) ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)} : 1` : '—'),
       valueColor: (!loading.summary && currentMetrics.debtToEquity !== null)
         ? (currentMetrics.debtToEquity <= 1.0 ? '#16a34a' : '#0f172a')
         : undefined,
       isRatio: true,
       changeDiff: movements.debtToEquityDiff,
       compareLabel: compareLbl,
-      color: '#0284c7', iconBg: '#f0f9ff',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>,
+      color: '#0284c7', iconBg: '#bae6fd', cardBg: '#f0f9ff',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>,
     },
     {
       id: 'liability-to-equity',
         lowerIsBetter: true,
       label: 'Liability-to-Equity Ratio',
-      value: loading.summary ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)} : 1` : '—'),
+      value: (loading.summary || currentMetrics.noData) ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)} : 1` : '—'),
       valueColor: (!loading.summary && currentMetrics.liabilityToEquity !== null)
         ? (currentMetrics.liabilityToEquity <= 1.0 ? '#16a34a' : '#0f172a')
         : undefined,
       isRatio: true,
       changeDiff: movements.liabilityToEquityDiff,
       compareLabel: compareLbl,
-      color: '#0d9488', iconBg: '#f0fdfa',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>,
+      color: '#0d9488', iconBg: '#99f6e4', cardBg: '#f0fdfa',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>,
     },
   ];
 
@@ -3591,7 +3690,7 @@ export default function BalanceSheet() {
      RENDER
   ══════════════════════════════════════════════════════════════════ */
   return (
-    <div className="animate-in" style={{ padding: '20px 0 40px', background: C.bg, minHeight: '100%' }}>
+    <div className="animate-in" style={{ padding: '20px 0 32px', background: C.bg, minHeight: '100%' }}>
 
       <style>{`
         @keyframes bs-shimmer  { from { background-position: 200% 0; } to { background-position: -200% 0; } }
@@ -3691,7 +3790,7 @@ export default function BalanceSheet() {
       {/* ══ PAGE HEADER ══ */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.navy, margin: 0 }}>Balance Sheet Analysis</h1>
+          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: C.navy, margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ fontSize: '1.3rem' }}>🏦</span> Balance Sheet Analysis</h1>
           <p style={{ fontSize: '0.76rem', color: C.slate, margin: '3px 0 0' }}>
             View the financial position of the company across different dimensions.
           </p>
@@ -3699,7 +3798,11 @@ export default function BalanceSheet() {
             <p style={{ fontSize: '0.7rem', color: C.muted, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
               Last Updated On: <strong style={{ color: C.slate }}>
-                {lastFetchedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                {[
+                  String(lastFetchedAt.getDate()).padStart(2, '0'),
+                  String(lastFetchedAt.getMonth() + 1).padStart(2, '0'),
+                  lastFetchedAt.getFullYear(),
+                ].join('-')}
                 {' '}at{' '}
                 {lastFetchedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
               </strong>
@@ -3742,7 +3845,7 @@ export default function BalanceSheet() {
       </div>
 
       {/* ══ FILTER BAR (CFO UAT-1 Revisions) ══ */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', overflow: 'visible' }}>
+      <div className="card" style={{ padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 6, flexWrap: 'wrap', overflow: 'visible' }}>
         {/* 1. Legal Group (Multi-select) */}
         <FilterField label="Legal Group">
           <MultiSelect
@@ -3798,7 +3901,6 @@ export default function BalanceSheet() {
           />
         </FilterField>
 
-        {/* 6. Compare Month (accounting period selector) */}
         <FilterField label="Compare Month">
           <PeriodDropdown
             id="filter-bs-compare"
@@ -3812,6 +3914,15 @@ export default function BalanceSheet() {
             disabled={loading.filters}
             width={130}
           />
+          {filters.comparePeriod && filters.comparePeriod === filters.period && (
+            <span style={{
+              display: 'block', marginTop: 3, fontSize: '0.62rem', color: '#b45309',
+              background: '#fef3c7', border: '1px solid #fde68a',
+              borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap',
+            }}>
+              ⚠️ Compare period must differ from Month
+            </span>
+          )}
         </FilterField>
 
         {/* 7. Reporting Currency */}
@@ -3850,10 +3961,10 @@ export default function BalanceSheet() {
       {errors.filters && <ErrorBanner message={errors.filters} onRetry={loadFilterOptions} />}
 
       {/* ══ KPI CARDS ══ */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 18 }}>
+      <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Key Performance Indicators</span>
+            <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Key Performance Indicators</span>
             {hasExportRight("BALANCE_SHEET") && (
               <ExportButtons
                 endpoint="summary"
@@ -3874,8 +3985,8 @@ export default function BalanceSheet() {
             />
           )}
         </div>
-        {/* 5-column responsive KPI grid */}
-        <div className="bs-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        {/* 5-column responsive KPI grid — matches SR auto-fit pattern */}
+        <div className="bs-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))', gap: 'var(--card-gap, 10px)' }}>
           {kpiCards.map(kpi => (
             <KPICard
               key={kpi.id}
@@ -3894,10 +4005,10 @@ export default function BalanceSheet() {
         const DonutCard = ({ title, subtitle, segments, total, totalLabel, isLoading, menuItems }) => {
           const chartKey = `donut-${segments.length}-${Math.round(total)}`;
           return (
-            <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
+            <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>{title}</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>{title}</div>
                   <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>{subtitle}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -3988,13 +4099,13 @@ export default function BalanceSheet() {
         const latestPoint = trendList.length > 0 ? trendList[trendList.length - 1] : null;
 
         return (
-          <div className="bs-chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div className="bs-chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
 
             {/* ── Balance Sheet Trend (Assets vs Liabilities vs Equity - Previous 6 Months) ── */}
-            <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
+            <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Assets vs Liabilities vs Equity Trend</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Assets vs Liabilities vs Equity Trend</div>
                   <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>
                     Previous 6 Months ({trend6MonthData?.startPeriod || '—'} → {trend6MonthData?.endPeriod || '—'}) | {currency}
                   </div>
@@ -4010,9 +4121,9 @@ export default function BalanceSheet() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
                   {[...Array(5)].map((_, i) => <Skeleton key={i} h={20} />)}
                 </div>
-              ) : trendList.length === 0 ? (
+              ) : (trendList.length === 0 || trendList.every(d => (d.totalAssets === 0 || d.totalAssets == null) && (d.totalLiabilities === 0 || d.totalLiabilities == null) && (d.totalEquity === 0 || d.totalEquity == null))) ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
-                  No trend data available
+                  No data available
                 </div>
               ) : (
                 <>

@@ -3,7 +3,7 @@
  * ─────────────────────────
  * All calls include JWT Bearer token from localStorage.
  * Base URL is read from the Vite env variable VITE_API_BASE_URL
- * (defaults to http://13.233.207.68:8000 for local development).
+ * (defaults to http://13.204.174.81:8000 for local development).
  */
 
 // IMPORTANT: Keep ?? (not ||) here.
@@ -757,7 +757,8 @@ function buildParams(filters = {}) {
       filters.salesCategory ??
       filters.sales_category ??
       filters.sales_categories
-    )
+    ),
+    unit: filters.unit || undefined
   };
 }
 
@@ -1022,7 +1023,6 @@ export async function fetchSubdivisionDetail(filters) {
  */
 export async function fetchSalesmanDetail(filters) {
   const p = buildParams(filters);
-  p.sales_category = ['External Sales', 'RP Cross Sales'];
   const res = await apiCall('/api/sales-revenue/salesman-detail', p);
   const filterOut = (r) => !(r.salesman_name || r.sales_person || r.salesman || '').toLowerCase().includes('unassigned');
   if (res && Array.isArray(res.data)) {
@@ -1108,7 +1108,6 @@ export async function fetchGrossMargin(filters) {
  */
 export async function fetchSalesmanSummary(filters) {
   const p = buildParams(filters);
-  p.sales_category = ['External Sales', 'RP Cross Sales'];
   const res = await apiCall('/api/sales-revenue/salesman-summary', p);
   const filterOut = (r) => !(r.salesman_name || r.sales_person || r.salesman || '').toLowerCase().includes('unassigned');
   if (res && Array.isArray(res.data)) {

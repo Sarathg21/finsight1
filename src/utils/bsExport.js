@@ -185,20 +185,27 @@ export function exportCompositionToPDF(compositionInput, currency, appliedFilter
 
 export function exportStatementToExcel(statementData, currency = 'AED', metadata = {}) {
   if (!statementData) return;
+  const unit = metadata.unit || 'aed'; // 'aed' | 'millions'
+  const isMillions = unit === 'millions';
+  const divisor = isMillions ? 1_000_000 : 1;
+  const currLabel = isMillions ? `${currency} Millions` : currency;
+
   const hasCompare = Boolean(metadata.comparePeriod || (statementData.totalAssets?.compare != null && statementData.totalAssets?.compare !== 0));
   const curPeriod = metadata.period || 'Current';
   const cmpPeriod = metadata.comparePeriod || 'Prior';
 
+  const scaleVal = v => v != null ? Number(v) / divisor : null;
+
   const wsData = [
     ['FinSight — Detailed Balance Sheet Statement'],
-    ['Period: ' + curPeriod, hasCompare ? 'Compared with: ' + cmpPeriod : '', 'Currency: ' + currency],
+    ['Period: ' + curPeriod, hasCompare ? 'Compared with: ' + cmpPeriod : '', 'Currency: ' + currLabel],
     ['Generated: ' + new Date().toLocaleString()],
     [],
   ];
 
   const headers = hasCompare
-    ? ['Account Code', 'Particulars / Account Name', `As on ${curPeriod} (${currency})`, `As on ${cmpPeriod} (${currency})`, `Variance (${currency})`, 'Variance %']
-    : ['Account Code', 'Particulars / Account Name', `As on ${curPeriod} (${currency})`];
+    ? ['Account Code', 'Particulars / Account Name', `As on ${curPeriod} (${currLabel})`, `As on ${cmpPeriod} (${currLabel})`, `Variance (${currLabel})`, 'Variance %']
+    : ['Account Code', 'Particulars / Account Name', `As on ${curPeriod} (${currLabel})`];
 
   wsData.push(headers);
 
@@ -207,101 +214,72 @@ export function exportStatementToExcel(statementData, currency = 'AED', metadata
     (subData?.rows || []).forEach(r => {
       if (hasCompare) {
         wsData.push([
-          r.code,
-          r.name,
-          r.current,
-          r.compare,
-          r.variance,
+          r.code, r.name,
+          scaleVal(r.current), scaleVal(r.compare), scaleVal(r.variance),
           r.variancePct != null ? (r.variancePct >= 0 ? '+' : '') + r.variancePct.toFixed(2) + '%' : '-'
         ]);
       } else {
-        wsData.push([r.code, r.name, r.current]);
+        wsData.push([r.code, r.name, scaleVal(r.current)]);
       }
     });
-    // Subtotal row
     if (hasCompare) {
-      wsData.push([
-        '',
-        `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`,
-        subData?.totalCurrent ?? 0,
-        subData?.totalCompare ?? 0,
-        subData?.totalVariance ?? 0,
+      wsData.push(['', `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`,
+        scaleVal(subData?.totalCurrent), scaleVal(subData?.totalCompare), scaleVal(subData?.totalVariance),
         subData?.totalVariancePct != null ? (subData.totalVariancePct >= 0 ? '+' : '') + subData.totalVariancePct.toFixed(2) + '%' : '-'
       ]);
     } else {
-      wsData.push(['', `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`, subData?.totalCurrent ?? 0]);
+      wsData.push(['', `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`, scaleVal(subData?.totalCurrent)]);
     }
-    wsData.push([]); // blank row
+    wsData.push([]);
   };
 
-  // 1. ASSETS
   wsData.push(['=== 1. ASSETS ===', '', ...Array(headers.length - 2).fill('')]);
   addSubSection('I. CURRENT ASSETS', statementData.currentAssets);
   addSubSection('II. NON-CURRENT ASSETS', statementData.nonCurrentAssets);
   if (hasCompare) {
-    wsData.push([
-      '',
-      'TOTAL ASSETS',
-      statementData.totalAssets?.current ?? 0,
-      statementData.totalAssets?.compare ?? 0,
-      statementData.totalAssets?.variance ?? 0,
-      statementData.totalAssets?.variancePct != null ? (statementData.totalAssets.variancePct >= 0 ? '+' : '') + statementData.totalAssets.variancePct.toFixed(2) + '%' : '-'
-    ]);
+    wsData.push(['', 'TOTAL ASSETS', scaleVal(statementData.totalAssets?.current), scaleVal(statementData.totalAssets?.compare), scaleVal(statementData.totalAssets?.variance),
+      statementData.totalAssets?.variancePct != null ? (statementData.totalAssets.variancePct >= 0 ? '+' : '') + statementData.totalAssets.variancePct.toFixed(2) + '%' : '-']);
   } else {
-    wsData.push(['', 'TOTAL ASSETS', statementData.totalAssets?.current ?? 0]);
+    wsData.push(['', 'TOTAL ASSETS', scaleVal(statementData.totalAssets?.current)]);
   }
   wsData.push([]);
 
-  // 2. EQUITY & LIABILITIES
   wsData.push(['=== 2. EQUITY & LIABILITIES ===', '', ...Array(headers.length - 2).fill('')]);
   addSubSection('I. CURRENT LIABILITIES', statementData.currentLiab);
   addSubSection('II. NON-CURRENT LIABILITIES', statementData.nonCurrentLiab);
   if (hasCompare) {
-    wsData.push([
-      '',
-      'TOTAL LIABILITIES',
-      statementData.totalLiab?.current ?? 0,
-      statementData.totalLiab?.compare ?? 0,
-      statementData.totalLiab?.variance ?? 0,
-      statementData.totalLiab?.variancePct != null ? (statementData.totalLiab.variancePct >= 0 ? '+' : '') + statementData.totalLiab.variancePct.toFixed(2) + '%' : '-'
-    ]);
+    wsData.push(['', 'TOTAL LIABILITIES', scaleVal(statementData.totalLiab?.current), scaleVal(statementData.totalLiab?.compare), scaleVal(statementData.totalLiab?.variance),
+      statementData.totalLiab?.variancePct != null ? (statementData.totalLiab.variancePct >= 0 ? '+' : '') + statementData.totalLiab.variancePct.toFixed(2) + '%' : '-']);
   } else {
-    wsData.push(['', 'TOTAL LIABILITIES', statementData.totalLiab?.current ?? 0]);
+    wsData.push(['', 'TOTAL LIABILITIES', scaleVal(statementData.totalLiab?.current)]);
   }
   wsData.push([]);
 
   addSubSection('III. EQUITY', statementData.equity);
   if (hasCompare) {
-    wsData.push([
-      '',
-      'TOTAL EQUITY',
-      statementData.equity?.totalCurrent ?? 0,
-      statementData.equity?.totalCompare ?? 0,
-      statementData.equity?.totalVariance ?? 0,
-      statementData.equity?.totalVariancePct != null ? (statementData.equity.totalVariancePct >= 0 ? '+' : '') + statementData.equity.totalVariancePct.toFixed(2) + '%' : '-'
-    ]);
-    wsData.push([
-      '',
-      'TOTAL EQUITY & LIABILITIES',
-      statementData.totalEqLiab?.current ?? 0,
-      statementData.totalEqLiab?.compare ?? 0,
-      statementData.totalEqLiab?.variance ?? 0,
-      statementData.totalEqLiab?.variancePct != null ? (statementData.totalEqLiab.variancePct >= 0 ? '+' : '') + statementData.totalEqLiab.variancePct.toFixed(2) + '%' : '-'
-    ]);
+    wsData.push(['', 'TOTAL EQUITY', scaleVal(statementData.equity?.totalCurrent), scaleVal(statementData.equity?.totalCompare), scaleVal(statementData.equity?.totalVariance),
+      statementData.equity?.totalVariancePct != null ? (statementData.equity.totalVariancePct >= 0 ? '+' : '') + statementData.equity.totalVariancePct.toFixed(2) + '%' : '-']);
+    wsData.push(['', 'TOTAL EQUITY & LIABILITIES', scaleVal(statementData.totalEqLiab?.current), scaleVal(statementData.totalEqLiab?.compare), scaleVal(statementData.totalEqLiab?.variance),
+      statementData.totalEqLiab?.variancePct != null ? (statementData.totalEqLiab.variancePct >= 0 ? '+' : '') + statementData.totalEqLiab.variancePct.toFixed(2) + '%' : '-']);
   } else {
-    wsData.push(['', 'TOTAL EQUITY', statementData.equity?.totalCurrent ?? 0]);
-    wsData.push(['', 'TOTAL EQUITY & LIABILITIES', statementData.totalEqLiab?.current ?? 0]);
+    wsData.push(['', 'TOTAL EQUITY', scaleVal(statementData.equity?.totalCurrent)]);
+    wsData.push(['', 'TOTAL EQUITY & LIABILITIES', scaleVal(statementData.totalEqLiab?.current)]);
   }
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{ wch: 16 }, { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 16 }];
+  ws['!cols'] = [{ wch: 16 }, { wch: 40 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Balance_Sheet_Statement');
-  XLSX.writeFile(wb, `Balance_Sheet_Statement_${currency}_${curPeriod}.xlsx`);
+  XLSX.writeFile(wb, `Balance_Sheet_Statement_${currLabel.replace(' ', '_')}_${curPeriod}.xlsx`);
 }
 
 export function exportStatementToPDF(statementData, currency = 'AED', metadata = {}) {
   if (!statementData) return;
+  const unit = metadata.unit || 'aed';
+  const isMillions = unit === 'millions';
+  const divisor = isMillions ? 1_000_000 : 1;
+  const currLabel = isMillions ? `${currency} Millions` : currency;
+
   const hasCompare = Boolean(metadata.comparePeriod || (statementData.totalAssets?.compare != null && statementData.totalAssets?.compare !== 0));
   const curPeriod = metadata.period || 'Current';
   const cmpPeriod = metadata.comparePeriod || 'Prior';
@@ -311,16 +289,16 @@ export function exportStatementToPDF(statementData, currency = 'AED', metadata =
   doc.text('FinSight — Balance Sheet Statement', 14, 15);
   doc.setFontSize(9);
   doc.text(
-    `Period: ${curPeriod}${hasCompare ? ` | Compared with: ${cmpPeriod}` : ''} | Currency: ${currency} | Generated: ${new Date().toLocaleDateString()}`,
+    `Period: ${curPeriod}${hasCompare ? ` | Compared with: ${cmpPeriod}` : ''} | Currency: ${currLabel} | Generated: ${new Date().toLocaleDateString()}`,
     14, 22
   );
 
   const head = hasCompare
-    ? [['Code', 'Particulars / Account', `As on ${curPeriod}`, `As on ${cmpPeriod}`, `Variance (${currency})`, 'Variance %']]
-    : [['Code', 'Particulars / Account', `As on ${curPeriod} (${currency})`]];
+    ? [['Code', 'Particulars / Account', `As on ${curPeriod}`, `As on ${cmpPeriod}`, `Variance (${currLabel})`, 'Variance %']]
+    : [['Code', 'Particulars / Account', `As on ${curPeriod} (${currLabel})`]];
 
   const body = [];
-  const fmt = n => n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const fmt = n => n != null ? (Number(n) / divisor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
   const fmtPct = n => n != null ? `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(2)}%` : '—';
 
   const pushSectionHeader = title => {
@@ -336,144 +314,94 @@ export function exportStatementToPDF(statementData, currency = 'AED', metadata =
         body.push([r.code, r.name, fmt(r.current)]);
       }
     });
-    // Subtotal
     if (hasCompare) {
-      body.push([
-        '',
-        `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`,
-        fmt(subData?.totalCurrent),
-        fmt(subData?.totalCompare),
-        fmt(subData?.totalVariance),
-        fmtPct(subData?.totalVariancePct)
-      ]);
+      body.push(['', `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`, fmt(subData?.totalCurrent), fmt(subData?.totalCompare), fmt(subData?.totalVariance), fmtPct(subData?.totalVariancePct)]);
     } else {
       body.push(['', `Total ${title.replace(/^[I|V|X]+\.\s*/, '')}`, fmt(subData?.totalCurrent)]);
     }
   };
 
-  // ASSETS
   body.push([{ content: '1. ASSETS', colSpan: head[0].length, styles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' } }]);
   pushSubSection('I. CURRENT ASSETS', statementData.currentAssets);
   pushSubSection('II. NON-CURRENT ASSETS', statementData.nonCurrentAssets);
   if (hasCompare) {
-    body.push([
-      { content: 'TOTAL ASSETS', colSpan: 2, styles: { fontStyle: 'bold', textColor: [37, 99, 235] } },
-      fmt(statementData.totalAssets?.current),
-      fmt(statementData.totalAssets?.compare),
-      fmt(statementData.totalAssets?.variance),
-      fmtPct(statementData.totalAssets?.variancePct)
-    ]);
+    body.push([{ content: 'TOTAL ASSETS', colSpan: 2, styles: { fontStyle: 'bold', textColor: [37, 99, 235] } }, fmt(statementData.totalAssets?.current), fmt(statementData.totalAssets?.compare), fmt(statementData.totalAssets?.variance), fmtPct(statementData.totalAssets?.variancePct)]);
   } else {
-    body.push([
-      { content: 'TOTAL ASSETS', colSpan: 2, styles: { fontStyle: 'bold', textColor: [37, 99, 235] } },
-      fmt(statementData.totalAssets?.current)
-    ]);
+    body.push([{ content: 'TOTAL ASSETS', colSpan: 2, styles: { fontStyle: 'bold', textColor: [37, 99, 235] } }, fmt(statementData.totalAssets?.current)]);
   }
 
-  // EQUITY & LIABILITIES
   body.push([{ content: '2. EQUITY & LIABILITIES', colSpan: head[0].length, styles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' } }]);
   pushSubSection('I. CURRENT LIABILITIES', statementData.currentLiab);
   pushSubSection('II. NON-CURRENT LIABILITIES', statementData.nonCurrentLiab);
   if (hasCompare) {
-    body.push([
-      { content: 'TOTAL LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [234, 88, 12] } },
-      fmt(statementData.totalLiab?.current),
-      fmt(statementData.totalLiab?.compare),
-      fmt(statementData.totalLiab?.variance),
-      fmtPct(statementData.totalLiab?.variancePct)
-    ]);
+    body.push([{ content: 'TOTAL LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [234, 88, 12] } }, fmt(statementData.totalLiab?.current), fmt(statementData.totalLiab?.compare), fmt(statementData.totalLiab?.variance), fmtPct(statementData.totalLiab?.variancePct)]);
   } else {
-    body.push([
-      { content: 'TOTAL LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [234, 88, 12] } },
-      fmt(statementData.totalLiab?.current)
-    ]);
+    body.push([{ content: 'TOTAL LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [234, 88, 12] } }, fmt(statementData.totalLiab?.current)]);
   }
 
   pushSubSection('III. EQUITY', statementData.equity);
   if (hasCompare) {
-    body.push([
-      { content: 'TOTAL EQUITY', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61] } },
-      fmt(statementData.equity?.totalCurrent),
-      fmt(statementData.equity?.totalCompare),
-      fmt(statementData.equity?.totalVariance),
-      fmtPct(statementData.equity?.totalVariancePct)
-    ]);
-    body.push([
-      { content: 'TOTAL EQUITY & LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61], fillColor: [240, 253, 244] } },
-      fmt(statementData.totalEqLiab?.current),
-      fmt(statementData.totalEqLiab?.compare),
-      fmt(statementData.totalEqLiab?.variance),
-      fmtPct(statementData.totalEqLiab?.variancePct)
-    ]);
+    body.push([{ content: 'TOTAL EQUITY', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61] } }, fmt(statementData.equity?.totalCurrent), fmt(statementData.equity?.totalCompare), fmt(statementData.equity?.totalVariance), fmtPct(statementData.equity?.totalVariancePct)]);
+    body.push([{ content: 'TOTAL EQUITY & LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61], fillColor: [240, 253, 244] } }, fmt(statementData.totalEqLiab?.current), fmt(statementData.totalEqLiab?.compare), fmt(statementData.totalEqLiab?.variance), fmtPct(statementData.totalEqLiab?.variancePct)]);
   } else {
-    body.push([
-      { content: 'TOTAL EQUITY', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61] } },
-      fmt(statementData.equity?.totalCurrent)
-    ]);
-    body.push([
-      { content: 'TOTAL EQUITY & LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61], fillColor: [240, 253, 244] } },
-      fmt(statementData.totalEqLiab?.current)
-    ]);
+    body.push([{ content: 'TOTAL EQUITY', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61] } }, fmt(statementData.equity?.totalCurrent)]);
+    body.push([{ content: 'TOTAL EQUITY & LIABILITIES', colSpan: 2, styles: { fontStyle: 'bold', textColor: [21, 128, 61], fillColor: [240, 253, 244] } }, fmt(statementData.totalEqLiab?.current)]);
   }
 
   autoTable(doc, {
-    startY: 28,
-    head,
-    body,
-    theme: 'plain',
+    startY: 28, head, body, theme: 'plain',
     styles: { fontSize: 8, cellPadding: 2 },
-    columnStyles: hasCompare ? {
-      0: { cellWidth: 26 },
-      1: { cellWidth: 70 },
-      2: { halign: 'right' },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-      5: { halign: 'right' },
-    } : {
-      0: { cellWidth: 32 },
-      1: { cellWidth: 100 },
-      2: { halign: 'right' },
-    }
+    columnStyles: hasCompare ? { 0: { cellWidth: 26 }, 1: { cellWidth: 70 }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } }
+      : { 0: { cellWidth: 32 }, 1: { cellWidth: 100 }, 2: { halign: 'right' } }
   });
 
-  doc.save(`Balance_Sheet_Statement_${currency}_${curPeriod}.pdf`);
+  doc.save(`Balance_Sheet_Statement_${currLabel.replace(' ', '_')}_${curPeriod}.pdf`);
 }
 
 export function exportSubDivisionToExcel(subdivData, currency = 'AED', metadata = {}) {
   const rows = Array.isArray(subdivData) ? subdivData : (subdivData?.data || []);
   if (!rows || !rows.length) return;
 
+  const unit = metadata.unit || 'aed';
+  const isMillions = unit === 'millions';
+  const divisor = isMillions ? 1_000_000 : 1;
+  const currLabel = isMillions ? `${currency} Millions` : currency;
   const curPeriod = metadata.period || 'Current';
 
   const wsData = [
     ['FinSight — Balance Sheet by Sub-Division'],
-    ['Period: ' + curPeriod, 'Currency: ' + currency],
+    ['Period: ' + curPeriod, 'Currency: ' + currLabel],
     ['Generated: ' + new Date().toLocaleString()],
     [],
-    ['Sub-Division Name', 'Sub-Division Code', 'Legal Entity', 'Parent Division', `Net Balance (${currency})`],
+    ['Sub-Division Name', 'Sub-Division Code', 'Legal Entity', 'Parent Division', `Net Balance (${currLabel})`],
     ...rows.map(r => [
       r.sub_division_name || '—',
       r.sub_division_code || '—',
       r.legal_entity_name || '—',
       r.parent_division_name || '—',
-      r.grand_total ?? r.balance_amount ?? 0,
+      (r.grand_total ?? r.balance_amount ?? 0) / divisor,
     ])
   ];
 
   const total = rows.reduce((sum, r) => sum + (Number(r.grand_total ?? r.balance_amount ?? 0) || 0), 0);
   wsData.push([]);
-  wsData.push(['TOTAL', '', '', '', total]);
+  wsData.push(['TOTAL', '', '', '', total / divisor]);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   ws['!cols'] = [{ wch: 32 }, { wch: 18 }, { wch: 28 }, { wch: 24 }, { wch: 22 }];
   XLSX.utils.book_append_sheet(wb, ws, 'BS_Subdivision');
-  XLSX.writeFile(wb, `Balance_Sheet_SubDivision_${currency}_${curPeriod}.xlsx`);
+  XLSX.writeFile(wb, `Balance_Sheet_SubDivision_${currLabel.replace(' ', '_')}_${curPeriod}.xlsx`);
 }
 
 export function exportSubDivisionToPDF(subdivData, currency = 'AED', metadata = {}) {
   const rows = Array.isArray(subdivData) ? subdivData : (subdivData?.data || []);
   if (!rows || !rows.length) return;
+
+  const unit = metadata.unit || 'aed';
+  const isMillions = unit === 'millions';
+  const divisor = isMillions ? 1_000_000 : 1;
+  const currLabel = isMillions ? `${currency} Millions` : currency;
 
   const curPeriod = metadata.period || 'Current';
   const doc = new jsPDF({ orientation: 'portrait' });
@@ -482,13 +410,13 @@ export function exportSubDivisionToPDF(subdivData, currency = 'AED', metadata = 
   doc.text('FinSight — Balance Sheet by Sub-Division', 14, 15);
   doc.setFontSize(9);
   doc.text(
-    `Period: ${curPeriod} | Currency: ${currency} | Total Sub-Divisions: ${rows.length} | Generated: ${new Date().toLocaleDateString()}`,
+    `Period: ${curPeriod} | Currency: ${currLabel} | Total Sub-Divisions: ${rows.length} | Generated: ${new Date().toLocaleDateString()}`,
     14, 22
   );
 
-  const fmt = n => n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const fmt = n => n != null ? (Number(n) / divisor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
 
-  const tableHead = [['Sub-Division Name', 'Code', 'Legal Entity', 'Parent Division', `Net Balance (${currency})`]];
+  const tableHead = [['Sub-Division Name', 'Code', 'Legal Entity', 'Parent Division', `Net Balance (${currLabel})`]];
   const tableBody = rows.map(r => [
     r.sub_division_name || '—',
     r.sub_division_code || '—',
@@ -519,5 +447,5 @@ export function exportSubDivisionToPDF(subdivData, currency = 'AED', metadata = 
     }
   });
 
-  doc.save(`Balance_Sheet_SubDivision_${currency}_${curPeriod}.pdf`);
+  doc.save(`Balance_Sheet_SubDivision_${currLabel.replace(' ', '_')}_${curPeriod}.pdf`);
 }

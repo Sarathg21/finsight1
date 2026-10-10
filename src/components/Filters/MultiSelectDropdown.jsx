@@ -109,6 +109,7 @@ export default function MultiSelectDropdown({
         }}
       >
         <span
+          title={displayValue()}
           style={{
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -139,8 +140,9 @@ export default function MultiSelectDropdown({
             position: "absolute",
             top: "calc(100% + 4px)",
             left: 0,
-            width: "100%",
-            minWidth: "220px",
+            width: "max-content",
+            minWidth: "280px",
+            maxWidth: "480px",
             background: "#ffffff",
             border: "1px solid #e2e8f0",
             borderRadius: "12px",
@@ -199,6 +201,7 @@ export default function MultiSelectDropdown({
           >
             <button
               type="button"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onClick={handleSelectAll}
               style={{
                 background: "none",
@@ -214,6 +217,7 @@ export default function MultiSelectDropdown({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onClick={handleClearAll}
               style={{
                 background: "none",
@@ -306,9 +310,8 @@ export default function MultiSelectDropdown({
                         fontSize: "0.82rem",
                         color: "#334155",
                         fontWeight: isSelected ? 600 : 500,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        wordBreak: "break-word",
+                        whiteSpace: "normal",
                       }}
                     >
                       {optLabel}

@@ -1,7 +1,6 @@
 const BACKEND_ORIGIN =
   process.env.VITE_BACKEND ||
-  process.env.VITE_API_BASE_URL ||
-  "http://13.233.207.68:8000";
+  "http://13.204.174.81:8000";
 
 export default async function handler(req, res) {
   const { path, ...restQuery } = req.query;
