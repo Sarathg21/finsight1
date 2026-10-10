@@ -27,6 +27,29 @@
  *
  *   GET /api/financial-position/current-assets-liabilities/by-parent-division
  *
+ *   GET /api/financial-position/net-working-capital/trend
+ *   GET /api/financial-position/net-working-capital/view-all
+ *   GET /api/financial-position/net-working-capital/view-all/export/excel
+ *   GET /api/financial-position/net-working-capital/view-all/export/pdf
+ *
+ *   GET /api/financial-position/equity-contribution/view-all/export/excel
+ *   GET /api/financial-position/equity-contribution/view-all/export/pdf
+ *   GET /api/financial-position/equity-contribution/monthly-by-parent-division/export/excel
+ *   GET /api/financial-position/equity-contribution/monthly-by-parent-division/export/pdf
+ *
+ *   GET /api/financial-position/investments/by-parent-division/export/excel
+ *   GET /api/financial-position/investments/by-parent-division/export/pdf
+ *   GET /api/financial-position/investments/monthly-by-parent-division/export/excel
+ *   GET /api/financial-position/investments/monthly-by-parent-division/export/pdf
+ *
+ *   GET /api/financial-position/borrowings/by-parent-division/export/excel
+ *   GET /api/financial-position/borrowings/by-parent-division/export/pdf
+ *   GET /api/financial-position/borrowings/monthly-by-parent-division/export/excel
+ *   GET /api/financial-position/borrowings/monthly-by-parent-division/export/pdf
+ *
+ *   GET /api/financial-position/current-assets-liabilities/by-parent-division/export/excel
+ *   GET /api/financial-position/current-assets-liabilities/by-parent-division/export/pdf
+ *
  * ============================================================
  *
  * COMMON FILTER PARAMETERS
@@ -240,25 +263,6 @@ function buildFinancialPositionParams(filters = {}) {
 /**
  * GET
  * /api/financial-position/kpis
- *
- * Fields:
- *
- *   net_working_capital
- *   total_current_assets
- *   total_current_liabilities
- *   current_ratio
- *   nwc_turnover_ratio
- *   total_investments
- *   equity_position
- *   fixed_assets_and_other_non_current_assets
- *   long_term_bank_borrowings
- *   short_term_bank_borrowings
- *   loan_from_related_party
- *
- * loan_from_related_party is currently expected to be null.
- *
- * IMPORTANT:
- * Do not convert null to 0 here.
  */
 export async function getFinancialPositionKpis(filters = {}) {
     const params = buildFinancialPositionParams(filters);
@@ -278,15 +282,6 @@ export async function getFinancialPositionKpis(filters = {}) {
 /**
  * GET
  * /api/financial-position/equity-contribution
- *
- * Fields:
- *
- *   share_capital
- *   additional_capital
- *   reserves_and_surplus
- *   partner_current_account
- *   current_year_profit
- *   equity_total
  */
 export async function getFinancialPositionEquityContribution(
     filters = {}
@@ -308,19 +303,6 @@ export async function getFinancialPositionEquityContribution(
 /**
  * GET
  * /api/financial-position/equity-contribution/view-all
- *
- * One row per Parent Division.
- *
- * Fields:
- *
- *   parent_division_code
- *   parent_division_name
- *   share_capital
- *   additional_capital
- *   reserves_and_surplus
- *   partner_current_account
- *   current_year_profit
- *   equity_total
  */
 export async function getFinancialPositionEquityViewAll(
     filters = {}
@@ -342,19 +324,6 @@ export async function getFinancialPositionEquityViewAll(
 /**
  * GET
  * /api/financial-position/equity-contribution/monthly-by-parent-division
- *
- * Fields:
- *
- *   period_code
- *   period_month
- *   parent_division_code
- *   parent_division_name
- *   equity_total
- *
- * Used for:
- *
- *   Parent Division × Month
- *   Equity analysis
  */
 export async function getFinancialPositionEquityMonthlyByParentDivision(
     filters = {}
@@ -376,18 +345,6 @@ export async function getFinancialPositionEquityMonthlyByParentDivision(
 /**
  * GET
  * /api/financial-position/investments/by-parent-division
- *
- * Used for:
- *
- *   Fixed Assets View All
- *   Investments Analysis
- *   NWC by Parent Division
- *   Provision for Gratuity analysis
- *
- * IMPORTANT:
- *
- * Financial formulas are supplied by backend.
- * Do not recalculate them here.
  */
 export async function getFinancialPositionInvestmentsByParentDivision(
     filters = {}
@@ -409,29 +366,6 @@ export async function getFinancialPositionInvestmentsByParentDivision(
 /**
  * GET
  * /api/financial-position/investments/monthly-by-parent-division
- *
- * IMPORTANT:
- *
- * This is the single monthly endpoint used by:
- *
- *   1. Fixed Assets & Other Non-Current Assets
- *   2. Investments MoM
- *   3. Month on Month Net Working Capital
- *   4. Gratuity MoM
- *
- * Fields:
- *
- *   period_code
- *   period_month
- *   parent_division_code
- *   parent_division_name
- *   fixed_assets_and_other_non_current_assets
- *   provision_for_gratuity
- *   net_working_capital
- *   total_investments
- *
- * Do NOT create separate API requests for Fixed Assets
- * and NWC when this endpoint already returns both values.
  */
 export async function getFinancialPositionInvestmentsMonthlyByParentDivision(
     filters = {}
@@ -453,40 +387,6 @@ export async function getFinancialPositionInvestmentsMonthlyByParentDivision(
 /**
  * GET
  * /api/financial-position/borrowings/by-parent-division
- *
- * Used for:
- *
- *   Borrowing Position
- *   Borrowings View All
- *   Borrowing analysis by Parent Division
- *
- * Fields:
- *
- *   parent_division_code
- *   parent_division_name
- *   long_term_bank_borrowings
- *   short_term_bank_borrowings
- *   bank_borrowings_total
- *   loan_from_related_party
- *   total_borrowings
- *
- * IMPORTANT:
- *
- * loan_from_related_party = null
- * total_borrowings = null
- *
- * Do not replace null with 0.
- *
- * Do not substitute:
- *
- *   920008 Due to Related Party
- *
- * for:
- *
- *   Loan from Related Party
- *
- * bank_borrowings_total is the backend-provided
- * LT Bank Borrowings + ST Bank Borrowings value.
  */
 export async function getFinancialPositionBorrowingsByParentDivision(
     filters = {}
@@ -508,14 +408,6 @@ export async function getFinancialPositionBorrowingsByParentDivision(
 /**
  * GET
  * /api/financial-position/borrowings/monthly-by-parent-division
- *
- * One response is used for:
- *
- *   Long-Term Bank Loan MoM
- *   Short-Term Bank Borrowing MoM
- *   Combined Bank Borrowing trend
- *
- * Related Party Loan remains pending.
  */
 export async function getFinancialPositionBorrowingsMonthlyByParentDivision(
     filters = {}
@@ -537,23 +429,6 @@ export async function getFinancialPositionBorrowingsMonthlyByParentDivision(
 /**
  * GET
  * /api/financial-position/current-assets-liabilities/composition
- *
- * Response:
- *
- *   total_current_assets
- *   total_current_liabilities
- *   current_assets[]
- *   current_liabilities[]
- *
- * Category structure:
- *
- *   category
- *   amount
- *   percentage_of_total
- *
- * Zero-value categories may be absent from backend response.
- *
- * Do not manufacture missing categories in this API service.
  */
 export async function getFinancialPositionCurrentAssetsLiabilitiesComposition(
     filters = {}
@@ -575,31 +450,6 @@ export async function getFinancialPositionCurrentAssetsLiabilitiesComposition(
 /**
  * GET
  * /api/financial-position/current-assets-liabilities/by-parent-division
- *
- * One row per Parent Division.
- *
- * Current Assets:
- *
- *   inventories
- *   trade_receivables
- *   other_current_assets
- *   prepayments_and_advances
- *   cash_and_bank
- *   due_from_related_party
- *   total_current_assets
- *
- * Current Liabilities:
- *
- *   short_term_bank_borrowings
- *   trade_payables
- *   short_term_lease_liability
- *   other_current_liabilities
- *   due_to_related_party
- *   total_current_liabilities
- *
- * Working Capital:
- *
- *   net_working_capital
  */
 export async function getFinancialPositionCurrentAssetsLiabilitiesViewAll(
     filters = {}
@@ -614,8 +464,14 @@ export async function getFinancialPositionCurrentAssetsLiabilitiesViewAll(
     );
 }
 
+/* ============================================================
+   11. NET WORKING CAPITAL TREND
+============================================================ */
 
-
+/**
+ * GET
+ * /api/financial-position/net-working-capital/trend
+ */
 export async function getFinancialPositionNetWorkingCapitalTrend(
     filters = {}
 ) {
@@ -628,6 +484,380 @@ export async function getFinancialPositionNetWorkingCapitalTrend(
         }
     );
 }
+
+/* ============================================================
+   12. NET WORKING CAPITAL VIEW ALL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/net-working-capital/view-all
+ */
+export async function getFinancialPositionNetWorkingCapitalViewAll(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/net-working-capital/view-all",
+        {
+            params,
+        }
+    );
+}
+
+/* ============================================================
+   13. NET WORKING CAPITAL EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/net-working-capital/view-all/export/excel
+ */
+export async function exportFinancialPositionNetWorkingCapitalExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/net-working-capital/view-all/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   14. NET WORKING CAPITAL EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/net-working-capital/view-all/export/pdf
+ */
+export async function exportFinancialPositionNetWorkingCapitalPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/net-working-capital/view-all/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   15. EQUITY VIEW ALL EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/equity-contribution/view-all/export/excel
+ */
+export async function exportFinancialPositionEquityViewAllExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/equity-contribution/view-all/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   16. EQUITY VIEW ALL EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/equity-contribution/view-all/export/pdf
+ */
+export async function exportFinancialPositionEquityViewAllPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/equity-contribution/view-all/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   17. EQUITY MONTHLY EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/equity-contribution/monthly-by-parent-division/export/excel
+ */
+export async function exportFinancialPositionEquityMonthlyByParentDivisionExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/equity-contribution/monthly-by-parent-division/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   18. EQUITY MONTHLY EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/equity-contribution/monthly-by-parent-division/export/pdf
+ */
+export async function exportFinancialPositionEquityMonthlyByParentDivisionPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/equity-contribution/monthly-by-parent-division/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   19. INVESTMENTS BY PARENT DIVISION EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/investments/by-parent-division/export/excel
+ */
+export async function exportFinancialPositionInvestmentsByParentDivisionExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/investments/by-parent-division/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   20. INVESTMENTS BY PARENT DIVISION EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/investments/by-parent-division/export/pdf
+ */
+export async function exportFinancialPositionInvestmentsByParentDivisionPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/investments/by-parent-division/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   21. INVESTMENTS MONTHLY EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/investments/monthly-by-parent-division/export/excel
+ */
+export async function exportFinancialPositionInvestmentsMonthlyByParentDivisionExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/investments/monthly-by-parent-division/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   22. INVESTMENTS MONTHLY EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/investments/monthly-by-parent-division/export/pdf
+ */
+export async function exportFinancialPositionInvestmentsMonthlyByParentDivisionPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/investments/monthly-by-parent-division/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   23. BORROWINGS BY PARENT DIVISION EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/borrowings/by-parent-division/export/excel
+ */
+export async function exportFinancialPositionBorrowingsByParentDivisionExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/borrowings/by-parent-division/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   24. BORROWINGS BY PARENT DIVISION EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/borrowings/by-parent-division/export/pdf
+ */
+export async function exportFinancialPositionBorrowingsByParentDivisionPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/borrowings/by-parent-division/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   25. BORROWINGS MONTHLY EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/borrowings/monthly-by-parent-division/export/excel
+ */
+export async function exportFinancialPositionBorrowingsMonthlyByParentDivisionExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/borrowings/monthly-by-parent-division/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   26. BORROWINGS MONTHLY EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/borrowings/monthly-by-parent-division/export/pdf
+ */
+export async function exportFinancialPositionBorrowingsMonthlyByParentDivisionPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/borrowings/monthly-by-parent-division/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   27. CURRENT ASSETS / LIABILITIES EXPORT - EXCEL
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/current-assets-liabilities/by-parent-division/export/excel
+ */
+export async function exportFinancialPositionCurrentAssetsLiabilitiesExcel(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/current-assets-liabilities/by-parent-division/export/excel",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
+/* ============================================================
+   28. CURRENT ASSETS / LIABILITIES EXPORT - PDF
+============================================================ */
+
+/**
+ * GET
+ * /api/financial-position/current-assets-liabilities/by-parent-division/export/pdf
+ */
+export async function exportFinancialPositionCurrentAssetsLiabilitiesPdf(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/financial-position/current-assets-liabilities/by-parent-division/export/pdf",
+        {
+            params,
+            responseType: "blob",
+        }
+    );
+}
+
 /* ============================================================
    DEFAULT EXPORT
 ============================================================ */
@@ -653,22 +883,12 @@ const financialPositionApi = {
 
     getFinancialPositionInvestmentsByParentDivision,
 
-    /*
-     * IMPORTANT:
-     * This ONE endpoint is used by both:
-     *
-     * Fixed Assets & Other Non-Current Assets
-     * Month on Month Net Working Capital
-     */
     getFinancialPositionInvestmentsMonthlyByParentDivision,
 
     /* --------------------------------------------------------
        Borrowings
     -------------------------------------------------------- */
 
-    /*
-     * Borrowing Position uses this endpoint.
-     */
     getFinancialPositionBorrowingsByParentDivision,
 
     getFinancialPositionBorrowingsMonthlyByParentDivision,
@@ -679,15 +899,53 @@ const financialPositionApi = {
 
     getFinancialPositionCurrentAssetsLiabilitiesComposition,
     getFinancialPositionCurrentAssetsLiabilitiesViewAll,
+
+    /* --------------------------------------------------------
+       Net Working Capital
+    -------------------------------------------------------- */
+
     getFinancialPositionNetWorkingCapitalTrend,
+    getFinancialPositionNetWorkingCapitalViewAll,
+
+    exportFinancialPositionNetWorkingCapitalExcel,
+    exportFinancialPositionNetWorkingCapitalPdf,
+
+    /* --------------------------------------------------------
+       Equity Contribution Exports
+    -------------------------------------------------------- */
+
+    exportFinancialPositionEquityViewAllExcel,
+    exportFinancialPositionEquityViewAllPdf,
+
+    exportFinancialPositionEquityMonthlyByParentDivisionExcel,
+    exportFinancialPositionEquityMonthlyByParentDivisionPdf,
+
+    /* --------------------------------------------------------
+       Investments / Fixed Assets Exports
+    -------------------------------------------------------- */
+
+    exportFinancialPositionInvestmentsByParentDivisionExcel,
+    exportFinancialPositionInvestmentsByParentDivisionPdf,
+
+    exportFinancialPositionInvestmentsMonthlyByParentDivisionExcel,
+    exportFinancialPositionInvestmentsMonthlyByParentDivisionPdf,
+
+    /* --------------------------------------------------------
+       Borrowings Exports
+    -------------------------------------------------------- */
+
+    exportFinancialPositionBorrowingsByParentDivisionExcel,
+    exportFinancialPositionBorrowingsByParentDivisionPdf,
+
+    exportFinancialPositionBorrowingsMonthlyByParentDivisionExcel,
+    exportFinancialPositionBorrowingsMonthlyByParentDivisionPdf,
+
+    /* --------------------------------------------------------
+       Current Assets / Current Liabilities Exports
+    -------------------------------------------------------- */
+
+    exportFinancialPositionCurrentAssetsLiabilitiesExcel,
+    exportFinancialPositionCurrentAssetsLiabilitiesPdf,
 };
 
 export default financialPositionApi;
-
-
-
-
-
-
-
-
