@@ -767,13 +767,13 @@ const [loading, setLoading] = useState(true);
   //   lowerIsBetter=true (Obsolete, DIO): colors are inverted
   const fmtVarBadge = (val, lowerIsBetter = false) => {
     if (val === null || val === undefined || val === "" || isNaN(Number(val))) {
-      return { display: "—", color: "#64748b", arrow: "" };
+      return { display: "-", color: "#64748b", arrow: "" };
     }
     const n = Number(val);
     const isUp = n >= 0;
     const isFavorable = lowerIsBetter ? !isUp : isUp;
     const color = isFavorable ? "#16a34a" : "#dc2626";
-    const arrow = isUp ? "▲" : "▼";
+    const arrow = isUp ? "\u25B2" : "\u25BC";
     return { display: `${Math.abs(n).toFixed(2)}%`, color, arrow };
   };
 
@@ -1082,7 +1082,7 @@ const [loading, setLoading] = useState(true);
                             iconBg: "#dbeafe",
                             variance: dData.kpis.total_inventory_variance ?? dData.kpis.total_change_percentage ?? null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: false,
+                            lowerIsBetter: true,
                         },
                         {
                             key: "avg_inv",
@@ -1095,7 +1095,7 @@ const [loading, setLoading] = useState(true);
                             iconBg: "#ede9fe",
                             variance: dData.kpis.average_inventory_variance || null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: false,
+                            lowerIsBetter: true,
                         },
                         {
                             key: "turnover",
@@ -2880,7 +2880,7 @@ const [loading, setLoading] = useState(true);
           const prevVal = Number(hoveredMom.previous_value ?? hoveredMom.previous ?? 0);
           const variance = curVal - prevVal;
           const variancePct = prevVal > 0 ? (variance / prevVal) * 100 : 0;
-          const varBadge = fmtVarBadge(variancePct, false); // total inventory, so lowerIsBetter=false
+          const varBadge = fmtVarBadge(variancePct, true); // total inventory, so lowerIsBetter=true
           const varColor = variance === 0 ? "#64748b" : varBadge.color;
 
           return (
@@ -2910,7 +2910,7 @@ const [loading, setLoading] = useState(true);
             </div>
             
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, marginBottom: 5 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>
+              <span style={{ display: "-", color: "#64748b", fontWeight: 500 }}>
                 <span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 2 }}/> Current
               </span>
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
@@ -2919,7 +2919,7 @@ const [loading, setLoading] = useState(true);
             </div>
             
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, marginBottom: 5 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>
+              <span style={{ display: "-", color: "#64748b", fontWeight: 500 }}>
                 <span style={{ width: 8, height: 8, background: "#94a3b8", borderRadius: 2 }}/> Previous
               </span>
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
@@ -5655,19 +5655,17 @@ const detailsSource = modalFilteredDetails || [];
                                       <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontVariantNumeric: "tabular-nums" }}>
                                         {rawPrev !== null ? Math.round(rawPrev / scale).toLocaleString("en-US") : "-"}
                                       </td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variance === null ? "#64748b" : fmtVarBadge(variance, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variance === null ? "#64748b" : fmtVarBadge(variance, true).color, fontVariantNumeric: "tabular-nums" }}>
                                         {variance !== null ? (
                                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                            <span>{fmtVarBadge(variance, false).arrow}</span>
-                                            <span>{`${variance > 0 ? '+' : ''}${Math.round(variance / scale).toLocaleString("en-US")}`}</span>
+                                            <span>{fmtVarBadge(variance, true).arrow}</span><span>{Math.abs(Math.round(variance / scale)).toLocaleString("en-US")}</span>
                                           </div>
                                         ) : "-"}
                                       </td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variancePct === null ? "#64748b" : fmtVarBadge(variancePct, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variancePct === null ? "#64748b" : fmtVarBadge(variancePct, true).color, fontVariantNumeric: "tabular-nums" }}>
                                         {variancePct !== null ? (
                                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                            <span>{fmtVarBadge(variancePct, false).arrow}</span>
-                                            <span>{`${variancePct > 0 ? '+' : ''}${variancePct.toFixed(1)}%`}</span>
+                                            <span>{fmtVarBadge(variancePct, true).arrow}</span><span>{fmtVarBadge(variancePct, true).display}</span>
                                           </div>
                                         ) : "-"}
                                       </td>
@@ -6323,16 +6321,16 @@ const detailsSource = modalFilteredDetails || [];
                                     <td style={{ padding: "7px 10px", textAlign: "right", color: "#1d4ed8", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }} title={`Previous month obsolete details for ${row.name}`}>
                                       {Math.round(row.prevMonth / scale).toLocaleString("en-US")}
                                     </td>
-                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variance, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variance, true).color, fontVariantNumeric: "tabular-nums" }}>
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                        <span>{fmtVarBadge(row.variance, false).arrow}</span>
-                                        <span>{row.variance > 0 ? "+" : ""}{Math.round(row.variance / scale).toLocaleString("en-US")}</span>
+                                        <span>{fmtVarBadge(row.variance, true).arrow}</span>
+                                        <span>{Math.abs(Math.round(row.variance / scale)).toLocaleString("en-US")}</span>
                                       </div>
                                     </td>
-                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variancePct, false).color, fontVariantNumeric: "tabular-nums" }}>
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variancePct, true).color, fontVariantNumeric: "tabular-nums" }}>
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                        <span>{fmtVarBadge(row.variancePct, false).arrow}</span>
-                                        <span>{row.variancePct > 0 ? "+" : ""}{Math.round(row.variancePct)}%</span>
+                                        <span>{fmtVarBadge(row.variancePct, true).arrow}</span>
+                                        <span>{fmtVarBadge(row.variancePct, true).display}</span>
                                       </div>
                                     </td>
                                   </tr>
@@ -6359,16 +6357,16 @@ const detailsSource = modalFilteredDetails || [];
                                   <td style={{ padding: "9px 10px", textAlign: "right", color: "#475569", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(totalPrev / scale).toLocaleString("en-US")}
                                   </td>
-                                  <td style={{ padding: "9px 10px", textAlign: "right", color: fmtVarBadge(totalVariance, false).color, background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: fmtVarBadge(totalVariance, true).color, background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                      <span>{fmtVarBadge(totalVariance, false).arrow}</span>
-                                      <span>{totalVariance > 0 ? "+" : ""}{Math.round(totalVariance / scale).toLocaleString("en-US")}</span>
+                                      <span>{fmtVarBadge(totalVariance, true).arrow}</span>
+                                      <span>{Math.abs(Math.round(totalVariance / scale)).toLocaleString("en-US")}</span>
                                     </div>
                                   </td>
-                                  <td style={{ padding: "9px 10px", textAlign: "right", color: fmtVarBadge(totalVariancePct, false).color, background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: fmtVarBadge(totalVariancePct, true).color, background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                      <span>{fmtVarBadge(totalVariancePct, false).arrow}</span>
-                                      <span>{totalVariancePct > 0 ? "+" : ""}{Math.round(totalVariancePct)}%</span>
+                                      <span>{fmtVarBadge(totalVariancePct, true).arrow}</span>
+                                      <span>{fmtVarBadge(totalVariancePct, true).display}</span>
                                     </div>
                                   </td>
                                 </tr>
@@ -7529,6 +7527,14 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       </div>
     );
   };
+
+
+
+
+
+
+
+
 
 
 
