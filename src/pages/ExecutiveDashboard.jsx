@@ -1048,21 +1048,6 @@ export default function ExecutiveDashboard() {
             <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
                 {/* Trade Working Capital Trend */}
                 <div ref={twcChartRef} className="card" style={{ flex: 2, padding: 18 }}>
-                    <style>{`
-                        @keyframes twcBeaconPulse {
-                            0% { r: 5px; opacity: 0.95; stroke-width: 2px; }
-                            50% { r: 11px; opacity: 0.4; stroke-width: 1.5px; }
-                            100% { r: 17px; opacity: 0; stroke-width: 0.5px; }
-                        }
-                        @keyframes twcWavePulse {
-                            0%, 100% { transform: scale(1); opacity: 0.85; }
-                            50% { transform: scale(1.35); opacity: 1; filter: drop-shadow(0 0 3px rgba(37, 99, 235, 0.6)); }
-                        }
-                        @keyframes twcLineShimmer {
-                            0%, 100% { stroke-opacity: 0.85; filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.15)); }
-                            50% { stroke-opacity: 1; filter: drop-shadow(0 2px 5px rgba(37, 99, 235, 0.45)); }
-                        }
-                    `}</style>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <BarChart3 size={16} color="var(--clr-primary)" /> Trade Working Capital Trend
@@ -1158,44 +1143,22 @@ export default function ExecutiveDashboard() {
                                         if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy)) return null;
                                         const isLast = index === (chartTwcData.length - 1);
                                         return (
-                                            <g key={`twc-animated-dot-${index}`}>
-                                                {isLast && (
-                                                    <circle
-                                                        cx={cx}
-                                                        cy={cy}
-                                                        r={6}
-                                                        fill="none"
-                                                        stroke="#2563eb"
-                                                        strokeWidth={1.5}
-                                                        style={{
-                                                            animation: 'twcBeaconPulse 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite',
-                                                            transformOrigin: `${cx}px ${cy}px`,
-                                                            transformBox: 'fill-box'
-                                                        }}
-                                                    />
-                                                )}
-                                                <circle
-                                                    cx={cx}
-                                                    cy={cy}
-                                                    r={isLast ? 4.5 : 3.5}
-                                                    fill={isLast ? '#2563eb' : 'var(--clr-text)'}
-                                                    stroke="#ffffff"
-                                                    strokeWidth={1.5}
-                                                    style={{
-                                                        animation: 'twcWavePulse 3s ease-in-out infinite',
-                                                        animationDelay: `${index * 0.25}s`,
-                                                        transformOrigin: `${cx}px ${cy}px`,
-                                                        transformBox: 'fill-box'
-                                                    }}
-                                                />
-                                            </g>
+                                            <circle
+                                                key={`twc-dot-${index}`}
+                                                cx={cx}
+                                                cy={cy}
+                                                r={isLast ? 4 : 3.5}
+                                                fill={isLast ? '#2563eb' : 'var(--clr-text)'}
+                                                stroke="#ffffff"
+                                                strokeWidth={1.5}
+                                            />
                                         );
                                     }}
-                                    activeDot={{ r: 6.5, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 2 }}
-                                    isAnimationActive={twcInView}
-                                    animationBegin={1000}
-                                    animationDuration={1500}
-                                    animationEasing="ease-in-out"
+                                    activeDot={{ r: 6, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 2 }}
+                                    isAnimationActive={true}
+                                    animationBegin={200}
+                                    animationDuration={1200}
+                                    animationEasing="ease-out"
                                 />
                             </ComposedChart>
                         </ResponsiveContainer>

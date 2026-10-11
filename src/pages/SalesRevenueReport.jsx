@@ -3835,10 +3835,7 @@ export default function SalesRevenueReport() {
                           const { cx, cy, index, payload } = props;
                           if (index === activePts.length - 1 && payload.currentYear !== null) {
                             return (
-                              <g key={`dot-${index}`}>
-                                <circle cx={cx} cy={cy} r={6} fill="#fff" stroke="#6366f1" strokeWidth={3} filter="url(#lineShadow)" />
-                                <circle cx={cx} cy={cy} r={6} fill="none" stroke="#6366f1" style={{ animation: 'pulse-ripple 2.5s infinite' }} />
-                              </g>
+                              <circle key={`dot-${index}`} cx={cx} cy={cy} r={6} fill="#fff" stroke="#6366f1" strokeWidth={3} filter="url(#lineShadow)" />
                             );
                           }
                           return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4} fill="#fff" stroke="#6366f1" strokeWidth={2} />;

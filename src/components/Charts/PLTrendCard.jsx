@@ -2314,62 +2314,34 @@ function GradientDefs() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   RIPPLE DOT  (active dot with pulse)
+   RIPPLE DOT  (active dot)
 ═══════════════════════════════════════════════════════════════════════════ */
 const RippleDot = ({ cx, cy, fill, stroke }) => (
-  <g style={{ filter: `drop-shadow(0 0 8px ${fill}90)` }}>
-    <circle cx={cx} cy={cy} r={4} fill={fill} stroke={stroke || '#fff'} strokeWidth={2}
-      style={{ animation: 'plRipplePulse 1.8s infinite ease-in-out' }}
-    />
-  </g>
+  <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || '#fff'} strokeWidth={2} />
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LIVE DOT  (static pulse on the latest data point)
+   LIVE DOT  (static dot on the latest data point)
 ═══════════════════════════════════════════════════════════════════════════ */
 const LiveDot = (props) => {
   const { cx, cy, stroke, index, dataLength } = props;
   if (index !== dataLength - 1) return null;
   return (
-    <g transform={`translate(${cx}, ${cy})`} style={{ filter: `drop-shadow(0 0 6px ${stroke}80)` }}>
-      <circle r={3.5} fill="#fff" stroke={stroke} strokeWidth={2.5} />
-      <circle r={3.5} fill="none" stroke={stroke} strokeWidth={2}
-        style={{
-          transformOrigin: 'center',
-          transformBox: 'fill-box',
-          animation: 'plLivePulse 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1)'
-        }}
-      />
-    </g>
+    <circle cx={cx} cy={cy} r={3.5} fill="#fff" stroke={stroke} strokeWidth={2.5} />
   );
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   COUNT-UP HOOK
+   METRIC DOT
 ═══════════════════════════════════════════════════════════════════════════ */
 const MetricDot = (props) => {
-  const { cx, cy, index, dataLength, color, isRevenue } = props;
+  const { cx, cy, color, isRevenue } = props;
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
 
   const radius = isRevenue ? 2.7 : 3.3;
 
   return (
-    <g transform={`translate(${cx}, ${cy})`} style={{ filter: `drop-shadow(0 1px 3px ${color}66)` }}>
-      <circle r={radius} fill="#fff" stroke={color} strokeWidth={isRevenue ? 2 : 2.3} />
-      {index === dataLength - 1 && (
-        <circle
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          style={{
-            transformOrigin: 'center',
-            transformBox: 'fill-box',
-            animation: 'plLivePulse 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1)',
-          }}
-        />
-      )}
-    </g>
+    <circle cx={cx} cy={cy} r={radius} fill="#fff" stroke={color} strokeWidth={isRevenue ? 2 : 2.3} />
   );
 };
 
@@ -3365,29 +3337,9 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
         @keyframes plInsightIn {
           from { opacity: 0; transform: translateX(-6px); }
           to   { opacity: 1; transform: translateX(0);    }
-        }
-        @keyframes plBreathingGlow {
-          0% { filter: drop-shadow(0 2px 4px var(--s-shadow)) brightness(1); }
-          50% { filter: drop-shadow(0 4px 10px var(--s-shadow)) brightness(1.05); }
-          100% { filter: drop-shadow(0 2px 4px var(--s-shadow)) brightness(1); }
-        }
-        @keyframes plLivePulse {
-          0% { transform: scale(1); opacity: 0.8; stroke-width: 2px; }
-          100% { transform: scale(3.5); opacity: 0; stroke-width: 0px; }
-        }
         @keyframes plPulseLoad {
           from { background-position:  200% 0; }
           to   { background-position: -200% 0; }
-        }
-        @keyframes plLinePulse {
-          0%   { filter: drop-shadow(0 2px 6px var(--s-shadow)); opacity: 1; }
-          50%  { filter: drop-shadow(0 6px 14px var(--s-shadow)); opacity: 0.85; }
-          100% { filter: drop-shadow(0 2px 6px var(--s-shadow)); opacity: 1; }
-        }
-        @keyframes plRipplePulse {
-          0%   { r: 4px; stroke-width: 2px; }
-          50%  { r: 7px; stroke-width: 3px; }
-          100% { r: 4px; stroke-width: 2px; }
         }
         @keyframes plGridIn {
           from { opacity: 0; }
@@ -3710,9 +3662,9 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
                       strokeOpacity={opacity}
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      dot={<MetricDot dataLength={chartData.length} color={s.color} isRevenue={isRev} />}
+                      dot={<MetricDot color={s.color} isRevenue={isRev} />}
                       activeDot={<RippleDot fill={s.color} stroke="#fff" />}
-                      isAnimationActive={isAnimating}
+                      isAnimationActive={true}
                       animationBegin={{ revenue: 0, grossProfit: 120, ebitda: 240, netProfit: 360 }[s.key] || 0}
                       animationDuration={1200}
                       animationEasing="ease-in-out"
@@ -3720,7 +3672,6 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
                         transition: 'stroke-opacity 0.25s ease, stroke-width 0.2s ease',
                         '--s-shadow': s.shadowColor,
                         filter: `drop-shadow(0 2px 6px ${s.shadowColor})`,
-                        animation: hoveredSeries === s.key ? 'plLinePulse 2s infinite ease-in-out' : 'plBreathingGlow 3s infinite ease-in-out',
                         willChange: 'stroke-opacity, stroke-width, filter, opacity',
                       }}
                       connectNulls={false}
