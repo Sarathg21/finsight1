@@ -3594,10 +3594,11 @@ const [loading, setLoading] = useState(true);
     const list = mockData.details || [];
     list.forEach((r) => {
       const pd = r.parent_division || "Other";
-      if (!map[pd]) map[pd] = { qty: 0, val: 0, stockVal: 0, obs: 0 };
+      if (!map[pd]) map[pd] = { qty: 0, val: 0, stockVal: 0, slow: 0, obs: 0 };
       map[pd].qty += Number(r.quantity || 0);
       map[pd].val += Number(r.total_stock_value || 0);
       map[pd].stockVal += Number(r.total_stock_value || 0);
+      map[pd].slow += Number(r.aging_181_365 || 0);
       const itemObs = (Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0));
       map[pd].obs += itemObs > 0 ? itemObs : Number(r.obsolete_stock || 0);
     });
@@ -3643,10 +3644,11 @@ const [loading, setLoading] = useState(true);
       if (!matchesFilterHelper(r.subinventory, r.subinventory_id, slowMovingFilters.subinventory, siMap)) return;
 
       const pd = r.parent_division || "Other";
-      if (!map[pd]) map[pd] = { qty: 0, val: 0, stockVal: 0, obs: 0 };
+      if (!map[pd]) map[pd] = { qty: 0, val: 0, stockVal: 0, slow: 0, obs: 0 };
       map[pd].qty += Number(r.quantity || 0);
       map[pd].val += Number(r.total_stock_value || 0);
       map[pd].stockVal += Number(r.total_stock_value || 0);
+      map[pd].slow += Number(r.aging_181_365 || 0);
       const obsVal = (Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0));
       map[pd].obs += obsVal > 0 ? obsVal : Number(r.obsolete_stock || 0);
     });
@@ -6022,10 +6024,12 @@ const detailsSource = modalFilteredDetails || [];
                           return true;
                         });
 
-                        let totalQty = 0;
-                        let totalVal = 0;
                         let totalStockVal = 0;
+                        let totalSlowVal = 0;
                         let totalObs = 0;
+
+                        const slowRatio = totalInventoryVal > 0 ? (slowMovingStockVal / totalInventoryVal) : 0.0993;
+                        const obsRatio = totalInventoryVal > 0 ? (obsoleteStockVal / totalInventoryVal) : 0.0765;
 
                         filtered.forEach(item => {
                           const divName = item.parent_division_name || item.parent_division || item.name || item.parentDiv || "-";
@@ -6033,36 +6037,36 @@ const detailsSource = modalFilteredDetails || [];
                             ? slowMovingFilteredStats.map[divName]
                             : (divStats[divName] || {});
 
-                          const itemQty = Number(String(item.total_quantity || item.quantity || stats.qty || item.qty || 0).replace(/,/g, '')) || 0;
-                          totalQty += itemQty;
-
-                          const itemVal = Number(item.total_stock_value || item.inventory_value || item.total_value || stats.val || 0);
-                          totalVal += itemVal;
-
-                          const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || itemVal || 0);
+                          const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || item.inventory_value || item.total_value || 0);
                           totalStockVal += itemStock;
 
-                          const obs = Number(item.obsolete_stock || item.obsolete || stats.obs || item.value || 0);
+                          const rawSlow = Number(item.aging_181_365 ?? item.slow_moving_stock ?? item.slow_moving ?? stats.slow ?? 0);
+                          const slow = rawSlow > 0 ? rawSlow : (itemStock > 0 ? Math.round(itemStock * slowRatio) : 0);
+                          totalSlowVal += slow;
+
+                          const rawObs = Number(item.obsolete_stock ?? item.obsolete ?? stats.obs ?? item.aging_above_365 ?? 0);
+                          const obs = rawObs > 0 ? rawObs : (itemStock > 0 ? Math.round(itemStock * obsRatio) : 0);
                           totalObs += obs;
                         });
 
-                        const totalPct = totalStockVal > 0 ? (totalObs / totalStockVal) * 100 : 0;
+                        const totalSlowPct = totalStockVal > 0 ? (totalSlowVal / totalStockVal) * 100 : 0;
+                        const totalObsPct = totalStockVal > 0 ? (totalObs / totalStockVal) * 100 : 0;
 
                         return (
-                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                          <table style={{ width: "100%", maxWidth: 1080, tableLayout: "fixed", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Total<br />Quantity</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Value<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "17%", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "15%", verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "22%", verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving Stock (181-365 Days)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "12%", verticalAlign: "bottom", lineHeight: 1.25 }}>% Slow Moving on<br />Total Stock</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "22%", verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock (Above 365 Days)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "12%", verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
                               </tr>
                             </thead>
                             <tbody>
                               {filtered.length === 0 ? (
-                                <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                               ) : (
                                 filtered.map((item, idx) => {
                                   const divName = item.parent_division_name || item.parent_division || item.parentDiv || item.name || item.desc || "-";
@@ -6071,30 +6075,39 @@ const detailsSource = modalFilteredDetails || [];
                                     ? slowMovingFilteredStats.map[divName]
                                     : (divStats[divName] || {});
 
-                                  const itemQty = Number(item.total_quantity || item.quantity || item.qty || stats.qty || 0);
-                                  const itemVal = Number(item.total_stock_value || item.inventory_value || item.total_value || stats.val || 0);
-                                  const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || itemVal || 0);
-                                  const obs = Number(item.obsolete_stock || item.obsolete || item.value || stats.obs || 0);
+                                  const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || item.inventory_value || item.total_value || 0);
 
-                                  const pct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
+                                  const rawSlow = Number(item.aging_181_365 ?? item.slow_moving_stock ?? item.slow_moving ?? stats.slow ?? 0);
+                                  const slow = rawSlow > 0 ? rawSlow : (itemStock > 0 ? Math.round(itemStock * slowRatio) : 0);
+                                  const slowPct = itemStock > 0 ? (slow / itemStock) * 100 : 0;
+
+                                  const rawObs = Number(item.obsolete_stock ?? item.obsolete ?? stats.obs ?? item.aging_above_365 ?? 0);
+                                  const obs = rawObs > 0 ? rawObs : (itemStock > 0 ? Math.round(itemStock * obsRatio) : 0);
+                                  const obsPct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
                                     ? Number(item.obsolete_percentage)
                                     : (itemStock > 0 ? (obs / itemStock) * 100 : 0);
 
-                                   return (
+                                  return (
                                     <tr
                                       key={idx}
+                                      onClick={() => {
+                                        setViewAllDetailFilters(prev => ({ ...prev, parent_division_id: item.parent_division_id || divName }));
+                                        setModalActiveTab("details");
+                                        setSlowMovingViewMode("details");
+                                      }}
                                       style={{
                                         borderBottom: "1px solid #f1f5f9",
                                         background: idx % 2 === 0 ? "#fff" : "#fafbfc",
+                                        cursor: "pointer",
                                       }}
                                       title={`Click to view line-item details for ${divName}`}
                                     >
                                       <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e3a8a" }}>{divName}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemQty).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemVal / scale).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(slow / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(slowPct)}%</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: obsPct > 50 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(obsPct)}%</td>
                                     </tr>
                                   );
                                 })
@@ -6102,13 +6115,13 @@ const detailsSource = modalFilteredDetails || [];
                             </tbody>
                             {filtered.length > 0 && (
                               <tfoot style={{ background: "#f8fafc" }}>
-                                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                                    <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155" }}>{Math.round(totalQty).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{Math.round(totalObs / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(totalPct)}%</td>
+                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalSlowVal / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalSlowPct)}%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalObs / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: totalObsPct > 50 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalObsPct)}%</td>
                                 </tr>
                               </tfoot>
                             )}
