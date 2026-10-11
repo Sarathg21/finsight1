@@ -6269,6 +6269,7 @@ const detailsSource = modalFilteredDetails || [];
                             name,
                             divId,
                             monthlyVals,
+                            monthlyDio,
                             latest: curObs,
                             prevMonth: prevObs,
                             variance,
@@ -6302,7 +6303,7 @@ const detailsSource = modalFilteredDetails || [];
                               <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                                 {allMonths.map(m => (
                                   <React.Fragment key={`${m}-sub`}>
-                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 80, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{viewAllSection === "parentDivision" ? "TOTAL INV" : (viewAllSection === "slowMoving" ? "SLOW MOVING" : "OBSOLETE")}</th>
+                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 80, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{(modalActiveTab === "momObsolete" || modalActiveTab === "mom") ? "OBSOLETE" : (viewAllSection === "parentDivision" ? "TOTAL INV" : "SLOW MOVING")}</th>
                                     <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 45, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>DIO</th>
                                   </React.Fragment>
                                 ))}
