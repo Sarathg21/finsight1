@@ -4360,7 +4360,7 @@ const [loading, setLoading] = useState(true);
               obs = mockData.rawKpis?.inventory_above_365 ? Number(mockData.rawKpis.inventory_above_365) : 0;
 
               return (
-                <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#eff6ff" }}>
+                <tfoot style={{ background: "#eff6ff" }}>
                   <tr style={{ fontWeight: 800, borderTop: "3px solid #1e3a8a", background: "#eff6ff", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
                     <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#eff6ff" }}>Total (Full Inventory)</td>
                     <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#eff6ff", width: 110, minWidth: 100, maxWidth: 125 }}>{Math.round(totalVal).toLocaleString("en-US")}</td>
@@ -5561,7 +5561,7 @@ const detailsSource = modalFilteredDetails || [];
                               )}
                             </tbody>
                             {rows.length > 0 && (
-                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                              <tfoot style={{ background: "#f8fafc" }}>
                                   <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                                     <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px" }} />
@@ -5812,7 +5812,7 @@ const detailsSource = modalFilteredDetails || [];
                               )}
                             </tbody>
                             {rows.length > 0 && (
-                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                              <tfoot style={{ background: "#f8fafc" }}>
                                   <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                                     <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
@@ -5968,7 +5968,7 @@ const detailsSource = modalFilteredDetails || [];
                               )}
                             </tbody>
                             {rows.length > 0 && (
-                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                              <tfoot style={{ background: "#f8fafc" }}>
                                   <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                                     <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px" }} />
@@ -6001,10 +6001,18 @@ const detailsSource = modalFilteredDetails || [];
 
                       {/* TAB 5: SLOW MOVING STOCK */}
                       {(modalActiveTab === "slowMoving" || (!["aging", "trend", "parentDivision", "subdivision", "momObsolete", "mom", "details"].includes(modalActiveTab) && slowMovingViewMode === "stock")) && (() => {
-                        const rawList = (viewAllData && viewAllData.length > 0) ? viewAllData : ((mockData.allSlowMoving && mockData.allSlowMoving.length > 0) ? mockData.allSlowMoving : (mockData.slowMoving || []));
-                        
+                        const sourceParentDivs = (mockData.allDivisions && mockData.allDivisions.length > 0)
+                          ? mockData.allDivisions
+                          : ((mockData.divisions && mockData.divisions.length > 0)
+                            ? mockData.divisions
+                            : Object.keys(divStats).map(name => ({ name, parent_division_name: name })));
+
+                        const hasValidDivisions = viewAllData && viewAllData.length > 0 && viewAllData.some(item => item.parent_division_name || item.parent_division);
+                        const rawList = hasValidDivisions ? viewAllData : sourceParentDivs;
+
                         const filtered = rawList.filter(item => {
-                          const name = (item.parent_division_name || item.parent_division || item.parentDiv || item.name || item.desc || "").trim();
+                          const name = (item.parent_division_name || item.parent_division || item.name || item.parentDiv || "").trim();
+                          if (!name || name === "-") return false;
                           if (viewAllSearch && !name.toLowerCase().includes(viewAllSearch.toLowerCase())) {
                             return false;
                           }
@@ -6020,12 +6028,12 @@ const detailsSource = modalFilteredDetails || [];
                         let totalObs = 0;
 
                         filtered.forEach(item => {
-                          const divName = item.parent_division_name || item.parent_division || item.parentDiv || item.name || item.desc || "-";
+                          const divName = item.parent_division_name || item.parent_division || item.name || item.parentDiv || "-";
                           const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
                             ? slowMovingFilteredStats.map[divName]
                             : (divStats[divName] || {});
 
-                          const itemQty = Number(item.total_quantity || item.quantity || item.qty || stats.qty || 0);
+                          const itemQty = Number(String(item.total_quantity || item.quantity || stats.qty || item.qty || 0).replace(/,/g, '')) || 0;
                           totalQty += itemQty;
 
                           const itemVal = Number(item.total_stock_value || item.inventory_value || item.total_value || stats.val || 0);
@@ -6034,7 +6042,7 @@ const detailsSource = modalFilteredDetails || [];
                           const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || itemVal || 0);
                           totalStockVal += itemStock;
 
-                          const obs = Number(item.obsolete_stock || item.obsolete || item.value || stats.obs || 0);
+                          const obs = Number(item.obsolete_stock || item.obsolete || stats.obs || item.value || 0);
                           totalObs += obs;
                         });
 
@@ -6081,10 +6089,10 @@ const detailsSource = modalFilteredDetails || [];
                                       }}
                                       title={`Click to view line-item details for ${divName}`}
                                     >
-                                      <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1d4ed8" }}>{divName}</td>
+                                      <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e3a8a" }}>{divName}</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemQty).toLocaleString("en-US")}</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemVal / scale).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
                                     </tr>
@@ -6093,7 +6101,7 @@ const detailsSource = modalFilteredDetails || [];
                               )}
                             </tbody>
                             {filtered.length > 0 && (
-                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                              <tfoot style={{ background: "#f8fafc" }}>
                                   <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                                     <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155" }}>{Math.round(totalQty).toLocaleString("en-US")}</td>
@@ -6299,7 +6307,15 @@ const detailsSource = modalFilteredDetails || [];
                                     {allMonths.map(m => (
                                       <React.Fragment key={m}>
                                         <td 
-                                          style={{ padding: "10px 6px", textAlign: "right", color: row.monthlyVals[m] ? "#1d4ed8" : "#1e293b", fontVariantNumeric: "tabular-nums", fontWeight: row.monthlyVals[m] ? 700 : 500, cursor: row.monthlyVals[m] ? "pointer" : "default", textDecoration: row.monthlyVals[m] ? "underline" : "none" }} 
+                                          style={{
+                                            padding: "10px 6px",
+                                            textAlign: "right",
+                                            color: "#1e293b",
+                                            fontVariantNumeric: "tabular-nums",
+                                            fontWeight: row.monthlyVals[m] ? 600 : 400,
+                                            cursor: row.monthlyVals[m] ? "pointer" : "default",
+                                            textDecoration: "none"
+                                          }} 
                                           title={`Click to view details for ${row.name} - ${m}`}
                                           onClick={(e) => {
                                             if (!row.monthlyVals[m]) return;
@@ -6323,10 +6339,10 @@ const detailsSource = modalFilteredDetails || [];
                                         </td>
                                       </React.Fragment>
                                     ))}
-                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", background: "#f8fafc", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }} title={`Latest obsolete details for ${row.name}`}>
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", background: "#f8fafc", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }} title={`Latest obsolete details for ${row.name}`}>
                                       {Math.round(row.latest / scale).toLocaleString("en-US")}
                                     </td>
-                                    <td style={{ padding: "7px 10px", textAlign: "right", color: "#1d4ed8", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }} title={`Previous month obsolete details for ${row.name}`}>
+                                    <td style={{ padding: "7px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }} title={`Previous month obsolete details for ${row.name}`}>
                                       {Math.round(row.prevMonth / scale).toLocaleString("en-US")}
                                     </td>
                                     <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: fmtVarBadge(row.variance, true).color, fontVariantNumeric: "tabular-nums" }}>
@@ -6475,7 +6491,7 @@ const detailsSource = modalFilteredDetails || [];
                                 if (d730 === 0 && dAbove730 === 0 && obsKPI) d730 = Number(obsKPI);
 
                                 return (
-                                  <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#eff6ff" }}>
+                                  <tfoot style={{ background: "#eff6ff" }}>
                                     <tr style={{ fontWeight: 800, borderTop: "3px solid #1e3a8a", background: "#eff6ff", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
                                       <td colSpan={6} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#eff6ff" }}>Total (Full Inventory)</td>
                                       <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e3a8a", background: "#eff6ff" }}>{qty ? Math.round(qty).toLocaleString("en-US") : "-"}</td>
@@ -7049,9 +7065,6 @@ const styles = {
   detailTableWrapper: {
     width: "100%",
     overflowX: "auto",
-    overflowY: "auto",
-      maxHeight: "65vh",
-    paddingBottom: 6,
     scrollbarWidth: "auto",
     scrollbarColor: "#64748b #e2e8f0",
   },
