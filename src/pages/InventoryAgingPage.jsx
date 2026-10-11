@@ -4103,14 +4103,14 @@ const [loading, setLoading] = useState(true);
             onExport={(type) => handleExportAgingSummary(type || "excel")}
           />
 
-          <div style={styles.agingContent}>
+                    <div style={styles.agingContent} className="detail-table-scroll">
             <DonutChart
               data={mockData.aging}
               total={mockData.totalInventory || agingTotal}
               centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, currentCurrency)}
               centerSubText="Total"
-              size={144}
-              strokeWidth={20}
+              size={132}
+              strokeWidth={18}
               currency={currentCurrency}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
@@ -4121,7 +4121,7 @@ const [loading, setLoading] = useState(true);
               <div style={styles.agingHeader}>
                 <span>Bucket</span>
                 <span style={{ textAlign: "right" }}>Amount ({currentCurrency})</span>
-                <span style={{ textAlign: "right" }}>% Total</span>
+                <span style={{ textAlign: "right", paddingRight: 3 }}>% Total</span>
               </div>
 
               {mockData.aging.map((item) => {
@@ -4160,7 +4160,7 @@ const [loading, setLoading] = useState(true);
                       {formatChartValueCompact(item.value, currentCurrency)}
                     </div>
 
-                    <div style={{ textAlign: "right", color: isHovered ? item.color : "#64748b", fontWeight: isHovered ? 800 : 500 }}>
+                    <div style={{ textAlign: "right", paddingRight: 3, color: isHovered ? item.color : "#64748b", fontWeight: isHovered ? 800 : 600, fontVariantNumeric: "tabular-nums" }}>
                       {typeof item.percentage === "number" ? `${Math.round(item.percentage)}%` : item.percentage}
                     </div>
                   </div>
@@ -4174,9 +4174,7 @@ const [loading, setLoading] = useState(true);
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
                   {(mockData.totalInventory || agingTotal) > 0 ? formatChartValueCompact(mockData.totalInventory || agingTotal, currentCurrency) : "—"}
                 </div>
-                <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  {(mockData.totalInventory || agingTotal) > 0 ? "100%" : "—"}
-                </div>
+                <div style={{ textAlign: "right", paddingRight: 3, fontWeight: 800, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>{(mockData.totalInventory || agingTotal) > 0 ? "100%" : "—"}</div>
               </div>
             </div>
           </div>
@@ -4192,17 +4190,27 @@ const [loading, setLoading] = useState(true);
             variant="table"
           />
           
-          <div style={{ flex: 1, padding: "0 8px 8px 8px" }}>
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-              <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: "0.72rem" }}>
+          <div style={{ flex: 1, padding: "0 8px 8px 8px", display: "flex", flexDirection: "column" }}>
+            <div
+              className="detail-table-scroll"
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                overflowX: "auto",
+                overflowY: "hidden",
+                background: "#fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                scrollbarWidth: "auto",
+              }}
+            >
+              <table style={{ width: "100%", minWidth: 460, tableLayout: "fixed", borderCollapse: "collapse", fontSize: "0.72rem" }}>
                 <thead>
                   <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                    <th style={{ width: "36%", textAlign: "left", verticalAlign: "bottom", padding: "6px 5px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Description</th>
-                    <th style={{ width: "18%", textAlign: "left", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Code</th>
-                    <th style={{ width: "16%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Qty<br />(Nos)</th>
-                    <th style={{ width: "16%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Unit Cost<br />({currentCurrency} per unit)</th>
-                    <th style={{ width: "18%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Value<br />({currentCurrency})</th>
-                    <th style={{ width: "14%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem", lineHeight: 1.25 }}>Holding<br />Days</th>
+                    <th style={{ width: "36%", minWidth: 130, textAlign: "left", verticalAlign: "bottom", padding: "6px 5px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Description</th>
+                    <th style={{ width: "18%", minWidth: 75, textAlign: "left", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Code</th>
+                    <th style={{ width: "16%", minWidth: 75, textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Qty<br />(Nos)</th>
+                    <th style={{ width: "18%", minWidth: 75, textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Value<br />({currentCurrency})</th>
+                    <th style={{ width: "12%", minWidth: 55, textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem", lineHeight: 1.25 }}>Holding<br />Days</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4238,14 +4246,14 @@ const [loading, setLoading] = useState(true);
                             <td style={{ padding: "6px 4px", color: "#475569", fontSize: "0.68rem", fontWeight: 500, verticalAlign: "middle", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.2 }}>
                               {item.code || "-"}
                             </td>
-                            <td style={{ padding: "6px 4px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.70rem" }}>
+                            <td style={{ padding: "6px 4px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.70rem", whiteSpace: "nowrap" }}>
                               {item.qty || (item.total ? Math.round(item.total * 1000).toLocaleString() : "-")}
                             </td>
-                            <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, color: "#e11d48", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.72rem" }}>
+                            <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, color: "#e11d48", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.72rem", whiteSpace: "nowrap" }}>
                               {item.value ? formatChartValueCompact(item.value, "") : (item.obsolete ? formatChartValueCompact(item.obsolete, "") : "-")}
                             </td>
-                            <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, color: "#dc2626", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.72rem" }}>
-                              {item.days || Math.round(200 + idx * 10)}
+                            <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, color: "#dc2626", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.72rem", whiteSpace: "nowrap" }}>
+                              {item.days && item.days !== "-" ? item.days : (item.holding_days || Math.round(200 + idx * 10))}
                             </td>
                           </tr>
                         ))}
@@ -4253,7 +4261,7 @@ const [loading, setLoading] = useState(true);
                           <td style={{ padding: "6px 5px", color: "#1e3a8a", fontSize: "0.72rem" }}>Total</td>
                           <td style={{ padding: "6px 4px" }} />
                           <td style={{ padding: "6px 4px" }} />
-                          <td style={{ padding: "6px 4px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums", fontSize: "0.72rem" }}>
+                          <td style={{ padding: "6px 4px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums", fontSize: "0.72rem", whiteSpace: "nowrap" }}>
                             {formatChartValueCompact(totalVal, "")}
                           </td>
                           <td style={{ padding: "6px 4px" }} />
@@ -6946,17 +6954,18 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
-    gap: 12,
+    gap: 8,
     flex: 1,
     height: "100%",
-    padding: "0 14px 10px 14px",
+    padding: "0 8px 10px 8px",
     boxSizing: "border-box",
-    overflow: "hidden",
+    overflowX: "auto",
+    overflowY: "hidden",
   },
 
   agingTable: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 195,
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
@@ -6966,12 +6975,12 @@ const styles = {
 
   agingHeader: {
     display: "grid",
-    gridTemplateColumns: "minmax(85px, 1fr) minmax(75px, auto) 40px",
-    gap: 6,
+    gridTemplateColumns: "minmax(68px, 1.15fr) minmax(66px, 1fr) 42px",
+    gap: 4,
     color: "#1e3a8a",
     fontWeight: 700,
     fontSize: "0.70rem",
-    padding: "4px 6px 5px",
+    padding: "4px 4px 5px",
     borderBottom: "2px solid #e2e8f0",
     background: "#f8fafc",
     borderRadius: "4px 4px 0 0",
@@ -6979,10 +6988,10 @@ const styles = {
 
   agingRow: {
     display: "grid",
-    gridTemplateColumns: "minmax(85px, 1fr) minmax(75px, auto) 40px",
-    gap: 6,
+    gridTemplateColumns: "minmax(68px, 1.15fr) minmax(66px, 1fr) 42px",
+    gap: 4,
     alignItems: "center",
-    padding: "3.5px 6px",
+    padding: "3.5px 4px",
     borderBottom: "1px solid #f1f5f9",
     color: "#334155",
     fontSize: "0.72rem",
@@ -6991,17 +7000,18 @@ const styles = {
   agingName: {
     display: "flex",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     whiteSpace: "nowrap",
     fontWeight: 500,
+    fontSize: "0.70rem",
   },
 
   agingTotalRow: {
     display: "grid",
-    gridTemplateColumns: "minmax(85px, 1fr) minmax(75px, auto) 40px",
-    gap: 6,
+    gridTemplateColumns: "minmax(68px, 1.15fr) minmax(66px, 1fr) 42px",
+    gap: 4,
     alignItems: "center",
-    padding: "4px 6px",
+    padding: "4px 4px",
     borderTop: "2px solid #e2e8f0",
     background: "#f8fafc",
     fontSize: "0.72rem",
