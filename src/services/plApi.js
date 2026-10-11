@@ -17,7 +17,7 @@ const API_BASE = getApiBaseUrl();
 
 /* ── Auth headers ───────────────────────────────────────────────── */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -256,7 +256,7 @@ const apiCache = new Map();
  * @returns {Promise<any>} parsed JSON response
  */
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
 
   // Demo mode fallback — no token present
   if (!token) {

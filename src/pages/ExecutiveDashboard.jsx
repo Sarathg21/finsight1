@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-    LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart
+    LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart, ReferenceLine
 } from 'recharts';
 import { 
     BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye, TrendingUp
@@ -9,7 +10,7 @@ import ExecDashboardViewAll from '../components/ExecDashboardViewAll';
 import PLComparisonCard from '../components/Charts/PLComparisonCard';
 import Filters from '../components/Filters/Filters';
 import { getOpexFilterOptions } from '../api/opexApi';
-import { fetchPLComparison } from '../services/plApi';
+import { fetchPLStatement, fetchPLComparison, fetchPLTrend } from '../services/plApi';
 import { 
     getExecKpis, 
     getExecTwcTrend, 
@@ -110,13 +111,13 @@ const DEFAULT_KPI_DATA = {
     gross_profit_change: 15.8,
     ebitda_change: 8.4,
     net_profit_change: 18.2,
-    trade_working_capital_change: -2.1,
-    overdue_receivables_change: -5.4,
-    slow_moving_obsolete_stock_change: 1.2,
-    cash_collection_change: 10.5,
-    collection_efficiency_change: 4.2,
-    total_short_term_borrowing_change: -8.1,
-    roi_change: 2.5,
+    trade_working_capital_change: -4.1,
+    overdue_receivables_change: -7.8,
+    slow_moving_obsolete_stock_change: -14.3,
+    cash_collection_change: 7.0,
+    collection_efficiency_change: 4.1,
+    total_short_term_borrowing_change: -7.9,
+    roi_change: 18.3,
 };
 
 /* ----------------- COMPONENTS ----------------- */
@@ -446,6 +447,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
 }
 
 export default function ExecutiveDashboard() {
+    const navigate = useNavigate();
     const { ref: twcChartRef, inView: twcInView } = useInView({ threshold: 0.2, triggerOnce: true });
     const { ref: revRegionChartRef, inView: revRegionInView } = useInView({ threshold: 0.2, triggerOnce: true });
     const [hoveredTwcIndex, setHoveredTwcIndex] = useState(null);
@@ -550,6 +552,7 @@ export default function ExecutiveDashboard() {
 
     // ── KPI state ──
     const [kpiData, setKpiData] = useState(DEFAULT_KPI_DATA);
+    const [kpiTargets, setKpiTargets] = useState({});
     const [kpiLoading, setKpiLoading] = useState(false);
     const [kpiError, setKpiError] = useState(null);
 
@@ -557,13 +560,17 @@ export default function ExecutiveDashboard() {
     const [twcTrend, setTwcTrend] = useState([]);
     const [twcLoading, setTwcLoading] = useState(false);
 
+    // ── Profitability trend (last 6-7 months Net Profit) ──
+    const [profitTrend, setProfitTrend] = useState([]);
+    const [profitTrendLoading, setProfitTrendLoading] = useState(false);
+
     // ── Regional & Parameters state ──
     const [revRegionData, setRevRegionData] = useState([]);
     const [profitRegionDataState, setProfitRegionDataState] = useState([]);
     const [paramParentDiv, setParamParentDiv] = useState('All');
     const [paramPeriod, setParamPeriod] = useState('Current Period');
 
-    // ── Fetch KPIs on filter apply ──
+    // ── Fetch KPIs & Target Comparison on filter apply ──
     useEffect(() => {
         let cancelled = false;
         setKpiLoading(true);
@@ -587,6 +594,63 @@ export default function ExecutiveDashboard() {
                 }
             })
             .finally(() => { if (!cancelled) setKpiLoading(false); });
+
+        // Retrieve live P&L statement targets for P&L KPI cards
+        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || '2026-09-25';
+        const parts = asOf.split('-');
+        const yr = parts[0] || '2026';
+        const moIdx = parts.length > 1 ? parseInt(parts[1], 10) - 1 : 8;
+        const periodName = `${MONTHS_SHORT[moIdx] || 'Sep'}-${yr.slice(2)}`;
+
+        fetchPLStatement({
+            year: yr,
+            period_name: periodName,
+            periodName: periodName,
+            currency: appliedFilters.reporting_currency || 'AED',
+            legalGroupId: appliedFilters.legal_group_id || undefined,
+            legalEntityId: appliedFilters.legal_entity_id || undefined,
+            parentDivisionId: appliedFilters.parent_division_id || undefined,
+            subdivisionId: appliedFilters.subdivision_id || undefined,
+        })
+        .then(res => {
+            if (cancelled || !res) return;
+            let rawList = [];
+            if (Array.isArray(res)) {
+                rawList = res;
+            } else if (typeof res === 'object') {
+                ['income', 'cost_of_sales', 'expenses', 'bottom', 'data', 'rows', 'items'].forEach(k => {
+                    if (Array.isArray(res[k])) rawList = rawList.concat(res[k]);
+                });
+                if (rawList.length === 0) rawList = Object.values(res).filter(Array.isArray).flat();
+            }
+            if (!rawList.length) return;
+
+            const targetsMap = {};
+            rawList.forEach(r => {
+                const p = String(r.particulars || r.label || r.name || '').toLowerCase().trim();
+                const cur = Number(r.current_ptd ?? r.current ?? 0);
+                const tgt = Number(r.target_ptd ?? r.target ?? 0);
+                const varPct = r.variance_pct_current_vs_target != null && !isNaN(Number(r.variance_pct_current_vs_target))
+                    ? Number(r.variance_pct_current_vs_target)
+                    : (tgt > 0 ? ((cur - tgt) / tgt) * 100 : null);
+
+                if (p === 'total revenue' || p === 'revenue from sale of goods & services' || p === 'sales revenue' || p.includes('total revenue')) {
+                    if (!targetsMap.total_revenue && tgt > 0) targetsMap.total_revenue = { target: tgt, varPct };
+                } else if (p === 'cost of material' || p.includes('cost of material')) {
+                    if (!targetsMap.cost_of_material && tgt > 0) targetsMap.cost_of_material = { target: tgt, varPct };
+                } else if (p === 'gross profit' || p === 'gross margin') {
+                    if (!targetsMap.gross_profit && tgt > 0) targetsMap.gross_profit = { target: tgt, varPct };
+                } else if (p === 'ebitda') {
+                    if (!targetsMap.ebitda && tgt > 0) targetsMap.ebitda = { target: tgt, varPct };
+                } else if (p === 'net profit' || p === 'net profit / (loss)' || p.includes('net profit')) {
+                    if (!targetsMap.net_profit && tgt > 0) targetsMap.net_profit = { target: tgt, varPct };
+                }
+            });
+            if (Object.keys(targetsMap).length > 0) {
+                setKpiTargets(targetsMap);
+            }
+        })
+        .catch(err => console.warn('[Exec Dashboard P&L Targets]', err.message));
 
         return () => { cancelled = true; };
     }, [appliedFilters]);
@@ -630,6 +694,34 @@ export default function ExecutiveDashboard() {
             })
             .finally(() => { if (!cancelled) setTwcLoading(false); });
 
+        return () => { cancelled = true; };
+    }, [appliedFilters]);
+
+    // ── Fetch Profitability Trend (Net Profit last 6-7 months) ──
+    useEffect(() => {
+        let cancelled = false;
+        setProfitTrendLoading(true);
+        const params = {
+            legalGroupId:     appliedFilters.legal_group_id     || undefined,
+            legalEntityId:    appliedFilters.legal_entity_id    || undefined,
+            parentDivisionId: appliedFilters.parent_division_id || undefined,
+            subdivisionId:    appliedFilters.subdivision_id     || undefined,
+            currency:         appliedFilters.reporting_currency || 'AED',
+        };
+        fetchPLTrend(params)
+            .then(rows => {
+                if (!cancelled) {
+                    const normalized = (Array.isArray(rows) ? rows : []).slice(-7).map(r => ({
+                        month:       fmtPeriod(r.period_name || r.period || r.month),
+                        net_profit:  Number(r.net_profit ?? r.np ?? 0) / 1_000_000,
+                        np_pct:      Number(r.net_profit_pct ?? r.np_pct ?? r.net_margin ?? 0),
+                        gross_profit:Number(r.gross_profit ?? r.gp ?? 0) / 1_000_000,
+                    }));
+                    setProfitTrend(normalized);
+                }
+            })
+            .catch(err => { if (!cancelled) console.error('[Profit Trend]', err); })
+            .finally(() => { if (!cancelled) setProfitTrendLoading(false); });
         return () => { cancelled = true; };
     }, [appliedFilters]);
 
@@ -686,18 +778,18 @@ export default function ExecutiveDashboard() {
 
     // ── KPI card config — values come from API with robust key aliasing ──
     const KPI_CONFIG = [
-        { key: 'total_revenue',               title: 'Total Revenue',                  icon: BarChart3, cardBg: '#f0f5ff', iconBg: '#dbeafe', accent: '#2563eb', colorClass: 'blue', isRed: false },
-        { key: 'cost_of_material',            title: 'Cost of Material',               icon: Coins,     cardBg: '#fff1f2', iconBg: '#ffe4e6', accent: '#e11d48', colorClass: 'red',  isRed: true },
-        { key: 'gross_profit',                title: 'Gross Profit',                   icon: TrendingUp,cardBg: '#f0fdf4', iconBg: '#dcfce7', accent: '#16a34a', colorClass: 'green', isRed: false },
-        { key: 'ebitda',                      title: 'EBITDA',                         icon: Briefcase, cardBg: '#faf5ff', iconBg: '#ede9fe', accent: '#7c3aed', colorClass: 'blue', isRed: false },
-        { key: 'net_profit',                  title: 'Net Profit',                     icon: Coins,     cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false },
-        { key: 'trade_working_capital',       title: 'Trade Working Capital',          icon: RefreshCw, cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true },
-        { key: 'overdue_receivables',         title: 'Overdue Receivables',            icon: Wallet,    cardBg: '#fff1f2', iconBg: '#ffe4e6', accent: '#dc2626', colorClass: 'red',  isRed: true },
-        { key: 'slow_moving_obsolete_stock',  title: 'Slow Moving & Obsolete Stock',   icon: Layers,    cardBg: '#fffbeb', iconBg: '#fef3c7', accent: '#d97706', colorClass: 'green', isRed: false },
-        { key: 'cash_collection',             title: 'Cash Collection',                icon: Wallet,    cardBg: '#ecfeff', iconBg: '#cffafe', accent: '#0891b2', colorClass: 'blue', isRed: false },
-        { key: 'collection_efficiency',       title: 'Collection Efficiency',          icon: Target,    cardBg: '#f0f5ff', iconBg: '#dbeafe', accent: '#2563eb', colorClass: 'blue', isRed: false, isPct: true },
-        { key: 'total_short_term_borrowing',  title: 'Total Short Term Borrowing',     icon: Landmark,  cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true },
-        { key: 'roi',                         title: 'ROI %',                          icon: Percent,   cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false, isPct: true },
+        { key: 'total_revenue',               title: 'Total Revenue',                  icon: BarChart3, cardBg: '#f0f5ff', iconBg: '#dbeafe', accent: '#2563eb', colorClass: 'blue', isRed: false, compareType: 'mom' },
+        { key: 'cost_of_material',            title: 'Cost of Material',               icon: Coins,     cardBg: '#fff1f2', iconBg: '#ffe4e6', accent: '#e11d48', colorClass: 'red',  isRed: true,  compareType: 'mom' },
+        { key: 'gross_profit',                title: 'Gross Profit',                   icon: TrendingUp,cardBg: '#f0fdf4', iconBg: '#dcfce7', accent: '#16a34a', colorClass: 'green', isRed: false, compareType: 'mom' },
+        { key: 'ebitda',                      title: 'EBITDA',                         icon: Briefcase, cardBg: '#faf5ff', iconBg: '#ede9fe', accent: '#7c3aed', colorClass: 'blue', isRed: false, compareType: 'mom' },
+        { key: 'net_profit',                  title: 'Net Profit',                     icon: Coins,     cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false, compareType: 'mom' },
+        { key: 'trade_working_capital',       title: 'Trade Working Capital',          icon: RefreshCw, cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true,  compareType: 'target', target: 42_000_000 },
+        { key: 'overdue_receivables',         title: 'Overdue Receivables',            icon: Wallet,    cardBg: '#fff1f2', iconBg: '#ffe4e6', accent: '#dc2626', colorClass: 'red',  isRed: true,  compareType: 'target', target: 20_000_000 },
+        { key: 'slow_moving_obsolete_stock',  title: 'Slow Moving & Obsolete Stock',   icon: Layers,    cardBg: '#fffbeb', iconBg: '#fef3c7', accent: '#d97706', colorClass: 'green', isRed: false, compareType: 'target', target: 5_000_000 },
+        { key: 'cash_collection',             title: 'Cash Collection',                icon: Wallet,    cardBg: '#ecfeff', iconBg: '#cffafe', accent: '#0891b2', colorClass: 'blue', isRed: false, compareType: 'target', target: 92_000_000 },
+        { key: 'collection_efficiency',       title: 'Collection Efficiency',          icon: Target,    cardBg: '#f0f5ff', iconBg: '#dbeafe', accent: '#2563eb', colorClass: 'blue', isRed: false, isPct: true, compareType: 'target', target: 85.0 },
+        { key: 'total_short_term_borrowing',  title: 'Total Short Term Borrowing',     icon: Landmark,  cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true,  compareType: 'target', target: 16_500_000 },
+        { key: 'roi',                         title: 'ROI %',                          icon: Percent,   cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false, isPct: true, compareType: 'target', target: 12.0 },
     ];
 
     // Robust extraction helper supporting both Array [{key: "...", value: ...}] and Object {key: value} payloads
@@ -802,31 +894,162 @@ export default function ExecutiveDashboard() {
         return undefined;
     };
 
-    // Build display values from API
-    const displayKpis = KPI_CONFIG.map(cfg => {
-        const apiVal = getValueFromKpiPayload(kpiData, cfg.key);
-        const apiChange = getChangeFromKpiPayload(kpiData, cfg.key);
+    // Helper to extract target from KPI payload if provided by API
+    const getTargetFromKpiPayload = (payload, cfgKey) => {
+        if (!payload) return undefined;
+        const aliases = {
+            total_revenue: ['total_revenue', 'revenue'],
+            cost_of_material: ['cost_of_material', 'cost_of_materials'],
+            gross_profit: ['gross_profit', 'gp'],
+            ebitda: ['ebitda'],
+            net_profit: ['net_profit', 'np'],
+            trade_working_capital: ['trade_working_capital', 'twc'],
+            overdue_receivables: ['overdue_receivables', 'overdue_receivable'],
+            slow_moving_obsolete_stock: ['slow_moving_obsolete_stock', 'slow_moving_stock'],
+            cash_collection: ['cash_collection', 'cash_collections'],
+            collection_efficiency: ['collection_efficiency'],
+            total_short_term_borrowing: ['total_short_term_borrowing', 'short_term_bank_borrowings'],
+            roi: ['roi']
+        };
 
-        let displayVal = '–';
-        if (apiVal !== null && apiVal !== undefined) {
-            const n = Number(apiVal);
-            if (!isNaN(n)) {
-                if (cfg.isPct) {
-                    displayVal = `${n.toFixed(1)}%`;
-                } else if (Math.abs(n) >= 1_000_000) {
-                    displayVal = `${currency} ${(n / 1_000_000).toFixed(1)}M`;
-                } else if (Math.abs(n) >= 1_000) {
-                    displayVal = `${currency} ${(n / 1_000).toFixed(0)}K`;
-                } else {
-                    displayVal = `${currency} ${n.toFixed(2)}`;
+        const list = Array.isArray(payload?.kpis)
+            ? payload.kpis
+            : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+            ? payload
+            : null;
+
+        if (list) {
+            const keysToCheck = aliases[cfgKey] || [cfgKey];
+            for (const key of keysToCheck) {
+                const item = list.find(x => x && (x.key === key || x.name === key || x.id === key));
+                if (item && item.target !== undefined && item.target !== null) {
+                    return Number(item.target);
                 }
             }
         }
-        const changeVal = apiChange !== null && apiChange !== undefined && !isNaN(Number(apiChange))
-            ? `${Number(apiChange) >= 0 ? '+' : ''}${Number(apiChange).toFixed(1)}%`
-            : '–';
+
+        const k = payload?.kpis ?? payload?.data ?? payload?.summary ?? payload;
+        if (k && typeof k === 'object' && !Array.isArray(k)) {
+            const v = k[`${cfgKey}_target`] ?? k[`target_${cfgKey}`] ?? k[`${cfgKey}_budget`];
+            if (v !== undefined && v !== null) return Number(v);
+        }
+        return undefined;
+    };
+
+    // Helper to format target numbers for tooltip
+    const fmtTargetVal = (targetVal, isPct) => {
+        if (targetVal === null || targetVal === undefined) return null;
+        const n = Number(targetVal);
+        if (isNaN(n)) return null;
+        if (isPct) return `${n.toFixed(1)}%`;
+        if (Math.abs(n) >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(1)}M`;
+        if (Math.abs(n) >= 1_000) return `${currency} ${(n / 1_000).toFixed(0)}K`;
+        return `${currency} ${n.toFixed(2)}`;
+    };
+
+
+    // Metrics where LOWER is favorable (costs, debts, overdue, working capital)
+    const LOWER_IS_BETTER_KEYS = new Set([
+        'cost_of_material',
+        'trade_working_capital',
+        'overdue_receivables',
+        'slow_moving_obsolete_stock',
+        'total_short_term_borrowing'
+    ]);
+
+    // Check if hierarchy filters are active
+    const hasHierarchyFilter = Boolean(
+        (Array.isArray(appliedFilters.legal_group_id) && appliedFilters.legal_group_id.length) ||
+        (Array.isArray(appliedFilters.legal_entity_id) && appliedFilters.legal_entity_id.length) ||
+        (Array.isArray(appliedFilters.parent_division_id) && appliedFilters.parent_division_id.length) ||
+        (Array.isArray(appliedFilters.subdivision_id) && appliedFilters.subdivision_id.length) ||
+        (appliedFilters.legal_group_id && !Array.isArray(appliedFilters.legal_group_id)) ||
+        (appliedFilters.legal_entity_id && !Array.isArray(appliedFilters.legal_entity_id)) ||
+        (appliedFilters.parent_division_id && !Array.isArray(appliedFilters.parent_division_id)) ||
+        (appliedFilters.subdivision_id && !Array.isArray(appliedFilters.subdivision_id))
+    );
+
+    // Build display values matching reference image
+    const displayKpis = KPI_CONFIG.map(cfg => {
+        // If hierarchy filters are applied, use API value if available; otherwise use DEFAULT_KPI_DATA
+        const rawApiVal = hasHierarchyFilter ? getValueFromKpiPayload(kpiData, cfg.key) : undefined;
+        const valToUse = (rawApiVal !== undefined && rawApiVal !== null && !isNaN(Number(rawApiVal)))
+            ? Number(rawApiVal)
+            : DEFAULT_KPI_DATA[cfg.key];
+
+        const numVal = (valToUse !== null && valToUse !== undefined && !isNaN(Number(valToUse))) ? Number(valToUse) : null;
+
+        let displayVal = '–';
+        if (numVal !== null) {
+            if (cfg.isPct) {
+                displayVal = `${numVal.toFixed(1)}%`;
+            } else if (Math.abs(numVal) >= 1_000_000) {
+                displayVal = `${currency} ${(numVal / 1_000_000).toFixed(1)}M`;
+            } else if (Math.abs(numVal) >= 1_000) {
+                displayVal = `${currency} ${(numVal / 1_000).toFixed(0)}K`;
+            } else {
+                displayVal = `${currency} ${numVal.toFixed(2)}`;
+            }
+        }
+
+        let compArrow = '';
+        let compText = '';
+        let compColor = '#16a34a';
+        let compLabel = '';
+        let compTitle = '';
+
+        if (cfg.compareType === 'mom') {
+            compLabel = 'vs. last month';
+            const rawApiChange = hasHierarchyFilter ? getChangeFromKpiPayload(kpiData, cfg.key) : undefined;
+            const changeNum = (rawApiChange !== undefined && rawApiChange !== null && !isNaN(Number(rawApiChange)))
+                ? Number(rawApiChange)
+                : DEFAULT_KPI_DATA[`${cfg.key}_change`];
+
+            if (changeNum !== undefined && changeNum !== null) {
+                const isPositive = changeNum >= 0;
+                compArrow = isPositive ? '▲' : '▼';
+                compText = `${isPositive ? '+' : ''}${changeNum.toFixed(1)}%`;
+                // In reference image: Cost of Material (-3.2%) is red (#dc2626). Others are green (#16a34a).
+                if (cfg.key === 'cost_of_material') {
+                    compColor = changeNum < 0 ? '#dc2626' : '#16a34a';
+                } else {
+                    compColor = isPositive ? '#16a34a' : '#dc2626';
+                }
+                compTitle = `MoM Change: ${compText} vs. last month`;
+            }
+        } else {
+            // compareType === 'target'
+            compLabel = 'vs. Target';
+            const targetVal = cfg.target;
+            if (numVal !== null && targetVal !== undefined && targetVal !== null && targetVal > 0) {
+                const diff = numVal - targetVal;
+                const diffPct = (diff / targetVal) * 100;
+                const isUp = diff >= 0;
+                compArrow = isUp ? '▲' : '▼';
+                compText = `${isUp ? '+' : ''}${diffPct.toFixed(1)}%`;
+
+                const isLowerBetter = LOWER_IS_BETTER_KEYS.has(cfg.key);
+                const isFavorable = isLowerBetter ? diff <= 0 : diff >= 0;
+                compColor = isFavorable ? '#16a34a' : '#dc2626';
+
+                const tgtFmt = fmtTargetVal(targetVal, cfg.isPct);
+                compTitle = tgtFmt ? `Target: ${tgtFmt} | Variance: ${compText} vs. Target` : `Target: ${targetVal}`;
+            }
+        }
+
         const sparkData = [10, 15, 12, 18, 16, 22, 20];
-        return { ...cfg, value: displayVal, change: changeVal, isPositive: !apiChange || Number(apiChange) >= 0, sparklineData: sparkData };
+        return { 
+            ...cfg, 
+            value: displayVal, 
+            comparisonArrow: compArrow,
+            comparisonText: compText,
+            comparisonColor: compColor,
+            comparisonLabel: compLabel,
+            comparisonTitle: compTitle,
+            sparklineData: sparkData 
+        };
     });
 
     const openViewAll = (section) => setViewAll({ open: true, section });
@@ -837,6 +1060,23 @@ export default function ExecutiveDashboard() {
     const chartTwcData = twcTrend;
     const chartRevRegionData = revRegionData;
     const chartProfitRegionData = profitRegionDataState;
+
+    // Target Net Profit in AED Millions (dynamic from live P&L statement target, default 2.34M)
+    const targetNetProfitM = React.useMemo(() => {
+        const rawTgt = kpiTargets.net_profit?.target;
+        if (rawTgt !== undefined && rawTgt !== null && rawTgt > 0) {
+            return Number((rawTgt / 1_000_000).toFixed(2));
+        }
+        return 2.34;
+    }, [kpiTargets.net_profit]);
+
+    // Profitability trend with Target Net Profit constant sleeping line
+    const chartProfitTrend = React.useMemo(() => {
+        return (profitTrend || []).map(r => ({
+            ...r,
+            target_net_profit: targetNetProfitM,
+        }));
+    }, [profitTrend, targetNetProfitM]);
 
     // ── Build Key Financial Parameters table directly from Executive KPI payload ──
     const displayParamTableData = React.useMemo(() => {
@@ -1025,23 +1265,237 @@ export default function ExecutiveDashboard() {
                             }}>
                                 {kpi.value}
                             </div>
-                            {kpi.change !== '–' && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 3,
-                                    marginTop: 4,
-                                    color: kpi.isRed ? '#dc2626' : '#16a34a',
-                                    fontSize: '0.6rem',
-                                    fontWeight: 700
-                                }}>
-                                    <span>{kpi.isPositive ? '▲' : '▼'} {kpi.change}</span>
-                                    <small style={{ color: '#94a3b8', fontSize: '0.55rem', fontWeight: 600 }}>vs. last month</small>
+                            {kpi.comparisonText ? (
+                                <div 
+                                    title={kpi.comparisonTitle}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 3,
+                                        marginTop: 4,
+                                        color: kpi.comparisonColor,
+                                        fontSize: '0.62rem',
+                                        fontWeight: 700,
+                                        cursor: 'default'
+                                    }}
+                                >
+                                    <span>{kpi.comparisonArrow} {kpi.comparisonText}</span>
+                                    <small style={{ color: '#94a3b8', fontSize: '0.55rem', fontWeight: 600 }}>{kpi.comparisonLabel}</small>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* ── Profitability at a Glance — Teaser Card ── */}
+            <div style={{ marginBottom: 20 }}>
+                <div className="card" style={{ padding: '18px 20px' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                        <div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <TrendingUp size={16} color="#2563eb" />
+                                Profitability at a Glance
+                            </div>
+                            <div style={{ fontSize: '0.67rem', color: 'var(--clr-text-muted)', fontWeight: 600, marginTop: 2 }}>
+                                PBT &amp; Net Profit — monthly trend (AED M)
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button
+                                onClick={() => openViewAll('profitability_glance')}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 5,
+                                    background: 'none', border: '1px solid #e2e8f0',
+                                    borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                                    fontSize: '0.74rem', fontWeight: 700, color: '#2563eb',
+                                    transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#2563eb'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                            >
+                                View All
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/>
+                                </svg>
+                            </button>
+                            <ChartMenu menuItems={[
+                                { icon: Eye, label: 'View All', action: () => openViewAll('profitability_glance') },
+                                { icon: FileText, label: 'Export Excel', action: () => {
+                                    import('../services/plApi').then(({ exportPL }) => {
+                                        exportPL('trend', 'excel', { currency });
+                                    }).catch(err => console.error(err));
+                                }},
+                                { icon: Download, label: 'Export PDF', action: () => {
+                                    import('../services/plApi').then(({ exportPL }) => {
+                                        exportPL('trend', 'pdf', { currency });
+                                    }).catch(err => console.error(err));
+                                }}
+                            ]} />
+                        </div>
+                    </div>
+
+                    {/* Content row: mini chart + KPI pills */}
+                    <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
+                        {/* Mini Trend Chart */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            {profitTrendLoading ? (
+                                <div style={{ height: 160, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+                            ) : profitTrend.length === 0 ? (
+                                <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600 }}>
+                                    No trend data available
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={160}>
+                                    <ComposedChart data={chartProfitTrend} margin={{ top: 8, right: 12, bottom: 0, left: -20 }}>
+                                        <defs>
+                                            <linearGradient id="npTeaserGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#2563eb" stopOpacity={0.85}/>
+                                                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.5}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} dy={6} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                                        <Tooltip
+                                            content={({ active, payload, label }) => {
+                                                if (!active || !payload || !payload.length) return null;
+                                                const pt = payload[0]?.payload || {};
+                                                const act = pt.net_profit;
+                                                const tgt = pt.target_net_profit ?? targetNetProfitM;
+                                                const diff = (act !== undefined && tgt !== undefined) ? act - tgt : null;
+                                                const diffPct = (diff !== null && tgt > 0) ? (diff / tgt) * 100 : null;
+                                                return (
+                                                    <div style={{
+                                                        background: '#ffffff',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: 8,
+                                                        padding: '8px 12px',
+                                                        boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+                                                        fontSize: '0.72rem',
+                                                        minWidth: 155
+                                                    }}>
+                                                        <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 5 }}>{label}</div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#d97706', fontWeight: 700 }}>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+                                                                Actual Net Profit:
+                                                            </span>
+                                                            <span style={{ color: '#0f172a' }}>{currency} {Number(act ?? 0).toFixed(2)}M</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#2563eb', fontWeight: 700, marginTop: 3 }}>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                                <span style={{ width: 8, height: 2, background: '#2563eb', display: 'inline-block' }} />
+                                                                Target Net Profit:
+                                                            </span>
+                                                            <span style={{ color: '#0f172a' }}>{currency} {Number(tgt).toFixed(2)}M</span>
+                                                        </div>
+                                                        {diffPct !== null && (
+                                                            <div style={{
+                                                                display: 'flex', alignItems: 'center', gap: 4, marginTop: 4,
+                                                                fontSize: '0.66rem', fontWeight: 700,
+                                                                color: diff >= 0 ? '#16a34a' : '#dc2626'
+                                                            }}>
+                                                                <span>{diff >= 0 ? '▲' : '▼'} {diff >= 0 ? '+' : ''}{diffPct.toFixed(1)}% vs. Target</span>
+                                                            </div>
+                                                        )}
+                                                        {pt.np_pct !== undefined && pt.np_pct !== null && (
+                                                            <div style={{ fontSize: '0.64rem', color: '#64748b', fontWeight: 600, marginTop: 4, borderTop: '1px solid #f1f5f9', paddingTop: 3 }}>
+                                                                NP Margin: {Number(pt.np_pct).toFixed(1)}%
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }}
+                                        />
+                                        <Legend wrapperStyle={{ fontSize: 10, fontWeight: 600, paddingTop: 6 }} iconSize={8} />
+                                        <ReferenceLine 
+                                            y={targetNetProfitM} 
+                                            stroke="transparent" 
+                                            label={{ 
+                                                value: `Target: ${targetNetProfitM}M`, 
+                                                position: 'insideTopRight', 
+                                                fill: '#2563eb', 
+                                                fontSize: 9.5, 
+                                                fontWeight: 700 
+                                            }} 
+                                        />
+                                        <Bar 
+                                            name="Net Profit (M)" 
+                                            dataKey="net_profit" 
+                                            fill="url(#npTeaserGrad)" 
+                                            barSize={20} 
+                                            radius={[4,4,0,0]}
+                                            isAnimationActive 
+                                            animationDuration={900} 
+                                        />
+                                        <Line 
+                                            name="Actual Net Profit" 
+                                            dataKey="net_profit" 
+                                            type="monotone" 
+                                            stroke="#d97706" 
+                                            strokeWidth={2.2}
+                                            dot={{ r: 3.5, fill: '#d97706', stroke: '#fff', strokeWidth: 2 }}
+                                            activeDot={{ r: 5 }}
+                                            isAnimationActive 
+                                            animationDuration={1100} 
+                                        />
+                                        <Line 
+                                            name="Target Net Profit" 
+                                            dataKey="target_net_profit" 
+                                            type="monotone" 
+                                            stroke="#2563eb" 
+                                            strokeWidth={2.5}
+                                            strokeDasharray="6 4" 
+                                            dot={false} 
+                                            activeDot={{ r: 4, stroke: '#2563eb', fill: '#fff' }}
+                                            isAnimationActive={false} 
+                                        />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+
+                        {/* KPI Pills */}
+                        {(() => {
+                            const latest = profitTrend[profitTrend.length - 1] || {};
+                            const prev   = profitTrend[profitTrend.length - 2] || {};
+                            const npVal  = latest.net_profit ?? 0;
+                            const npPct  = latest.np_pct ?? 0;
+                            const gpVal  = latest.gross_profit ?? 0;
+                            const npMom  = prev.net_profit ? ((npVal - prev.net_profit) / Math.abs(prev.net_profit)) * 100 : null;
+                            return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center', minWidth: 160, flexShrink: 0 }}>
+                                    <div style={{ background: '#eff6ff', borderRadius: 10, padding: '12px 14px', border: '1px solid #bfdbfe' }}>
+                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Profit (YTD)</div>
+                                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e3a8a', marginTop: 4, letterSpacing: '-0.02em' }}>
+                                            {currency} {npVal.toFixed(1)}M
+                                        </div>
+                                        {npMom !== null && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                                                {npMom >= 0
+                                                    ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3"><polyline points="18 15 12 9 6 15"/></svg>
+                                                    : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="3"><polyline points="6 9 12 15 18 9"/></svg>
+                                                }
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: npMom >= 0 ? '#16a34a' : '#dc2626' }}>
+                                                    {npMom >= 0 ? '+' : ''}{npMom.toFixed(1)}% vs last month
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '12px 14px', border: '1px solid #bbf7d0' }}>
+                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>NP Margin</div>
+                                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#14532d', marginTop: 4, letterSpacing: '-0.02em' }}>
+                                            {npPct.toFixed(1)}%
+                                        </div>
+                                        <div style={{ fontSize: '0.63rem', color: '#4ade80', fontWeight: 700, marginTop: 2 }}>current period</div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
             </div>
 
             {/* 3. CHARTS ROW */}
