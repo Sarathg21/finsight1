@@ -64461,12 +64461,7 @@ function ReceivablesViewAll({
                                                                 maxWidth:
                                                                     columnWidth,
 
-                                                                whiteSpace: "normal",
-                                                                wordBreak: "break-word",
                                                                 overflowWrap: "anywhere",
-                                                                lineHeight: 1.15,
-                                                                height: 34,
-
                                                                 boxSizing:
                                                                     "border-box",
 

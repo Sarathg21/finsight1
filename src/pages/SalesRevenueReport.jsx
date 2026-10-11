@@ -1799,6 +1799,26 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
   );
 }
 
+/* ─── External Customer Validator ───────────────────────────────── */
+// CFO UAT: Top Customers card must only display genuine external customers.
+// Related-party / internal entities (tagged with (R) in ERP, e.g., Flowtech (R)) are excluded.
+const isExternalCustomer = (c) => {
+  if (!c) return false;
+  const name = String(c.customer_name || c.name || '').trim();
+  if (/\((?:r|related|internal)\)/i.test(name)) return false;
+  if (/\b(?:intercompany|related\s*party)\b/i.test(name)) return false;
+
+  const type = String(c.customer_type || c.customerType || c.type || '').toLowerCase().trim();
+  if (type === 'internal' || type === 'related party' || type === 'related_party' || type === 'intercompany') return false;
+
+  if (c.is_related_party === true || c.is_internal === true || c.is_related === true) return false;
+
+  const salesCat = String(c.sales_category || c.salesCategory || '').toLowerCase().trim();
+  if (salesCat.includes('rp cross') || salesCat.includes('rp duplicate') || salesCat.includes('internal') || salesCat.includes('related')) return false;
+
+  return true;
+};
+
 /* ═══════════════════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                                  */
 /* ═══════════════════════════════════════════════════════════════ */
@@ -2389,13 +2409,24 @@ export default function SalesRevenueReport() {
       setBySalesmanData(chartData);
     });
         
-        // 8. Top Customers
-    guard('topCustomers', fetchTopCustomers(f)).then(d => {
+        // 8. Top Customers — External Customers only (per CFO / Jeemon Sir requirement)
+    const topCustParams = {
+      ...f,
+      customerType: 'External',
+      customer_type: 'External',
+      salesCategories: ['External Sales'],
+      sales_category: 'External Sales',
+      limit: 10,
+    };
+    guard('topCustomers', fetchTopCustomers(topCustParams)).then(d => {
       if (!d || !d.data) return;
-      const mapped = d.data.map(c => ({
+      const rawList = Array.isArray(d.data) ? d.data : [];
+      const externalOnly = rawList.filter(isExternalCustomer);
+      const mapped = externalOnly.map(c => ({
         name: c.customer_name || c.name || 'Unknown',
         value: Number(c.sales ?? c.value ?? 0),
         pct: Number(c.percentage ?? c.contribution_pct ?? c.pct ?? 0),
+        customerType: 'External',
       }));
       setTopCustomersData(mapped);
     });
@@ -4340,14 +4371,14 @@ export default function SalesRevenueReport() {
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales ({currentCurrency})</div>
-              <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={{ ...appliedFilters, unit: inMillions ? 'millions' : 'aed' }} />
+              <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={{ ...appliedFilters, customerType: 'External', customer_type: 'External', unit: inMillions ? 'millions' : 'aed' }} />
             </div>
             {loading.topCustomers ? (
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : topCustomersData.length > 0 ? (
-              <div style={{ flex: 1, overflowX: 'hidden', borderRadius: 8, border: `1px solid ${C.border}` }}>
+              <div style={{ flex: 1, overflowX: 'hidden', overflowY: 'auto', maxHeight: 280, borderRadius: 8, border: `1px solid ${C.border}` }}>
                 <table style={{ width: '100%', height: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
-                  <thead>
+                  <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 2 }}>
                     <tr>
                       <th style={{ textAlign: 'center', width: '10%' }}>#</th>
                       <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal' }}>Customer Name</th>
@@ -4357,14 +4388,12 @@ export default function SalesRevenueReport() {
                   </thead>
                   <tbody>
                     {(() => {
-                      const top5Customers = topCustomersData.slice(0, 5);
-                      const grandTotalCustomers = top5Customers.reduce((s, c) => s + (Number(c.value) || 0), 0);
-                      return top5Customers.map((c, i) => {
+                      const displayCustomers = topCustomersData.slice(0, 10);
+                      const grandTotalCustomers = displayCustomers.reduce((s, c) => s + (Number(c.value) || 0), 0);
+                      return displayCustomers.map((c, i) => {
                         const salesVal = Number(c.value) || 0;
-                        /* Use API pct if non-zero, otherwise compute client-side */
-                        const pctVal = (Number(c.pct) !== 0)
-                          ? Number(c.pct)
-                          : (grandTotalCustomers > 0 ? (salesVal / grandTotalCustomers) * 100 : 0);
+                        /* Compute % Share across the displayed top external customers */
+                        const pctVal = grandTotalCustomers > 0 ? (salesVal / grandTotalCustomers) * 100 : 0;
                         return (
                           <tr key={i}>
                             <td style={{ textAlign: 'center', fontWeight: 600 }}>{i + 1}</td>
@@ -4377,24 +4406,22 @@ export default function SalesRevenueReport() {
                         );
                       });
                     })()}
+                  </tbody>
+                  <tfoot style={{ position: 'sticky', bottom: 0, background: '#f8fafc', zIndex: 2, boxShadow: '0 -1px 0 #e2e8f0' }}>
                     {(() => {
-                      const top10 = topCustomersData.slice(0, 10);
-                      const totalSales = top10.reduce((s, c) => s + (Number(c.value) || 0), 0);
-                      const useApiPct = top10.some(c => Number(c.pct) !== 0);
-                      const totalPct = useApiPct
-                        ? top10.reduce((s, c) => s + (Number(c.pct) || 0), 0)
-                        : 100;
+                      const displayCustomers = topCustomersData.slice(0, 10);
+                      const totalSales = displayCustomers.reduce((s, c) => s + (Number(c.value) || 0), 0);
                       return (
                         <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#1e3a8a' }}>
                           <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>Total</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                             {totalSales.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
-                          <td style={{ padding: '8px', textAlign: 'right' }}>{fmtPctCol(totalPct, 2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>100.00%</td>
                         </tr>
                       );
                     })()}
-                  </tbody>
+                  </tfoot>
                 </table>
               </div>
             ) : (

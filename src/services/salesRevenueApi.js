@@ -747,7 +747,7 @@ function buildParams(filters = {}) {
     analysis_code_id: active(filters.analysisCodeId),
     reporting_currency: active(filters.reportingCurrency),
     sales_person: activeStrings(filters.salesman),
-    customer_type: activeStrings(filters.customerType),
+    customer_type: activeStrings(filters.customerType ?? filters.customer_type),
     invoice_currency: active(filters.invoiceCurrency),
     customer_name: filters.customerName || undefined,
     customer_account_number: filters.customerAccountNumber || undefined,
@@ -758,6 +758,7 @@ function buildParams(filters = {}) {
       filters.sales_category ??
       filters.sales_categories
     ),
+    limit: filters.limit || undefined,
     unit: filters.unit || undefined
   };
 }
