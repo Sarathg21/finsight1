@@ -2416,7 +2416,7 @@ export default function SalesRevenueReport() {
       customer_type: 'External',
       salesCategories: ['External Sales'],
       sales_category: 'External Sales',
-      limit: 10,
+      limit: 50,
     };
     guard('topCustomers', fetchTopCustomers(topCustParams)).then(d => {
       if (!d || !d.data) return;
