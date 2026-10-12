@@ -32,12 +32,33 @@ api.interceptors.request.use(
 
 
     if (token) {
-
       config.headers =
         config.headers || {};
 
       config.headers.Authorization =
         `Bearer ${token}`;
+    }
+
+    const userStr = localStorage.getItem("finsight_user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        config.headers = config.headers || {};
+        if (user.emp_id || user.id) {
+          config.headers["X-EMP-ID"] = String(user.emp_id || user.id);
+        }
+        if (user.role || user.role_code) {
+          const r = String(user.role_code || user.role).toUpperCase();
+          let standardRole = r;
+          if (r.includes("CFO")) standardRole = "CFO";
+          else if (r.includes("ADMIN")) standardRole = "ADMIN";
+          else if (r.includes("MANAGER") || r.includes("GM")) standardRole = "MANAGER";
+          else if (r.includes("ACCOUNTANT") || r.includes("EMPLOYEE")) standardRole = "EMPLOYEE";
+          config.headers["X-USER-ROLE"] = standardRole;
+        }
+      } catch {
+        // ignore parse error
+      }
     }
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-    LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart, ReferenceLine
+    LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart, ReferenceLine, LabelList
 } from 'recharts';
 import { 
     BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye, TrendingUp
@@ -148,12 +148,96 @@ const CustomTooltip = ({ active, payload, label }) => {
         return (
             <div style={{ background: 'var(--clr-surface)', border: '1px solid var(--clr-border)', padding: '8px 12px', borderRadius: 6, fontSize: '0.75rem', boxShadow: 'var(--shadow-lg)' }}>
                 <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--clr-text)' }}>{label}</div>
-                {payload.map((entry, index) => (
-                    <div key={index} style={{ color: entry.color, display: 'flex', gap: 8, fontWeight: 600 }}>
-                        <span>{entry.name}:</span>
-                        <span>{entry.value}</span>
+                {payload.map((entry, index) => {
+                    const num = Number(entry.value);
+                    const formatted = !isNaN(num) ? `${num.toFixed(2)}M` : entry.value;
+                    const seriesName = entry.name === 'value' ? 'Revenue' : entry.name;
+                    return (
+                        <div key={index} style={{ color: entry.color || 'var(--clr-primary)', display: 'flex', gap: 8, fontWeight: 600 }}>
+                            <span>{seriesName}:</span>
+                            <span>{formatted}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+    return null;
+};
+
+/* ─── Dedicated TWC Trend Custom Tooltip ─── */
+const TwcCustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        const item = payload[0]?.payload || {};
+        const curr = item.currency || 'AED';
+        const trVal  = item.tr;
+        const invVal = item.inv;
+        const tpVal  = item.tp;
+        const twcVal = item.twc;
+        const cccVal = item.ccc;
+
+        return (
+            <div style={{ 
+                background: 'var(--clr-surface)', 
+                border: '1px solid var(--clr-border)', 
+                padding: '10px 14px', 
+                borderRadius: 8, 
+                fontSize: '0.75rem', 
+                boxShadow: 'var(--shadow-lg)',
+                minWidth: 220,
+                lineHeight: 1.5,
+                zIndex: 100
+            }}>
+                <div style={{ fontWeight: 800, marginBottom: 8, color: 'var(--clr-text)', borderBottom: '1px solid var(--clr-border)', paddingBottom: 4 }}>
+                    {label}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--clr-text-muted)' }}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--clr-primary)', display: 'inline-block' }} />
+                            Trade Receivables:
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--clr-text)' }}>
+                            {trVal != null ? `${curr} ${Number(trVal).toFixed(2)}M` : '–'}
+                        </span>
                     </div>
-                ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--clr-text-muted)' }}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--clr-cyan)', display: 'inline-block' }} />
+                            Inventory:
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--clr-text)' }}>
+                            {invVal != null ? `${curr} ${Number(invVal).toFixed(2)}M` : '–'}
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--clr-text-muted)' }}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--clr-success)', display: 'inline-block' }} />
+                            Trade Payables:
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--clr-text)' }}>
+                            {tpVal != null ? `${curr} ${Number(tpVal).toFixed(2)}M` : '–'}
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--clr-border)', paddingTop: 5, marginTop: 2 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--clr-text)', fontWeight: 700 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--clr-text)', display: 'inline-block' }} />
+                            Trade Working Capital:
+                        </span>
+                        <span style={{ fontWeight: 800, color: '#2563eb' }}>
+                            {twcVal != null ? `${curr} ${Number(twcVal).toFixed(2)}M` : '–'}
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(225, 29, 72, 0.08)', padding: '4px 8px', borderRadius: 4, marginTop: 2 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#e11d48', fontWeight: 700 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#e11d48', display: 'inline-block' }} />
+                            CCC Days:
+                        </span>
+                        <span style={{ fontWeight: 800, color: '#e11d48' }}>
+                            {cccVal != null ? `${cccVal} Days` : '–'}
+                        </span>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -237,13 +321,23 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
     const [hoveredRegionIndex, setHoveredRegionIndex] = useState(null);
 
     const chartData = React.useMemo(() => {
-        if (Array.isArray(data) && data.length > 0) return data;
-        return [
+        const raw = (Array.isArray(data) && data.length > 0) ? data : [
             { name: 'UAE', gp: 45.2, np: 18.5 },
             { name: 'Qatar', gp: 22.8, np: 8.4 },
             { name: 'Oman', gp: 15.4, np: 5.1 },
             { name: 'KSA', gp: 32.1, np: 12.8 }
         ];
+        return raw.map(item => {
+            const rawGp = Number(item.gp ?? item.gross_profit_aed ?? item.gross_profit ?? 0);
+            const rawNp = Number(item.np ?? item.net_profit_aed ?? item.net_profit ?? 0);
+            const gp = Math.abs(rawGp) > 1000 ? Number((rawGp / 1_000_000).toFixed(2)) : rawGp;
+            const np = Math.abs(rawNp) > 1000 ? Number((rawNp / 1_000_000).toFixed(2)) : rawNp;
+            return {
+                ...item,
+                gp,
+                np
+            };
+        });
     }, [data]);
 
     const toggleSeries = (key) => {
@@ -318,6 +412,64 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
         );
     };
 
+    const formatLabelValue = (num) => {
+        const abs = Math.abs(num);
+        if (abs < 0.05) return '';
+        if (abs >= 0.1) return `${num.toFixed(1)}M`;
+        return `${num.toFixed(2)}M`;
+    };
+
+    const renderGpLabel = (props) => {
+        const { x, y, width, height, value, index } = props;
+        if (value === undefined || value === null) return null;
+        const num = Number(value);
+        if (isNaN(num) || Math.abs(num) < 0.05) return null;
+
+        const isNeg = num < 0;
+        const row = chartData[index] || {};
+        const npVal = Number(row.np || 0);
+
+        // If both GP and NP are positive and close in height, stagger GP higher to prevent label collision
+        const bothPosAndClose = !isNeg && npVal > 0 && Math.abs(num - npVal) < 2.0;
+        const textY = isNeg ? (y + height + 11) : (bothPosAndClose ? (y - 12) : (y - 5));
+
+        return (
+            <text
+                x={x + width / 2}
+                y={textY}
+                fill={isNeg ? '#dc2626' : '#2563eb'}
+                textAnchor="middle"
+                fontSize={8.5}
+                fontWeight={700}
+            >
+                {formatLabelValue(num)}
+            </text>
+        );
+    };
+
+    const renderNpLabel = (props) => {
+        const { x, y, width, height, value } = props;
+        if (value === undefined || value === null) return null;
+        const num = Number(value);
+        if (isNaN(num) || Math.abs(num) < 0.05) return null;
+
+        const isNeg = num < 0;
+        const textY = isNeg ? (y + height + 11) : (y - 5);
+
+        return (
+            <text
+                x={x + width / 2}
+                y={textY}
+                fill={isNeg ? '#dc2626' : '#059669'}
+                textAnchor="middle"
+                fontSize={8.5}
+                fontWeight={700}
+            >
+                {formatLabelValue(num)}
+            </text>
+        );
+    };
+
     return (
         <div ref={chartContainerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
             {/* P&L Comparison Style Interactive Legend Header */}
@@ -360,11 +512,12 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
             </div>
 
             {/* P&L Comparison Style Dual Gradient Bar Chart */}
-            <div style={{ flex: 1, minHeight: 220 }}>
-                <ResponsiveContainer width="100%" height={220} minWidth={0}>
+            <div style={{ flex: 1, minHeight: 230 }}>
+                <ResponsiveContainer width="100%" height={230} minWidth={0}>
                     <BarChart 
                         data={chartData} 
-                        margin={{ top: 10, right: 10, bottom: 0, left: -20 }}
+                        margin={{ top: 28, right: 15, bottom: 20, left: -10 }}
+                        barGap={6}
                         onMouseMove={(state) => {
                             if (state && state.activeTooltipIndex !== undefined) {
                                 setHoveredRegionIndex(state.activeTooltipIndex);
@@ -383,8 +536,9 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }} dy={8} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} domain={[(dataMin) => (dataMin < 0 ? Math.floor(dataMin * 1.35 - 1) : 0), (dataMax) => Math.ceil(Math.max(1, dataMax * 1.25 + 1))]} />
                         <Tooltip content={<CustomRegionTooltip />} cursor={{ fill: 'rgba(241,245,249,0.6)', rx: 4 }} wrapperStyle={{ outline: 'none', transition: 'transform 150ms ease-out' }} />
 
                         {!isGpHidden && (
@@ -392,7 +546,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                                 name="Gross Profit"
                                 dataKey="gp"
                                 fill="url(#gpGrad)"
-                                barSize={16}
+                                barSize={14}
                                 radius={[5, 5, 0, 0]}
                                 isAnimationActive={chartInView}
                                 animationDuration={800}
@@ -410,6 +564,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                                         style={{ transition: 'opacity 200ms ease-in-out' }}
                                     />
                                 ))}
+                                <LabelList dataKey="gp" content={renderGpLabel} />
                             </Bar>
                         )}
 
@@ -418,7 +573,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                                 name="Net Profit"
                                 dataKey="np"
                                 fill="url(#npGrad)"
-                                barSize={16}
+                                barSize={14}
                                 radius={[5, 5, 0, 0]}
                                 isAnimationActive={chartInView}
                                 animationBegin={300}
@@ -437,6 +592,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                                         style={{ transition: 'opacity 200ms ease-in-out' }}
                                     />
                                 ))}
+                                <LabelList dataKey="np" content={renderNpLabel} />
                             </Bar>
                         )}
                     </BarChart>
@@ -666,16 +822,29 @@ export default function ExecutiveDashboard() {
                 if (!cancelled) {
                     const rows = getRows(data);
                     setTwcTrend(rows.map(r => {
-                        const rawTr  = Number(r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr ?? 0);
-                        const rawInv = Number(r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv ?? 0);
-                        const rawTp  = Number(r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp ?? 0);
-                        const rawTwc = Number(r.trade_working_capital ?? r.twc ?? 0);
+                        const rawTr  = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
+                        const rawInv = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
+                        const rawTp  = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp ?? r.total_trade_payables ?? r.ap;
+                        const rawTwc = r.trade_working_capital ?? r.twc;
+                        const rawCcc = r.cash_conversion_cycle_days ?? r.ccc_days ?? r.ccc;
 
-                        // Scale to Millions for "AED Million" chart YAxis scale
-                        const tr  = rawTr  > 1000 ? Number((rawTr  / 1_000_000).toFixed(2)) : rawTr;
-                        const inv = rawInv > 1000 ? Number((rawInv / 1_000_000).toFixed(2)) : rawInv;
-                        const tp  = rawTp  > 1000 ? Number((rawTp  / 1_000_000).toFixed(2)) : rawTp;
-                        const twc = rawTwc > 1000 ? Number((rawTwc / 1_000_000).toFixed(2)) : rawTwc;
+                        // Scale to Millions for "AED Million" chart YAxis scale only when valid numbers exist
+                        // Backend-controlled: preserve null when backend returns null (never convert null to 0)
+                        const tr  = (rawTr != null && !isNaN(Number(rawTr)))
+                            ? (Math.abs(Number(rawTr)) > 1000 ? Number((Number(rawTr) / 1_000_000).toFixed(2)) : Number(rawTr))
+                            : null;
+                        const inv = (rawInv != null && !isNaN(Number(rawInv)))
+                            ? (Math.abs(Number(rawInv)) > 1000 ? Number((Number(rawInv) / 1_000_000).toFixed(2)) : Number(rawInv))
+                            : null;
+                        const tp  = (rawTp != null && !isNaN(Number(rawTp)))
+                            ? (Math.abs(Number(rawTp)) > 1000 ? Number((Number(rawTp) / 1_000_000).toFixed(2)) : Number(rawTp))
+                            : null;
+                        const twc = (rawTwc != null && !isNaN(Number(rawTwc)))
+                            ? (Math.abs(Number(rawTwc)) > 1000 ? Number((Number(rawTwc) / 1_000_000).toFixed(2)) : Number(rawTwc))
+                            : null;
+                        const ccc = (rawCcc != null && !isNaN(Number(rawCcc)))
+                            ? Math.round(Number(rawCcc))
+                            : null;
 
                         const rawMonth = r.month_label ?? r.month ?? r.period_name ?? r.period ?? '';
 
@@ -685,6 +854,8 @@ export default function ExecutiveDashboard() {
                             inv,
                             tp,
                             twc,
+                            ccc,
+                            currency: appliedFilters.reporting_currency || 'AED',
                         };
                     }));
                 }
@@ -711,7 +882,34 @@ export default function ExecutiveDashboard() {
         fetchPLTrend(params)
             .then(rows => {
                 if (!cancelled) {
-                    const normalized = (Array.isArray(rows) ? rows : []).slice(-7).map(r => ({
+                    const rawList = Array.isArray(rows) ? rows : [];
+                    const asOfYr = (appliedFilters.as_of_date || '2026').slice(0, 4);
+                    const asOfYrShort = asOfYr.slice(2);
+
+                    // Find index of January for current year (e.g. Jan-26 or 2026-01)
+                    const janIdx = rawList.findIndex(r => {
+                        const rawP = String(r.period_name || r.period || r.month || '').trim();
+                        const p = fmtPeriod(rawP) || rawP;
+                        return (
+                            p.startsWith(`Jan ${asOfYrShort}`) ||
+                            p.startsWith(`Jan-${asOfYrShort}`) ||
+                            p.startsWith(`Jan 26`) ||
+                            p.startsWith(`Jan-26`) ||
+                            p === 'Jan' ||
+                            rawP.includes(`${asOfYr}-01`) ||
+                            rawP.includes(`Jan-${asOfYrShort}`)
+                        );
+                    });
+
+                    // If January is found and has at least 5 months, show January onwards; otherwise show up to the last 10 months
+                    let displayed = [];
+                    if (janIdx !== -1 && (rawList.length - janIdx) >= 5) {
+                        displayed = rawList.slice(janIdx);
+                    } else {
+                        displayed = rawList.slice(-10);
+                    }
+
+                    const normalized = displayed.map(r => ({
                         month:       fmtPeriod(r.period_name || r.period || r.month),
                         net_profit:  Number(r.net_profit ?? r.np ?? 0) / 1_000_000,
                         np_pct:      Number(r.net_profit_pct ?? r.np_pct ?? r.net_margin ?? 0),
@@ -734,8 +932,8 @@ export default function ExecutiveDashboard() {
                 if (!cancelled) {
                     const rows = getRows(data);
                     setRevRegionData(rows.map(r => {
-                        const rawVal = Number(r.revenue ?? r.total_revenue ?? 0);
-                        const value  = rawVal > 1000 ? Number((rawVal / 1_000_000).toFixed(2)) : rawVal;
+                        const rawVal = Number(r.revenue_aed ?? r.revenue ?? r.total_revenue ?? 0);
+                        const value  = Number((rawVal / 1_000_000).toFixed(2));
                         return {
                             name: r.region ?? r.country ?? r.country_name ?? '',
                             value
@@ -758,10 +956,10 @@ export default function ExecutiveDashboard() {
                 if (!cancelled) {
                     const rows = getRows(data);
                     setProfitRegionDataState(rows.map(r => {
-                        const rawGp = Number(r.gross_profit ?? r.gp ?? 0);
-                        const rawNp = Number(r.net_profit ?? r.np ?? 0);
-                        const gp = rawGp > 1000 ? Number((rawGp / 1_000_000).toFixed(2)) : rawGp;
-                        const np = rawNp > 1000 ? Number((rawNp / 1_000_000).toFixed(2)) : rawNp;
+                        const rawGp = Number(r.gross_profit_aed ?? r.gross_profit ?? r.gp ?? 0);
+                        const rawNp = Number(r.net_profit_aed ?? r.net_profit ?? r.np ?? 0);
+                        const gp = Number((rawGp / 1_000_000).toFixed(2));
+                        const np = Number((rawNp / 1_000_000).toFixed(2));
                         return {
                             name: r.region ?? r.country ?? r.country_name ?? '',
                             gp,
@@ -973,8 +1171,8 @@ export default function ExecutiveDashboard() {
 
     // Build display values matching reference image
     const displayKpis = KPI_CONFIG.map(cfg => {
-        // If hierarchy filters are applied, use API value if available; otherwise use DEFAULT_KPI_DATA
-        const rawApiVal = hasHierarchyFilter ? getValueFromKpiPayload(kpiData, cfg.key) : undefined;
+        // Use live backend API value when available (respecting role-level scoping)
+        const rawApiVal = getValueFromKpiPayload(kpiData, cfg.key);
         const valToUse = (rawApiVal !== undefined && rawApiVal !== null && !isNaN(Number(rawApiVal)))
             ? Number(rawApiVal)
             : DEFAULT_KPI_DATA[cfg.key];
@@ -1002,7 +1200,7 @@ export default function ExecutiveDashboard() {
 
         if (cfg.compareType === 'mom') {
             compLabel = 'vs. last month';
-            const rawApiChange = hasHierarchyFilter ? getChangeFromKpiPayload(kpiData, cfg.key) : undefined;
+            const rawApiChange = getChangeFromKpiPayload(kpiData, cfg.key);
             const changeNum = (rawApiChange !== undefined && rawApiChange !== null && !isNaN(Number(rawApiChange)))
                 ? Number(rawApiChange)
                 : DEFAULT_KPI_DATA[`${cfg.key}_change`];
@@ -1204,13 +1402,13 @@ export default function ExecutiveDashboard() {
                             borderRadius: 12,
                             border: '1px solid rgba(15,23,42,0.05)',
                             boxShadow: '0 2px 6px rgba(15,23,42,0.03)',
-                            padding: '12px 12px',
+                            padding: '10px 10px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 10,
+                            gap: 8,
                             position: 'relative',
                             overflow: 'hidden',
-                            minHeight: 74,
+                            minHeight: 80,
                             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                             cursor: 'default',
                         }}
@@ -1225,8 +1423,8 @@ export default function ExecutiveDashboard() {
                     >
                         {/* Rounded Icon Square */}
                         <div style={{
-                            width: 38,
-                            height: 38,
+                            width: 36,
+                            height: 36,
                             borderRadius: 10,
                             background: kpi.iconBg || '#dbeafe',
                             display: 'flex',
@@ -1235,21 +1433,26 @@ export default function ExecutiveDashboard() {
                             flexShrink: 0,
                             color: kpi.accent || '#2563eb'
                         }}>
-                            <kpi.icon size={18} strokeWidth={2.3} />
+                            <kpi.icon size={17} strokeWidth={2.3} />
                         </div>
 
                         {/* Title, Value & Trend */}
                         <div style={{ minWidth: 0, flex: 1, zIndex: 1 }}>
-                            <div style={{
-                                fontSize: '0.68rem',
-                                fontWeight: 700,
-                                color: '#1e3a8a',
-                                letterSpacing: '-0.02em',
-                                lineHeight: 1.2,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                            }}>
+                            <div 
+                                title={kpi.title}
+                                style={{
+                                    fontSize: '0.67rem',
+                                    fontWeight: 700,
+                                    color: '#1e3a8a',
+                                    letterSpacing: '-0.015em',
+                                    lineHeight: 1.2,
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
+                                    minHeight: 28,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                }}
+                            >
                                 {kpi.title}
                             </div>
                             <div style={{
@@ -1348,7 +1551,7 @@ export default function ExecutiveDashboard() {
                                 </div>
                             ) : (
                                 <ResponsiveContainer width="100%" height={160}>
-                                    <ComposedChart data={chartProfitTrend} margin={{ top: 8, right: 12, bottom: 0, left: -20 }}>
+                                    <ComposedChart data={chartProfitTrend} margin={{ top: 10, right: 82, bottom: 0, left: -20 }}>
                                         <defs>
                                             <linearGradient id="npTeaserGrad" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="0%" stopColor="#2563eb" stopOpacity={0.85}/>
@@ -1356,7 +1559,7 @@ export default function ExecutiveDashboard() {
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} dy={6} />
+                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 9.5, fill: '#94a3b8', fontWeight: 600 }} interval={0} dy={6} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                         <Tooltip
                                             content={({ active, payload, label }) => {
@@ -1384,9 +1587,9 @@ export default function ExecutiveDashboard() {
                                                             </span>
                                                             <span style={{ color: '#0f172a' }}>{currency} {Number(act ?? 0).toFixed(2)}M</span>
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#2563eb', fontWeight: 700, marginTop: 3 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#881337', fontWeight: 700, marginTop: 3 }}>
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                                <span style={{ width: 8, height: 2, background: '#2563eb', display: 'inline-block' }} />
+                                                                <span style={{ width: 8, height: 2, background: '#881337', display: 'inline-block' }} />
                                                                 Target Net Profit:
                                                             </span>
                                                             <span style={{ color: '#0f172a' }}>{currency} {Number(tgt).toFixed(2)}M</span>
@@ -1412,20 +1615,35 @@ export default function ExecutiveDashboard() {
                                         <Legend wrapperStyle={{ fontSize: 10, fontWeight: 600, paddingTop: 6 }} iconSize={8} />
                                         <ReferenceLine 
                                             y={targetNetProfitM} 
-                                            stroke="transparent" 
-                                            label={{ 
-                                                value: `Target: ${targetNetProfitM}M`, 
-                                                position: 'insideTopRight', 
-                                                fill: '#2563eb', 
-                                                fontSize: 9.5, 
-                                                fontWeight: 700 
+                                            stroke="#881337"
+                                            strokeDasharray="6 4"
+                                            strokeWidth={1.8}
+                                            strokeOpacity={0.85}
+                                            ifOverflow="visible"
+                                            label={({ viewBox }) => {
+                                                if (!viewBox) return null;
+                                                const x = (viewBox.x || 0) + (viewBox.width || 0) + 7;
+                                                const y = viewBox.y || 0;
+                                                return (
+                                                    <text 
+                                                        x={x} 
+                                                        y={y} 
+                                                        dominantBaseline="central" 
+                                                        fill="#881337" 
+                                                        fontSize={9.5} 
+                                                        fontWeight={700}
+                                                        style={{ pointerEvents: 'none' }}
+                                                    >
+                                                        Target: {targetNetProfitM}M
+                                                    </text>
+                                                );
                                             }} 
                                         />
                                         <Bar 
                                             name="Net Profit (M)" 
                                             dataKey="net_profit" 
                                             fill="url(#npTeaserGrad)" 
-                                            barSize={20} 
+                                            barSize={16} 
                                             radius={[4,4,0,0]}
                                             isAnimationActive 
                                             animationDuration={900} 
@@ -1445,11 +1663,11 @@ export default function ExecutiveDashboard() {
                                             name="Target Net Profit" 
                                             dataKey="target_net_profit" 
                                             type="monotone" 
-                                            stroke="#2563eb" 
-                                            strokeWidth={2.5}
+                                            stroke="#881337" 
+                                            strokeWidth={1.8}
                                             strokeDasharray="6 4" 
                                             dot={false} 
-                                            activeDot={{ r: 4, stroke: '#2563eb', fill: '#fff' }}
+                                            activeDot={{ r: 4, stroke: '#881337', fill: '#fff' }}
                                             isAnimationActive={false} 
                                         />
                                     </ComposedChart>
@@ -1517,7 +1735,7 @@ export default function ExecutiveDashboard() {
                         <ResponsiveContainer width="100%" height={260} minWidth={0}>
                             <ComposedChart 
                                 data={chartTwcData} 
-                                margin={{ top: 20, right: 20, bottom: 0, left: -10 }}
+                                margin={{ top: 20, right: 35, bottom: 0, left: -10 }}
                                 onMouseMove={(state) => {
                                     if (state && state.activeTooltipIndex !== undefined) {
                                         setHoveredTwcIndex(state.activeTooltipIndex);
@@ -1527,10 +1745,12 @@ export default function ExecutiveDashboard() {
                             >
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} dy={10} />
-                                <YAxis label={{ value: 'AED Million', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fill: 'var(--clr-text-muted)', fontSize: 10} }} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(241,245,249,0.5)', rx: 4 }} wrapperStyle={{ outline: 'none', transition: 'transform 150ms ease-out' }} />
+                                <YAxis yAxisId="left" label={{ value: 'AED Million', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fill: 'var(--clr-text-muted)', fontSize: 10} }} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
+                                <YAxis yAxisId="right" orientation="right" label={{ value: 'Days', angle: 90, position: 'insideRight', style: {textAnchor: 'middle', fill: '#e11d48', fontSize: 10} }} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#e11d48' }} />
+                                <Tooltip content={<TwcCustomTooltip />} cursor={{ fill: 'rgba(241,245,249,0.5)', rx: 4 }} wrapperStyle={{ outline: 'none', transition: 'transform 150ms ease-out' }} />
                                 <Legend wrapperStyle={{ fontSize: 10, fontWeight: 600, color: 'var(--clr-text-muted)', paddingTop: 10 }} iconType="square" iconSize={8} />
                                 <Bar 
+                                    yAxisId="left"
                                     name="Trade Receivables" 
                                     dataKey="tr" 
                                     stackId="a" 
@@ -1541,22 +1761,23 @@ export default function ExecutiveDashboard() {
                                     animationEasing="ease-out"
                                 >
                                     {chartTwcData.map((entry, index) => (
-                                        <Cell 
-                                            key={`tr-cell-${index}`} 
-                                            fill="var(--clr-primary)" 
-                                            opacity={hoveredTwcIndex === null || hoveredTwcIndex === index ? 1 : 0.4}
-                                            style={{ transition: 'opacity 200ms ease-in-out' }}
-                                        />
-                                    ))}
-                                </Bar>
-                                <Bar 
-                                    name="Inventories" 
-                                    dataKey="inv" 
-                                    stackId="a" 
-                                    fill="var(--clr-cyan)"
-                                    isAnimationActive={twcInView}
-                                    animationDuration={1200}
-                                    animationEasing="ease-out"
+                                         <Cell 
+                                             key={`tr-cell-${index}`} 
+                                             fill="var(--clr-primary)" 
+                                             opacity={hoveredTwcIndex === null || hoveredTwcIndex === index ? 1 : 0.4}
+                                             style={{ transition: 'opacity 200ms ease-in-out' }}
+                                         />
+                                     ))}
+                                 </Bar>
+                                 <Bar 
+                                     yAxisId="left"
+                                     name="Inventories" 
+                                     dataKey="inv" 
+                                     stackId="a" 
+                                     fill="var(--clr-cyan)"
+                                     isAnimationActive={twcInView}
+                                     animationDuration={1200}
+                                     animationEasing="ease-out"
                                 >
                                     {chartTwcData.map((entry, index) => (
                                         <Cell 
@@ -1568,6 +1789,7 @@ export default function ExecutiveDashboard() {
                                     ))}
                                 </Bar>
                                 <Bar 
+                                    yAxisId="left"
                                     name="Trade Payables" 
                                     dataKey="tp" 
                                     stackId="a" 
@@ -1587,14 +1809,16 @@ export default function ExecutiveDashboard() {
                                     ))}
                                 </Bar>
                                 <Line 
+                                    yAxisId="left"
                                     name="Trade Working Capital" 
                                     type="monotone" 
                                     dataKey="twc" 
                                     stroke="var(--clr-text)" 
                                     strokeWidth={2} 
+                                    connectNulls={false}
                                     dot={(props) => {
-                                        const { cx, cy, index } = props;
-                                        if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy)) return null;
+                                        const { cx, cy, index, value } = props;
+                                        if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy) || value === null || value === undefined) return null;
                                         const isLast = index === (chartTwcData.length - 1);
                                         return (
                                             <circle
@@ -1608,9 +1832,47 @@ export default function ExecutiveDashboard() {
                                             />
                                         );
                                     }}
-                                    activeDot={{ r: 6, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 2 }}
+                                    activeDot={(props) => {
+                                        const { cx, cy, value } = props;
+                                        if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy) || value === null || value === undefined) return null;
+                                        return <circle cx={cx} cy={cy} r={6} fill="#2563eb" stroke="#ffffff" strokeWidth={2} />;
+                                    }}
                                     isAnimationActive={true}
                                     animationBegin={200}
+                                    animationDuration={1200}
+                                    animationEasing="ease-out"
+                                />
+                                <Line 
+                                    yAxisId="right"
+                                    name="CCC (Days)" 
+                                    type="monotone" 
+                                    dataKey="ccc" 
+                                    stroke="#e11d48" 
+                                    strokeWidth={2} 
+                                    strokeDasharray="4 4"
+                                    connectNulls={false}
+                                    dot={(props) => {
+                                        const { cx, cy, index, value } = props;
+                                        if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy) || value === null || value === undefined) return null;
+                                        return (
+                                            <circle
+                                                key={`ccc-dot-${index}`}
+                                                cx={cx}
+                                                cy={cy}
+                                                r={3}
+                                                fill="#e11d48"
+                                                stroke="#ffffff"
+                                                strokeWidth={1}
+                                            />
+                                        );
+                                    }}
+                                    activeDot={(props) => {
+                                        const { cx, cy, value } = props;
+                                        if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy) || value === null || value === undefined) return null;
+                                        return <circle cx={cx} cy={cy} r={5} fill="#e11d48" stroke="#ffffff" strokeWidth={2} />;
+                                    }}
+                                    isAnimationActive={true}
+                                    animationBegin={300}
                                     animationDuration={1200}
                                     animationEasing="ease-out"
                                 />
@@ -1639,7 +1901,7 @@ export default function ExecutiveDashboard() {
                             <BarChart 
                                 layout="vertical" 
                                 data={chartRevRegionData} 
-                                margin={{ top: 0, right: 30, bottom: 0, left: 0 }}
+                                margin={{ top: 0, right: 48, bottom: 0, left: 0 }}
                                 onMouseMove={(state) => {
                                     if (state && state.activeTooltipIndex !== undefined) {
                                         setHoveredRevIndex(state.activeTooltipIndex);
@@ -1648,10 +1910,17 @@ export default function ExecutiveDashboard() {
                                 onMouseLeave={() => setHoveredRevIndex(null)}
                             >
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--clr-border-strong)" />
-                                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
+                                <XAxis 
+                                    type="number" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} 
+                                    domain={[0, (dataMax) => Math.ceil(dataMax * 1.2)]}
+                                />
                                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)', fontWeight: 600 }} width={50} />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(37,99,235,0.06)', rx: 4 }} wrapperStyle={{ outline: 'none', transition: 'transform 150ms ease-out' }} />
                                 <Bar 
+                                    name="Revenue"
                                     dataKey="value" 
                                     fill="var(--clr-primary)" 
                                     barSize={16} 
@@ -1668,6 +1937,16 @@ export default function ExecutiveDashboard() {
                                             style={{ transition: 'opacity 200ms ease-in-out' }}
                                         />
                                     ))}
+                                    <LabelList 
+                                        dataKey="value" 
+                                        position="right" 
+                                        formatter={(val) => {
+                                            const n = Number(val || 0);
+                                            return `${Math.abs(n) < 0.1 && Math.abs(n) > 0 ? n.toFixed(2) : n.toFixed(1)}M`;
+                                        }} 
+                                        style={{ fill: '#475569', fontSize: 10, fontWeight: 700 }} 
+                                        offset={8} 
+                                    />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>

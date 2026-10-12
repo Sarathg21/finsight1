@@ -33,6 +33,7 @@ import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle, Info, ChevronDown 
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
 import * as XLSX from "xlsx";
+import { useAuth } from "../context/AuthContext";
 
 
 /* ================================================================
@@ -130,10 +131,84 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
 }
 
 export default function InventoryOverview() {
+  const { user } = useAuth();
+
+  // Helper to ensure Legal Groups are always properly resolved from API, user scopes, or defaults
+  const resolveLegalGroups = useCallback((rawGroups) => {
+    if (Array.isArray(rawGroups) && rawGroups.length > 0) {
+      const parsed = [];
+      const seen = new Set();
+      rawGroups.forEach((item) => {
+        if (!item) return;
+        const val = item.value !== undefined ? item.value : (item.id !== undefined ? item.id : item);
+        const lbl = item.label !== undefined ? item.label : (item.name !== undefined ? item.name : (item.desc !== undefined ? item.desc : (typeof item === 'string' ? item : val)));
+        const strLbl = typeof lbl === 'object' ? String(lbl?.name || lbl?.label || val || '') : String(lbl || '');
+        const key = strLbl.trim();
+        if (!key || key.toLowerCase() === 'all') return;
+        if (!seen.has(key.toLowerCase())) {
+          seen.add(key.toLowerCase());
+          parsed.push({ value: val || strLbl, label: strLbl });
+        }
+      });
+      if (parsed.length > 0) {
+        return parsed.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+      }
+    }
+
+    // Derive from user access scopes if available (e.g., GM, BU Manager)
+    if (user?.access_scopes && Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const scopeMap = new Map();
+      user.access_scopes.forEach((s) => {
+        const code = s.legal_group_code || s.legal_group;
+        if (code) {
+          const label = code === 'FJ_GROUP' ? 'FJ Group' : (code === 'RKME_GROUP' ? 'RKME Group' : String(code));
+          const val = code === 'FJ_GROUP' ? 1 : (code === 'RKME_GROUP' ? 2 : code);
+          if (!scopeMap.has(label.toLowerCase())) {
+            scopeMap.set(label.toLowerCase(), { value: val, label });
+          }
+        }
+      });
+      if (scopeMap.size > 0) {
+        return Array.from(scopeMap.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+      }
+    }
+
+    // Role check (CFO / Board / Admin get all groups)
+    const role = String(user?.role_code || user?.role || '').toLowerCase();
+    if (['cfo', 'board', 'admin'].includes(role)) {
+      return [
+        { value: 1, label: "FJ Group" },
+        { value: 2, label: "RKME Group" },
+      ];
+    }
+
+    return [{ value: 1, label: "FJ Group" }];
+  }, [user]);
+
+  // Helper to ensure Currencies always have valid options and never render blank
+  const resolveCurrencies = useCallback((rawCurrencies) => {
+    const defaultList = [
+      { value: "AED", label: "AED" },
+      { value: "USD", label: "USD" },
+      { value: "QAR", label: "QAR" },
+      { value: "OMR", label: "OMR" },
+      { value: "SAR", label: "SAR" },
+    ];
+    if (Array.isArray(rawCurrencies) && rawCurrencies.length > 0) {
+      const mapped = rawCurrencies
+        .map((x) => ({
+          value: x.id || x.value || x,
+          label: x.name || x.label || x,
+        }))
+        .filter((c) => c.value && c.label);
+      if (mapped.length > 0) return mapped;
+    }
+    return defaultList;
+  }, []);
+
   // ============================================================
   // API STATE & LOGIC
   // ============================================================
-
 
   const handleExport = async (type, section = null, customFilters = null, drilldownFilters = null) => {
     if (section === 'aging') {
@@ -209,12 +284,13 @@ export default function InventoryOverview() {
       rawList = slowSource.map(item => {
         const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
         const curVal = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || (slowMovingFilteredStats.map[divName]?.obs) || 0));
-        let prevVal = null;
         const momMatch = (momData || []).find(m => (m.parent_division_name || m.name) === divName);
+        const momCur = Number(momMatch?.latest_value ?? momMatch?.current_value ?? 0);
+        const momPrev = Number(momMatch?.previous_value ?? 0);
         if (item.previous_obsolete_stock !== undefined) {
           prevVal = Number(item.previous_obsolete_stock);
-        } else if (momMatch && momMatch.current_value && momMatch.previous_value && Number(momMatch.current_value) > 0) {
-          prevVal = Math.round(curVal * (Number(momMatch.previous_value) / Number(momMatch.current_value)));
+        } else if (momMatch && momCur > 0) {
+          prevVal = Math.round(curVal * (momPrev / momCur));
         } else {
           let seed = 0; for (let c = 0; c < divName.length; c++) seed += divName.charCodeAt(c);
           prevVal = Math.round(curVal * (0.92 + ((seed % 12) / 100)));
@@ -223,19 +299,25 @@ export default function InventoryOverview() {
           parent_division_name: divName,
           current_value: curVal,
           previous_value: prevVal,
-          current_as_on_date: "2026-09-25",
-          previous_as_on_date: "2026-08-31",
+          current_as_on_date: momMatch?.current_as_on_date || momMatch?.as_on_date || "2026-10-12",
+          previous_as_on_date: momMatch?.previous_as_on_date || "2026-09-25",
         };
       });
     } else {
       rawList = (momData && momData.length > 0)
-        ? momData
+        ? momData.map(item => ({
+            parent_division_name: item.parent_division_name || item.name || item.label,
+            current_value: Number(item.latest_value ?? item.current_value ?? item.total_stock_value ?? item.inventory_value ?? item.value ?? 0),
+            previous_value: Number(item.previous_value ?? 0),
+            current_as_on_date: item.current_as_on_date || item.as_on_date || "2026-10-12",
+            previous_as_on_date: item.previous_as_on_date || "2026-09-25",
+          }))
         : (viewAllData && viewAllData.length > 0)
           ? viewAllData.map(item => ({
               parent_division_name: item.parent_division_name || item.name || item.label,
-              current_value: item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value || item.value || 0),
-              previous_value: 0,
-              current_as_on_date: "2026-09-25",
+              current_value: Number(item.latest_value ?? item.current_value ?? item.total_stock_value ?? item.inventory_value ?? item.value ?? 0),
+              previous_value: Number(item.previous_value ?? 0),
+              current_as_on_date: "2026-10-12",
               previous_as_on_date: null,
             }))
           : [];
@@ -347,6 +429,7 @@ const [loading, setLoading] = useState(true);
   const [viewAllData, setViewAllData] = useState([]);
   const [viewAllLoading, setViewAllLoading] = useState(false);
   const [momData, setMomData] = useState([]);
+  const loadDataReqSeqRef = useRef(0);
   const [momLoading, setMomLoading] = useState(false);
   const [momYear, setMomYear] = useState(2026);
   const [momCurrencyMode, setMomCurrencyMode] = useState("AED");
@@ -502,7 +585,7 @@ const [loading, setLoading] = useState(true);
     setModalActiveTab(initialTab);
     setSlowMovingViewMode(initialTab === "momObsolete" ? "mom" : (initialTab === "slowMoving" ? "stock" : "details"));
 
-    const sourceGlobal = passedGlobalFilters || filters;
+    const sourceGlobal = passedGlobalFilters || appliedFilters || filters;
     const currentGlobalFilters = {
       legalGroup: sourceGlobal.legalGroup && sourceGlobal.legalGroup.length > 0 ? sourceGlobal.legalGroup : ['All'],
       legalEntity: sourceGlobal.legalEntity && sourceGlobal.legalEntity.length > 0 ? sourceGlobal.legalEntity : ['All'],
@@ -510,6 +593,7 @@ const [loading, setLoading] = useState(true);
       subdivision: sourceGlobal.subdivision && sourceGlobal.subdivision.length > 0 ? sourceGlobal.subdivision : ['All'],
       subinventory: sourceGlobal.subinventory && sourceGlobal.subinventory.length > 0 ? sourceGlobal.subinventory : ['All'],
       asOnDate: sourceGlobal.asOnDate || 'All',
+      currency: sourceGlobal.currency || 'AED',
     };
     setModalDetailsFilters(currentGlobalFilters);
     setSlowMovingDraftFilters(currentGlobalFilters);
@@ -722,9 +806,15 @@ const [loading, setLoading] = useState(true);
   const [modalApiItems, setModalApiItems] = useState(null);
     const [modalApiData, setModalApiData] = useState(null);
   const [modalDetailsLoading, setModalDetailsLoading] = useState(false);
-  const [mockData, setMockData] = useState({
+  const [mockData, setMockData] = useState(() => ({
     filters: {
-      legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
+      legalGroups: resolveLegalGroups([]),
+      legalEntities: [],
+      parentDivisions: [],
+      subdivisions: [],
+      subinventories: [],
+      currencies: resolveCurrencies([]),
+      dates: []
     },
     kpis: [],
     totalInventory: 0,
@@ -744,7 +834,7 @@ const [loading, setLoading] = useState(true);
     turnoverDioTrend: { labels: [], turnover: [], dio: [] },
     reporting_currency: "AED",
     dataAsOf: null
-  });
+  }));
 
   
 
@@ -830,30 +920,42 @@ const [loading, setLoading] = useState(true);
       
       try {
         const filterRes = await getInventoryFilters(apiFilters);
-        const fData = filterRes.data || {};
+        const fData = filterRes.data?.data || filterRes.data || {};
         
         const dedupeOptions = (arr) => {
-            if (!arr) return [];
+            if (!arr || !Array.isArray(arr)) return [];
             const map = new Map();
             arr.forEach(i => {
-                const label = i.label || i.name || i.desc || i;
-                const value = i.value || i.id || i;
-                if (!map.has(label)) {
-                    map.set(label, { label, value });
+                if (!i) return;
+                const val = i.value !== undefined ? i.value : (i.id !== undefined ? i.id : i);
+                const lbl = i.label !== undefined ? i.label : (i.name !== undefined ? i.name : (i.desc !== undefined ? i.desc : (typeof i === 'string' ? i : val)));
+                const strLbl = typeof lbl === 'object' ? String(lbl?.name || lbl?.label || val || '') : String(lbl || '');
+                const key = strLbl.trim();
+                if (!key || key.toLowerCase() === 'all') return;
+                if (!map.has(key.toLowerCase())) {
+                    map.set(key.toLowerCase(), { value: val || strLbl, label: strLbl });
                 }
             });
             return Array.from(map.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
         };
         
+        const backendGroups = fData.legal_groups || fData.legalGroups || fData.groups || [];
+        const backendEntities = fData.legal_entities || fData.legalEntities || fData.entities || [];
+        const backendParentDivs = fData.parent_divisions || fData.parentDivisions || fData.divisions || [];
+        const backendSubdivs = fData.subdivisions || fData.sub_divisions || fData.subDivisions || [];
+        const backendSubinvs = fData.subinventories || fData.sub_inventories || fData.subInventories || fData.warehouses || [];
+        const backendCurrencies = fData.currencies || fData.currency_list || [];
+
         setMockData(prev => ({
             ...prev,
             filters: {
                 ...prev.filters,
-                legalGroups: dedupeOptions(fData.legal_groups || prev.filters.legalGroups),
-                legalEntities: dedupeOptions(fData.legal_entities),
-                parentDivisions: dedupeOptions(fData.parent_divisions),
-                subdivisions: dedupeOptions(fData.subdivisions),
-                subinventories: dedupeOptions(fData.subinventories),
+                legalGroups: resolveLegalGroups(backendGroups.length > 0 ? backendGroups : prev.filters.legalGroups),
+                legalEntities: dedupeOptions(backendEntities.length > 0 ? backendEntities : prev.filters.legalEntities),
+                parentDivisions: dedupeOptions(backendParentDivs.length > 0 ? backendParentDivs : prev.filters.parentDivisions),
+                subdivisions: dedupeOptions(backendSubdivs.length > 0 ? backendSubdivs : prev.filters.subdivisions),
+                subinventories: dedupeOptions(backendSubinvs.length > 0 ? backendSubinvs : prev.filters.subinventories),
+                currencies: resolveCurrencies(backendCurrencies.length > 0 ? backendCurrencies : prev.filters.currencies),
             }
         }));
       } catch (err) {
@@ -1003,6 +1105,7 @@ const [loading, setLoading] = useState(true);
   };
 
   const loadData = useCallback(async () => {
+      const currentSeq = ++loadDataReqSeqRef.current;
       setLoading(true);
       try {
           // Robust date formatting without timezone shifts
@@ -1029,8 +1132,11 @@ const [loading, setLoading] = useState(true);
           const getApiVal = (val) => {
               if (!val || val === "All") return null;
               if (Array.isArray(val)) {
-                  const c = val.filter(v => v !== "All");
+                  const c = val.filter(v => v !== "All").map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
                   return c.length > 0 ? c : null;
+              }
+              if (typeof val === 'object' && val !== null) {
+                  return [val.value ?? val.id];
               }
               return [val];
           };
@@ -1056,13 +1162,24 @@ const [loading, setLoading] = useState(true);
               getInventoryFilters(apiFilters).catch(() => ({ data: {} })),
               getInventoryDashboard(apiFilters).catch(() => ({ data: {} })),
               getInventoryDetails(detailsApiFilters).catch(() => ({ data: { items: [] } })),
-              getInventoryMonthOnMonth({ ...apiFilters, obsolete: true, is_obsolete: true, aging_bucket: '366_and_above' }).catch(() => ({ data: { items: [] } })),
+              getInventoryViewAllMonthOnMonth({ 
+                  ...apiFilters, 
+                  year: momYear || 2026, 
+                  metric: 'slow_moving' 
+              }).catch(() => ({ data: { rows: [] } })),
               getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } }))
           ]);
-          setMomData(momRes.data?.items || []);
+
+          // Guard against race conditions: if a newer loadData request started, ignore this stale response
+          if (currentSeq !== loadDataReqSeqRef.current) {
+              return;
+          }
+
+          const momRows = momRes.data?.rows || momRes.data?.items || (Array.isArray(momRes.data) ? momRes.data : []);
+          setMomData(momRows);
           
-          const fData = filterRes.data || {};
-          const dData = dashRes.data || {};
+          const fData = filterRes.data?.data || filterRes.data || {};
+          const dData = dashRes.data?.data || dashRes.data || {};
 
               
                             let kpis = [];
@@ -1220,7 +1337,7 @@ const [loading, setLoading] = useState(true);
 
               let allDivisions = [];
               let divisions = [];
-              const rawDivs = (divWiseRes?.data?.items && divWiseRes.data.items.length > 0)
+              const rawDivs = Array.isArray(divWiseRes?.data?.items)
                   ? divWiseRes.data.items
                   : (dData.by_parent_division || []);
 
@@ -1411,16 +1528,20 @@ const [loading, setLoading] = useState(true);
                 return [{ value: "All", label: "All" }, ...list];
               };
 
+              const backendGroups = fData.legal_groups || fData.legalGroups || fData.groups || [];
+              const backendCurrencies = fData.currencies || fData.currency_list || [];
+              const backendDates = fData.as_on_dates || fData.dates || fData.available_dates || [];
+
               setLoadError(null);
               setMockData({
                   filters: {
-                      legalGroups: dedupeOptions(fData.legal_groups),
+                      legalGroups: resolveLegalGroups(backendGroups),
                       legalEntities: dedupeOptions(fData.legal_entities),
                       parentDivisions: dedupeOptions(fData.parent_divisions),
                       subdivisions: dedupeOptions(fData.subdivisions),
                       subinventories: dedupeOptions(fData.subinventories),
-                      currencies: (fData.currencies || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x })),
-                      dates: [{value: "All", label: "All"}, ...(fData.as_on_dates || []).map(x => ({ value: x, label: x }))],
+                      currencies: resolveCurrencies(backendCurrencies),
+                      dates: [{value: "All", label: "All"}, ...backendDates.map(x => ({ value: x, label: x }))],
                   },
                   kpis,
                   trend,
@@ -1441,11 +1562,15 @@ const [loading, setLoading] = useState(true);
                   dataAsOf: dData.data_as_of || dData.dataAsOf || fData.data_as_of || null
               });
           } catch (err) {
-              console.error(err);
-              setLoadError(err?.message || 'Failed to load inventory data. Please check your connection and try again.');
+              if (currentSeq === loadDataReqSeqRef.current) {
+                  console.error(err);
+                  setLoadError(err?.message || 'Failed to load inventory data. Please check your connection and try again.');
+              }
           } finally {
-              setLastFetchedAt(new Date());
-              setLoading(false);
+              if (currentSeq === loadDataReqSeqRef.current) {
+                  setLastFetchedAt(new Date());
+                  setLoading(false);
+              }
           }
   }, [appliedFilters]);
 
@@ -1456,23 +1581,25 @@ const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (viewAllModal === "details" || showViewAll) {
       setModalDetailsFilters({
-        legalGroup: filters.legalGroup && filters.legalGroup.length > 0 ? filters.legalGroup : ['All'],
-        legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
-        parentDivision: appliedFilters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
-        subdivision: appliedFilters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
-        subinventory: appliedFilters.subinventory && filters.subinventory.length > 0 ? filters.subinventory : ['All'],
-        asOnDate: appliedFilters.asOnDate || 'All',
+        legalGroup: (appliedFilters.legalGroup && appliedFilters.legalGroup.length > 0) ? appliedFilters.legalGroup : ((filters.legalGroup && filters.legalGroup.length > 0) ? filters.legalGroup : ['All']),
+        legalEntity: (appliedFilters.legalEntity && appliedFilters.legalEntity.length > 0) ? appliedFilters.legalEntity : ((filters.legalEntity && filters.legalEntity.length > 0) ? filters.legalEntity : ['All']),
+        parentDivision: (appliedFilters.parentDivision && appliedFilters.parentDivision.length > 0) ? appliedFilters.parentDivision : ((filters.parentDivision && filters.parentDivision.length > 0) ? filters.parentDivision : ['All']),
+        subdivision: (appliedFilters.subdivision && appliedFilters.subdivision.length > 0) ? appliedFilters.subdivision : ((filters.subdivision && filters.subdivision.length > 0) ? filters.subdivision : ['All']),
+        subinventory: (appliedFilters.subinventory && appliedFilters.subinventory.length > 0) ? appliedFilters.subinventory : ((filters.subinventory && filters.subinventory.length > 0) ? filters.subinventory : ['All']),
+        asOnDate: appliedFilters.asOnDate || filters.asOnDate || 'All',
+        currency: appliedFilters.currency || filters.currency || 'AED',
       });
       setModalDetailPage(0);
       setModalApiItems(null);
     } else if (viewAllModal === "slowMoving") {
       const initSlow = {
-        legalGroup: filters.legalGroup && filters.legalGroup.length > 0 ? filters.legalGroup : ['All'],
-        legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
-        parentDivision: appliedFilters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
-        subdivision: appliedFilters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
-        subinventory: appliedFilters.subinventory && filters.subinventory.length > 0 ? filters.subinventory : ['All'],
-        asOnDate: appliedFilters.asOnDate || 'All',
+        legalGroup: (appliedFilters.legalGroup && appliedFilters.legalGroup.length > 0) ? appliedFilters.legalGroup : ((filters.legalGroup && filters.legalGroup.length > 0) ? filters.legalGroup : ['All']),
+        legalEntity: (appliedFilters.legalEntity && appliedFilters.legalEntity.length > 0) ? appliedFilters.legalEntity : ((filters.legalEntity && filters.legalEntity.length > 0) ? filters.legalEntity : ['All']),
+        parentDivision: (appliedFilters.parentDivision && appliedFilters.parentDivision.length > 0) ? appliedFilters.parentDivision : ((filters.parentDivision && filters.parentDivision.length > 0) ? filters.parentDivision : ['All']),
+        subdivision: (appliedFilters.subdivision && appliedFilters.subdivision.length > 0) ? appliedFilters.subdivision : ((filters.subdivision && filters.subdivision.length > 0) ? filters.subdivision : ['All']),
+        subinventory: (appliedFilters.subinventory && appliedFilters.subinventory.length > 0) ? appliedFilters.subinventory : ((filters.subinventory && filters.subinventory.length > 0) ? filters.subinventory : ['All']),
+        asOnDate: appliedFilters.asOnDate || filters.asOnDate || 'All',
+        currency: appliedFilters.currency || filters.currency || 'AED',
       };
       setSlowMovingFilters(initSlow);
       setSlowMovingDraftFilters(initSlow);
@@ -1509,16 +1636,19 @@ const [loading, setLoading] = useState(true);
         const getApiVal = (val) => {
           if (!val || val === "All") return null;
           if (Array.isArray(val)) {
-            const c = val.filter(v => v !== "All");
+            const c = val.filter(v => v !== "All").map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
             return c.length > 0 ? c : null;
+          }
+          if (typeof val === 'object' && val !== null) {
+            return [val.value ?? val.id];
           }
           return [val];
         };
-        const effectiveLegalGroup = getApiVal(modalDetailsFilters.legalGroup) || getApiVal(filters.legalGroup);
-        const effectiveLegalEntity = getApiVal(modalDetailsFilters.legalEntity) || getApiVal(filters.legalEntity);
-        const effectiveParentDivision = getApiVal(modalDetailsFilters.parentDivision) || getApiVal(filters.parentDivision);
-        const effectiveSubdivision = getApiVal(modalDetailsFilters.subdivision) || getApiVal(filters.subdivision);
-        const effectiveSubinventory = getApiVal(modalDetailsFilters.subinventory) || getApiVal(filters.subinventory);
+        const effectiveLegalGroup = getApiVal(modalDetailsFilters.legalGroup) || getApiVal(appliedFilters.legalGroup) || getApiVal(filters.legalGroup);
+        const effectiveLegalEntity = getApiVal(modalDetailsFilters.legalEntity) || getApiVal(appliedFilters.legalEntity) || getApiVal(filters.legalEntity);
+        const effectiveParentDivision = getApiVal(modalDetailsFilters.parentDivision) || getApiVal(appliedFilters.parentDivision) || getApiVal(filters.parentDivision);
+        const effectiveSubdivision = getApiVal(modalDetailsFilters.subdivision) || getApiVal(appliedFilters.subdivision) || getApiVal(filters.subdivision);
+        const effectiveSubinventory = getApiVal(modalDetailsFilters.subinventory) || getApiVal(appliedFilters.subinventory) || getApiVal(filters.subinventory);
 
         if (effectiveLegalGroup) apiFilters.legal_group_id = effectiveLegalGroup;
         if (effectiveLegalEntity) apiFilters.legal_entity_id = effectiveLegalEntity;
@@ -1632,16 +1762,25 @@ const [loading, setLoading] = useState(true);
         const getApiVal = (val) => {
           if (!val || val === "All") return null;
           if (Array.isArray(val)) {
-            const c = val.filter(v => v !== "All");
+            const c = val.filter(v => v !== "All").map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
             return c.length > 0 ? c : null;
+          }
+          if (typeof val === 'object' && val !== null) {
+            return [val.value ?? val.id];
           }
           return [val];
         };
-        if (getApiVal(appliedFilters.legalGroup)) apiFilters.legal_group_id = getApiVal(appliedFilters.legalGroup);
-        if (getApiVal(appliedFilters.legalEntity)) apiFilters.legal_entity_id = getApiVal(appliedFilters.legalEntity);
-        if (getApiVal(appliedFilters.parentDivision)) apiFilters.parent_division_id = getApiVal(appliedFilters.parentDivision);
-        if (getApiVal(appliedFilters.subdivision)) apiFilters.subdivision_id = getApiVal(appliedFilters.subdivision);
-        if (getApiVal(appliedFilters.subinventory)) apiFilters.subinventory_id = getApiVal(appliedFilters.subinventory);
+        const effectiveLG = getApiVal(modalDetailsFilters?.legalGroup) || getApiVal(appliedFilters.legalGroup);
+        const effectiveLE = getApiVal(modalDetailsFilters?.legalEntity) || getApiVal(appliedFilters.legalEntity);
+        const effectivePD = getApiVal(modalDetailsFilters?.parentDivision) || getApiVal(appliedFilters.parentDivision);
+        const effectiveSD = getApiVal(modalDetailsFilters?.subdivision) || getApiVal(appliedFilters.subdivision);
+        const effectiveSI = getApiVal(modalDetailsFilters?.subinventory) || getApiVal(appliedFilters.subinventory) || (viewAllDetailFilters?.subinventory_id ? [viewAllDetailFilters.subinventory_id] : null) || (viewAllDetailFilters?.subinventory ? [viewAllDetailFilters.subinventory] : null);
+
+        if (effectiveLG) apiFilters.legal_group_id = effectiveLG;
+        if (effectiveLE) apiFilters.legal_entity_id = effectiveLE;
+        if (effectivePD) apiFilters.parent_division_id = effectivePD;
+        if (effectiveSD) apiFilters.subdivision_id = effectiveSD;
+        if (effectiveSI) apiFilters.subinventory_id = effectiveSI;
         if (appliedFilters.currency && appliedFilters.currency !== "All") apiFilters.reporting_currency = appliedFilters.currency;
         if (formattedDate) apiFilters.as_on_date = formattedDate;
 
@@ -4932,7 +5071,7 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Group</div>
                         <ModalMultiSelect
-                          options={mockData.filters.legalGroups}
+                          options={mockData.filters.legalGroups.length > 0 ? mockData.filters.legalGroups : resolveLegalGroups([])}
                           value={slowMovingDraftFilters.legalGroup}
                           onChange={(vals) => {
                             const updateState = (prev) => {
@@ -7539,11 +7678,17 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         {date || label === "Reporting Currency" || label === "Currency" ? (
           <div style={styles.selectWrapper}>
             <select
-              value={value}
+              value={value || "AED"}
               onChange={(e) => onChange(e.target.value)}
               style={styles.select}
             >
-              {uniqueOptions.map((opt, __idx) => (
+              {(uniqueOptions.length > 0 ? uniqueOptions : [
+                { value: "AED", label: "AED" },
+                { value: "USD", label: "USD" },
+                { value: "QAR", label: "QAR" },
+                { value: "OMR", label: "OMR" },
+                { value: "SAR", label: "SAR" },
+              ]).map((opt, __idx) => (
                 <option key={`${opt.value}-${__idx}`} value={opt.value}>
                   {opt.label}
                 </option>
@@ -7553,7 +7698,12 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         ) : (
           <div style={{ ...styles.selectWrapper, border: "none", background: "transparent", padding: 0 }}>
             <MultiSelectDropdown 
-              options={uniqueOptions.filter(o => o.value !== "All")} 
+              options={(() => {
+                const nonAll = uniqueOptions.filter(o => o.value !== "All");
+                if (nonAll.length > 0) return nonAll;
+                if (label === "Legal Group") return resolveLegalGroups([]);
+                return [];
+              })()} 
               value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
               onChange={(valArr) => onChange(valArr)} 
               placeholder="All"

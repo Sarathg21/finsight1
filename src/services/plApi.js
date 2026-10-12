@@ -129,9 +129,13 @@ const MOCK_TREND = [
   { period_name: 'Jan-26', total_revenue: 12500000, gross_profit: 3875000, ebitda: 2000000, net_profit: 1313000 },
   { period_name: 'Feb-26', total_revenue: 13100000, gross_profit: 3930000, ebitda: 2031000, net_profit: 1376000 },
   { period_name: 'Mar-26', total_revenue: 13500000, gross_profit: 4185000, ebitda: 2160000, net_profit: 1418000 },
-  { period_name: 'Apr-26', total_revenue: 14100000, gross_profit: 4371000, ebitda: 2256000, net_profit: 1494000 },
-  { period_name: 'May-26', total_revenue: 13800000, gross_profit: 4278000, ebitda: 2208000, net_profit: 1463000 },
-  { period_name: 'Jun-26', total_revenue: 14250000, gross_profit: 4462500, ebitda: 2307500, net_profit: 1510650 },
+  { period_name: 'Apr-26', total_revenue: 14100000, gross_profit: 4371000, ebitda: 2256000, net_profit: 1800000 },
+  { period_name: 'May-26', total_revenue: 13800000, gross_profit: 4278000, ebitda: 2208000, net_profit: 4100000 },
+  { period_name: 'Jun-26', total_revenue: 14250000, gross_profit: 4462500, ebitda: 2307500, net_profit: 5000000 },
+  { period_name: 'Jul-26', total_revenue: 13600000, gross_profit: 4100000, ebitda: 2100000, net_profit: 1100000 },
+  { period_name: 'Aug-26', total_revenue: 15800000, gross_profit: 5200000, ebitda: 3100000, net_profit: 9000000 },
+  { period_name: 'Sep-26', total_revenue: 14500000, gross_profit: 4500000, ebitda: 2400000, net_profit: 3900000 },
+  { period_name: 'Oct-26', total_revenue: 14200000, gross_profit: 4400000, ebitda: 2300000, net_profit: 2340000 },
 ];
 
 const MOCK_COMPARISON = [

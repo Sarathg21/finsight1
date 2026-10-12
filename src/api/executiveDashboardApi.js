@@ -59,9 +59,17 @@ async function execGet(path, filters = {}) {
  */
 export function buildHierarchyParams(f = {}) {
     const dateVal = f.as_of_date || f.as_on_date || '2026-09-25';
+    let periodType = f.period_type || f.period;
+    if (!periodType || periodType === 'Current Period' || String(periodType).toUpperCase() === 'PTD') {
+        periodType = 'PTD';
+    } else if (String(periodType).toUpperCase().includes('YTD')) {
+        periodType = 'YTD';
+    } else {
+        periodType = 'PTD';
+    }
     return {
         as_of_date: dateVal,
-        period_type: f.period_type || 'PTD',
+        period_type: periodType,
         reporting_currency: f.reporting_currency || 'AED',
         ...(f.legal_group_id     ? { legal_group_id: f.legal_group_id }         : {}),
         ...(f.legal_entity_id    ? { legal_entity_id: f.legal_entity_id }       : {}),

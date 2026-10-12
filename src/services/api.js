@@ -49,17 +49,18 @@ api.interceptors.request.use((config) => {
     if (userStr) {
         try {
             const user = JSON.parse(userStr);
-            if (user.emp_id || user.id) {
-                config.headers['X-EMP-ID'] = user.emp_id || user.id;
+            if (user.emp_id || user.employee_code || user.id) {
+                config.headers['X-EMP-ID'] = user.emp_id || user.employee_code || user.id;
             }
-            if (user.role) {
-                const r = user.role.toUpperCase();
+            if (user.role_code || user.role) {
+                const r = (user.role_code || user.role).toUpperCase();
                 // Standardize role for backend headers: condense composite roles to primary keys
                 let standardRole = r;
                 if (r.includes('CFO')) standardRole = 'CFO';
                 else if (r.includes('ADMIN')) standardRole = 'ADMIN';
                 else if (r.includes('MANAGER')) standardRole = 'MANAGER';
                 else if (r.includes('EMPLOYEE')) standardRole = 'EMPLOYEE';
+                else if (r === 'GM' || r.includes('GENERAL MANAGER')) standardRole = 'GM';
 
                 config.headers['X-USER-ROLE'] = standardRole;
             }

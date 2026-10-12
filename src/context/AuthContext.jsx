@@ -557,6 +557,7 @@ export function AuthProvider({ children }) {
         'receivables': 'RECEIVABLES',
         'ar': 'RECEIVABLES',
         'working-capital': 'WORKING_CAPITAL',
+        'workingcapital': 'WORKING_CAPITAL',
         'inventory': 'INVENTORY',
         'fixed-assets': 'FIXED_ASSETS',
         'financial-position': 'FINANCIAL_POSITION',
@@ -564,7 +565,8 @@ export function AuthProvider({ children }) {
         'admin': 'USER_MANAGEMENT',
         'profile': '*',
       };
-      const mod = pageToModule[page];
+      const key = String(page || '').toLowerCase();
+      const mod = pageToModule[page] || pageToModule[key];
       if (mod === '*') return true;
       if (mod) {
         const found = user.module_permissions.find(p => p.module_code === mod);

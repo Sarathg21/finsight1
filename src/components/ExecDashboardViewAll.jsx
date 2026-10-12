@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, RefreshCw, Table, TrendingUp, Globe, BarChart3, FileText, Download, Filter, Search, ChevronRight, ChevronDown, MoreHorizontal, Info } from 'lucide-react';
+import { X, RefreshCw, Table, TrendingUp, Globe, BarChart3, FileText, Download, Filter, Search, ChevronRight, ChevronDown, MoreHorizontal, Info, Maximize2, Minimize2 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
@@ -51,7 +51,7 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const fmtNum = (v) => {
   if (v === null || v === undefined) return '–';
   if (isNaN(Number(v))) return '–';
-  return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Math.round(Number(v)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 /**
@@ -67,7 +67,7 @@ const fmtDays = (v) => {
 const fmtPct = (v) => {
   if (v === null || v === undefined) return '–';
   if (isNaN(Number(v))) return '–';
-  return `${Number(v).toFixed(1)}%`;
+  return `${Number(v).toFixed(2)}%`;
 };
 
 /**
@@ -155,7 +155,7 @@ function ScrollTable({ children, minWidth = 1100, style = {}, padding = '0 16px 
   return (
     <div className="exec-modal-scroll" style={{
       overflowX: 'auto', overflowY: 'auto', flex: 1,
-      height: '100%', maxHeight: 'calc(94vh - 140px)', padding, ...style
+      height: '100%', minHeight: 0, padding, ...style
     }}>
       <style>{`
         .exec-modal-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -601,16 +601,27 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
     });
   }, [rows, search]);
 
-  // Totals for sticky table footer
+  // Totals for sticky table footer (preserve null when backend values are null)
   const totals = useMemo(() => {
     let tr = 0, tp = 0, inv = 0, twc = 0;
+    let hasTr = false, hasTp = false, hasInv = false, hasTwc = false;
     displayRows.forEach(r => {
-      tr  += Number(r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr ?? 0);
-      tp  += Number(r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp ?? 0);
-      inv += Number(r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv ?? 0);
-      twc += Number(r.trade_working_capital ?? r.twc ?? 0);
+      const rawTr  = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
+      const rawTp  = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp;
+      const rawInv = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
+      const rawTwc = r.trade_working_capital ?? r.twc;
+
+      if (rawTr != null && !isNaN(Number(rawTr))) { tr += Number(rawTr); hasTr = true; }
+      if (rawTp != null && !isNaN(Number(rawTp))) { tp += Number(rawTp); hasTp = true; }
+      if (rawInv != null && !isNaN(Number(rawInv))) { inv += Number(rawInv); hasInv = true; }
+      if (rawTwc != null && !isNaN(Number(rawTwc))) { twc += Number(rawTwc); hasTwc = true; }
     });
-    return { tr, tp, inv, twc };
+    return {
+      tr: hasTr ? tr : null,
+      tp: hasTp ? tp : null,
+      inv: hasInv ? inv : null,
+      twc: hasTwc ? twc : null
+    };
   }, [displayRows]);
 
   return (
@@ -905,7 +916,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
                 <TF align="right" bold color="#64748b">–</TF>
                 <TF align="right" bold color="#2563eb">{fmtNum(totals.inv)}</TF>
                 <TF align="right" bold color="#64748b">–</TF>
-                <TF align="right" bold color={totals.twc >= 0 ? '#2563eb' : '#ef4444'}>{fmtNum(totals.twc)}</TF>
+                <TF align="right" bold color={totals.twc != null && totals.twc >= 0 ? '#2563eb' : '#ef4444'}>{fmtNum(totals.twc)}</TF>
                 <TF align="right" bold color="#64748b">–</TF>
               </tr>
             </tfoot>
@@ -966,7 +977,7 @@ function TwcTrendTable({ filters, currency }) {
       </thead>
       <tbody>
         {rows.map((r, i) => {
-          // Include total_receivables, total_payables, total_inventory from backend trend payload
+          // Direct backend trend values — no frontend synthetic estimations
           const trVal  = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
           const tpVal  = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp;
           const invVal = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
@@ -1061,7 +1072,7 @@ function RevenueByRegion({ filters, currency }) {
                 onMouseLeave={e => e.currentTarget.style.background = ''}>
                 <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
                 <TD align="right">{fmtNum(rev)}</TD>
-                <TD align="right">{pct !== null ? `${Number(pct).toFixed(1)}%` : '–'}</TD>
+                <TD align="right">{pct !== null ? `${Number(pct).toFixed(2)}%` : '–'}</TD>
               </tr>
             );
           })}
@@ -1071,7 +1082,7 @@ function RevenueByRegion({ filters, currency }) {
             <tr>
               <TF bold style={{ color: '#1e293b' }}>Total</TF>
               <TF align="right" bold color="#2563eb">{fmtNum(total)}</TF>
-              <TF align="right" bold>100.0%</TF>
+              <TF align="right" bold>100.00%</TF>
             </tr>
           </tfoot>
         )}
@@ -1144,7 +1155,7 @@ function ProfitabilityByRegion({ filters, currency }) {
                 <TD align="right" color={r.net_profit === null ? undefined : (Number(r.net_profit) >= 0 ? '#10b981' : '#ef4444')}>
                   {fmtNum(r.net_profit)}
                 </TD>
-                <TD align="right">{netMargin !== null ? `${Number(netMargin).toFixed(1)}%` : '–'}</TD>
+                <TD align="right">{netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–'}</TD>
               </tr>
             );
           })}
@@ -1303,7 +1314,7 @@ const fmtAmount = (v, u) => {
     const m = n / 1_000_000;
     return `${m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
   }
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Math.round(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
@@ -1775,6 +1786,7 @@ export default function ExecDashboardViewAll({
   currency = 'AED',
 }) {
   const [activeSection, setActiveSection] = useState(initialSection);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     if (isOpen) setActiveSection(initialSection);
@@ -1831,16 +1843,22 @@ export default function ExecDashboardViewAll({
       {/* Modal Dialog Window */}
       <div style={{
         position: 'relative', zIndex: 1,
-        background: '#fff', borderRadius: 16,
-        width: '96vw', maxWidth: '96vw',
-        height: '92vh', maxHeight: '92vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+        background: '#fff',
+        borderRadius: isMaximized ? 0 : 16,
+        width: isMaximized ? '100vw' : '98.5vw',
+        maxWidth: isMaximized ? '100vw' : '98.5vw',
+        height: isMaximized ? '100vh' : '95vh',
+        maxHeight: isMaximized ? '100vh' : '95vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: isMaximized ? 'none' : '0 20px 60px rgba(0,0,0,0.18)',
         animation: 'scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        overflow: 'hidden', border: '1px solid #e2e8f0',
+        overflow: 'hidden',
+        border: isMaximized ? 'none' : '1px solid #e2e8f0',
+        transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         {/* Modal Header */}
         <div style={{
-          padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+          padding: '12px 20px', borderBottom: '1px solid #f1f5f9',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'linear-gradient(90deg, #f8fafc, #fff)',
           flexShrink: 0,
@@ -1853,18 +1871,34 @@ export default function ExecDashboardViewAll({
               Executive Dashboard · {currency} · {filters.as_on_date || 'All Periods'}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: '#f1f5f9', border: 'none', borderRadius: 20, width: 28, height: 28,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#64748b', transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
-          >
-            <X size={15} strokeWidth={2.5} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={() => setIsMaximized(m => !m)}
+              title={isMaximized ? "Restore window size" : "Maximize to full screen"}
+              style={{
+                background: '#f1f5f9', border: 'none', borderRadius: 20, width: 28, height: 28,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: '#64748b', transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              {isMaximized ? <Minimize2 size={14} strokeWidth={2.3} /> : <Maximize2 size={14} strokeWidth={2.3} />}
+            </button>
+            <button
+              onClick={onClose}
+              title="Close"
+              style={{
+                background: '#f1f5f9', border: 'none', borderRadius: 20, width: 28, height: 28,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: '#64748b', transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              <X size={15} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Navigation Tabs */}

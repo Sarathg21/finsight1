@@ -64,8 +64,8 @@ function App() {
               <Route path="/" element={<Navigate to="/exec-dashboard" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
               {/* <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} /> */}
-              <Route path="/profile" element={<MyProfile />} />
-              <Route path="/exec-dashboard" element={<ExecutiveDashboard />} />
+              <Route path="/profile" element={<ProtectedRoute pageKey="profile" element={<MyProfile />} />} />
+              <Route path="/exec-dashboard" element={<ProtectedRoute pageKey="exec-dashboard" element={<ExecutiveDashboard />} />} />
               {/* <Route path="/finsight-dashboard" element={<FinSightDashboard />} /> */}
               {/* <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} /> */}
               {/* <Route path="/working-capital"    element={<ProtectedRoute pageKey="working-capital"    element={<WCDashboard />} />} /> */}
