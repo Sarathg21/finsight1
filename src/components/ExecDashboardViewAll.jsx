@@ -262,7 +262,7 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
       : normOptions;
   }, [normOptions, q]);
 
-  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+  const isAll = !value || (value.length === 1 && String(value[0]) === 'All');
   const allRealIds = useMemo(() => normOptions.filter(o => String(o.id) !== 'All').map(o => String(o.id)), [normOptions]);
 
   const toggle = (optId) => {
@@ -280,16 +280,18 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
     if (allRealIds.length > 0 && next.length === allRealIds.length) {
       onChange(['All']);
     } else {
-      onChange(next.length === 0 ? ['All'] : next);
+      onChange(next);
     }
   };
 
   const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
   const label = isAll
     ? placeholder
-    : selectedVals.length === 1
-      ? String(selectedVals[0].name || '')
-      : `${selectedVals.length} selected`;
+    : selectedVals.length === 0
+      ? '0 selected'
+      : selectedVals.length === 1
+        ? String(selectedVals[0].name || '')
+        : `${selectedVals.length} selected`;
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0, ...style }}>
@@ -361,12 +363,12 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
           {!q && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
               <span
-                onClick={() => onChange(['All'])}
-                style={{ fontSize: '0.72rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); onChange(['All']); }}
+                style={{ fontSize: '0.72rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer', userSelect: 'none' }}
               >Select All</span>
               <span
-                onClick={() => onChange([])}
-                style={{ fontSize: '0.72rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); onChange([]); }}
+                style={{ fontSize: '0.72rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer', userSelect: 'none' }}
               >Clear</span>
             </div>
           )}
@@ -567,10 +569,10 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
   const handleApply = () => {
     setAppliedTwcFilters({
       as_on_date: draftToDate || '2026-10-31',
-      legal_group_id:     draftLegalGroup.includes('All') ? undefined : draftLegalGroup,
-      legal_entity_id:    draftLegalEntity.includes('All') ? undefined : draftLegalEntity,
-      parent_division_id: draftParentDiv.includes('All') ? undefined : draftParentDiv,
-      subdivision_id:     draftSubDiv.includes('All') ? undefined : draftSubDiv,
+      legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
+      legal_entity_id:    (!draftLegalEntity || draftLegalEntity.includes('All') || draftLegalEntity.length === 0) ? undefined : draftLegalEntity,
+      parent_division_id: (!draftParentDiv || draftParentDiv.includes('All') || draftParentDiv.length === 0) ? undefined : draftParentDiv,
+      subdivision_id:     (!draftSubDiv || draftSubDiv.includes('All') || draftSubDiv.length === 0) ? undefined : draftSubDiv,
     });
   };
 
