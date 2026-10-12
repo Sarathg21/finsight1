@@ -30,6 +30,13 @@ import {
   exportExecTwcPdf,
 } from '../api/executiveDashboardApi';
 import { fetchPLStatement, exportPL, fetchPLFilters } from '../services/plApi';
+import {
+  getLegalGroups,
+  getLegalEntities,
+  getParentDivision,
+  getSubDivision,
+} from '../api/masterLegalApi';
+import { getOpexFilterOptions } from '../api/opexApi';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS & FORMATTERS
@@ -97,6 +104,27 @@ function getRows(payload) {
   if (Array.isArray(payload.parameters)) return payload.parameters;
   if (Array.isArray(payload.regions)) return payload.regions;
   return [];
+}
+
+/* ─── Export Toast (matching Sales Revenue View All) ─────────────── */
+function ExportToast({ message, type }) {
+  if (!message) return null;
+  const isError = type === 'error';
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: isError ? '#fff1f2' : '#f0fdf4',
+      border: `1px solid ${isError ? '#fecdd3' : '#bbf7d0'}`,
+      color: isError ? '#be123c' : '#15803d',
+      borderRadius: 10, padding: '10px 18px',
+      fontSize: '0.78rem', fontWeight: 700,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+      display: 'flex', alignItems: 'center', gap: 6,
+      animation: 'fadeIn 0.2s ease',
+    }}>
+      {isError ? '⚠ ' : '✓ '}{message}
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -176,6 +204,222 @@ const TF = ({ children, align = 'left', bold = true, color = '#1e40af', bg = '#e
 );
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   MULTI-SELECT DROPDOWN (Matches Sales Revenue Page pattern)
+───────────────────────────────────────────────────────────────────────────── */
+
+function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder = 'All', style }) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const ref = useRef(null);
+  const searchRef = useRef(null);
+
+  // Close dropdown on outside click; clear search when closing
+  useEffect(() => {
+    const h = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  // Auto-focus search input when dropdown opens
+  useEffect(() => {
+    if (open && searchRef.current) {
+      setTimeout(() => searchRef.current && searchRef.current.focus(), 0);
+    }
+    if (!open) setSearchQuery('');
+  }, [open]);
+
+  // Normalize options across any object shape from backend
+  const normOptions = useMemo(() => {
+    return (options || []).map(o => {
+      if (o == null) return { id: '', name: '' };
+      if (typeof o === 'string' || typeof o === 'number') return { id: String(o), name: String(o) };
+      const id = o.value !== undefined ? o.value :
+                 o.id !== undefined ? o.id :
+                 o.legal_group_id !== undefined ? o.legal_group_id :
+                 o.legal_entity_id !== undefined ? o.legal_entity_id :
+                 o.parent_division_id !== undefined ? o.parent_division_id :
+                 o.subdivision_id !== undefined ? o.subdivision_id :
+                 o.code !== undefined ? o.code : '';
+      const name = o.label !== undefined ? o.label :
+                   o.name !== undefined ? o.name :
+                   o.legal_group_name !== undefined ? o.legal_group_name :
+                   o.legal_entity_name !== undefined ? o.legal_entity_name :
+                   o.parent_division_name !== undefined ? o.parent_division_name :
+                   o.subdivision_name !== undefined ? o.subdivision_name : String(id);
+      return { id: String(id), name: typeof name === 'object' ? String(name?.label || name?.name || id) : String(name) };
+    });
+  }, [options]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const visibleOptions = useMemo(() => {
+    return q
+      ? normOptions.filter(o => String(o.id) !== 'All' && String(o.name || '').toLowerCase().includes(q))
+      : normOptions;
+  }, [normOptions, q]);
+
+  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+  const allRealIds = useMemo(() => normOptions.filter(o => String(o.id) !== 'All').map(o => String(o.id)), [normOptions]);
+
+  const toggle = (optId) => {
+    if (String(optId) === 'All') {
+      onChange(['All']);
+      return;
+    }
+    const cur = isAll ? allRealIds : (value || []).map(String).filter(v => v !== 'All');
+    const targetId = String(optId);
+
+    const next = cur.includes(targetId)
+      ? cur.filter(v => v !== targetId)
+      : [...cur, targetId];
+
+    if (allRealIds.length > 0 && next.length === allRealIds.length) {
+      onChange(['All']);
+    } else {
+      onChange(next.length === 0 ? ['All'] : next);
+    }
+  };
+
+  const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
+  const label = isAll
+    ? placeholder
+    : selectedVals.length === 1
+      ? String(selectedVals[0].name || '')
+      : `${selectedVals.length} selected`;
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0, ...style }}>
+      {/* Trigger Button */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          height: 28,
+          padding: '4px 8px',
+          boxSizing: 'border-box',
+          fontSize: '0.73rem',
+          fontWeight: 500,
+          color: '#334155',
+          background: '#fff',
+          border: '1px solid #cbd5e1',
+          borderRadius: 7,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+          transition: 'border-color 0.15s ease',
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = '#94a3b8'}
+        onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, paddingRight: 4 }}>
+          {label}
+        </span>
+        <span style={{ fontSize: '0.6rem', color: '#94a3b8', flexShrink: 0 }}>
+          {open ? '▲' : '▼'}
+        </span>
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, minWidth: 220,
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+          boxShadow: '0 10px 25px rgba(0,0,0,0.18)', zIndex: 9999,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+          {/* Search box inside dropdown */}
+          <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                placeholder="Search…"
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.74rem', color: '#334155', width: '100%', minWidth: 0 }}
+              />
+              {searchQuery && (
+                <span
+                  onClick={e => { e.stopPropagation(); setSearchQuery(''); }}
+                  style={{ fontSize: '0.65rem', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}
+                >✕</span>
+              )}
+            </div>
+          </div>
+
+          {/* Select All / Clear action bar */}
+          {!q && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <span
+                onClick={() => onChange(['All'])}
+                style={{ fontSize: '0.72rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
+              >Select All</span>
+              <span
+                onClick={() => onChange([])}
+                style={{ fontSize: '0.72rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+              >Clear</span>
+            </div>
+          )}
+
+          {/* Scrollable options list */}
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {visibleOptions.map(opt => {
+              if (opt.id === 'All') return null;
+              const selected = isAll || (value && value.some(v => String(v) === String(opt.id)));
+              return (
+                <div
+                  key={opt.id}
+                  onClick={() => toggle(opt.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+                    cursor: 'pointer', fontSize: '0.75rem',
+                    background: selected ? '#eff6ff' : '#fff',
+                    color: selected ? '#2563eb' : '#334155',
+                    fontWeight: selected ? 600 : 400,
+                    borderBottom: '1px solid #f8fafc',
+                    whiteSpace: 'normal', lineHeight: 1.25,
+                  }}
+                  onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }}
+                  onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}
+                >
+                  <span style={{
+                    width: 14, height: 14,
+                    border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'),
+                    borderRadius: 3,
+                    background: selected ? '#2563eb' : '#fff',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+                  </span>
+                  <span style={{ wordBreak: 'break-word' }}>{opt.name}</span>
+                </div>
+              );
+            })}
+
+            {q && visibleOptions.length === 0 && (
+              <div style={{ padding: '10px 12px', fontSize: '0.74rem', color: '#94a3b8', textAlign: 'center' }}>
+                No results for &ldquo;{searchQuery}&rdquo;
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    SECTION 1: TWC View All Table
 ───────────────────────────────────────────────────────────────────────────── */
 
@@ -184,12 +428,128 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Search input
+  const [search, setSearch] = useState('');
+
+  // Exporting state & Toast notification (matching Sales Revenue page)
+  const [exporting, setExporting] = useState(null); // 'excel' | 'pdf'
+  const [toast,     setToast]     = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(format);
+    const finish = (ok, err) => {
+      setExporting(null);
+      if (!ok) showToast(err || 'Export failed', 'error');
+      else showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started — check Downloads`, 'success');
+    };
+    try {
+      if (format === 'excel') {
+        if (onExportExcel) await onExportExcel(appliedTwcFilters);
+        else await exportExecTwcExcel(appliedTwcFilters);
+      } else {
+        if (onExportPdf) await onExportPdf(appliedTwcFilters);
+        else await exportExecTwcPdf(appliedTwcFilters);
+      }
+      finish(true);
+    } catch (e) {
+      finish(false, e?.message);
+    }
+  };
+
+  // Dropdown options
+  const [legalGroups,   setLegalGroups]   = useState([]);
+  const [legalEntities, setLegalEntities] = useState([]);
+  const [parentDivs,    setParentDivs]    = useState([]);
+  const [subDivs,       setSubDivs]       = useState([]);
+
+  // Multi-select draft filters (arrays matching SalesRevenueReport pattern)
+  const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters.legal_group_id ? [filters.legal_group_id] : ['All']);
+  const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters.legal_entity_id ? [filters.legal_entity_id] : ['All']);
+  const [draftParentDiv,    setDraftParentDiv]    = useState(filters.parent_division_id ? [filters.parent_division_id] : ['All']);
+  const [draftSubDiv,       setDraftSubDiv]       = useState(filters.subdivision_id ? [filters.subdivision_id] : ['All']);
+  const [draftFromDate,     setDraftFromDate]     = useState('2026-01-01');
+  const [draftToDate,       setDraftToDate]       = useState(filters.as_on_date || filters.as_of_date || '2026-10-31');
+
+  // Applied filter state
+  const [appliedTwcFilters, setAppliedTwcFilters] = useState({
+    as_on_date: filters.as_on_date || filters.as_of_date || '2026-10-31',
+    legal_group_id: filters.legal_group_id || undefined,
+    legal_entity_id: filters.legal_entity_id || undefined,
+    parent_division_id: filters.parent_division_id || undefined,
+    subdivision_id: filters.subdivision_id || undefined,
+  });
+
+  // Load hierarchy options from backend
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      getLegalGroups(),
+      getLegalEntities(),
+      getParentDivision(),
+      getSubDivision(),
+      getOpexFilterOptions(),
+    ]).then(([lgRes, leRes, pdRes, sdRes, opexRes]) => {
+      if (cancelled) return;
+      const opexData = opexRes?.status === 'fulfilled' ? opexRes.value : null;
+
+      const lg = (lgRes?.status === 'fulfilled' ? (lgRes.value?.data ?? lgRes.value) : null)
+        || opexData?.legal_groups || opexData?.legalGroups || [];
+      const le = (leRes?.status === 'fulfilled' ? (leRes.value?.data ?? leRes.value) : null)
+        || opexData?.legal_entities || opexData?.legalEntities || [];
+      const pd = (pdRes?.status === 'fulfilled' ? (pdRes.value?.data ?? pdRes.value) : null)
+        || opexData?.parent_divisions || opexData?.parentDivisions || [];
+      const sd = (sdRes?.status === 'fulfilled' ? (sdRes.value?.data ?? sdRes.value) : null)
+        || opexData?.subdivisions || opexData?.subDivisions || [];
+
+      setLegalGroups(Array.isArray(lg) ? lg : []);
+      setLegalEntities(Array.isArray(le) ? le : []);
+      setParentDivs(Array.isArray(pd) ? pd : []);
+      setSubDivs(Array.isArray(sd) ? sd : []);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Cascading options based on selection
+  const filteredLegalEntities = useMemo(() => {
+    if (!draftLegalGroup || draftLegalGroup.includes('All')) return legalEntities;
+    const gIds = draftLegalGroup.map(String);
+    return legalEntities.filter(e => {
+      const gId = String(e.legal_group_id ?? e.group_id ?? '');
+      return !gId || gIds.includes(gId);
+    });
+  }, [legalEntities, draftLegalGroup]);
+
+  const filteredParentDivs = useMemo(() => {
+    if (!draftLegalEntity || draftLegalEntity.includes('All')) return parentDivs;
+    const eIds = draftLegalEntity.map(String);
+    return parentDivs.filter(p => {
+      const eId = String(p.legal_entity_id ?? '');
+      return !eId || eIds.includes(eId);
+    });
+  }, [parentDivs, draftLegalEntity]);
+
+  const filteredSubDivs = useMemo(() => {
+    if (!draftParentDiv || draftParentDiv.includes('All')) return subDivs;
+    const pIds = draftParentDiv.map(String);
+    return subDivs.filter(s => {
+      const pId = String(s.parent_division_id ?? '');
+      return !pId || pIds.includes(pId);
+    });
+  }, [subDivs, draftParentDiv]);
+
+  // Fetch table data whenever appliedTwcFilters change
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    getExecTwcViewAll(filters)
+    getExecTwcViewAll(appliedTwcFilters)
       .then(payload => {
         if (cancelled) return;
         setRows(getRows(payload));
@@ -202,86 +562,354 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [filters]);
+  }, [appliedTwcFilters]);
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
-  if (!rows.length) return <EmptyState />;
+  const handleApply = () => {
+    setAppliedTwcFilters({
+      as_on_date: draftToDate || '2026-10-31',
+      legal_group_id:     draftLegalGroup.includes('All') ? undefined : draftLegalGroup,
+      legal_entity_id:    draftLegalEntity.includes('All') ? undefined : draftLegalEntity,
+      parent_division_id: draftParentDiv.includes('All') ? undefined : draftParentDiv,
+      subdivision_id:     draftSubDiv.includes('All') ? undefined : draftSubDiv,
+    });
+  };
+
+  const handleReset = () => {
+    setDraftLegalGroup(['All']);
+    setDraftLegalEntity(['All']);
+    setDraftParentDiv(['All']);
+    setDraftSubDiv(['All']);
+    setDraftFromDate('2026-01-01');
+    setDraftToDate('2026-10-31');
+    setSearch('');
+    setAppliedTwcFilters({
+      as_on_date: '2026-10-31',
+    });
+  };
+
+  // Client-side search filtering across Legal Entity, Parent Division, Sub-Division
+  const displayRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => {
+      const entity = String(r.legal_entity ?? r.entity ?? r.legal_entity_name ?? '').toLowerCase();
+      const parent = String(r.parent_division ?? r.division ?? r.parent_division_name ?? '').toLowerCase();
+      const sub = String(r.sub_division ?? r.subdivision ?? r.sub_division_name ?? r.subdivision_name ?? '').toLowerCase();
+      return entity.includes(q) || parent.includes(q) || sub.includes(q);
+    });
+  }, [rows, search]);
+
+  // Totals for sticky table footer
+  const totals = useMemo(() => {
+    let tr = 0, tp = 0, inv = 0, twc = 0;
+    displayRows.forEach(r => {
+      tr  += Number(r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr ?? 0);
+      tp  += Number(r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp ?? 0);
+      inv += Number(r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv ?? 0);
+      twc += Number(r.trade_working_capital ?? r.twc ?? 0);
+    });
+    return { tr, tp, inv, twc };
+  }, [displayRows]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Export Action Bar */}
-      <div style={{ display: 'flex', gap: 8, padding: '12px 16px 8px', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0 }}>
-        <button onClick={onExportExcel}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 700, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', cursor: 'pointer' }}>
-          <FileText size={13} /> Export Excel
-        </button>
-        <button onClick={onExportPdf}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 700, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', cursor: 'pointer' }}>
-          <Download size={13} /> Export PDF
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* ── Toolbar: Filters (Left) + Export Buttons (Right) in exact single row ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px 16px',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#fff',
+        flexShrink: 0,
+        gap: 6,
+        flexWrap: 'wrap',
+        position: 'relative',
+        zIndex: 100,
+        overflow: 'visible',
+      }}>
+        {/* Left: Search + Hierarchy Multi-Selects + Period + Apply / Reset */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, flex: 1, position: 'relative', zIndex: 101 }}>
+          {/* Search box with green magnifying glass icon matching Sales Revenue */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 8, pointerEvents: 'none' }}>
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search periods..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                padding: '4px 8px 4px 26px',
+                borderRadius: 7,
+                border: '1px solid #cbd5e1',
+                fontSize: '0.74rem',
+                width: 135,
+                outline: 'none',
+                height: 28,
+                boxSizing: 'border-box',
+                background: '#fff',
+                color: '#334155',
+              }}
+            />
+          </div>
+
+          {/* Legal Group Multi-Select */}
+          <ExecMultiSelect
+            options={legalGroups}
+            value={draftLegalGroup}
+            onChange={(vals) => {
+              setDraftLegalGroup(vals);
+              setDraftLegalEntity(['All']);
+              setDraftParentDiv(['All']);
+              setDraftSubDiv(['All']);
+            }}
+            placeholder="FJ_GROUP"
+            style={{ width: 120, minWidth: 110 }}
+          />
+
+          {/* Legal Entity Multi-Select */}
+          <ExecMultiSelect
+            options={filteredLegalEntities}
+            value={draftLegalEntity}
+            onChange={(vals) => {
+              setDraftLegalEntity(vals);
+              setDraftParentDiv(['All']);
+              setDraftSubDiv(['All']);
+            }}
+            placeholder="All Legal Entity"
+            style={{ width: 130, minWidth: 120 }}
+          />
+
+          {/* Parent Division Multi-Select */}
+          <ExecMultiSelect
+            options={filteredParentDivs}
+            value={draftParentDiv}
+            onChange={(vals) => {
+              setDraftParentDiv(vals);
+              setDraftSubDiv(['All']);
+            }}
+            placeholder="All Parent Division"
+            style={{ width: 140, minWidth: 130 }}
+          />
+
+          {/* Sub-Division Multi-Select */}
+          <ExecMultiSelect
+            options={filteredSubDivs}
+            value={draftSubDiv}
+            onChange={(vals) => setDraftSubDiv(vals)}
+            placeholder="All Sub-Division"
+            style={{ width: 130, minWidth: 120 }}
+          />
+
+          {/* Period Date Range matching user screenshot */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Period:</span>
+            <input
+              type="date"
+              value={draftFromDate}
+              onChange={e => setDraftFromDate(e.target.value)}
+              style={{
+                height: 28,
+                borderRadius: 6,
+                border: '1px solid #cbd5e1',
+                padding: '0 6px',
+                fontSize: '0.72rem',
+                color: '#334155',
+                background: '#f8fafc',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            />
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>-</span>
+            <input
+              type="date"
+              value={draftToDate}
+              onChange={e => setDraftToDate(e.target.value)}
+              style={{
+                height: 28,
+                borderRadius: 6,
+                border: '1px solid #cbd5e1',
+                padding: '0 6px',
+                fontSize: '0.72rem',
+                color: '#334155',
+                background: '#f8fafc',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            />
+          </div>
+
+          {/* Apply Button (Blue) */}
+          <button
+            onClick={handleApply}
+            style={{
+              height: 28,
+              padding: '0 16px',
+              borderRadius: 7,
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
+            onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+          >
+            Apply
+          </button>
+
+          {/* Reset Button */}
+          <button
+            onClick={handleReset}
+            style={{
+              height: 28,
+              padding: '0 12px',
+              borderRadius: 7,
+              background: '#f1f5f9',
+              color: '#475569',
+              border: '1px solid #e2e8f0',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+            onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+          >
+            ↺ Reset
+          </button>
+        </div>
+
+        {/* Right: Export Buttons matching Sales Revenue View All */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          <button
+            onClick={() => handleExport('excel')}
+            disabled={!!exporting}
+            title="Export to Excel"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              border: '1px solid #bbf7d0', borderRadius: 7, cursor: exporting ? 'not-allowed' : 'pointer',
+              fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+              fontSize: '0.70rem', height: 28, padding: '0 10px',
+              background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
+              color: '#15803d',
+              opacity: exporting ? 0.7 : 1,
+            }}
+          >
+            {exporting === 'excel' ? '⏳' : '📊'} Excel
+          </button>
+          <button
+            onClick={() => handleExport('pdf')}
+            disabled={!!exporting}
+            title="Export to PDF"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              border: '1px solid #fecdd3', borderRadius: 7, cursor: exporting ? 'not-allowed' : 'pointer',
+              fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+              fontSize: '0.70rem', height: 28, padding: '0 10px',
+              background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
+              color: '#be123c',
+              opacity: exporting ? 0.7 : 1,
+            }}
+          >
+            {exporting === 'pdf' ? '⏳' : '📄'} PDF
+          </button>
+        </div>
       </div>
 
-      <ScrollTable minWidth={1150}>
-        <thead>
-          <tr>
-            <TH style={{ width: 190, minWidth: 170, maxWidth: 210 }}>Legal Entity</TH>
-            <TH style={{ width: 140, minWidth: 120 }}>Parent Division</TH>
-            <TH style={{ width: 140, minWidth: 120 }}>Sub-Division</TH>
-            <TH align="right">Trade Receivables ({currency})</TH>
-            <TH align="right">DSO</TH>
-            <TH align="right">Trade Payables ({currency})</TH>
-            <TH align="right">DPO</TH>
-            <TH align="right">Inventory ({currency})</TH>
-            <TH align="right">DIO</TH>
-            <TH align="right">TWC ({currency})</TH>
-            <TH align="right">CCC (Days)</TH>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            const trVal = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
-            const dsoVal = r.dso_days ?? r.dso;
-            const tpVal = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp;
-            const dpoVal = r.dpo_days ?? r.dpo;
-            const invVal = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
-            const dioVal = r.dio_days ?? r.dio;
-            const twcVal = r.trade_working_capital ?? r.twc;
-            const cccVal = r.cash_conversion_cycle_days ?? r.ccc;
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
-            const entityName = r.legal_entity ?? r.entity ?? r.legal_entity_name ?? '–';
-            const parentDiv  = r.parent_division ?? r.division ?? r.parent_division_name ?? '–';
-            const subDivVal  = r.sub_division ?? r.subdivision ?? r.sub_division_name ?? r.subdivision_name ?? r.sub_division_code ?? r.subdivision_code ?? r.sub_div_name ?? r.sub_div ?? '–';
+      {/* Content: spinner, error, empty, or table */}
+      {loading ? <Spinner /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState message={search ? "No matching records found." : undefined} /> : (
+        <ScrollTable minWidth={1150}>
+          <thead>
+            <tr>
+              <TH style={{ width: 190, minWidth: 170, maxWidth: 210 }}>Legal Entity</TH>
+              <TH style={{ width: 140, minWidth: 120 }}>Parent Division</TH>
+              <TH style={{ width: 140, minWidth: 120 }}>Sub-Division</TH>
+              <TH align="right">Trade Receivables ({currency})</TH>
+              <TH align="right">DSO</TH>
+              <TH align="right">Trade Payables ({currency})</TH>
+              <TH align="right">DPO</TH>
+              <TH align="right">Inventory ({currency})</TH>
+              <TH align="right">DIO</TH>
+              <TH align="right">TWC ({currency})</TH>
+              <TH align="right">CCC (Days)</TH>
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((r, i) => {
+              const trVal = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
+              const dsoVal = r.dso_days ?? r.dso;
+              const tpVal = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp;
+              const dpoVal = r.dpo_days ?? r.dpo;
+              const invVal = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
+              const dioVal = r.dio_days ?? r.dio;
+              const twcVal = r.trade_working_capital ?? r.twc;
+              const cccVal = r.cash_conversion_cycle_days ?? r.ccc;
 
-            return (
-              <tr key={i}
-                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                onMouseLeave={e => e.currentTarget.style.background = ''}>
-                {/* Legal Entity cell wraps into 2+ lines cleanly to reduce column width */}
-                <TD bold style={{ width: 190, minWidth: 170, maxWidth: 210, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
-                  {entityName}
-                </TD>
-                <TD style={{ width: 140, minWidth: 120, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
-                  {parentDiv}
-                </TD>
-                <TD style={{ width: 140, minWidth: 120, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
-                  {subDivVal}
-                </TD>
-                <TD align="right">{fmtNum(trVal)}</TD>
-                <TD align="right">{fmtDays(dsoVal)}</TD>
-                <TD align="right">{fmtNum(tpVal)}</TD>
-                <TD align="right">{fmtDays(dpoVal)}</TD>
-                <TD align="right">{fmtNum(invVal)}</TD>
-                <TD align="right">{fmtDays(dioVal)}</TD>
-                <TD align="right" bold color={twcVal !== null && twcVal !== undefined && Number(twcVal) >= 0 ? '#2563eb' : '#ef4444'}>
-                  {fmtNum(twcVal)}
-                </TD>
-                <TD align="right">{fmtDays(cccVal)}</TD>
+              const entityName = r.legal_entity ?? r.entity ?? r.legal_entity_name ?? '–';
+              const parentDiv  = r.parent_division ?? r.division ?? r.parent_division_name ?? '–';
+              const subDivVal  = r.sub_division ?? r.subdivision ?? r.sub_division_name ?? r.subdivision_name ?? r.sub_division_code ?? r.subdivision_code ?? r.sub_div_name ?? r.sub_div ?? '–';
+
+              return (
+                <tr key={i}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  {/* Legal Entity cell wraps into 2+ lines cleanly to reduce column width */}
+                  <TD bold style={{ width: 190, minWidth: 170, maxWidth: 210, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                    {entityName}
+                  </TD>
+                  <TD style={{ width: 140, minWidth: 120, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                    {parentDiv}
+                  </TD>
+                  <TD style={{ width: 140, minWidth: 120, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                    {subDivVal}
+                  </TD>
+                  <TD align="right">{fmtNum(trVal)}</TD>
+                  <TD align="right">{fmtDays(dsoVal)}</TD>
+                  <TD align="right">{fmtNum(tpVal)}</TD>
+                  <TD align="right">{fmtDays(dpoVal)}</TD>
+                  <TD align="right">{fmtNum(invVal)}</TD>
+                  <TD align="right">{fmtDays(dioVal)}</TD>
+                  <TD align="right" bold color={twcVal !== null && twcVal !== undefined && Number(twcVal) >= 0 ? '#2563eb' : '#ef4444'}>
+                    {fmtNum(twcVal)}
+                  </TD>
+                  <TD align="right">{fmtDays(cccVal)}</TD>
+                </tr>
+              );
+            })}
+          </tbody>
+          {displayRows.length > 1 && (
+            <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
+              <tr>
+                <TF bold style={{ color: '#1e293b' }}>Total</TF>
+                <TF bold style={{ color: '#64748b' }}>–</TF>
+                <TF bold style={{ color: '#64748b' }}>–</TF>
+                <TF align="right" bold color="#2563eb">{fmtNum(totals.tr)}</TF>
+                <TF align="right" bold color="#64748b">–</TF>
+                <TF align="right" bold color="#2563eb">{fmtNum(totals.tp)}</TF>
+                <TF align="right" bold color="#64748b">–</TF>
+                <TF align="right" bold color="#2563eb">{fmtNum(totals.inv)}</TF>
+                <TF align="right" bold color="#64748b">–</TF>
+                <TF align="right" bold color={totals.twc >= 0 ? '#2563eb' : '#ef4444'}>{fmtNum(totals.twc)}</TF>
+                <TF align="right" bold color="#64748b">–</TF>
               </tr>
-            );
-          })}
-        </tbody>
-      </ScrollTable>
+            </tfoot>
+          )}
+        </ScrollTable>
+      )}
     </div>
   );
 }
@@ -676,41 +1304,6 @@ const fmtAmount = (v, u) => {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const renderCustomXAxisTick = (props) => {
-  const { x, y, payload } = props;
-  const raw = String(payload?.value || '');
-
-  let line1 = raw;
-  let line2 = '';
-  if (raw.length > 15) {
-    const words = raw.split(' ');
-    if (words.length > 1) {
-      const mid = Math.ceil(words.length / 2);
-      line1 = words.slice(0, mid).join(' ');
-      line2 = words.slice(mid).join(' ');
-    }
-  }
-
-  if (line1.length > 22) line1 = line1.slice(0, 20) + '…';
-  if (line2.length > 22) line2 = line2.slice(0, 20) + '…';
-
-  return (
-    <g transform={`translate(${x},${y})`}>
-      <text
-        x={0}
-        y={0}
-        textAnchor="middle"
-        fill="#475569"
-        fontSize={10}
-        fontWeight={600}
-      >
-        <tspan x={0} dy={12}>{line1}</tspan>
-        {line2 ? <tspan x={0} dy={13}>{line2}</tspan> : null}
-      </text>
-    </g>
-  );
-};
-
 function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const [criteriaKey, setCriteriaKey] = useState('parent_division');
   const [reportSel, setReportSel]     = useState('All');
@@ -719,7 +1312,6 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const [unit, setUnit]               = useState('aed'); // 'aed' | 'millions'
   const [filterOptions, setFilterOptions] = useState({});
   const [search, setSearch]           = useState('');
-  const [viewMode, setViewMode]       = useState('both'); // 'table' | 'graph' | 'both'
 
   const [staged, setStaged] = useState({
     criteriaKey: 'parent_division',
@@ -732,16 +1324,26 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
 
-  const [exportOpen, setExportOpen] = useState(false);
-  const exportRef = useRef(null);
+  const [exporting, setExporting] = useState(null); // 'excel' | 'pdf'
+  const [toast,     setToast]     = useState(null);
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(format);
+    try {
+      await exportPL('statement', format, { year, periodName: period, currency });
+      showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started — check Downloads`, 'success');
+    } catch (e) {
+      showToast(e?.message || 'Export failed', 'error');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   // Fetch filter options from backend and trigger initial load
   useEffect(() => {
@@ -912,16 +1514,6 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
 
   const currentCritLabel = PROFIT_SELECTION_CRITERIA.find(c => c.value === criteriaKey)?.label?.replace(' wise', '') || 'Parent Division';
 
-  const chartData = useMemo(() => {
-    return displayRows.slice(0, 10).map(r => ({
-      name: r.name,
-      revenue: Math.round(r.revenue / 1_000_000),
-      grossProfit: Math.round(r.gross_profit / 1_000_000),
-      pbt: Math.round(r.pbt / 1_000_000),
-      gpPct: Number(r.gp_pct.toFixed(1)),
-    }));
-  }, [displayRows]);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#f8fafc' }}>
       {/* ── Top Bar: Selection Criteria Toggle Pills + Filter Selects ── */}
@@ -951,40 +1543,6 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
                 </button>
               );
             })}
-          </div>
-
-          {/* View Mode Toggle: Graph / Table / Both */}
-          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 8, padding: 3, gap: 2 }}>
-            <button
-              onClick={() => setViewMode('both')}
-              style={{
-                padding: '4px 10px', borderRadius: 6, border: 'none', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                background: viewMode === 'both' ? '#2563eb' : 'transparent',
-                color: viewMode === 'both' ? '#fff' : '#64748b',
-              }}
-            >
-              Both
-            </button>
-            <button
-              onClick={() => setViewMode('graph')}
-              style={{
-                padding: '4px 10px', borderRadius: 6, border: 'none', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                background: viewMode === 'graph' ? '#2563eb' : 'transparent',
-                color: viewMode === 'graph' ? '#fff' : '#64748b',
-              }}
-            >
-              Graph
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              style={{
-                padding: '4px 10px', borderRadius: 6, border: 'none', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                background: viewMode === 'table' ? '#2563eb' : 'transparent',
-                color: viewMode === 'table' ? '#fff' : '#64748b',
-              }}
-            >
-              Table
-            </button>
           </div>
         </div>
 
@@ -1065,49 +1623,45 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
             />
           </div>
 
-          {/* Export Dropdown */}
-          <div ref={exportRef} style={{ position: 'relative' }}>
+          {/* Export Buttons matching Sales Revenue View All */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
             <button
-              onClick={() => setExportOpen(v => !v)}
+              onClick={() => handleExport('excel')}
+              disabled={!!exporting}
+              title="Export to Excel"
               style={{
-                padding: '4px 10px', borderRadius: 6, background: '#fff', color: '#334155', border: '1px solid #cbd5e1',
-                fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                display: 'flex', alignItems: 'center', gap: 4,
+                border: '1px solid #bbf7d0', borderRadius: 7, cursor: exporting ? 'not-allowed' : 'pointer',
+                fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+                fontSize: '0.70rem', height: 28, padding: '0 10px',
+                background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
+                color: '#15803d',
+                opacity: exporting ? 0.7 : 1,
               }}
             >
-              <Download size={11} /> Export <ChevronDown size={10} />
+              {exporting === 'excel' ? '⏳' : '📊'} Excel
             </button>
-            {exportOpen && (
-              <div style={{
-                position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: '#fff', border: '1px solid #e2e8f0',
-                borderRadius: 8, boxShadow: '0 8px 20px rgba(0,0,0,0.12)', minWidth: 140, zIndex: 100, overflow: 'hidden',
-              }}>
-                <button
-                  onClick={() => {
-                    setExportOpen(false);
-                    exportPL('statement', 'excel', { year, periodName: period, currency });
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: 'none', border: 'none', fontSize: '0.74rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                >
-                  <FileText size={12} color="#16a34a" /> Export Excel
-                </button>
-                <button
-                  onClick={() => {
-                    setExportOpen(false);
-                    exportPL('statement', 'pdf', { year, periodName: period, currency });
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: 'none', border: 'none', fontSize: '0.74rem', fontWeight: 600, color: '#334155', cursor: 'pointer', borderTop: '1px solid #f1f5f9' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                >
-                  <Download size={12} color="#dc2626" /> Export PDF
-                </button>
-              </div>
-            )}
+            <button
+              onClick={() => handleExport('pdf')}
+              disabled={!!exporting}
+              title="Export to PDF"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                border: '1px solid #fecdd3', borderRadius: 7, cursor: exporting ? 'not-allowed' : 'pointer',
+                fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+                fontSize: '0.70rem', height: 28, padding: '0 10px',
+                background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
+                color: '#be123c',
+                opacity: exporting ? 0.7 : 1,
+              }}
+            >
+              {exporting === 'pdf' ? '⏳' : '📄'} PDF
+            </button>
           </div>
         </div>
       </div>
+
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
       {/* ── Content Area: Graph + Table ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '12px 20px', gap: 14 }}>
@@ -1117,49 +1671,8 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
           </div>
         </div>
 
-        {/* GRAPH SECTION (if viewMode !== 'table') */}
-        {viewMode !== 'table' && (
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', padding: '14px 16px', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e3a8a' }}>
-                Profitability Overview by {currentCritLabel} ({currency} Million)
-              </div>
-              <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>Top {Math.min(displayRows.length, 10)} entities</div>
-            </div>
-            {loading ? (
-              <div style={{ height: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Loading chart…</div>
-            ) : chartData.length === 0 ? (
-              <div style={{ height: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>No data</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={210}>
-                <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 22, left: -10 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickLine={false}
-                    tick={renderCustomXAxisTick}
-                    interval={0}
-                    height={44}
-                  />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9.5, fill: '#94a3b8' }} />
-                  <Tooltip
-                    formatter={(val, name) => [`${currency} ${val}M`, name]}
-                    contentStyle={{ fontSize: '0.72rem', borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  />
-                  <Legend verticalAlign="top" align="right" height={30} wrapperStyle={{ fontSize: 10.5, fontWeight: 600, paddingBottom: 6 }} iconSize={8} />
-                  <Bar name="Revenue (M)" dataKey="revenue" fill="#3b82f6" barSize={18} radius={[3,3,0,0]} />
-                  <Bar name="Gross Profit (M)" dataKey="grossProfit" fill="#10b981" barSize={18} radius={[3,3,0,0]} />
-                  <Bar name="PBT (M)" dataKey="pbt" fill="#8b5cf6" barSize={18} radius={[3,3,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        )}
-
-        {/* TABLE SECTION (if viewMode !== 'graph') */}
-        {viewMode !== 'graph' && (
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 280, overflow: 'hidden' }}>
+        {/* TABLE SECTION */}
+        <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e3a8a' }}>
                 Detailed Financials — Grouped by {currentCritLabel} ({unit === 'millions' ? `${currency} Millions` : currency})
@@ -1235,7 +1748,6 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
               </ScrollTable>
             )}
           </div>
-        )}
       </div>
     </div>
   );
@@ -1277,30 +1789,26 @@ export default function ExecDashboardViewAll({
 
   const activeMeta = SECTIONS.find(s => s.id === activeSection);
 
-  const handleExportExcel = () => {
-    const apiFilters = {
+  const handleExportExcel = (activeFilters) => {
+    const apiFilters = activeFilters || {
       ...(filters.as_on_date ? { as_on_date: filters.as_on_date } : {}),
       ...(filters.legal_group_id ? { legal_group_id: filters.legal_group_id } : {}),
       ...(filters.legal_entity_id ? { legal_entity_id: filters.legal_entity_id } : {}),
       ...(filters.parent_division_id ? { parent_division_id: filters.parent_division_id } : {}),
       ...(filters.subdivision_id ? { subdivision_id: filters.subdivision_id } : {}),
     };
-    exportExecTwcExcel(apiFilters).catch(err =>
-      console.error('[Export Excel]', err.response?.status, err.response?.data || err.message)
-    );
+    return exportExecTwcExcel(apiFilters);
   };
 
-  const handleExportPdf = () => {
-    const apiFilters = {
+  const handleExportPdf = (activeFilters) => {
+    const apiFilters = activeFilters || {
       ...(filters.as_on_date ? { as_on_date: filters.as_on_date } : {}),
       ...(filters.legal_group_id ? { legal_group_id: filters.legal_group_id } : {}),
       ...(filters.legal_entity_id ? { legal_entity_id: filters.legal_entity_id } : {}),
       ...(filters.parent_division_id ? { parent_division_id: filters.parent_division_id } : {}),
       ...(filters.subdivision_id ? { subdivision_id: filters.subdivision_id } : {}),
     };
-    exportExecTwcPdf(apiFilters).catch(err =>
-      console.error('[Export PDF]', err.response?.status, err.response?.data || err.message)
-    );
+    return exportExecTwcPdf(apiFilters);
   };
 
   return (
