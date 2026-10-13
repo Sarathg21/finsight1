@@ -206,6 +206,285 @@ export default function InventoryOverview() {
     return defaultList;
   }, []);
 
+  const matchesScopeFilter = (val, filterVal) => {
+    if (!filterVal || filterVal === 'All') return true;
+    if (Array.isArray(filterVal)) {
+      const active = filterVal.filter(f => f && f !== 'All');
+      if (active.length === 0) return true;
+      return active.some(f => String(f).trim().toLowerCase() === String(val).trim().toLowerCase());
+    }
+    return String(filterVal).trim().toLowerCase() === String(val).trim().toLowerCase();
+  };
+
+  const resolveLegalEntities = useCallback((rawEntities, currentData = null, activeFilters = null) => {
+    if (Array.isArray(rawEntities) && rawEntities.length > 0) {
+      const parsed = [];
+      const seen = new Set();
+      rawEntities.forEach((item) => {
+        if (!item) return;
+        const val = item.value !== undefined ? item.value : (item.id !== undefined ? item.id : item);
+        const lbl = item.label !== undefined ? item.label : (item.name !== undefined ? item.name : (item.desc !== undefined ? item.desc : (typeof item === 'string' ? item : val)));
+        const strLbl = typeof lbl === 'object' ? String(lbl?.name || lbl?.label || val || '') : String(lbl || '');
+        const key = strLbl.trim();
+        if (!key || key.toLowerCase() === 'all') return;
+        if (!seen.has(key.toLowerCase())) {
+          seen.add(key.toLowerCase());
+          parsed.push({ value: val || strLbl, label: strLbl });
+        }
+      });
+      if (parsed.length > 0) return parsed.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Derive from user access scopes if available (e.g. GM, BU Manager, Accountant)
+    if (user?.access_scopes && Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const scopeMap = new Map();
+      user.access_scopes.forEach((s) => {
+        if (activeFilters?.legalGroup) {
+          const lgMatch = matchesScopeFilter(s.legal_group_code, activeFilters.legalGroup) ||
+                          matchesScopeFilter(s.legal_group, activeFilters.legalGroup) ||
+                          (matchesScopeFilter(1, activeFilters.legalGroup) && s.legal_group_code === 'FJ_GROUP') ||
+                          (matchesScopeFilter(2, activeFilters.legalGroup) && s.legal_group_code === 'RKME_GROUP');
+          if (!lgMatch) return;
+        }
+        const name = s.legal_entity_name || s.legal_entity;
+        const id = s.legal_entity_id !== undefined ? s.legal_entity_id : (s.legal_entity_code || name);
+        if (name && !scopeMap.has(String(name).toLowerCase())) {
+          scopeMap.set(String(name).toLowerCase(), { value: id || name, label: String(name) });
+        }
+      });
+      if (scopeMap.size > 0) return Array.from(scopeMap.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Fallback: derive from loaded details items if available
+    const details = currentData?.details || [];
+    if (Array.isArray(details) && details.length > 0) {
+      const seen = new Set();
+      const list = [];
+      details.forEach(item => {
+        const name = item.legal_entity || item.legal_entity_name;
+        const id = item.legal_entity_id !== undefined && item.legal_entity_id !== '' ? item.legal_entity_id : name;
+        if (name && name !== '-' && !seen.has(String(name).toLowerCase())) {
+          seen.add(String(name).toLowerCase());
+          list.push({ value: id, label: String(name) });
+        }
+      });
+      if (list.length > 0) return list.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    return [];
+  }, [user]);
+
+  const resolveParentDivisions = useCallback((rawDivs, currentData = null, activeFilters = null) => {
+    if (Array.isArray(rawDivs) && rawDivs.length > 0) {
+      const parsed = [];
+      const seen = new Set();
+      rawDivs.forEach((item) => {
+        if (!item) return;
+        const val = item.value !== undefined ? item.value : (item.id !== undefined ? item.id : item);
+        const lbl = item.label !== undefined ? item.label : (item.name !== undefined ? item.name : (item.desc !== undefined ? item.desc : (typeof item === 'string' ? item : val)));
+        const strLbl = typeof lbl === 'object' ? String(lbl?.name || lbl?.label || val || '') : String(lbl || '');
+        const key = strLbl.trim();
+        if (!key || key.toLowerCase() === 'all') return;
+        if (!seen.has(key.toLowerCase())) {
+          seen.add(key.toLowerCase());
+          parsed.push({ value: val || strLbl, label: strLbl });
+        }
+      });
+      if (parsed.length > 0) return parsed.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Derive from user access scopes
+    if (user?.access_scopes && Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const scopeMap = new Map();
+      user.access_scopes.forEach((s) => {
+        if (activeFilters?.legalEntity) {
+          const leMatch = matchesScopeFilter(s.legal_entity_id, activeFilters.legalEntity) ||
+                          matchesScopeFilter(s.legal_entity_name, activeFilters.legalEntity);
+          if (!leMatch) return;
+        }
+        if (activeFilters?.legalGroup) {
+          const lgMatch = matchesScopeFilter(s.legal_group_code, activeFilters.legalGroup) ||
+                          matchesScopeFilter(s.legal_group, activeFilters.legalGroup) ||
+                          (matchesScopeFilter(1, activeFilters.legalGroup) && s.legal_group_code === 'FJ_GROUP') ||
+                          (matchesScopeFilter(2, activeFilters.legalGroup) && s.legal_group_code === 'RKME_GROUP');
+          if (!lgMatch) return;
+        }
+        const name = s.parent_division_name || s.parent_division;
+        const id = s.parent_division_id !== undefined ? s.parent_division_id : (s.parent_division_code || name);
+        if (name && !scopeMap.has(String(name).toLowerCase())) {
+          scopeMap.set(String(name).toLowerCase(), { value: id || name, label: String(name) });
+        }
+      });
+      if (scopeMap.size > 0) return Array.from(scopeMap.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Fallback: derive from divisions or details
+    const divs = currentData?.allDivisions || currentData?.divisions || [];
+    if (Array.isArray(divs) && divs.length > 0) {
+      const seen = new Set();
+      const list = [];
+      divs.forEach(item => {
+        const name = item.name || item.parent_division_name;
+        const id = item.parent_division_id !== undefined ? item.parent_division_id : (item.id || name);
+        if (name && name !== '-' && name.toLowerCase() !== 'others' && !seen.has(String(name).toLowerCase())) {
+          seen.add(String(name).toLowerCase());
+          list.push({ value: id, label: String(name) });
+        }
+      });
+      if (list.length > 0) return list.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    return [];
+  }, [user]);
+
+  const resolveSubdivisions = useCallback((rawSubdivs, currentData = null, activeFilters = null) => {
+    if (Array.isArray(rawSubdivs) && rawSubdivs.length > 0) {
+      const parsed = [];
+      const seen = new Set();
+      rawSubdivs.forEach((item) => {
+        if (!item) return;
+        const val = item.value !== undefined ? item.value : (item.id !== undefined ? item.id : item);
+        const lbl = item.label !== undefined ? item.label : (item.name !== undefined ? item.name : (item.desc !== undefined ? item.desc : (typeof item === 'string' ? item : val)));
+        const strLbl = typeof lbl === 'object' ? String(lbl?.name || lbl?.label || val || '') : String(lbl || '');
+        const key = strLbl.trim();
+        if (!key || key.toLowerCase() === 'all') return;
+        if (!seen.has(key.toLowerCase())) {
+          seen.add(key.toLowerCase());
+          parsed.push({ value: val || strLbl, label: strLbl });
+        }
+      });
+      if (parsed.length > 0) return parsed.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Derive from user access scopes
+    if (user?.access_scopes && Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const scopeMap = new Map();
+      user.access_scopes.forEach((s) => {
+        if (activeFilters?.parentDivision) {
+          const pdMatch = matchesScopeFilter(s.parent_division_id, activeFilters.parentDivision) ||
+                          matchesScopeFilter(s.parent_division_name, activeFilters.parentDivision);
+          if (!pdMatch) return;
+        }
+        if (activeFilters?.legalEntity) {
+          const leMatch = matchesScopeFilter(s.legal_entity_id, activeFilters.legalEntity) ||
+                          matchesScopeFilter(s.legal_entity_name, activeFilters.legalEntity);
+          if (!leMatch) return;
+        }
+        const name = s.subdivision_name || s.subdivision;
+        const id = s.subdivision_id !== undefined ? s.subdivision_id : (s.subdivision_code || name);
+        if (name && !scopeMap.has(String(name).toLowerCase())) {
+          scopeMap.set(String(name).toLowerCase(), { value: id || name, label: String(name) });
+        }
+      });
+      if (scopeMap.size > 0) return Array.from(scopeMap.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Fallback: derive from subdivisions or details
+    const subdivs = currentData?.allSubdivisions || currentData?.bySubdivision || [];
+    if (Array.isArray(subdivs) && subdivs.length > 0) {
+      const seen = new Set();
+      const list = [];
+      subdivs.forEach(item => {
+        const name = item.name || item.subdivision_name;
+        const id = item.subdivision_id !== undefined ? item.subdivision_id : (item.id || name);
+        if (name && name !== '-' && !seen.has(String(name).toLowerCase())) {
+          seen.add(String(name).toLowerCase());
+          list.push({ value: id, label: String(name) });
+        }
+      });
+      if (list.length > 0) return list.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    return [];
+  }, [user]);
+
+  const resolveSubinventories = useCallback((rawSubinvs, currentData = null, activeFilters = null) => {
+    if (Array.isArray(rawSubinvs) && rawSubinvs.length > 0) {
+      const parsed = [];
+      const seen = new Set();
+      rawSubinvs.forEach((item) => {
+        if (!item) return;
+        const val = item.value !== undefined ? item.value : (item.id !== undefined ? item.id : item);
+        const lbl = item.label !== undefined ? item.label : (item.name !== undefined ? item.name : (item.desc !== undefined ? item.desc : (typeof item === 'string' ? item : val)));
+        const strLbl = typeof lbl === 'object' ? String(lbl?.name || lbl?.label || val || '') : String(lbl || '');
+        const key = strLbl.trim();
+        if (!key || key.toLowerCase() === 'all') return;
+        if (!seen.has(key.toLowerCase())) {
+          seen.add(key.toLowerCase());
+          parsed.push({ value: val || strLbl, label: strLbl });
+        }
+      });
+      if (parsed.length > 0) return parsed.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Fallback 1: derive from loaded details items
+    const details = currentData?.details || [];
+    if (Array.isArray(details) && details.length > 0) {
+      const seen = new Set();
+      const list = [];
+      details.forEach(item => {
+        if (activeFilters?.parentDivision) {
+          const pdMatch = matchesScopeFilter(item.parent_division_id, activeFilters.parentDivision) ||
+                          matchesScopeFilter(item.parent_division, activeFilters.parentDivision);
+          if (!pdMatch) return;
+        }
+        if (activeFilters?.subdivision) {
+          const sdMatch = matchesScopeFilter(item.subdivision_id, activeFilters.subdivision) ||
+                          matchesScopeFilter(item.subdivision, activeFilters.subdivision);
+          if (!sdMatch) return;
+        }
+        const name = item.subinventory || item.subinventory_name;
+        const id = item.subinventory_id !== undefined && item.subinventory_id !== '' ? item.subinventory_id : name;
+        if (name && name !== '-' && !seen.has(String(name).toLowerCase())) {
+          seen.add(String(name).toLowerCase());
+          list.push({ value: id, label: String(name) });
+        }
+      });
+      if (list.length > 0) return list.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Fallback 2: derive from locations / by_location
+    const locs = currentData?.allLocations || currentData?.locations || [];
+    if (Array.isArray(locs) && locs.length > 0) {
+      const seen = new Set();
+      const list = [];
+      locs.forEach(item => {
+        const name = item.name || item.location;
+        const id = item.id !== undefined ? item.id : name;
+        if (name && name !== '-' && !seen.has(String(name).toLowerCase())) {
+          seen.add(String(name).toLowerCase());
+          list.push({ value: id, label: String(name) });
+        }
+      });
+      if (list.length > 0) return list.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    // Fallback 3: derive from user access scopes (business unit or subinventory)
+    if (user?.access_scopes && Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const scopeMap = new Map();
+      user.access_scopes.forEach((s) => {
+        if (activeFilters?.parentDivision) {
+          const pdMatch = matchesScopeFilter(s.parent_division_id, activeFilters.parentDivision) ||
+                          matchesScopeFilter(s.parent_division_name, activeFilters.parentDivision);
+          if (!pdMatch) return;
+        }
+        if (activeFilters?.subdivision) {
+          const sdMatch = matchesScopeFilter(s.subdivision_id, activeFilters.subdivision) ||
+                          matchesScopeFilter(s.subdivision_name, activeFilters.subdivision);
+          if (!sdMatch) return;
+        }
+        const name = s.business_unit_name || s.subinventory_name || s.subinventory;
+        const id = s.business_unit_id !== undefined ? s.business_unit_id : (s.subinventory_id !== undefined ? s.subinventory_id : name);
+        if (name && !scopeMap.has(String(name).toLowerCase())) {
+          scopeMap.set(String(name).toLowerCase(), { value: id || name, label: String(name) });
+        }
+      });
+      if (scopeMap.size > 0) return Array.from(scopeMap.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    }
+
+    return [];
+  }, [user]);
+
   // ============================================================
   // API STATE & LOGIC
   // ============================================================
@@ -809,10 +1088,10 @@ const [loading, setLoading] = useState(true);
   const [mockData, setMockData] = useState(() => ({
     filters: {
       legalGroups: resolveLegalGroups([]),
-      legalEntities: [],
-      parentDivisions: [],
-      subdivisions: [],
-      subinventories: [],
+      legalEntities: resolveLegalEntities([]),
+      parentDivisions: resolveParentDivisions([]),
+      subdivisions: resolveSubdivisions([]),
+      subinventories: resolveSubinventories([]),
       currencies: resolveCurrencies([]),
       dates: []
     },
@@ -951,10 +1230,10 @@ const [loading, setLoading] = useState(true);
             filters: {
                 ...prev.filters,
                 legalGroups: resolveLegalGroups(backendGroups.length > 0 ? backendGroups : prev.filters.legalGroups),
-                legalEntities: dedupeOptions(backendEntities.length > 0 ? backendEntities : prev.filters.legalEntities),
-                parentDivisions: dedupeOptions(backendParentDivs.length > 0 ? backendParentDivs : prev.filters.parentDivisions),
-                subdivisions: dedupeOptions(backendSubdivs.length > 0 ? backendSubdivs : prev.filters.subdivisions),
-                subinventories: dedupeOptions(backendSubinvs.length > 0 ? backendSubinvs : prev.filters.subinventories),
+                legalEntities: resolveLegalEntities(backendEntities.length > 0 ? backendEntities : prev.filters.legalEntities, prev, filters),
+                parentDivisions: resolveParentDivisions(backendParentDivs.length > 0 ? backendParentDivs : prev.filters.parentDivisions, prev, filters),
+                subdivisions: resolveSubdivisions(backendSubdivs.length > 0 ? backendSubdivs : prev.filters.subdivisions, prev, filters),
+                subinventories: resolveSubinventories(backendSubinvs.length > 0 ? backendSubinvs : prev.filters.subinventories, prev, filters),
                 currencies: resolveCurrencies(backendCurrencies.length > 0 ? backendCurrencies : prev.filters.currencies),
             }
         }));
@@ -1529,6 +1808,10 @@ const [loading, setLoading] = useState(true);
               };
 
               const backendGroups = fData.legal_groups || fData.legalGroups || fData.groups || [];
+              const backendEntities = fData.legal_entities || fData.legalEntities || fData.entities || [];
+              const backendParentDivs = fData.parent_divisions || fData.parentDivisions || fData.divisions || [];
+              const backendSubdivs = fData.subdivisions || fData.sub_divisions || fData.subDivisions || [];
+              const backendSubinvs = fData.subinventories || fData.sub_inventories || fData.subInventories || fData.warehouses || [];
               const backendCurrencies = fData.currencies || fData.currency_list || [];
               const backendDates = fData.as_on_dates || fData.dates || fData.available_dates || [];
 
@@ -1536,10 +1819,10 @@ const [loading, setLoading] = useState(true);
               setMockData({
                   filters: {
                       legalGroups: resolveLegalGroups(backendGroups),
-                      legalEntities: dedupeOptions(fData.legal_entities),
-                      parentDivisions: dedupeOptions(fData.parent_divisions),
-                      subdivisions: dedupeOptions(fData.subdivisions),
-                      subinventories: dedupeOptions(fData.subinventories),
+                      legalEntities: resolveLegalEntities(backendEntities, { details, allDivisions, allSubdivisions, allLocations, locations }, appliedFilters),
+                      parentDivisions: resolveParentDivisions(backendParentDivs, { details, allDivisions, allSubdivisions, allLocations, locations }, appliedFilters),
+                      subdivisions: resolveSubdivisions(backendSubdivs, { details, allDivisions, allSubdivisions, allLocations, locations }, appliedFilters),
+                      subinventories: resolveSubinventories(backendSubinvs, { details, allDivisions, allSubdivisions, allLocations, locations }, appliedFilters),
                       currencies: resolveCurrencies(backendCurrencies),
                       dates: [{value: "All", label: "All"}, ...backendDates.map(x => ({ value: x, label: x }))],
                   },
@@ -5093,7 +5376,7 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Entity</div>
                         <ModalMultiSelect
-                          options={mockData.filters.legalEntities}
+                          options={mockData.filters.legalEntities?.length > 0 ? mockData.filters.legalEntities : resolveLegalEntities([], mockData, slowMovingDraftFilters)}
                           value={slowMovingDraftFilters.legalEntity}
                           onChange={(vals) => {
                               const updateState = (prev) => {
@@ -5126,7 +5409,7 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Parent Division</div>
                         <ModalMultiSelect
-                          options={mockData.filters.parentDivisions}
+                          options={mockData.filters.parentDivisions?.length > 0 ? mockData.filters.parentDivisions : resolveParentDivisions([], mockData, slowMovingDraftFilters)}
                           value={slowMovingDraftFilters.parentDivision}
                           onChange={(vals) => {
                               const updateState = (prev) => {
@@ -5159,7 +5442,7 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Sub-Division</div>
                         <ModalMultiSelect
-                          options={mockData.filters.subdivisions}
+                          options={mockData.filters.subdivisions?.length > 0 ? mockData.filters.subdivisions : resolveSubdivisions([], mockData, slowMovingDraftFilters)}
                           value={slowMovingDraftFilters.subdivision}
                           onChange={(vals) => {
                               const updateState = (prev) => {
@@ -5192,7 +5475,7 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>SUB-INV Code</div>
                         <ModalMultiSelect
-                          options={mockData.filters.subinventories}
+                          options={mockData.filters.subinventories?.length > 0 ? mockData.filters.subinventories : resolveSubinventories([], mockData, slowMovingDraftFilters)}
                           value={slowMovingDraftFilters.subinventory}
                           onChange={(vals) => {
                               const updateState = (prev) => {
@@ -7705,6 +7988,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 const nonAll = uniqueOptions.filter(o => o.value !== "All");
                 if (nonAll.length > 0) return nonAll;
                 if (label === "Legal Group") return resolveLegalGroups([]);
+                if (label === "Legal Entity") return resolveLegalEntities([], mockData, filters);
+                if (label === "Parent Division") return resolveParentDivisions([], mockData, filters);
+                if (label === "Sub-Division") return resolveSubdivisions([], mockData, filters);
+                if (label === "Subinventory") return resolveSubinventories([], mockData, filters);
                 return [];
               })()} 
               value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 

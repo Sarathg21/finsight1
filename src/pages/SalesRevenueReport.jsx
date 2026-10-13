@@ -3940,7 +3940,7 @@ export default function SalesRevenueReport() {
           </motion.div>
 
 
-          {filterOptions.legalEntities.length > 2 && (
+          {(filterOptions.legalEntities.length > 1 || legalEntData.length > 0) && (
           <div className="card" style={{ padding: '16px 16px 16px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
 
             {/* Header */}
@@ -4068,7 +4068,7 @@ export default function SalesRevenueReport() {
           )}
 
 
-          {filterOptions.parentDivs.length > 2 && (
+          {(filterOptions.parentDivs.length > 1 || parentDivData.length > 0) && (
           <div className="card" style={{ padding: '12px 16px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
@@ -4190,7 +4190,7 @@ export default function SalesRevenueReport() {
         {/* Uses flex-wrap so that when any chart is conditionally hidden, remaining cards reflow naturally */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--card-gap, 16px)', marginBottom: 16, alignItems: 'stretch' }}>
           {/* 1. Subdivision */}
-          {filterOptions.subDivs.length > 2 && (
+          {(filterOptions.subDivs.length > 1 || subDivData.length > 0) && (
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
