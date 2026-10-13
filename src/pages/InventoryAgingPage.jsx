@@ -27,6 +27,51 @@ function getRawDateForInputGlobal(d) {
   return "";
 }
 
+const toApiLegalGroupId = (val) => {
+  if (!val || val === "All") return null;
+  const rawList = Array.isArray(val) ? val : [val];
+  const cleanList = rawList
+    .filter(v => v !== "All" && v !== null && v !== undefined && v !== "")
+    .map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
+
+  if (cleanList.length === 0) return null;
+
+  const parsedIds = cleanList.map(v => {
+    if (typeof v === 'number' && !isNaN(v)) {
+      if (v === 1) return 4;
+      if (v === 2) return 3;
+      return v;
+    }
+    const s = String(v).trim().toLowerCase();
+    if (s === "all") return null;
+    if (s === "4" || s === "1" || s.includes("fj")) return 4;
+    if (s === "3" || s === "2" || s.includes("rkme")) return 3;
+    const parsed = parseInt(s, 10);
+    return isNaN(parsed) ? null : parsed;
+  }).filter(v => v !== null);
+
+  return parsedIds.length > 0 ? parsedIds : null;
+};
+
+const toApiIdList = (val) => {
+  if (!val || val === "All") return null;
+  const rawList = Array.isArray(val) ? val : [val];
+  const cleanList = rawList
+    .filter(v => v !== "All" && v !== null && v !== undefined && v !== "")
+    .map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
+
+  if (cleanList.length === 0) return null;
+
+  const parsedIds = cleanList.map(v => {
+    if (typeof v === 'number' && !isNaN(v)) return v;
+    const s = String(v).trim();
+    const parsed = parseInt(s, 10);
+    return isNaN(parsed) ? s : parsed;
+  });
+
+  return parsedIds.length > 0 ? parsedIds : null;
+};
+
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle, Info, ChevronDown } from "lucide-react";
@@ -162,7 +207,7 @@ export default function InventoryOverview() {
         const code = s.legal_group_code || s.legal_group;
         if (code) {
           const label = code === 'FJ_GROUP' ? 'FJ Group' : (code === 'RKME_GROUP' ? 'RKME Group' : String(code));
-          const val = code === 'FJ_GROUP' ? 1 : (code === 'RKME_GROUP' ? 2 : code);
+          const val = code === 'FJ_GROUP' ? 4 : (code === 'RKME_GROUP' ? 3 : (s.legal_group_id || code));
           if (!scopeMap.has(label.toLowerCase())) {
             scopeMap.set(label.toLowerCase(), { value: val, label });
           }
@@ -177,12 +222,12 @@ export default function InventoryOverview() {
     const role = String(user?.role_code || user?.role || '').toLowerCase();
     if (['cfo', 'board', 'admin'].includes(role)) {
       return [
-        { value: 1, label: "FJ Group" },
-        { value: 2, label: "RKME Group" },
+        { value: 4, label: "FJ Group" },
+        { value: 3, label: "RKME Group" },
       ];
     }
 
-    return [{ value: 1, label: "FJ Group" }];
+    return [{ value: 4, label: "FJ Group" }];
   }, [user]);
 
   // Helper to ensure Currencies always have valid options and never render blank
@@ -513,20 +558,16 @@ export default function InventoryOverview() {
       }
       
       const apiFilters = {};
-      const getApiVal = (val) => {
-        if (!val || val === "All") return null;
-        if (Array.isArray(val)) {
-          const c = val.filter(v => v !== "All");
-          return c.length > 0 ? c : null;
-        }
-        return [val];
-      };
-      
-      if (getApiVal(activeF.legalGroup)) apiFilters.legal_group_id = getApiVal(activeF.legalGroup);
-      if (getApiVal(activeF.legalEntity)) apiFilters.legal_entity_id = getApiVal(activeF.legalEntity);
-      if (getApiVal(activeF.parentDivision)) apiFilters.parent_division_id = getApiVal(activeF.parentDivision);
-      if (getApiVal(activeF.subdivision)) apiFilters.subdivision_id = getApiVal(activeF.subdivision);
-      if (getApiVal(activeF.subinventory)) apiFilters.subinventory_id = getApiVal(activeF.subinventory);
+      const expLg = toApiLegalGroupId(activeF.legalGroup);
+      if (expLg) apiFilters.legal_group_id = expLg;
+      const expLe = toApiIdList(activeF.legalEntity);
+      if (expLe) apiFilters.legal_entity_id = expLe;
+      const expPd = toApiIdList(activeF.parentDivision);
+      if (expPd) apiFilters.parent_division_id = expPd;
+      const expSd = toApiIdList(activeF.subdivision);
+      if (expSd) apiFilters.subdivision_id = expSd;
+      const expSi = toApiIdList(activeF.subinventory);
+      if (expSi) apiFilters.subinventory_id = expSi;
       
       if (activeF.currency && activeF.currency !== "All") apiFilters.reporting_currency = activeF.currency;
       if (formattedDate) apiFilters.as_on_date = formattedDate;
@@ -672,19 +713,19 @@ export default function InventoryOverview() {
 
   const [appliedFilters, setAppliedFilters] = useState({
       legalGroup: ["All"],
-      legalEntity: [],
-      parentDivision: [],
-      subdivision: [],
-      subinventory: [],
+      legalEntity: ["All"],
+      parentDivision: ["All"],
+      subdivision: ["All"],
+      subinventory: ["All"],
       currency: "AED",
       asOnDate: "All",
   });
   const [filters, setFilters] = useState({
       legalGroup: ["All"],
-      legalEntity: [],
-      parentDivision: [],
-      subdivision: [],
-      subinventory: [],
+      legalEntity: ["All"],
+      parentDivision: ["All"],
+      subdivision: ["All"],
+      subinventory: ["All"],
       currency: "AED",
       asOnDate: "All",
   });
@@ -1181,21 +1222,17 @@ const [loading, setLoading] = useState(true);
   // Automatically fetch cascaded options when pending filters change
   useEffect(() => {
     const fetchOptions = async () => {
-      const getApiVal = (val) => {
-        if (!val || val === "All") return null;
-        if (Array.isArray(val)) {
-            const c = val.filter(v => v !== "All");
-            return c.length > 0 ? c : null;
-        }
-        return [val];
-      };
-      
       const apiFilters = {};
-      if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
-      if (getApiVal(filters.legalEntity)) apiFilters.legal_entity_id = getApiVal(filters.legalEntity);
-      if (getApiVal(filters.parentDivision)) apiFilters.parent_division_id = getApiVal(filters.parentDivision);
-      if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
-      if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
+      const optLg = toApiLegalGroupId(filters.legalGroup);
+      if (optLg) apiFilters.legal_group_id = optLg;
+      const optLe = toApiIdList(filters.legalEntity);
+      if (optLe) apiFilters.legal_entity_id = optLe;
+      const optPd = toApiIdList(filters.parentDivision);
+      if (optPd) apiFilters.parent_division_id = optPd;
+      const optSd = toApiIdList(filters.subdivision);
+      if (optSd) apiFilters.subdivision_id = optSd;
+      const optSi = toApiIdList(filters.subinventory);
+      if (optSi) apiFilters.subinventory_id = optSi;
       
       try {
         const filterRes = await getInventoryFilters(apiFilters);
@@ -1408,23 +1445,16 @@ const [loading, setLoading] = useState(true);
           }
 
           const apiFilters = {};
-          const getApiVal = (val) => {
-              if (!val || val === "All") return null;
-              if (Array.isArray(val)) {
-                  const c = val.filter(v => v !== "All").map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
-                  return c.length > 0 ? c : null;
-              }
-              if (typeof val === 'object' && val !== null) {
-                  return [val.value ?? val.id];
-              }
-              return [val];
-          };
-          
-          if (getApiVal(appliedFilters.legalGroup)) apiFilters.legal_group_id = getApiVal(appliedFilters.legalGroup);
-          if (getApiVal(appliedFilters.legalEntity)) apiFilters.legal_entity_id = getApiVal(appliedFilters.legalEntity);
-          if (getApiVal(appliedFilters.parentDivision)) apiFilters.parent_division_id = getApiVal(appliedFilters.parentDivision);
-          if (getApiVal(appliedFilters.subdivision)) apiFilters.subdivision_id = getApiVal(appliedFilters.subdivision);
-          if (getApiVal(appliedFilters.subinventory)) apiFilters.subinventory_id = getApiVal(appliedFilters.subinventory);
+          const loadLg = toApiLegalGroupId(appliedFilters.legalGroup);
+          if (loadLg) apiFilters.legal_group_id = loadLg;
+          const loadLe = toApiIdList(appliedFilters.legalEntity);
+          if (loadLe) apiFilters.legal_entity_id = loadLe;
+          const loadPd = toApiIdList(appliedFilters.parentDivision);
+          if (loadPd) apiFilters.parent_division_id = loadPd;
+          const loadSd = toApiIdList(appliedFilters.subdivision);
+          if (loadSd) apiFilters.subdivision_id = loadSd;
+          const loadSi = toApiIdList(appliedFilters.subinventory);
+          if (loadSi) apiFilters.subinventory_id = loadSi;
           
           if (appliedFilters.currency && appliedFilters.currency !== "All") apiFilters.reporting_currency = appliedFilters.currency;
           if (formattedDate) apiFilters.as_on_date = formattedDate;
@@ -1916,22 +1946,11 @@ const [loading, setLoading] = useState(true);
           page_size: 500,
           limit: 500,
         };
-        const getApiVal = (val) => {
-          if (!val || val === "All") return null;
-          if (Array.isArray(val)) {
-            const c = val.filter(v => v !== "All").map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
-            return c.length > 0 ? c : null;
-          }
-          if (typeof val === 'object' && val !== null) {
-            return [val.value ?? val.id];
-          }
-          return [val];
-        };
-        const effectiveLegalGroup = getApiVal(modalDetailsFilters.legalGroup) || getApiVal(appliedFilters.legalGroup) || getApiVal(filters.legalGroup);
-        const effectiveLegalEntity = getApiVal(modalDetailsFilters.legalEntity) || getApiVal(appliedFilters.legalEntity) || getApiVal(filters.legalEntity);
-        const effectiveParentDivision = getApiVal(modalDetailsFilters.parentDivision) || getApiVal(appliedFilters.parentDivision) || getApiVal(filters.parentDivision);
-        const effectiveSubdivision = getApiVal(modalDetailsFilters.subdivision) || getApiVal(appliedFilters.subdivision) || getApiVal(filters.subdivision);
-        const effectiveSubinventory = getApiVal(modalDetailsFilters.subinventory) || getApiVal(appliedFilters.subinventory) || getApiVal(filters.subinventory);
+        const effectiveLegalGroup = toApiLegalGroupId(modalDetailsFilters.legalGroup) || toApiLegalGroupId(appliedFilters.legalGroup) || toApiLegalGroupId(filters.legalGroup);
+        const effectiveLegalEntity = toApiIdList(modalDetailsFilters.legalEntity) || toApiIdList(appliedFilters.legalEntity) || toApiIdList(filters.legalEntity);
+        const effectiveParentDivision = toApiIdList(modalDetailsFilters.parentDivision) || toApiIdList(appliedFilters.parentDivision) || toApiIdList(filters.parentDivision);
+        const effectiveSubdivision = toApiIdList(modalDetailsFilters.subdivision) || toApiIdList(appliedFilters.subdivision) || toApiIdList(filters.subdivision);
+        const effectiveSubinventory = toApiIdList(modalDetailsFilters.subinventory) || toApiIdList(appliedFilters.subinventory) || toApiIdList(filters.subinventory);
 
         if (effectiveLegalGroup) apiFilters.legal_group_id = effectiveLegalGroup;
         if (effectiveLegalEntity) apiFilters.legal_entity_id = effectiveLegalEntity;
@@ -2042,22 +2061,11 @@ const [loading, setLoading] = useState(true);
           }
         }
         const apiFilters = {};
-        const getApiVal = (val) => {
-          if (!val || val === "All") return null;
-          if (Array.isArray(val)) {
-            const c = val.filter(v => v !== "All").map(v => (typeof v === 'object' && v !== null ? (v.value ?? v.id) : v));
-            return c.length > 0 ? c : null;
-          }
-          if (typeof val === 'object' && val !== null) {
-            return [val.value ?? val.id];
-          }
-          return [val];
-        };
-        const effectiveLG = getApiVal(modalDetailsFilters?.legalGroup) || getApiVal(appliedFilters.legalGroup);
-        const effectiveLE = getApiVal(modalDetailsFilters?.legalEntity) || getApiVal(appliedFilters.legalEntity);
-        const effectivePD = getApiVal(modalDetailsFilters?.parentDivision) || getApiVal(appliedFilters.parentDivision);
-        const effectiveSD = getApiVal(modalDetailsFilters?.subdivision) || getApiVal(appliedFilters.subdivision);
-        const effectiveSI = getApiVal(modalDetailsFilters?.subinventory) || getApiVal(appliedFilters.subinventory) || (viewAllDetailFilters?.subinventory_id ? [viewAllDetailFilters.subinventory_id] : null) || (viewAllDetailFilters?.subinventory ? [viewAllDetailFilters.subinventory] : null);
+        const effectiveLG = toApiLegalGroupId(modalDetailsFilters?.legalGroup) || toApiLegalGroupId(appliedFilters.legalGroup);
+        const effectiveLE = toApiIdList(modalDetailsFilters?.legalEntity) || toApiIdList(appliedFilters.legalEntity);
+        const effectivePD = toApiIdList(modalDetailsFilters?.parentDivision) || toApiIdList(appliedFilters.parentDivision);
+        const effectiveSD = toApiIdList(modalDetailsFilters?.subdivision) || toApiIdList(appliedFilters.subdivision);
+        const effectiveSI = toApiIdList(modalDetailsFilters?.subinventory) || toApiIdList(appliedFilters.subinventory) || (viewAllDetailFilters?.subinventory_id ? [viewAllDetailFilters.subinventory_id] : null) || (viewAllDetailFilters?.subinventory ? [viewAllDetailFilters.subinventory] : null);
 
         if (effectiveLG) apiFilters.legal_group_id = effectiveLG;
         if (effectiveLE) apiFilters.legal_entity_id = effectiveLE;
@@ -2154,10 +2162,10 @@ const [loading, setLoading] = useState(true);
   const resetFilters = () => {
     const def = {
       legalGroup: ["All"],
-      legalEntity: [],
-      parentDivision: [],
-      subdivision: [],
-      subinventory: [],
+      legalEntity: ["All"],
+      parentDivision: ["All"],
+      subdivision: ["All"],
+      subinventory: ["All"],
       currency: "AED",
       asOnDate: "All",
     };
@@ -7744,10 +7752,15 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
     ? uniqueOptions.filter(o => o.name.toLowerCase().includes(q))
     : uniqueOptions;
 
-  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+  const allRealIds = uniqueOptions.map(o => String(o.value ?? o.id));
+
+  const isAll = !value || 
+    (typeof value === 'string' && value.toLowerCase() === 'all') ||
+    (Array.isArray(value) && value.length === 1 && String(value[0]).toLowerCase() === 'all') ||
+    (Array.isArray(value) && allRealIds.length > 0 && value.length === allRealIds.length && allRealIds.every(id => value.some(v => String(v).toLowerCase() === id.toLowerCase())));
 
   const isOptionSelected = (opt) => {
-    if (isAll) return false;
+    if (isAll) return true;
     const optVal = String(opt.value ?? opt.id).toLowerCase();
     const optName = String(opt.name ?? opt.label).toLowerCase();
     return (value || []).some(v => {
@@ -7760,8 +7773,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
     const optVal = String(opt.value ?? opt.id);
     const optName = String(opt.name ?? opt.label);
     
-    // When currently "All", selecting one item sets value to ONLY this item
-    const cur = isAll ? [] : (value || []).filter(v => String(v) !== 'All').map(String);
+    const cur = isAll ? allRealIds : (value || []).filter(v => String(v) !== 'All').map(String);
     const selected = isOptionSelected(opt);
 
     let next;
@@ -7774,7 +7786,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       next = [...cur, optVal];
     }
 
-    if (next.length === 0 || (uniqueOptions.length > 0 && next.length === uniqueOptions.length)) {
+    if (next.length === 0 || (allRealIds.length > 0 && next.length === allRealIds.length)) {
       onChange(['All']);
     } else {
       onChange(next);
@@ -7984,17 +7996,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         ) : (
           <div style={{ ...styles.selectWrapper, border: "none", background: "transparent", padding: 0 }}>
             <MultiSelectDropdown 
-              options={(() => {
-                const nonAll = uniqueOptions.filter(o => o.value !== "All");
-                if (nonAll.length > 0) return nonAll;
-                if (label === "Legal Group") return resolveLegalGroups([]);
-                if (label === "Legal Entity") return resolveLegalEntities([], mockData, filters);
-                if (label === "Parent Division") return resolveParentDivisions([], mockData, filters);
-                if (label === "Sub-Division") return resolveSubdivisions([], mockData, filters);
-                if (label === "Subinventory") return resolveSubinventories([], mockData, filters);
-                return [];
-              })()} 
-              value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
+              options={uniqueOptions.filter(o => o.value !== "All")} 
+              value={Array.isArray(value) ? value : [value || "All"]} 
               onChange={(valArr) => onChange(valArr)} 
               placeholder="All"
               label={label}
