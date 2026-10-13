@@ -1831,7 +1831,7 @@ const [loading, setLoading] = useState(true);
     };
     fetchModalSection();
     return () => { active = false; };
-  }, [viewAllModal, viewAllSection, appliedFilters]);
+  }, [viewAllModal, viewAllSection, appliedFilters, modalDetailsFilters, slowMovingFilters, momYear]);
 
 
 
@@ -3746,7 +3746,7 @@ const [loading, setLoading] = useState(true);
 
   const slowMovingFilteredStats = useMemo(() => {
     const map = {};
-    const list = mockData.details || [];
+    const list = (modalApiItems && modalApiItems.length > 0) ? modalApiItems : (mockData.details || []);
     const leMap = new Map(); (mockData.filters.legalEntities || []).forEach(x => { if (x?.id) leMap.set(String(x.id), x.name); });
     const pdMap = new Map(); (mockData.filters.parentDivisions || []).forEach(x => { if (x?.id) pdMap.set(String(x.id), x.name); });
     const sdMap = new Map(); (mockData.filters.subdivisions || []).forEach(x => { if (x?.id) sdMap.set(String(x.id), x.name); });
@@ -3793,7 +3793,7 @@ const [loading, setLoading] = useState(true);
     });
 
     return { map, isFiltered };
-  }, [mockData.details, slowMovingFilters, mockData.filters]);
+  }, [mockData.details, modalApiItems, slowMovingFilters, mockData.filters]);
 
   const modalTotals = useMemo(() => {
     if (viewAllModal !== "details") {
@@ -6158,6 +6158,9 @@ const detailsSource = modalFilteredDetails || [];
                             return false;
                           }
                           if (slowMovingFilteredStats.isFiltered) {
+                            if (hasValidDivisions) {
+                              return true;
+                            }
                             return Boolean(slowMovingFilteredStats.map[name]);
                           }
                           return true;
