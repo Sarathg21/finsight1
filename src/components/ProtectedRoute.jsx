@@ -26,15 +26,29 @@ export default function ProtectedRoute({
    * -----------------------------------------------------------
    * Centralized RBAC authorization
    * - /profile: Allowed for any authenticated user session
-   * - Admin routes: USER_MANAGEMENT view or admin permission
+   * - Admin parent route: USER_MANAGEMENT or MASTER_DATA view/admin permission
+   * - Admin child routes: Exact module permission checks per page
    * - Report routes: canonical route registry check via canAccess(pageKey)
    * -----------------------------------------------------------
    */
   let allowed = false;
   if (pageKey === 'profile') {
     allowed = Boolean(user);
-  } else if (adminOnly || pageKey === 'admin') {
-    allowed = Boolean(canAdmin?.('USER_MANAGEMENT') || canView?.('USER_MANAGEMENT'));
+  } else if (pageKey === 'admin/master-data' || pageKey === 'master-data') {
+    allowed = Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
+  } else if (
+    pageKey === 'admin/users' || pageKey === 'users' ||
+    pageKey === 'admin/roles' || pageKey === 'roles' ||
+    pageKey === 'admin/useraccess' || pageKey === 'useraccess'
+  ) {
+    allowed = Boolean(canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
+  } else if (adminOnly || pageKey === 'admin' || pageKey === 'admin/dashboard' || pageKey === 'admin-dashboard') {
+    allowed = Boolean(
+      canAdmin?.('USER_MANAGEMENT') ||
+      canView?.('USER_MANAGEMENT') ||
+      canAdmin?.('MASTER_DATA') ||
+      canView?.('MASTER_DATA')
+    );
   } else {
     allowed = Boolean(canAccess?.(pageKey));
   }

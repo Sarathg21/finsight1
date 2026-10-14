@@ -70,6 +70,9 @@ function LandingRedirect() {
   if (canView?.('USER_MANAGEMENT')) {
     return <Navigate to="/admin/dashboard" replace />;
   }
+  if (canView?.('MASTER_DATA')) {
+    return <Navigate to="/admin/master-data" replace />;
+  }
   return <Navigate to="/profile" replace />;
 }
 
@@ -114,14 +117,14 @@ function App() {
               {/* <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} /> */}
             </Route>
 
-            {/* Admin Module Routes - Uses main Layout (shared sidebar) */}
+            {/* Admin Module Routes - Uses main Layout with page-level authorization */}
             <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<Layout />} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminMainDashboard />} />
-              <Route path="users" element={<UsersDashboard />} />
-              <Route path="roles" element={<RolesDashboard />} />
-              <Route path="useraccess" element={<UserAccessManagement />} />
-              <Route path="master-data" element={<MasterDataDashboard />} />
+              <Route path="dashboard" element={<ProtectedRoute pageKey="admin/dashboard" element={<AdminMainDashboard />} />} />
+              <Route path="users" element={<ProtectedRoute pageKey="admin/users" element={<UsersDashboard />} />} />
+              <Route path="roles" element={<ProtectedRoute pageKey="admin/roles" element={<RolesDashboard />} />} />
+              <Route path="useraccess" element={<ProtectedRoute pageKey="admin/useraccess" element={<UserAccessManagement />} />} />
+              <Route path="master-data" element={<ProtectedRoute pageKey="admin/master-data" element={<MasterDataDashboard />} />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

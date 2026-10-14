@@ -578,27 +578,36 @@ export function AuthProvider({ children }) {
     if (!user) return [];
     if (Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
       const hasAll = user.access_scopes.some(
-        s => !s.legal_entity_name || s.legal_entity_name === 'All Entities' || s.legal_entity_name === 'ALL'
+        s => s.legal_entity_name === 'All Entities' || s.legal_entity_name === 'ALL'
       );
       if (hasAll) return ALL_ENTITIES;
       const allowedNames = new Set(user.access_scopes.map(s => s.legal_entity_name).filter(Boolean));
       return ALL_ENTITIES.filter(e => allowedNames.has(e.name));
     }
-    return ALL_ENTITIES;
+    return [];
   }
 
   function getScopedCountries() {
     if (!user) return [];
     if (Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const hasAll = user.access_scopes.some(
+        s => s.country === 'ALL' || s.country === 'All Countries' || s.legal_entity_name === 'All Entities' || s.legal_entity_name === 'ALL'
+      );
+      if (hasAll) return ALL_COUNTRIES;
       const allowedCountries = new Set();
       user.access_scopes.forEach(s => {
-        if (s.country) allowedCountries.add(s.country);
+        if (s.country) {
+          allowedCountries.add(s.country);
+        } else if (s.legal_entity_name) {
+          const matched = ALL_ENTITIES.find(e => e.name === s.legal_entity_name);
+          if (matched?.country) allowedCountries.add(matched.country);
+        }
       });
       if (allowedCountries.size > 0) {
         return Array.from(allowedCountries);
       }
     }
-    return ALL_COUNTRIES;
+    return [];
   }
 
   function getScopedSalesperson() {
