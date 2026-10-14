@@ -4628,6 +4628,7 @@
 
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ResponsiveContainer,
@@ -7133,6 +7134,8 @@ function Modal({
 }
 
 export default function FinancialPosition() {
+    const { canExport } = useAuth();
+    const canExportFP = Boolean(canExport?.('FINANCIAL_POSITION'));
     const { isMobile, isSmall, isTablet, isMedium } = useResponsiveColumns();
 
     const defaultFilters = useMemo(() => ({
@@ -7816,7 +7819,10 @@ export default function FinancialPosition() {
         ["Total Current Liabilities", dashboard.composition.totalCurrentLiabilities === null ? "—" : `${formatM(dashboard.composition.totalCurrentLiabilities)} ${appliedFilters.reportingCurrency} M`],
     ];
 
-    const exportDashboard = (format) => exportRows("Financial Position Overview", ["Financial Position Overview", "Value"], dashboardExportRows, format, "financial-position-overview.xls");
+    const exportDashboard = (format) => {
+        if (!canExportFP) return;
+        exportRows("Financial Position Overview", ["Financial Position Overview", "Value"], dashboardExportRows, format, "financial-position-overview.xls");
+    };
 
     const sectionRows = (type) => {
         if (type === "assets" || type === "liabilities") {
@@ -7915,6 +7921,7 @@ export default function FinancialPosition() {
     };
 
     const downloadBackendExport = async (requestFn, filename, filtersOverride = appliedFilters) => {
+        if (!canExportFP) return;
         try {
             const response = await requestFn(buildApiFilters(filtersOverride));
             const blob = response?.data instanceof Blob
@@ -7940,6 +7947,7 @@ export default function FinancialPosition() {
     };
 
     const exportSection = (type, format, filtersOverride = appliedFilters) => {
+        if (!canExportFP) return;
         const suffix = format === "excel" ? "xlsx" : "pdf";
         const sectionFilenames = {
             assets: "current-assets-detailed-view",
@@ -8845,10 +8853,12 @@ export default function FinancialPosition() {
                             <span style={{ color: "#16a34a", fontWeight: 700 }}>Currency: {appliedFilters.reportingCurrency}</span>
                         </p>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-                        <button type="button" onClick={() => exportDashboard("excel")} style={headerBtn("#ecfdf5", "#15803d", "#bbf7d0")}>📊&nbsp; Excel</button>
-                        <button type="button" onClick={() => exportDashboard("pdf")} style={headerBtn("#fef2f2", "#dc2626", "#fecaca")}>📄&nbsp; PDF</button>
-                    </div>
+                    {canExportFP && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+                            <button type="button" onClick={() => exportDashboard("excel")} style={headerBtn("#ecfdf5", "#15803d", "#bbf7d0")}>📊&nbsp; Excel</button>
+                            <button type="button" onClick={() => exportDashboard("pdf")} style={headerBtn("#fef2f2", "#dc2626", "#fecaca")}>📄&nbsp; PDF</button>
+                        </div>
+                    )}
                 </motion.header>
 
                 <motion.div className="fp-filter-shell" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 16 }}>

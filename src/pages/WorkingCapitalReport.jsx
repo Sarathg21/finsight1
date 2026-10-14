@@ -9462,6 +9462,7 @@
 
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import { createPortal } from "react-dom";
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
 import {
@@ -14640,6 +14641,9 @@ const tdRight = {
 ============================================================ */
 
 export default function WorkingCapitalReport() {
+    const { canExport } = useAuth();
+    const canExportWC = Boolean(canExport?.('WORKING_CAPITAL'));
+
     const [filters, setFilters] = useState({
         legalGroups: [],
         legalEntities: [],
@@ -15201,6 +15205,7 @@ export default function WorkingCapitalReport() {
         overrideFilters = null,
         overrideRows = null
     ) {
+        if (!canExportWC) return;
         setExporting(true);
         setError("");
 
@@ -15310,6 +15315,7 @@ export default function WorkingCapitalReport() {
         _section,
         overrideFilters = null
     ) {
+        if (!canExportWC) return;
         setExporting(true);
         setError("");
 
@@ -15355,7 +15361,7 @@ export default function WorkingCapitalReport() {
     }
 
     async function handleHeaderExport(format) {
-        if (exporting) return;
+        if (!canExportWC || exporting) return;
         setExporting(true);
         try {
             const kpisRows = kpis ? Object.entries(kpis).map(([key, value]) => ({ metric: key, value })) : [];
@@ -16304,34 +16310,38 @@ export default function WorkingCapitalReport() {
                             styles.headerActions
                         }
                     >
-                        <button
-                            type="button"
-                            onClick={() => handleHeaderExport("excel")}
-                            disabled={exporting}
-                            style={{
-                                ...styles.button,
-                                color: "#15803D",
-                                background: "#F0FDF4",
-                                borderColor: "#BBF7D0",
-                                minWidth: 78,
-                            }}
-                        >
-                            {exporting ? "⏳" : "📊"} Excel
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleHeaderExport("pdf")}
-                            disabled={exporting}
-                            style={{
-                                ...styles.button,
-                                color: "#BE123C",
-                                background: "#FFF1F2",
-                                borderColor: "#FECDD3",
-                                minWidth: 72,
-                            }}
-                        >
-                            {exporting ? "⏳" : "📄"} PDF
-                        </button>
+                        {canExportWC && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => handleHeaderExport("excel")}
+                                    disabled={exporting}
+                                    style={{
+                                        ...styles.button,
+                                        color: "#15803D",
+                                        background: "#F0FDF4",
+                                        borderColor: "#BBF7D0",
+                                        minWidth: 78,
+                                    }}
+                                >
+                                    {exporting ? "⏳" : "📊"} Excel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleHeaderExport("pdf")}
+                                    disabled={exporting}
+                                    style={{
+                                        ...styles.button,
+                                        color: "#BE123C",
+                                        background: "#FFF1F2",
+                                        borderColor: "#FECDD3",
+                                        minWidth: 72,
+                                    }}
+                                >
+                                    {exporting ? "⏳" : "📄"} PDF
+                                </button>
+                            </>
+                        )}
 
                         <button
                             type="button"

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuditProvider } from './context/AuditContext';
 import { FilterProvider } from './context/FilterContext';
 import Layout from './components/Layout';
@@ -50,6 +50,29 @@ const PlaceholderPage = ({ title }) => (
   </div>
 );
 
+// Permission-aware Landing Page Resolver (Specification Section 5)
+function LandingRedirect() {
+  const { user, loading, resolveLanding, canView } = useAuth();
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', color: 'var(--clr-text-muted)' }}>
+        Resolving destination...
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  const target = resolveLanding?.();
+  if (target) {
+    return <Navigate to={target} replace />;
+  }
+  if (canView?.('USER_MANAGEMENT')) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <Navigate to="/profile" replace />;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -61,7 +84,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             <Route element={<FilterProvider><Layout /></FilterProvider>}>
-              <Route path="/" element={<Navigate to="/exec-dashboard" replace />} />
+              <Route path="/" element={<LandingRedirect />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
               {/* <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} /> */}
               <Route path="/profile" element={<ProtectedRoute pageKey="profile" element={<MyProfile />} />} />

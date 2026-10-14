@@ -91,12 +91,17 @@ const NAV_BY_ROLE = {
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
     { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue', group: 'Reports' },
+    { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
+    { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
   ],
   bu_manager: [
     { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
     { to: '/financial-position', label: 'Financial Position', group: 'BU Reports' },
     { to: '/revenue', label: 'Sales Revenue', group: 'BU Reports' },
+    { to: '/receivables', label: 'Receivables Report', group: 'BU Reports' },
+    { to: '/payables', label: 'Payables Report', group: 'BU Reports' },
+    { to: '/inventory', label: 'Inventory Overview', group: 'BU Reports' },
   ],
   accountant: [
     { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
@@ -105,6 +110,9 @@ const NAV_BY_ROLE = {
     { to: '/balance-sheet', label: 'Balance Sheet', group: 'Finance' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Finance' },
     { to: '/revenue', label: 'Sales Revenue', group: 'Finance' },
+    { to: '/receivables', label: 'Receivables Report', group: 'Finance' },
+    { to: '/payables', label: 'Payables Report', group: 'Finance' },
+    { to: '/inventory', label: 'Inventory Overview', group: 'Finance' },
   ],
   sales: [
     { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
@@ -113,13 +121,40 @@ const NAV_BY_ROLE = {
 };
 
 /* â”€â”€ Role theme helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function normalizeRole(role) {
+  const r = (role || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (r === 'bu_accountant') return 'accountant';
+  if (r === 'sales_engineer') return 'sales';
+  return r;
+}
+
 function roleBg(role) {
-  const m = { board: '#eef2ff', cfo: '#eef2ff', executive: '#f5f3ff', gm: '#eff6ff', bu_manager: '#eff6ff', accountant: '#f0fdf4', sales: '#fff1f2' };
-  return m[role] || '#eef2ff';
+  const r = normalizeRole(role);
+  const m = {
+    board: '#eef2ff',
+    cfo: '#eef2ff',
+    admin: '#eef2ff',
+    executive: '#f5f3ff',
+    gm: '#eff6ff',
+    bu_manager: '#eff6ff',
+    accountant: '#f0fdf4',
+    sales: '#fff1f2',
+  };
+  return m[r] || '#eef2ff';
 }
 function roleColor(role) {
-  const m = { board: '#6366f1', cfo: '#6366f1', executive: '#7c3aed', gm: '#2563eb', bu_manager: '#2563eb', accountant: '#16a34a', sales: '#f43f5e' };
-  return m[role] || '#6366f1';
+  const r = normalizeRole(role);
+  const m = {
+    board: '#6366f1',
+    cfo: '#6366f1',
+    admin: '#6366f1',
+    executive: '#7c3aed',
+    gm: '#2563eb',
+    bu_manager: '#2563eb',
+    accountant: '#16a34a',
+    sales: '#f43f5e',
+  };
+  return m[r] || '#6366f1';
 }
 
 /* â”€â”€ Tooltip wrapper for collapsed mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -133,18 +168,31 @@ function Tip({ label, children, show }) {
 }
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
-  const { user, logout } = useAuth();
+  const { user, logout, canAccess, canView, canAdmin } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
-  const navItems = NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.cfo;
+  const roleKey = normalizeRole(user?.role_code || user?.role);
+  const navItems = NAV_BY_ROLE[roleKey] || NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.cfo;
   const isExpanded = !collapsed;
-  const accentColor = roleColor(user?.role);
+  const accentColor = roleColor(roleKey);
+
+  /* Filter navigation using canonical route registry and backend-derived canView */
+  const permittedNavItems = navItems.filter(item => {
+    if (!item?.to) return false;
+    if (item.to.startsWith('/admin')) {
+      if (item.to === '/admin/master-data') {
+        return Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
+      }
+      return Boolean(canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
+    }
+    return Boolean(canAccess?.(item.to));
+  });
 
   /* Filter by search query */
   const filtered = query.trim()
-    ? navItems.filter(i => i.label.toLowerCase().includes(query.toLowerCase()))
-    : navItems;
+    ? permittedNavItems.filter(i => i.label.toLowerCase().includes(query.toLowerCase()))
+    : permittedNavItems;
 
   /* Group filtered items */
   const grouped = filtered.reduce((acc, item) => {

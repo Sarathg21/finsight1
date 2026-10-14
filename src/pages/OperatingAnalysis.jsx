@@ -4,6 +4,7 @@ import React, { useEffect, useState, } from "react";
 import ExportButtons from "../components/Common/ExportButtons";
 import FooterNote from "../components/FooterNote";
 import Filters from "../components/Filters/Filters";
+import { useAuth } from "../context/AuthContext";
 
 import ActualVsTargetChart from "../components/Charts/ActualvsTargetChart";
 import OpexCompositionChart from "../components/Charts/OpexCompositionChart";
@@ -1089,6 +1090,8 @@ const operatingAnalysisUniformStyles = `
 ========================================================= */
 
 export default function OperatingAnalysis() {
+    const { canExport } = useAuth();
+    const canExportOpex = Boolean(canExport?.('OPERATING_EXPENSES'));
 
     /* =====================================================
        DATA AS OF
@@ -1275,6 +1278,10 @@ export default function OperatingAnalysis() {
         type,
         format
     ) => {
+        if (!canExportOpex) {
+            setError("You do not have permission to export operating expenses data.");
+            return;
+        }
 
         const hasSelectedPeriod =
             Array.isArray(
@@ -1369,6 +1376,10 @@ export default function OperatingAnalysis() {
 ===================================================== */
 
     const handleFullOpexExport = async (format) => {
+        if (!canExportOpex) {
+            setError("You do not have permission to export operating expenses data.");
+            return;
+        }
         const hasSelectedPeriod =
             Array.isArray(activeOpexFilters?.period)
                 ? activeOpexFilters.period.length > 0
@@ -2545,6 +2556,10 @@ Only the View All API is refreshed.
 
     const handleExpenseCategoryExport =
         async (format) => {
+            if (!canExportOpex) {
+                setError("You do not have permission to export operating expenses data.");
+                return;
+            }
 
             const hasSelectedPeriod =
                 Array.isArray(
@@ -3485,18 +3500,20 @@ Only the View All API is refreshed.
                         </div>
                     </div>
 
-                    <div className="oa-direct-header-actions">
-                        <ExportButtons
-                            exporting={
-                                exporting === "expense-category-excel"
-                                    ? "excel"
-                                    : exporting === "expense-category-pdf"
-                                        ? "pdf"
-                                        : null
-                            }
-                            handleExport={handleExpenseCategoryExport}
-                        />
-                    </div>
+                    {canExportOpex && (
+                        <div className="oa-direct-header-actions">
+                            <ExportButtons
+                                exporting={
+                                    exporting === "expense-category-excel"
+                                        ? "excel"
+                                        : exporting === "expense-category-pdf"
+                                            ? "pdf"
+                                            : null
+                                }
+                                handleExport={handleExpenseCategoryExport}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

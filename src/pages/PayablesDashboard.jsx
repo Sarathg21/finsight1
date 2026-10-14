@@ -1,5 +1,6 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
 import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
 import {
@@ -6274,6 +6275,9 @@ function PayablesPageSkeleton() {
    ============================================================ */
 
 export default function PayablesDashboard() {
+    const { canExport } = useAuth();
+    const canExportPayables = Boolean(canExport?.('PAYABLES'));
+
     const [filters, setFilters] = useState({ ...defaultPayableFilters });
     const [appliedFilters, setAppliedFilters] = useState({ ...defaultPayableFilters });
     const [filterOptions, setFilterOptions] = useState({
@@ -6576,6 +6580,7 @@ export default function PayablesDashboard() {
     };
 
     const handleExport = async (format, extra = {}) => {
+        if (!canExportPayables) return;
         try {
             const apiFilters = {
                 ...buildApiFilters(),
@@ -7664,85 +7669,88 @@ export default function PayablesDashboard() {
                         }}
                     >
 
-                        {/* Excel */}
-                        <button
-                            type="button"
-                            onClick={() =>
-                                handleExport("excel", {
-                                    unit: "AED",
-                                    report_section: "Dashboard",
-                                    report_title: "Payables Dashboard",
-                                })
-                            }
-                            style={{
-                                height: 34,
-                                minWidth: 80,
-                                padding: "0 13px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 6,
-                                border: "1px solid #86efac",
-                                borderRadius: 8,
-                                background: "#f7fffa",
-                                color: "#16a34a",
-                                fontSize: 11,
-                                fontWeight: 800,
-                                cursor: "pointer",
-                                transition: "all 0.2s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#ecfdf5";
-                                e.currentTarget.style.borderColor = "#4ade80";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#f7fffa";
-                                e.currentTarget.style.borderColor = "#86efac";
-                            }}
-                        >
-                            <span style={{ fontSize: 13 }}>📊</span>
-                            Excel
-                        </button>
+                        {/* Excel & PDF Exports */}
+                        {canExportPayables && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleExport("excel", {
+                                            unit: "AED",
+                                            report_section: "Dashboard",
+                                            report_title: "Payables Dashboard",
+                                        })
+                                    }
+                                    style={{
+                                        height: 34,
+                                        minWidth: 80,
+                                        padding: "0 13px",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 6,
+                                        border: "1px solid #86efac",
+                                        borderRadius: 8,
+                                        background: "#f7fffa",
+                                        color: "#16a34a",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                        transition: "all 0.2s ease",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = "#ecfdf5";
+                                        e.currentTarget.style.borderColor = "#4ade80";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = "#f7fffa";
+                                        e.currentTarget.style.borderColor = "#86efac";
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>📊</span>
+                                    Excel
+                                </button>
 
-                        {/* PDF */}
-                        <button
-                            type="button"
-                            onClick={() =>
-                                handleExport("pdf", {
-                                    unit: "AED",
-                                    report_section: "Dashboard",
-                                    report_title: "Payables Dashboard",
-                                })
-                            }
-                            style={{
-                                height: 34,
-                                minWidth: 72,
-                                padding: "0 13px",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 6,
-                                border: "1px solid #fda4af",
-                                borderRadius: 8,
-                                background: "#fff8f8",
-                                color: "#ef4444",
-                                fontSize: 11,
-                                fontWeight: 800,
-                                cursor: "pointer",
-                                transition: "all 0.2s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#fff1f2";
-                                e.currentTarget.style.borderColor = "#fb7185";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#fff8f8";
-                                e.currentTarget.style.borderColor = "#fda4af";
-                            }}
-                        >
-                            <span style={{ fontSize: 13 }}>📄</span>
-                            PDF
-                        </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        handleExport("pdf", {
+                                            unit: "AED",
+                                            report_section: "Dashboard",
+                                            report_title: "Payables Dashboard",
+                                        })
+                                    }
+                                    style={{
+                                        height: 34,
+                                        minWidth: 72,
+                                        padding: "0 13px",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 6,
+                                        border: "1px solid #fda4af",
+                                        borderRadius: 8,
+                                        background: "#fff8f8",
+                                        color: "#ef4444",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                        transition: "all 0.2s ease",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = "#fff1f2";
+                                        e.currentTarget.style.borderColor = "#fb7185";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = "#fff8f8";
+                                        e.currentTarget.style.borderColor = "#fda4af";
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>📄</span>
+                                    PDF
+                                </button>
+                            </>
+                        )}
 
 
                     </div>

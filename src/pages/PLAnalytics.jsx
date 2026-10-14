@@ -6532,6 +6532,7 @@ import ExpenseBreakdownCard from '../components/Charts/ExpenseBreakdownCard';
 import ExportButtons from "../components/Common/ExportButtons";
 import { HandCoins } from "lucide-react";
 import CostStructureAnalysis from '../components/CostStructureAnalysis';
+import { useAuth } from '../context/AuthContext';
 
 
 /* ══════════════════════════════════════════════════════════════════
@@ -8400,6 +8401,8 @@ const formatDataAsOf = (
    MAIN PAGE COMPONENT
 ══════════════════════════════════════════════════════════════════ */
 export default function PLAnalytics() {
+    const { canExport } = useAuth();
+    const canExportPL = Boolean(canExport?.('PROFIT_LOSS'));
 
     /* ── Dropdown options & Filter state ─────────────────────────── */
 
@@ -9040,6 +9043,10 @@ export default function PLAnalytics() {
     const [exporting, setExporting] = useState(null);
 
     const handleExport = (format, section = 'full') => {
+        if (!canExportPL) {
+            showToast('You do not have permission to export P&L data.', 'error');
+            return;
+        }
         if (exporting) return;
 
         setExporting(format);
@@ -9066,6 +9073,10 @@ export default function PLAnalytics() {
     const [viewAllExporting, setViewAllExporting] = useState(null);
 
     const handleViewAllExport = (format, section) => {
+        if (!canExportPL) {
+            showToast('You do not have permission to export P&L data.', 'error');
+            return;
+        }
         if (!viewAllFilters || viewAllExporting) return;
 
         setViewAllExporting(format);
@@ -9450,16 +9461,18 @@ export default function PLAnalytics() {
                         Analyze profitability metrics and track financial performance across periods
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    <button id="btn-pl-export-excel" onClick={() => handleExport('excel')} disabled={!!exporting}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: exporting?.includes('excel') ? '#d1fae5' : '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1 }}>
-                        {exporting?.includes('excel') ? '⏳' : '📊'} Excel
-                    </button>
-                    <button id="btn-pl-export-pdf" onClick={() => handleExport('pdf')} disabled={!!exporting}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: exporting?.includes('pdf') ? '#fee2e2' : '#fff1f2', color: '#be123c', border: '1px solid #fecdd3', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1 }}>
-                        {exporting?.includes('pdf') ? '⏳' : '📄'} PDF
-                    </button>
-                </div>
+                {canExportPL && (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <button id="btn-pl-export-excel" onClick={() => handleExport('excel')} disabled={!!exporting}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: exporting?.includes('excel') ? '#d1fae5' : '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1 }}>
+                            {exporting?.includes('excel') ? '⏳' : '📊'} Excel
+                        </button>
+                        <button id="btn-pl-export-pdf" onClick={() => handleExport('pdf')} disabled={!!exporting}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: exporting?.includes('pdf') ? '#fee2e2' : '#fff1f2', color: '#be123c', border: '1px solid #fecdd3', borderRadius: 8, fontSize: '0.76rem', fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1 }}>
+                            {exporting?.includes('pdf') ? '⏳' : '📄'} PDF
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ══ FILTER BAR ══ */}

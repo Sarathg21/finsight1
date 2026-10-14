@@ -18,7 +18,7 @@ export default function LoginPage() {
   const {
     user,
     loginWithBackend,
-    completeLogin,
+    resolveLanding,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -45,22 +45,19 @@ export default function LoginPage() {
   useEffect(() => {
     if (!user) return;
 
-    if (user.role_code === "ADMIN") {
-      return;
-    }
-
-    navigate(
+    const target =
       from ||
-      user.defaultPage ||
-      "/exec-dashboard",
-      {
-        replace: true,
-      }
-    );
+      resolveLanding?.() ||
+      (user.role_code === "ADMIN" ? "/admin/dashboard" : "/profile");
+
+    navigate(target, {
+      replace: true,
+    });
   }, [
     user,
     navigate,
     from,
+    resolveLanding,
   ]);
 
   /* ================================================================
@@ -98,22 +95,16 @@ export default function LoginPage() {
         password
       );
 
-      console.log("LOGIN SESSION:", session);
-      console.log(
-        "ACCESS TOKEN:",
-        !!session?.access_token
-      );
-      console.log(
-        "ROLE CODE:",
-        session?.role_code
-      );
-
       setBackendStatus("online");
-      completeLogin?.(session);
 
       const roleCode =
         session?.role_code ||
         session?.user?.role_code;
+
+      const destination =
+        from ||
+        resolveLanding?.() ||
+        (roleCode === "ADMIN" ? "/admin/dashboard" : "/profile");
 
       if (
         roleCode === "ADMIN" ||
@@ -136,30 +127,10 @@ export default function LoginPage() {
             return;
           }
 
-          console.log(
-            "Payables is ready. Sending authentication token."
-          );
-
           if (
             payablesWindow &&
             !payablesWindow.closed
           ) {
-            console.log(
-              "PAYABLES_READY received from:",
-              event.origin,
-              event.data
-            );
-
-            console.log(
-              "Sending FINSIGHT_AUTH to:",
-              payablesOrigin
-            );
-
-            console.log(
-              "Token available:",
-              !!session?.access_token
-            );
-
             payablesWindow.postMessage(
               {
                 type: "FINSIGHT_AUTH",
@@ -202,7 +173,7 @@ export default function LoginPage() {
           payablesWindow;
 
         navigate(
-          from || "/exec-dashboard",
+          destination,
           {
             replace: true,
           }
@@ -212,9 +183,7 @@ export default function LoginPage() {
       }
 
       navigate(
-        from ||
-        session?.defaultPage ||
-        "/exec-dashboard",
+        destination,
         {
           replace: true,
         }
