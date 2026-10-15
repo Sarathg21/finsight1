@@ -593,6 +593,8 @@ export async function fetchBSDrilldown(filters) {
 
   const normRows = sourceRows.map((row) => ({
     ...row,
+    // Normalise legal entity variations
+    legal_entity_name: row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '',
     // Normalise subdivision name variations
     sub_division_name: row.sub_division_name || row.subdivision_name || row.subdiv_name || row.name || row.subdivision || '',
     sub_division_code: row.sub_division_code || row.subdivision_code || row.subdiv_code || row.code || '',
