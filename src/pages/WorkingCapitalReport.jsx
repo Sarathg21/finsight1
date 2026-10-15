@@ -1,5 +1,7 @@
 
 // import React, { useEffect, useMemo, useRef, useState } from "react";
+// import { useAuth } from "../context/AuthContext";
+// import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 // import { createPortal } from "react-dom";
 // import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
 // import {
@@ -256,11 +258,6 @@
 //         data.balanceSheetPeriods ??
 //         [];
 
-//     const rawAgingBases =
-//         data.aging_bases ??
-//         data.agingBases ??
-//         ["DUE_DATE"];
-
 //     return {
 //         legalGroups: optionList(
 //             data.legal_groups ?? data.legalGroups
@@ -312,17 +309,6 @@
 //                 }))
 //                 .filter((item) => item.value)
 //             : [],
-//         agingBases: Array.isArray(rawAgingBases)
-//             ? rawAgingBases
-//                 .map((item) =>
-//                     typeof item === "string"
-//                         ? item
-//                         : item?.value ??
-//                         item?.code ??
-//                         item?.name
-//                 )
-//                 .filter(Boolean)
-//             : ["DUE_DATE"],
 //         reportingCurrency:
 //             data.reporting_currency ??
 //             data.reportingCurrency ??
@@ -369,16 +355,10 @@
 //         as_on_date:
 //             filters.asOnDate || undefined,
 
-//         // Keep the approved backend default unless the user selects
-//         // another basis explicitly provided by filter-options.
-//         aging_basis:
-//             filters.agingBasis ||
-//             "DUE_DATE",
 //     };
 
 //     // Balance Sheet Period is intentionally not exposed on this page.
-//     // Keep the operational aging basis at the backend default without
-//     // rendering an Aging Basis control.
+//     // Only the supported hierarchy/date filters are returned.
 //     return apiFilters;
 // }
 
@@ -393,7 +373,6 @@
 //         legalEntities: [],
 //         parentDivisions: [],
 //         subDivisions: [],
-//         agingBasis: options.agingBases?.[0] || "DUE_DATE",
 //         asOnDate:
 //             options.operationalAsOnDate ||
 //             options.asOnDates?.[0] ||
@@ -431,7 +410,6 @@
 //             options.subDivisions,
 //             source.subDivisions
 //         ),
-//         aging_basis: source.agingBasis || "DUE_DATE",
 //         as_on_date: source.asOnDate || undefined,
 //     };
 // }
@@ -708,6 +686,31 @@
 //         );
 // }
 
+// function formatCccPeriod(value) {
+//     if (value === null || value === undefined || value === "") return "—";
+//     const raw = String(value).trim();
+//     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+//     // Format monthly keys (YYYY-MM, YYYY-M) and ISO dates for display only.
+//     const match = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+//     if (match) {
+//         const monthIndex = Number(match[2]) - 1;
+//         if (monthIndex >= 0 && monthIndex < 12) {
+//             return `${monthNames[monthIndex]}-${match[1].slice(-2)}`;
+//         }
+//     }
+
+//     // Normalize labels such as "Jan 2026" or "January 2026".
+//     const labelMatch = raw.match(/^([A-Za-z]{3,9})[\s-]+(\d{2}|\d{4})$/);
+//     if (labelMatch) {
+//         const monthIndex = monthNames.findIndex((month) =>
+//             month.toLowerCase() === labelMatch[1].slice(0, 3).toLowerCase()
+//         );
+//         if (monthIndex >= 0) return `${monthNames[monthIndex]}-${labelMatch[2].slice(-2)}`;
+//     }
+//     return raw;
+// }
+
 // function normalizeBreakdownRows(payload) {
 //     return getRows(payload).map((row) => ({
 //         key:
@@ -830,7 +833,7 @@
 //         borderRadius: "var(--radius-md)",
 //         padding: "10px 14px",
 //         display: "grid",
-//         gridTemplateColumns: "118px 118px 118px 118px 118px 112px 130px 70px 60px",
+//         gridTemplateColumns: "118px 118px 118px 118px 112px 130px 70px 60px",
 //         gap: "10px 6px",
 //         alignItems: "end",
 //         marginBottom: "16px",
@@ -870,12 +873,12 @@
 //     },
 //     card: {
 //         background: "var(--clr-surface)",
-//         border: "none",
-//         borderRadius: "var(--radius-md)",
-//         minHeight: "84px",
-//         padding: S.cardPad,
+//         border: "1px solid rgba(226, 232, 240, .55)",
+//         borderRadius: "13px",
+//         minHeight: "82px",
+//         padding: "11px",
 //         boxSizing: "border-box",
-//         boxShadow: SHADOW.card,
+//         boxShadow: "0 2px 8px rgba(15, 23, 42, .025)",
 //         overflow: "hidden",
 //         position: "relative",
 //         transition: "transform var(--tr-base), box-shadow var(--tr-base)",
@@ -909,7 +912,7 @@
 // }
 
 // .wc-sales-page .wc-filter-grid {
-//     grid-template-columns: 118px 118px 118px 118px 118px 112px 130px 70px 60px !important;
+//     grid-template-columns: 118px 118px 118px 118px 112px 130px 70px 60px !important;
 //     gap: 10px 6px !important;
 //     align-items: end !important;
 // }
@@ -1119,12 +1122,32 @@
 //     );
 // }
 
-// function KpiCard({ title, value, subtitle, icon }) {
+// function KpiCard({ title, value, subtitle, icon, metricLine }) {
 //     const palettes = {
 //         "Trade Working Capital": {
-//             bg: "#EEF4FF",
-//             iconBg: "#DCE9FF",
-//             accent: "#2563EB",
+//             bg: "#EEF2FF",
+//             iconBg: "#DCE3FF",
+//             accent: "#4F46E5",
+//         },
+//         "Trade Receivables": {
+//             bg: "#ECFBFF",
+//             iconBg: "#D5F3FA",
+//             accent: "#0891B2",
+//         },
+//         "Inventory": {
+//             bg: "#F0FDF4",
+//             iconBg: "#DCFCE7",
+//             accent: "#16A34A",
+//         },
+//         "Trade Payables": {
+//             bg: "#FFF1F2",
+//             iconBg: "#FFE0E4",
+//             accent: "#DC2626",
+//         },
+//         "Working Capital Ratio": {
+//             bg: "#F5F1FF",
+//             iconBg: "#E9DEFF",
+//             accent: "#7C3AED",
 //         },
 //         "Net Working Capital": {
 //             bg: "#EEF2FF",
@@ -1171,6 +1194,16 @@
 //             iconBg: "#DDF3FF",
 //             accent: "#0284C7",
 //         },
+//         "CCC (Cash Conversion Cycle)": {
+//             bg: "#FDF2F8",
+//             iconBg: "#FCE0EE",
+//             accent: "#DB2777",
+//         },
+//         "Target DSO": {
+//             bg: "#F0F9FF",
+//             iconBg: "#DDF3FF",
+//             accent: "#0284C7",
+//         },
 //     };
 
 //     const palette = palettes[title] || {
@@ -1203,7 +1236,7 @@
 //                 style={{
 //                     display: "flex",
 //                     alignItems: "center",
-//                     gap: "9px",
+//                     gap: "8px",
 //                     height: "100%",
 //                     minWidth: 0,
 //                 }}
@@ -1241,11 +1274,15 @@
 //                         style={{
 //                             color: palette.accent,
 //                             fontSize: "0.68rem",
-//                             lineHeight: 1.15,
+//                             lineHeight: 1.2,
+//                             letterSpacing: "-0.01em",
 //                             fontWeight: 700,
-//                             whiteSpace: "nowrap",
+//                             whiteSpace: "normal",
+//                             display: "-webkit-box",
+//                             WebkitLineClamp: 2,
+//                             WebkitBoxOrient: "vertical",
 //                             overflow: "hidden",
-//                             textOverflow: "ellipsis",
+//                             overflowWrap: "anywhere",
 //                         }}
 //                         title={title}
 //                     >
@@ -1268,6 +1305,33 @@
 //                         <AnimatedKpiValue value={value} />
 //                     </div>
 
+//                     {metricLine && (
+//                         <div
+//                             className="wc-kpi-metric-line"
+//                             style={{
+//                                 display: "inline-flex",
+//                                 alignSelf: "flex-start",
+//                                 alignItems: "center",
+//                                 width: "fit-content",
+//                                 maxWidth: "100%",
+//                                 marginTop: "3px",
+//                                 padding: "2px 6px",
+//                                 borderRadius: "5px",
+//                                 background: "rgba(255,255,255,.68)",
+//                                 color: "#475569",
+//                                 fontSize: "0.60rem",
+//                                 lineHeight: 1.2,
+//                                 fontWeight: 700,
+//                                 whiteSpace: "nowrap",
+//                                 overflow: "hidden",
+//                                 textOverflow: "ellipsis",
+//                             }}
+//                             title={metricLine}
+//                         >
+//                             {metricLine}
+//                         </div>
+//                     )}
+
 //                     {subtitle && (
 //                         <div
 //                             style={{
@@ -1276,7 +1340,7 @@
 //                                 marginTop: "2px",
 //                                 padding: "2px 6px",
 //                                 borderRadius: "5px",
-//                                 background: "rgba(255,255,255,.58)",
+//                                 background: "rgba(255,255,255,.72)",
 //                                 color: isInsufficientHistory
 //                                     ? "#64748B"
 //                                     : "#64748B",
@@ -4037,9 +4101,9 @@
 //                     transition: "all 0.15s ease",
 //                     outline: "none",
 //                 }}
-//                 title={`Display in ${currency} Million`}
+//                 title={`Display in ${currency} Millions`}
 //             >
-//                 {currency} Million
+//                 {currency} Millions
 //             </button>
 //         </div>
 //     );
@@ -4609,7 +4673,6 @@
 //         legalEntities: baseFilters?.legalEntities || [],
 //         parentDivisions: baseFilters?.parentDivisions || [],
 //         subDivisions: baseFilters?.subDivisions || [],
-//         agingBasis: baseFilters?.agingBasis || "DUE_DATE",
 //         asOnDate: baseFilters?.asOnDate || "",
 //     }));
 
@@ -4619,7 +4682,6 @@
 //             legalEntities: baseFilters?.legalEntities || [],
 //             parentDivisions: baseFilters?.parentDivisions || [],
 //             subDivisions: baseFilters?.subDivisions || [],
-//             agingBasis: baseFilters?.agingBasis || "DUE_DATE",
 //             asOnDate: baseFilters?.asOnDate || "",
 //         });
 //         setSearch("");
@@ -4701,7 +4763,7 @@
 
 //     if (!filterOptions) return null;
 
-//     return (
+//     return createPortal(
 //         <div
 //             role="dialog"
 //             aria-modal="true"
@@ -4712,10 +4774,11 @@
 //                 background: "rgba(15, 23, 42, 0.35)",
 //                 backdropFilter: "blur(6px)",
 //                 display: "flex",
-//                 alignItems: "center",
+//                 alignItems: "flex-start",
 //                 justifyContent: "center",
-//                 zIndex: 1000,
-//                 padding: 0,
+//                 zIndex: 10000,
+//                 padding: "8px 0",
+//                 boxSizing: "border-box",
 //             }}
 //         >
 //             <div
@@ -4723,7 +4786,8 @@
 //                 style={{
 //                     width: "96vw",
 //                     maxWidth: "1500px",
-//                     height: "100vh",
+//                     height: "calc(100vh - 16px)",
+//                     maxHeight: "calc(100vh - 16px)",
 //                     background: "#FFFFFF",
 //                     borderRadius: 16,
 //                     border: "1px solid #E2E8F0",
@@ -4807,6 +4871,9 @@
 //                                 </button>
 //                             </div>
 //                         )}
+//                         {/* CCC Trend contains day-based metrics, not monetary amounts.
+//                             Keep currency-unit controls off this view so the UI does not
+//                             imply that DSO/DIO/DPO/CCC days can be converted to AED millions. */}
 //                         {!isCcc && (
 //                             <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
 //                         )}
@@ -4861,31 +4928,6 @@
 //                     </div>
 
 //                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-//                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Aging Basis</span>
-//                         <select
-//                             value={localFilters.agingBasis || "DUE_DATE"}
-//                             onChange={(event) => setLocalFilters((p) => ({ ...p, agingBasis: event.target.value }))}
-//                             style={{
-//                                 width: 120,
-//                                 height: 32,
-//                                 border: "1px solid #CBD5E1",
-//                                 borderRadius: 7,
-//                                 background: "#FFFFFF",
-//                                 color: "#334155",
-//                                 padding: "0 8px",
-//                                 fontSize: "0.72rem",
-//                                 cursor: "pointer",
-//                             }}
-//                         >
-//                             {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
-//                                 <option key={basis} value={basis}>
-//                                     {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
-//                                 </option>
-//                             ))}
-//                         </select>
-//                     </div>
-
-//                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
 //                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>As On Date</span>
 //                         <CalendarDateField
 //                             value={localFilters.asOnDate || ""}
@@ -4917,7 +4959,7 @@
 //                     </div>
 
 //                     {isTrade ? (
-//                         <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(220px, 0.58fr) minmax(560px, 1.42fr)", gap: 10, overflow: "hidden" }}>
+//                         <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.75fr)", gap: 10, overflow: "hidden" }}>
 //                             <div className="wc-trade-view-all-table" style={{ minWidth: 0, minHeight: 0, overflow: "auto" }}>
 //                                 <table
 //                                     style={{
@@ -5003,7 +5045,7 @@
 
 //                                             if (isCcc) return (
 //                                                 <tr key={`${row.period}-${index}`}>
-//                                                     <td style={td}>{row.period}</td>
+//                                                     <td style={td}>{formatCccPeriod(row.period)}</td>
 //                                                     <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
 //                                                     <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
 //                                                     <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -5132,7 +5174,7 @@
 //                                         }
 //                                         if (isCcc) return (
 //                                             <tr key={`${row.period}-${index}`}>
-//                                                 <td style={td}>{row.period}</td>
+//                                                 <td style={td}>{formatCccPeriod(row.period)}</td>
 //                                                 <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
 //                                                 <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
 //                                                 <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -5186,7 +5228,8 @@
 //                     </div>
 //                 </div>
 //             </div>
-//         </div>
+//         </div>,
+//         document.body
 //     );
 // }
 
@@ -5226,12 +5269,88 @@
 // ============================================================ */
 
 // export default function WorkingCapitalReport() {
+//     // RBAC follows the Receivables/Sales Revenue access contract:
+//     // /api/access/me is the authority for user scopes and role_code.
+//     // AuthContext is the authority for module-level export permission.
+//     const [userAccess, setUserAccess] = useState(null);
+//     const [permissions, setPermissions] = useState([]);
+//     const { hasExportRight } = useAuth();
+//     const canExportWorkingCapital =
+//         typeof hasExportRight === "function" &&
+//         hasExportRight("WORKING_CAPITAL");
+
+//     // Match the Receivables normalization and scope detection exactly.
+//     const findAccessScopeValue = (source, aliases) => {
+//         const visited = new Set();
+//         const queue = [source];
+//         while (queue.length) {
+//             const current = queue.shift();
+//             if (!current || typeof current !== "object" || visited.has(current)) continue;
+//             visited.add(current);
+//             if (Array.isArray(current)) {
+//                 current.forEach((item) => queue.push(item));
+//                 continue;
+//             }
+//             for (const alias of aliases) {
+//                 if (Object.prototype.hasOwnProperty.call(current, alias)) {
+//                     return current[alias];
+//                 }
+//             }
+//             Object.values(current).forEach((value) => {
+//                 if (value && typeof value === "object") queue.push(value);
+//             });
+//         }
+//         return null;
+//     };
+
+//     const accessScopeRoot = userAccess ?? {};
+//     const legalGroupScopeValue = findAccessScopeValue(accessScopeRoot, [
+//         "legal_group_code", "legal_group_name", "legal_group", "legalGroupCode", "legalGroupName", "legalGroup",
+//     ]);
+//     const legalEntityScopeValue = findAccessScopeValue(accessScopeRoot, [
+//         "legal_entity_name", "legal_entity_code", "legal_entity", "legalEntityName", "legalEntityCode", "legalEntity",
+//     ]);
+//     const hasLegalGroupScope = legalGroupScopeValue !== null &&
+//         legalGroupScopeValue !== undefined && String(legalGroupScopeValue).trim() !== "";
+//     const hasLegalEntityScope = legalEntityScopeValue !== null &&
+//         legalEntityScopeValue !== undefined && String(legalEntityScopeValue).trim() !== "";
+
+//     const normalizePermissions = (response) => {
+//         if (Array.isArray(response)) return response;
+//         if (response && Array.isArray(response.data)) return response.data;
+//         if (response && Array.isArray(response.permissions)) return response.permissions;
+//         if (response && typeof response === "object") return [response];
+//         return [];
+//     };
+
+//     useEffect(() => {
+//         let cancelled = false;
+//         fetchAccessMe()
+//             .then((data) => {
+//                 if (cancelled) return;
+//                 setUserAccess(data);
+//                 if (data && data.role_code) {
+//                     return fetchRolePermissions(data.role_code)
+//                         .then((response) => {
+//                             if (!cancelled) setPermissions(normalizePermissions(response));
+//                         })
+//                         .catch(() => {
+//                             if (!cancelled) setPermissions([]);
+//                         });
+//                 }
+//                 return null;
+//             })
+//             .catch((err) => {
+//                 if (!cancelled) console.warn("Failed to fetch Working Capital access:", err);
+//             });
+//         return () => { cancelled = true; };
+//     }, []);
+
 //     const [filters, setFilters] = useState({
 //         legalGroups: [],
 //         legalEntities: [],
 //         parentDivisions: [],
 //         subDivisions: [],
-//         agingBasis: "DUE_DATE",
 //         asOnDate: "",
 //     });
 
@@ -5253,7 +5372,6 @@
 //             subDivisions: [],
 //             asOnDates: [],
 //             balanceSheetPeriods: [],
-//             agingBases: ["DUE_DATE"],
 //             reportingCurrency: "",
 //             operationalAsOnDate: "",
 //         });
@@ -5313,16 +5431,11 @@
 //                 /*
 //                  * Filter dropdowns are populated only from the backend.
 //                  * No hierarchy lists are hardcoded in the frontend.
-//                  *
-//                  * The API supports the standard hierarchy parameters plus
-//                  * aging_basis. On first load there are no hierarchy
-//                  * selections yet, so only the approved default aging basis
-//                  * is sent.
+//                  * Aging Basis is not applicable to Working Capital, so it is
+//                  * intentionally not requested, stored, rendered, or sent.
 //                  */
 //                 const response =
-//                     await getWorkingCapitalFilterOptions({
-//                         aging_basis: "DUE_DATE",
-//                     });
+//                     await getWorkingCapitalFilterOptions({});
 
 //                 if (!active) return;
 
@@ -5794,6 +5907,8 @@
 //         overrideFilters = null,
 //         overrideRows = null
 //     ) {
+//         if (!canExportWorkingCapital) return;
+
 //         setExporting(true);
 //         setError("");
 
@@ -5846,34 +5961,23 @@
 //                     response,
 //                     fallback
 //                 );
-//             } else if (section === "trend") {
-//                 if (type === "excel") {
-//                     exportTrendToExcel(
-//                         overrideRows || trend,
-//                         "Net Working Capital",
-//                         currency,
-//                         "Net Working Capital"
-//                     );
-//                 } else {
-//                     exportTrendToPdf(
-//                         overrideRows || trend,
-//                         "Net Working Capital",
-//                         currency,
-//                         "Net Working Capital"
-//                     );
-//                 }
-//             } else if (section === "liquidity") {
-//                 if (type === "excel") {
-//                     exportLiquidityRatioToExcel(
-//                         ratioValue,
-//                         balanceSheetPeriod
-//                     );
-//                 } else {
-//                     exportLiquidityRatioToPdf(
-//                         ratioValue,
-//                         balanceSheetPeriod
-//                     );
-//                 }
+//             } else {
+//                 // Use the backend's supported common export endpoint for
+//                 // sections that do not have their own export endpoint.
+//                 // The same hierarchy/date filters are sent as View All.
+//                 const commonFilters = buildCfoViewAllApiFilters(
+//                     activeFilters,
+//                     filterOptions
+//                 );
+//                 response =
+//                     type === "excel"
+//                         ? await exportWorkingCapitalViewAllExcel(commonFilters)
+//                         : await exportWorkingCapitalViewAllPdf(commonFilters);
+//                 fallback =
+//                     type === "excel"
+//                         ? `working-capital-${String(section || "view-all").toLowerCase()}-export.xlsx`
+//                         : `working-capital-${String(section || "view-all").toLowerCase()}-export.pdf`;
+//                 downloadWorkingCapitalFile(response, fallback);
 //             }
 //         } catch (err) {
 //             setError(
@@ -5903,6 +6007,7 @@
 //         _section,
 //         overrideFilters = null
 //     ) {
+//         if (!canExportWorkingCapital) return;
 //         setExporting(true);
 //         setError("");
 
@@ -5948,21 +6053,34 @@
 //     }
 
 //     async function handleHeaderExport(format) {
+//         if (!canExportWorkingCapital) return;
 //         if (exporting) return;
 //         setExporting(true);
+//         setError("");
 //         try {
-//             const kpisRows = kpis ? Object.entries(kpis).map(([key, value]) => ({ metric: key, value })) : [];
-//             const componentsRows = [
-//                 { label: "Receivables", value: getValue(components, "receivables", "total_receivables"), type: "positive" },
-//                 { label: "Inventory", value: getValue(components, "inventory", "total_inventory"), type: "positive" },
-//                 { label: "(-) Payables", value: getValue(components, "payables", "total_payables"), type: "negative" },
-//                 { label: "Trade Working Capital", value: getValue(components, "trade_working_capital", "trade_working_capital_value", "working_capital"), type: "total" },
-//             ];
-//             const payload = { kpisRows, trend, tradeTrend, componentsRows, assetRows, liabilityRows, avlRows, cccTrend };
-//             if (format === "excel") exportWorkingCapitalAllToExcel(payload, currency);
-//             else exportWorkingCapitalAllToPdf(payload, currency);
+//             // Use the available backend export API instead of generating a
+//             // client-side workbook/PDF from whatever data happens to be loaded.
+//             const activeFilters = appliedFilters || filters;
+//             const apiFilters = buildCfoViewAllApiFilters(
+//                 activeFilters,
+//                 filterOptions
+//             );
+//             const response =
+//                 format === "excel"
+//                     ? await exportWorkingCapitalViewAllExcel(apiFilters)
+//                     : await exportWorkingCapitalViewAllPdf(apiFilters);
+//             downloadWorkingCapitalFile(
+//                 response,
+//                 format === "excel"
+//                     ? "working-capital-dashboard.xlsx"
+//                     : "working-capital-dashboard.pdf"
+//             );
 //         } catch (err) {
-//             setError(err?.message || `Working Capital ${format} export failed.`);
+//             setError(
+//                 err?.response?.data?.detail ||
+//                 err?.message ||
+//                 `Working Capital ${format} export failed.`
+//             );
 //         } finally {
 //             setExporting(false);
 //         }
@@ -6262,6 +6380,177 @@
 //             <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
 //             <style>{workingCapitalFilterResponsiveCss}</style>
 //             <style>{`
+//                 /* Sales Revenue visual language — scoped to Working Capital only. */
+//                 .wc-sales-page,
+//                 .wc-sales-page * {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+//                 .wc-sales-page {
+//                     background: #F7F9FC !important;
+//                     color: #1E293B !important;
+//                 }
+//                 .wc-sales-page .page-header {
+//                     margin: 0 0 16px !important;
+//                     gap: 14px !important;
+//                 }
+//                 .wc-sales-page .page-header-title,
+//                 .wc-sales-page .wc-page-title {
+//                     color: #1E1B4B !important;
+//                     font-size: 1.45rem !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -0.025em !important;
+//                     line-height: 1.2 !important;
+//                 }
+//                 .wc-sales-page .page-header-subtitle {
+//                     color: #64748B !important;
+//                     font-size: 0.76rem !important;
+//                     font-weight: 500 !important;
+//                     line-height: 1.45 !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid {
+//                     background: #FFFFFF !important;
+//                     border: 1px solid #E8EDF4 !important;
+//                     border-radius: 14px !important;
+//                     padding: 12px 14px !important;
+//                     margin-bottom: 16px !important;
+//                     box-shadow: 0 3px 12px rgba(15, 23, 42, .035) !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid label,
+//                 .wc-sales-page .wc-filter-grid > div > label,
+//                 .wc-sales-page .wc-filter-grid > div > span {
+//                     color: #334155 !important;
+//                     font-size: 0.70rem !important;
+//                     font-weight: 700 !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid select,
+//                 .wc-sales-page .wc-filter-grid input,
+//                 .wc-sales-page .wc-filter-grid button {
+//                     border-radius: 8px !important;
+//                     font-size: 0.72rem !important;
+//                     font-weight: 600 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis {
+//                     gap: 10px !important;
+//                     margin: 0 0 16px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi {
+//                     border: 1px solid rgba(226, 232, 240, .55) !important;
+//                     border-radius: 13px !important;
+//                     min-height: 82px !important;
+//                     padding: 11px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                     transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi:hover {
+//                     transform: translateY(-2px) !important;
+//                     box-shadow: 0 9px 22px rgba(15, 23, 42, .08) !important;
+//                 }
+//                 .wc-sales-page .wc-panel-animate,
+//                 .wc-sales-page .wc-hierarchy-exposure-panel {
+//                     background: #FFFFFF !important;
+//                     border: 1px solid rgba(226, 232, 240, .62) !important;
+//                     border-radius: 16px !important;
+//                     box-shadow: 0 4px 20px rgba(15, 23, 42, .035), 0 1px 3px rgba(15, 23, 42, .025) !important;
+//                     transition: transform .22s ease, box-shadow .22s ease !important;
+//                 }
+//                 .wc-sales-page .wc-panel-animate:hover,
+//                 .wc-sales-page .wc-hierarchy-exposure-panel:hover {
+//                     transform: translateY(-1px);
+//                     box-shadow: 0 8px 24px rgba(15, 23, 42, .065) !important;
+//                 }
+//                 .wc-sales-page h2,
+//                 .wc-sales-page h3,
+//                 .wc-sales-page .wc-panel-title {
+//                     color: #1E1B4B !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.018em !important;
+//                 }
+//                 .wc-sales-page .recharts-cartesian-axis-tick-value,
+//                 .wc-sales-page .recharts-label,
+//                 .wc-sales-page .recharts-legend-item-text {
+//                     font-family: Inter, system-ui, sans-serif !important;
+//                     font-size: 10px !important;
+//                     font-weight: 600 !important;
+//                     fill: #94A3B8 !important;
+//                 }
+//                 .wc-sales-page .recharts-cartesian-grid-horizontal line,
+//                 .wc-sales-page .recharts-cartesian-grid-vertical line {
+//                     stroke: #E8EDF5 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table,
+//                 .wc-sales-page table {
+//                     font-family: Inter, system-ui, sans-serif !important;
+//                     border-collapse: separate;
+//                     border-spacing: 0;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table th,
+//                 .wc-sales-page table thead th {
+//                     background: #F5F7FB !important;
+//                     color: #334155 !important;
+//                     font-size: 0.68rem !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: .01em !important;
+//                     border-bottom: 1px solid #E2E8F0 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table td,
+//                 .wc-sales-page table tbody td {
+//                     color: #334155;
+//                     font-size: 0.72rem;
+//                     font-weight: 500;
+//                     border-bottom-color: #EEF2F7 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table tbody tr:hover td,
+//                 .wc-sales-page table tbody tr:hover td {
+//                     background: #F8FAFF !important;
+//                 }
+//                 .wc-sales-page button {
+//                     transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+//                 }
+//                 .wc-sales-page button:hover:not(:disabled) {
+//                     transform: translateY(-1px);
+//                 }
+//                 .wc-sales-view-all-overlay,
+//                 .wc-sales-view-all-overlay * {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+//                 .wc-sales-view-all-modal {
+//                     animation: wcSalesModalIn .22s ease-out both;
+//                     border-radius: 14px !important;
+//                     box-shadow: 0 24px 70px rgba(15, 23, 42, .20) !important;
+//                 }
+//                 .wc-sales-view-all-modal table thead th {
+//                     background: #F5F7FB !important;
+//                     color: #334155 !important;
+//                     font-size: 0.68rem !important;
+//                     font-weight: 800 !important;
+//                     border-bottom: 1px solid #DDE5EF !important;
+//                     padding: 9px 10px !important;
+//                 }
+//                 .wc-sales-view-all-modal table tbody td {
+//                     font-size: 0.72rem !important;
+//                     color: #334155 !important;
+//                     padding: 9px 10px !important;
+//                     border-bottom: 1px solid #EEF2F7 !important;
+//                 }
+//                 .wc-sales-view-all-modal table tbody tr:nth-child(even) td {
+//                     background: #FBFCFE;
+//                 }
+//                 .wc-sales-view-all-modal table tbody tr:hover td {
+//                     background: #F1F5FF !important;
+//                 }
+//                 @keyframes wcSalesModalIn {
+//                     from { opacity: 0; transform: translateY(5px) scale(.995); }
+//                     to { opacity: 1; transform: translateY(0) scale(1); }
+//                 }
+//                 @media (max-width: 900px) {
+//                     .wc-sales-page .wc-sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+//                 }
+//                 @media (max-width: 600px) {
+//                     .wc-sales-page .wc-sales-kpis { grid-template-columns: 1fr !important; }
+//                     .wc-sales-view-all-modal { width: 100vw !important; height: 100dvh !important; border-radius: 0 !important; }
+//                 }
+//             `}</style>
+//             <style>{`
 //                 .wc-trade-view-all-table table th,
 //                 .wc-trade-view-all-table table td {
 //                     padding: 5px 6px !important;
@@ -6270,10 +6559,16 @@
 //                 .wc-trade-view-all-table table th {
 //                     white-space: nowrap;
 //                 }
+//                 .wc-trade-view-all-grid > .wc-trade-view-all-table {
+//                     min-width: 0;
+//                 }
+//                 .wc-trade-view-all-grid > .wc-trade-view-all-table table {
+//                     min-width: 0 !important;
+//                 }
 //                 @media (max-width: 1050px) {
 //                     .wc-trade-view-all-grid {
-//                         grid-template-columns: 1fr !important;
-//                         grid-template-rows: minmax(300px, 1fr) minmax(300px, 0.9fr) !important;
+//                         grid-template-columns: minmax(0, 1fr) !important;
+//                         grid-template-rows: minmax(220px, 1fr) minmax(240px, 0.8fr) !important;
 //                     }
 //                 }
 //             `}</style>
@@ -6698,12 +6993,47 @@
 //                 }
 
 //                 .wc-sales-page .sales-style-kpi {
-//                     border: none !important;
-//                     border-radius: 12px !important;
-//                     padding: 10px !important;
-//                     min-height: 74px !important;
-//                     box-shadow: none !important;
-//                     transition: all .25s cubic-bezier(.4,0,.2,1) !important;
+//                     box-sizing: border-box !important;
+//                     border: 1px solid rgba(226, 232, 240, .55) !important;
+//                     border-radius: 13px !important;
+//                     padding: 11px !important;
+//                     min-height: 82px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                     overflow: hidden !important;
+//                     transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
+//                 }
+
+//                 .wc-sales-page .sales-style-kpi > div {
+//                     align-items: center !important;
+//                     gap: 8px !important;
+//                 }
+
+//                 .wc-sales-page .sales-style-kpi > div > div:first-child {
+//                     flex: 0 0 34px !important;
+//                     width: 34px !important;
+//                     height: 34px !important;
+//                     min-width: 34px !important;
+//                     border-radius: 50% !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi:hover {
+//                     box-shadow: 0 8px 18px rgba(79, 70, 229, .10) !important;
+//                 }
+
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+//                     display: inline-flex !important;
+//                     align-self: flex-start !important;
+//                     align-items: center !important;
+//                     width: fit-content !important;
+//                     max-width: 100% !important;
+//                     margin-top: 3px !important;
+//                     padding: 2px 6px !important;
+//                     border-radius: 5px !important;
+//                     background: rgba(255,255,255,.68) !important;
+//                     color: #475569 !important;
+//                     font-size: .60rem !important;
+//                     line-height: 1.2 !important;
+//                     font-weight: 700 !important;
+//                     letter-spacing: 0 !important;
 //                 }
 
 //                 .wc-sales-page .sales-style-kpi:hover {
@@ -6786,6 +7116,35 @@
 
 //                 @media (max-width: 600px) {
 //                     .wc-sales-page .wc-sales-kpis {
+//                         grid-template-columns: 1fr !important;
+//                     }
+//                 }
+//                 /* Cycle KPI metrics are independent cards, styled exactly like the
+//                    Sales-style KPI cards above; responsive only at smaller widths. */
+//                 .wc-sales-page .wc-cycle-kpis {
+//                     display: grid !important;
+//                     width: 100% !important;
+//                     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+//                     gap: 10px !important;
+//                     margin-top: 0 !important;
+//                     margin-bottom: 16px !important;
+//                     align-items: stretch !important;
+//                 }
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+//                     box-sizing: border-box !important;
+//                     min-height: 82px !important;
+//                     border: 1px solid rgba(226, 232, 240, .55) !important;
+//                     border-radius: 13px !important;
+//                     padding: 11px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                 }
+//                 @media (max-width: 1200px) {
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+//                     }
+//                 }
+//                 @media (max-width: 600px) {
+//                     .wc-sales-page .wc-cycle-kpis {
 //                         grid-template-columns: 1fr !important;
 //                     }
 //                 }
@@ -6878,7 +7237,7 @@
 //                 <div className="page-header" style={{ marginBottom: "16px", paddingTop: "0", gap: "16px" }}>
 //                     <div>
 //                         <h1 className="page-header-title wc-page-title" style={{ fontSize: "1.45rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-//                             <span style={{ fontSize: "1.3rem" }}>📈</span> Working Capital Report
+//                             <span style={{ fontSize: "1.3rem" }}>📈</span> Trade Working Capital Report
 //                         </h1>
 
 //                         <p className="page-header-subtitle">
@@ -6964,19 +7323,23 @@
 //                             Loading Working Capital filter options...
 //                         </div>
 //                     )}
-//                     <MultiSelectField
-//                         label="Legal Group"
-//                         values={filters.legalGroups}
-//                         options={cascadingFilterOptions.legalGroups}
-//                         onChange={(value) => updateFilter("legalGroups", value)}
-//                     />
+//                     {hasLegalGroupScope && (
+//                         <MultiSelectField
+//                             label="Legal Group"
+//                             values={filters.legalGroups}
+//                             options={cascadingFilterOptions.legalGroups}
+//                             onChange={(value) => updateFilter("legalGroups", value)}
+//                         />
+//                     )}
 
-//                     <MultiSelectField
-//                         label="Legal Entity"
-//                         values={filters.legalEntities}
-//                         options={cascadingFilterOptions.legalEntities}
-//                         onChange={(value) => updateFilter("legalEntities", value)}
-//                     />
+//                     {hasLegalEntityScope && (
+//                         <MultiSelectField
+//                             label="Legal Entity"
+//                             values={filters.legalEntities}
+//                             options={cascadingFilterOptions.legalEntities}
+//                             onChange={(value) => updateFilter("legalEntities", value)}
+//                         />
+//                     )}
 
 //                     <MultiSelectField
 //                         label="Parent Division"
@@ -7008,25 +7371,6 @@
 //                         >
 //                             {filterOptions.reportingCurrency || "AED"}
 //                         </div>
-//                     </div>
-
-//                     <div style={{ minWidth: 0 }}>
-//                         <label style={styles.filterLabel}>Aging Basis</label>
-//                         <select
-//                             value={filters.agingBasis || "DUE_DATE"}
-//                             onChange={(event) => updateFilter("agingBasis", event.target.value)}
-//                             style={{
-//                                 ...styles.filterInput,
-//                                 height: "32px",
-//                                 cursor: "pointer",
-//                             }}
-//                         >
-//                             {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
-//                                 <option key={basis} value={basis}>
-//                                     {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
-//                                 </option>
-//                             ))}
-//                         </select>
 //                     </div>
 
 //                     <div style={{ minWidth: 0 }}>
@@ -7063,7 +7407,7 @@
 //                             height: "32px",
 //                             border: "none",
 //                             background: "transparent",
-//                             color: "#263BD4",
+//                             color: "#6B7280",
 //                             fontSize: "11px",
 //                             fontWeight: 600,
 //                             cursor: "pointer",
@@ -7139,48 +7483,47 @@
 //                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
 //                                 icon="◔"
 //                             />
+//                         </div>
+
+//                         {/* Cycle metrics are four independent KPI cards in their own row.
+//                             They are deliberately NOT nested inside Trade Working Capital
+//                             or any other card. Values remain backend-authoritative. */}
+//                         <div
+//                             className="wc-sales-kpis wc-cycle-kpis"
+//                             aria-label="Cash conversion cycle KPI cards"
+//                             style={{
+//                                 display: "grid",
+//                                 width: "100%",
+//                                 marginTop: "0",
+//                                 marginBottom: "16px",
+//                                 gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+//                                 gap: "10px",
+//                                 alignItems: "stretch",
+//                             }}
+//                         >
 //                             <KpiCard
-//                                 title="DSO"
-//                                 value={toNumber(kpis?.dso_days) === null ? "—" : `${toNumber(kpis.dso_days).toFixed(2)} Days`}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
+//                                 title="CCC (Cash Conversion Cycle)"
+//                                 value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} days`}
+//                                 subtitle="Cash Conversion Cycle"
 //                                 icon="◷"
 //                             />
 //                             <KpiCard
-//                                 title="DIO"
-//                                 value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} Days`}
-//                                 subtitle={toNumber(kpis?.dio_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="▦"
+//                                 title="Target DSO"
+//                                 value={toNumber(kpis?.target_dso_days ?? kpis?.target_dso) === null ? "—" : `${toNumber(kpis?.target_dso_days ?? kpis?.target_dso).toFixed(2)} days`}
+//                                 subtitle="Target Days Sales Outstanding"
+//                                 icon="◎"
 //                             />
 //                             <KpiCard
 //                                 title="DPO"
-//                                 value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} Days`}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
+//                                 value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} days`}
+//                                 subtitle="Days Payable Outstanding"
 //                                 icon="◒"
 //                             />
 //                             <KpiCard
-//                                 title="CCC"
-//                                 value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} Days`}
-//                                 subtitle={toNumber(kpis?.cash_conversion_cycle_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◴"
-//                             />
-//                             <KpiCard
-//                                 title="Target CCC"
-//                                 value={(() => {
-//                                     const target = toNumber(
-//                                         getValue(
-//                                             kpis,
-//                                             "target_ccc_days",
-//                                             "target_cash_conversion_cycle_days",
-//                                             "target_cash_conversion_cycle",
-//                                             "ccc_target_days",
-//                                             "ccc_target",
-//                                             "target_ccc"
-//                                         )
-//                                     );
-//                                     return target === null ? "—" : `${target.toFixed(2)} Days`;
-//                                 })()}
-//                                 subtitle="Backend target"
-//                                 icon="◎"
+//                                 title="DIO"
+//                                 value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} days`}
+//                                 subtitle="Days Inventory Outstanding"
+//                                 icon="▦"
 //                             />
 //                         </div>
 
@@ -7242,20 +7585,10 @@
 //                                 levelLabel="Sub-Division"
 //                                 onViewAll={() => openViewAll("cfo", null, "Sub-Division")}
 //                                 onExportExcel={() =>
-//                                     exportTrendToExcel(
-//                                         subDivisionTrend,
-//                                         "Working Capital by Sub-Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
+//                                     handleExport("excel", "sub-division-trend", appliedFilters, subDivisionTrend)
 //                                 }
 //                                 onExportPdf={() =>
-//                                     exportTrendToPdf(
-//                                         subDivisionTrend,
-//                                         "Working Capital by Sub-Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
+//                                     handleExport("pdf", "sub-division-trend", appliedFilters, subDivisionTrend)
 //                                 }
 //                             />
 
@@ -7266,20 +7599,10 @@
 //                                 levelLabel="Parent Division"
 //                                 onViewAll={() => openViewAll("cfo", null, "Parent Division")}
 //                                 onExportExcel={() =>
-//                                     exportTrendToExcel(
-//                                         parentDivisionTrend,
-//                                         "Working Capital by Parent Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
+//                                     handleExport("excel", "parent-division-trend", appliedFilters, parentDivisionTrend)
 //                                 }
 //                                 onExportPdf={() =>
-//                                     exportTrendToPdf(
-//                                         parentDivisionTrend,
-//                                         "Working Capital by Parent Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
+//                                     handleExport("pdf", "parent-division-trend", appliedFilters, parentDivisionTrend)
 //                                 }
 //                             />
 //                         </div>
@@ -9462,6 +9785,8 @@
 
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 import { createPortal } from "react-dom";
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
 import {
@@ -9697,6 +10022,163 @@ function optionList(source) {
         .filter((item) => item.id && item.label);
 }
 
+
+
+function hasScopeValue(value) {
+    if (Array.isArray(value)) return value.some(hasScopeValue);
+    if (value && typeof value === "object") {
+        return Object.values(value).some(hasScopeValue);
+    }
+    return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function collectAccessScopeRows(access) {
+    const rows = [];
+    const seen = new Set();
+    const queue = [access];
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || seen.has(current)) continue;
+        seen.add(current);
+        if (Array.isArray(current)) {
+            current.forEach((item) => queue.push(item));
+            continue;
+        }
+        for (const key of [
+            "access_scopes", "accessScopes", "scope_assignments",
+            "scopeAssignments", "scopes", "module_scopes", "moduleScopes",
+        ]) {
+            if (Array.isArray(current[key])) {
+                current[key].forEach((row) => {
+                    if (row && typeof row === "object") rows.push(row);
+                });
+            }
+        }
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+    }
+    return rows;
+}
+
+function getScopedLegalEntityOptions(access) {
+    const rows = collectAccessScopeRows(access);
+    const result = [];
+    const seen = new Set();
+
+    const add = (idValue, labelValue, row = {}) => {
+        const id = idValue == null ? "" : String(idValue).trim();
+        const label = labelValue == null ? "" : String(labelValue).trim();
+        if (!label) return;
+        // Prefer a backend entity ID. When the access payload omits one,
+        // use its stable entity code/name so the assigned scope remains visible.
+        const optionId = id || String(
+            row.legal_entity_code ?? row.legalEntityCode ?? label
+        ).trim();
+        if (!optionId) return;
+        const key = `${optionId.toLowerCase()}::${label.toLowerCase()}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const toIds = (...values) => values
+            .flatMap((value) => Array.isArray(value) ? value : [value])
+            .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+            .map(String);
+        result.push({
+            id: optionId,
+            label,
+            legalGroupIds: toIds(
+                row.legal_group_id, row.legalGroupId,
+                row.legal_group_ids, row.legalGroupIds
+            ),
+            legalEntityIds: [optionId],
+            parentDivisionIds: toIds(
+                row.parent_division_id, row.parentDivisionId,
+                row.parent_division_ids, row.parentDivisionIds
+            ),
+        });
+    };
+
+    rows.forEach((row) => {
+        const type = String(
+            row.scope_type ?? row.scopeType ?? row.scope_level ??
+            row.scopeLevel ?? row.entity_type ?? row.entityType ?? ""
+        ).toLowerCase().replace(/[-\s]/g, "_");
+        const entityLabel = getValue(
+            row,
+            "legal_entity_name", "legalEntityName",
+            "entity_name", "entityName"
+        );
+        const entityId = getValue(
+            row,
+            "legal_entity_id", "legalEntityId",
+            "entity_id", "entityId", "legal_entity_code", "legalEntityCode"
+        );
+        const entityCode = getValue(row, "legal_entity_code", "legalEntityCode");
+        const looksLikeEntityScope =
+            type.includes("legal_entity") ||
+            type === "entity" ||
+            hasScopeValue(entityLabel) ||
+            hasScopeValue(entityId);
+        if (looksLikeEntityScope) {
+            add(entityId ?? entityCode, entityLabel ?? entityCode ?? entityId, row);
+        }
+    });
+
+    // Some /access/me versions expose scope fields directly rather than rows.
+    const directLabel = findValueInObject(access, [
+        "legal_entity_name", "legalEntityName", "entity_name", "entityName",
+    ]);
+    const directId = findValueInObject(access, [
+        "legal_entity_id", "legalEntityId", "entity_id", "entityId",
+        "legal_entity_code", "legalEntityCode",
+    ]);
+    if (hasScopeValue(directLabel) || hasScopeValue(directId)) {
+        const labels = Array.isArray(directLabel) ? directLabel : [directLabel];
+        const ids = Array.isArray(directId) ? directId : [directId];
+        labels.forEach((label, index) => add(ids[index] ?? ids[0] ?? label, label));
+    }
+    return result;
+}
+
+function findValueInObject(source, aliases) {
+    const visited = new Set();
+    const queue = [source];
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || visited.has(current)) continue;
+        visited.add(current);
+        if (Array.isArray(current)) {
+            current.forEach((item) => queue.push(item));
+            continue;
+        }
+        for (const alias of aliases) {
+            if (Object.prototype.hasOwnProperty.call(current, alias) && hasScopeValue(current[alias])) {
+                return current[alias];
+            }
+        }
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+    }
+    return null;
+}
+
+function mergeScopedLegalEntities(options, access) {
+    const current = options?.legalEntities || [];
+    const scoped = getScopedLegalEntityOptions(access);
+    const byId = new Map(current.map((item) => [String(item.id).toLowerCase(), item]));
+    const byLabel = new Map(current.map((item) => [String(item.label).toLowerCase(), item]));
+    const merged = [...current];
+    scoped.forEach((item) => {
+        const existing = byId.get(String(item.id).toLowerCase()) ||
+            byLabel.get(String(item.label).toLowerCase());
+        if (existing) return;
+        merged.push(item);
+        byId.set(String(item.id).toLowerCase(), item);
+        byLabel.set(String(item.label).toLowerCase(), item);
+    });
+    return { ...options, legalEntities: merged };
+}
 
 function getFilterOptionsPayload(payload) {
     const data = unwrapApiResponse(payload);
@@ -10146,6 +10628,31 @@ function normalizeCccTrendRows(payload) {
         );
 }
 
+function formatCccPeriod(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const raw = String(value).trim();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // Format monthly keys (YYYY-MM, YYYY-M) and ISO dates for display only.
+    const match = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+    if (match) {
+        const monthIndex = Number(match[2]) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) {
+            return `${monthNames[monthIndex]}-${match[1].slice(-2)}`;
+        }
+    }
+
+    // Normalize labels such as "Jan 2026" or "January 2026".
+    const labelMatch = raw.match(/^([A-Za-z]{3,9})[\s-]+(\d{2}|\d{4})$/);
+    if (labelMatch) {
+        const monthIndex = monthNames.findIndex((month) =>
+            month.toLowerCase() === labelMatch[1].slice(0, 3).toLowerCase()
+        );
+        if (monthIndex >= 0) return `${monthNames[monthIndex]}-${labelMatch[2].slice(-2)}`;
+    }
+    return raw;
+}
+
 function normalizeBreakdownRows(payload) {
     return getRows(payload).map((row) => ({
         key:
@@ -10308,12 +10815,12 @@ const styles = {
     },
     card: {
         background: "var(--clr-surface)",
-        border: "none",
-        borderRadius: "var(--radius-md)",
-        minHeight: "84px",
-        padding: S.cardPad,
+        border: "1px solid rgba(226, 232, 240, .55)",
+        borderRadius: "13px",
+        minHeight: "82px",
+        padding: "11px",
         boxSizing: "border-box",
-        boxShadow: SHADOW.card,
+        boxShadow: "0 2px 8px rgba(15, 23, 42, .025)",
         overflow: "hidden",
         position: "relative",
         transition: "transform var(--tr-base), box-shadow var(--tr-base)",
@@ -10557,12 +11064,32 @@ function AnimatedKpiValue({ value, duration = 1100 }) {
     );
 }
 
-function KpiCard({ title, value, subtitle, icon }) {
+function KpiCard({ title, value, subtitle, icon, metricLine }) {
     const palettes = {
         "Trade Working Capital": {
-            bg: "#EEF4FF",
-            iconBg: "#DCE9FF",
-            accent: "#2563EB",
+            bg: "#EEF2FF",
+            iconBg: "#DCE3FF",
+            accent: "#4F46E5",
+        },
+        "Trade Receivables": {
+            bg: "#ECFBFF",
+            iconBg: "#D5F3FA",
+            accent: "#0891B2",
+        },
+        "Inventory": {
+            bg: "#F0FDF4",
+            iconBg: "#DCFCE7",
+            accent: "#16A34A",
+        },
+        "Trade Payables": {
+            bg: "#FFF1F2",
+            iconBg: "#FFE0E4",
+            accent: "#DC2626",
+        },
+        "Working Capital Ratio": {
+            bg: "#F5F1FF",
+            iconBg: "#E9DEFF",
+            accent: "#7C3AED",
         },
         "Net Working Capital": {
             bg: "#EEF2FF",
@@ -10609,6 +11136,16 @@ function KpiCard({ title, value, subtitle, icon }) {
             iconBg: "#DDF3FF",
             accent: "#0284C7",
         },
+        "CCC (Cash Conversion Cycle)": {
+            bg: "#FDF2F8",
+            iconBg: "#FCE0EE",
+            accent: "#DB2777",
+        },
+        "Target DSO": {
+            bg: "#F0F9FF",
+            iconBg: "#DDF3FF",
+            accent: "#0284C7",
+        },
     };
 
     const palette = palettes[title] || {
@@ -10641,7 +11178,7 @@ function KpiCard({ title, value, subtitle, icon }) {
                 style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "9px",
+                    gap: "8px",
                     height: "100%",
                     minWidth: 0,
                 }}
@@ -10679,11 +11216,15 @@ function KpiCard({ title, value, subtitle, icon }) {
                         style={{
                             color: palette.accent,
                             fontSize: "0.68rem",
-                            lineHeight: 1.15,
+                            lineHeight: 1.2,
+                            letterSpacing: "-0.01em",
                             fontWeight: 700,
-                            whiteSpace: "nowrap",
+                            whiteSpace: "normal",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            overflowWrap: "anywhere",
                         }}
                         title={title}
                     >
@@ -10706,6 +11247,33 @@ function KpiCard({ title, value, subtitle, icon }) {
                         <AnimatedKpiValue value={value} />
                     </div>
 
+                    {metricLine && (
+                        <div
+                            className="wc-kpi-metric-line"
+                            style={{
+                                display: "inline-flex",
+                                alignSelf: "flex-start",
+                                alignItems: "center",
+                                width: "fit-content",
+                                maxWidth: "100%",
+                                marginTop: "3px",
+                                padding: "2px 6px",
+                                borderRadius: "5px",
+                                background: "rgba(255,255,255,.68)",
+                                color: "#475569",
+                                fontSize: "0.60rem",
+                                lineHeight: 1.2,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                            }}
+                            title={metricLine}
+                        >
+                            {metricLine}
+                        </div>
+                    )}
+
                     {subtitle && (
                         <div
                             style={{
@@ -10714,7 +11282,7 @@ function KpiCard({ title, value, subtitle, icon }) {
                                 marginTop: "2px",
                                 padding: "2px 6px",
                                 borderRadius: "5px",
-                                background: "rgba(255,255,255,.58)",
+                                background: "rgba(255,255,255,.72)",
                                 color: isInsufficientHistory
                                     ? "#64748B"
                                     : "#64748B",
@@ -13475,9 +14043,9 @@ function UnitToggle({ unit, onToggle, currency = "AED" }) {
                     transition: "all 0.15s ease",
                     outline: "none",
                 }}
-                title={`Display in ${currency} Million`}
+                title={`Display in ${currency} Millions`}
             >
-                {currency} Million
+                {currency} Millions
             </button>
         </div>
     );
@@ -14245,6 +14813,9 @@ function ViewAllModal({
                                 </button>
                             </div>
                         )}
+                        {/* CCC Trend contains day-based metrics, not monetary amounts.
+                            Keep currency-unit controls off this view so the UI does not
+                            imply that DSO/DIO/DPO/CCC days can be converted to AED millions. */}
                         {!isCcc && (
                             <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
                         )}
@@ -14330,7 +14901,7 @@ function ViewAllModal({
                     </div>
 
                     {isTrade ? (
-                        <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(220px, 0.58fr) minmax(560px, 1.42fr)", gap: 10, overflow: "hidden" }}>
+                        <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.75fr)", gap: 10, overflow: "hidden" }}>
                             <div className="wc-trade-view-all-table" style={{ minWidth: 0, minHeight: 0, overflow: "auto" }}>
                                 <table
                                     style={{
@@ -14416,7 +14987,7 @@ function ViewAllModal({
 
                                             if (isCcc) return (
                                                 <tr key={`${row.period}-${index}`}>
-                                                    <td style={td}>{row.period}</td>
+                                                    <td style={td}>{formatCccPeriod(row.period)}</td>
                                                     <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
                                                     <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
                                                     <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -14545,7 +15116,7 @@ function ViewAllModal({
                                         }
                                         if (isCcc) return (
                                             <tr key={`${row.period}-${index}`}>
-                                                <td style={td}>{row.period}</td>
+                                                <td style={td}>{formatCccPeriod(row.period)}</td>
                                                 <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
                                                 <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
                                                 <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -14640,6 +15211,69 @@ const tdRight = {
 ============================================================ */
 
 export default function WorkingCapitalReport() {
+    // RBAC follows the Receivables/Sales Revenue access contract:
+    // /api/access/me is the authority for user scopes and role_code.
+    // AuthContext is the authority for module-level export permission.
+    const [userAccess, setUserAccess] = useState(null);
+    const [permissions, setPermissions] = useState([]);
+    const { hasExportRight } = useAuth();
+    const canExportWorkingCapital =
+        typeof hasExportRight === "function" &&
+        hasExportRight("WORKING_CAPITAL");
+
+    // /api/access/me is authoritative for assigned legal hierarchy scopes.
+    // Ignore empty aliases so a blank top-level field cannot hide populated
+    // legal_entity_name values in access_scopes rows.
+    const findAccessScopeValue = (source, aliases) =>
+        findValueInObject(source, aliases);
+
+    const accessScopeRoot = userAccess ?? {};
+    const legalGroupScopeValue = findAccessScopeValue(accessScopeRoot, [
+        "legal_group_id", "legal_group_ids", "legal_group_code", "legal_group_name",
+        "legal_group", "legalGroupId", "legalGroupIds", "legalGroupCode",
+        "legalGroupName", "legalGroup",
+    ]);
+    const scopedEntityOptions = getScopedLegalEntityOptions(accessScopeRoot);
+    const legalEntityScopeValue = findAccessScopeValue(accessScopeRoot, [
+        "legal_entity_id", "legal_entity_ids", "legal_entity_name", "legal_entity_code",
+        "legal_entity", "legalEntityId", "legalEntityIds", "legalEntityName",
+        "legalEntityCode", "legalEntity",
+    ]);
+    const hasLegalGroupScope = hasScopeValue(legalGroupScopeValue);
+    const hasLegalEntityScope = hasScopeValue(legalEntityScopeValue) ||
+        scopedEntityOptions.length > 0;
+
+    const normalizePermissions = (response) => {
+        if (Array.isArray(response)) return response;
+        if (response && Array.isArray(response.data)) return response.data;
+        if (response && Array.isArray(response.permissions)) return response.permissions;
+        if (response && typeof response === "object") return [response];
+        return [];
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchAccessMe()
+            .then((data) => {
+                if (cancelled) return;
+                setUserAccess(data);
+                if (data && data.role_code) {
+                    return fetchRolePermissions(data.role_code)
+                        .then((response) => {
+                            if (!cancelled) setPermissions(normalizePermissions(response));
+                        })
+                        .catch(() => {
+                            if (!cancelled) setPermissions([]);
+                        });
+                }
+                return null;
+            })
+            .catch((err) => {
+                if (!cancelled) console.warn("Failed to fetch Working Capital access:", err);
+            });
+        return () => { cancelled = true; };
+    }, []);
+
     const [filters, setFilters] = useState({
         legalGroups: [],
         legalEntities: [],
@@ -14733,8 +15367,11 @@ export default function WorkingCapitalReport() {
 
                 if (!active) return;
 
-                const options =
-                    normalizeFilterOptions(response);
+                const backendOptions = normalizeFilterOptions(response);
+                // The filter-options endpoint may omit entities that are
+                // present in /access/me. Merge only the authenticated user's
+                // assigned entities; never add unrestricted/global entities.
+                const options = mergeScopedLegalEntities(backendOptions, userAccess);
 
                 setFilterOptions(options);
 
@@ -14744,21 +15381,20 @@ export default function WorkingCapitalReport() {
                  * for the user to press Apply; it is the initial page-load
                  * filter used by the dashboard.
                  */
-                const nextFilters = {
-                    ...filters,
-                    asOnDate:
-                        filters.asOnDate ||
-                        options.operationalAsOnDate ||
-                        options.asOnDates[0] ||
-                        "",
-                };
-
-                setFilters(nextFilters);
-                setAppliedFilters((current) =>
-                    current === null
-                        ? { ...nextFilters }
-                        : current
-                );
+                setFilters((currentFilters) => {
+                    const nextFilters = {
+                        ...currentFilters,
+                        asOnDate:
+                            currentFilters.asOnDate ||
+                            options.operationalAsOnDate ||
+                            options.asOnDates[0] ||
+                            "",
+                    };
+                    setAppliedFilters((currentApplied) =>
+                        currentApplied === null ? { ...nextFilters } : currentApplied
+                    );
+                    return nextFilters;
+                });
 
                 setFilterOptionsLoaded(true);
             } catch (err) {
@@ -14780,7 +15416,7 @@ export default function WorkingCapitalReport() {
         return () => {
             active = false;
         };
-    }, []);
+    }, [userAccess]);
 
     /* --------------------------------------------------------
        LOAD DASHBOARD
@@ -15201,6 +15837,8 @@ export default function WorkingCapitalReport() {
         overrideFilters = null,
         overrideRows = null
     ) {
+        if (!canExportWorkingCapital) return;
+
         setExporting(true);
         setError("");
 
@@ -15253,34 +15891,23 @@ export default function WorkingCapitalReport() {
                     response,
                     fallback
                 );
-            } else if (section === "trend") {
-                if (type === "excel") {
-                    exportTrendToExcel(
-                        overrideRows || trend,
-                        "Net Working Capital",
-                        currency,
-                        "Net Working Capital"
-                    );
-                } else {
-                    exportTrendToPdf(
-                        overrideRows || trend,
-                        "Net Working Capital",
-                        currency,
-                        "Net Working Capital"
-                    );
-                }
-            } else if (section === "liquidity") {
-                if (type === "excel") {
-                    exportLiquidityRatioToExcel(
-                        ratioValue,
-                        balanceSheetPeriod
-                    );
-                } else {
-                    exportLiquidityRatioToPdf(
-                        ratioValue,
-                        balanceSheetPeriod
-                    );
-                }
+            } else {
+                // Use the backend's supported common export endpoint for
+                // sections that do not have their own export endpoint.
+                // The same hierarchy/date filters are sent as View All.
+                const commonFilters = buildCfoViewAllApiFilters(
+                    activeFilters,
+                    filterOptions
+                );
+                response =
+                    type === "excel"
+                        ? await exportWorkingCapitalViewAllExcel(commonFilters)
+                        : await exportWorkingCapitalViewAllPdf(commonFilters);
+                fallback =
+                    type === "excel"
+                        ? `working-capital-${String(section || "view-all").toLowerCase()}-export.xlsx`
+                        : `working-capital-${String(section || "view-all").toLowerCase()}-export.pdf`;
+                downloadWorkingCapitalFile(response, fallback);
             }
         } catch (err) {
             setError(
@@ -15310,6 +15937,7 @@ export default function WorkingCapitalReport() {
         _section,
         overrideFilters = null
     ) {
+        if (!canExportWorkingCapital) return;
         setExporting(true);
         setError("");
 
@@ -15355,21 +15983,34 @@ export default function WorkingCapitalReport() {
     }
 
     async function handleHeaderExport(format) {
+        if (!canExportWorkingCapital) return;
         if (exporting) return;
         setExporting(true);
+        setError("");
         try {
-            const kpisRows = kpis ? Object.entries(kpis).map(([key, value]) => ({ metric: key, value })) : [];
-            const componentsRows = [
-                { label: "Receivables", value: getValue(components, "receivables", "total_receivables"), type: "positive" },
-                { label: "Inventory", value: getValue(components, "inventory", "total_inventory"), type: "positive" },
-                { label: "(-) Payables", value: getValue(components, "payables", "total_payables"), type: "negative" },
-                { label: "Trade Working Capital", value: getValue(components, "trade_working_capital", "trade_working_capital_value", "working_capital"), type: "total" },
-            ];
-            const payload = { kpisRows, trend, tradeTrend, componentsRows, assetRows, liabilityRows, avlRows, cccTrend };
-            if (format === "excel") exportWorkingCapitalAllToExcel(payload, currency);
-            else exportWorkingCapitalAllToPdf(payload, currency);
+            // Use the available backend export API instead of generating a
+            // client-side workbook/PDF from whatever data happens to be loaded.
+            const activeFilters = appliedFilters || filters;
+            const apiFilters = buildCfoViewAllApiFilters(
+                activeFilters,
+                filterOptions
+            );
+            const response =
+                format === "excel"
+                    ? await exportWorkingCapitalViewAllExcel(apiFilters)
+                    : await exportWorkingCapitalViewAllPdf(apiFilters);
+            downloadWorkingCapitalFile(
+                response,
+                format === "excel"
+                    ? "working-capital-dashboard.xlsx"
+                    : "working-capital-dashboard.pdf"
+            );
         } catch (err) {
-            setError(err?.message || `Working Capital ${format} export failed.`);
+            setError(
+                err?.response?.data?.detail ||
+                err?.message ||
+                `Working Capital ${format} export failed.`
+            );
         } finally {
             setExporting(false);
         }
@@ -15669,6 +16310,177 @@ export default function WorkingCapitalReport() {
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
             <style>{workingCapitalFilterResponsiveCss}</style>
             <style>{`
+                /* Sales Revenue visual language — scoped to Working Capital only. */
+                .wc-sales-page,
+                .wc-sales-page * {
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                }
+                .wc-sales-page {
+                    background: #F7F9FC !important;
+                    color: #1E293B !important;
+                }
+                .wc-sales-page .page-header {
+                    margin: 0 0 16px !important;
+                    gap: 14px !important;
+                }
+                .wc-sales-page .page-header-title,
+                .wc-sales-page .wc-page-title {
+                    color: #1E1B4B !important;
+                    font-size: 1.45rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -0.025em !important;
+                    line-height: 1.2 !important;
+                }
+                .wc-sales-page .page-header-subtitle {
+                    color: #64748B !important;
+                    font-size: 0.76rem !important;
+                    font-weight: 500 !important;
+                    line-height: 1.45 !important;
+                }
+                .wc-sales-page .wc-filter-grid {
+                    background: #FFFFFF !important;
+                    border: 1px solid #E8EDF4 !important;
+                    border-radius: 14px !important;
+                    padding: 12px 14px !important;
+                    margin-bottom: 16px !important;
+                    box-shadow: 0 3px 12px rgba(15, 23, 42, .035) !important;
+                }
+                .wc-sales-page .wc-filter-grid label,
+                .wc-sales-page .wc-filter-grid > div > label,
+                .wc-sales-page .wc-filter-grid > div > span {
+                    color: #334155 !important;
+                    font-size: 0.70rem !important;
+                    font-weight: 700 !important;
+                }
+                .wc-sales-page .wc-filter-grid select,
+                .wc-sales-page .wc-filter-grid input,
+                .wc-sales-page .wc-filter-grid button {
+                    border-radius: 8px !important;
+                    font-size: 0.72rem !important;
+                    font-weight: 600 !important;
+                }
+                .wc-sales-page .wc-sales-kpis {
+                    gap: 10px !important;
+                    margin: 0 0 16px !important;
+                }
+                .wc-sales-page .sales-style-kpi {
+                    border: 1px solid rgba(226, 232, 240, .55) !important;
+                    border-radius: 13px !important;
+                    min-height: 82px !important;
+                    padding: 11px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                    transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
+                }
+                .wc-sales-page .sales-style-kpi:hover {
+                    transform: translateY(-2px) !important;
+                    box-shadow: 0 9px 22px rgba(15, 23, 42, .08) !important;
+                }
+                .wc-sales-page .wc-panel-animate,
+                .wc-sales-page .wc-hierarchy-exposure-panel {
+                    background: #FFFFFF !important;
+                    border: 1px solid rgba(226, 232, 240, .62) !important;
+                    border-radius: 16px !important;
+                    box-shadow: 0 4px 20px rgba(15, 23, 42, .035), 0 1px 3px rgba(15, 23, 42, .025) !important;
+                    transition: transform .22s ease, box-shadow .22s ease !important;
+                }
+                .wc-sales-page .wc-panel-animate:hover,
+                .wc-sales-page .wc-hierarchy-exposure-panel:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 8px 24px rgba(15, 23, 42, .065) !important;
+                }
+                .wc-sales-page h2,
+                .wc-sales-page h3,
+                .wc-sales-page .wc-panel-title {
+                    color: #1E1B4B !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.018em !important;
+                }
+                .wc-sales-page .recharts-cartesian-axis-tick-value,
+                .wc-sales-page .recharts-label,
+                .wc-sales-page .recharts-legend-item-text {
+                    font-family: Inter, system-ui, sans-serif !important;
+                    font-size: 10px !important;
+                    font-weight: 600 !important;
+                    fill: #94A3B8 !important;
+                }
+                .wc-sales-page .recharts-cartesian-grid-horizontal line,
+                .wc-sales-page .recharts-cartesian-grid-vertical line {
+                    stroke: #E8EDF5 !important;
+                }
+                .wc-sales-page .wc-sales-data-table,
+                .wc-sales-page table {
+                    font-family: Inter, system-ui, sans-serif !important;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                }
+                .wc-sales-page .wc-sales-data-table th,
+                .wc-sales-page table thead th {
+                    background: #F5F7FB !important;
+                    color: #334155 !important;
+                    font-size: 0.68rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: .01em !important;
+                    border-bottom: 1px solid #E2E8F0 !important;
+                }
+                .wc-sales-page .wc-sales-data-table td,
+                .wc-sales-page table tbody td {
+                    color: #334155;
+                    font-size: 0.72rem;
+                    font-weight: 500;
+                    border-bottom-color: #EEF2F7 !important;
+                }
+                .wc-sales-page .wc-sales-data-table tbody tr:hover td,
+                .wc-sales-page table tbody tr:hover td {
+                    background: #F8FAFF !important;
+                }
+                .wc-sales-page button {
+                    transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+                }
+                .wc-sales-page button:hover:not(:disabled) {
+                    transform: translateY(-1px);
+                }
+                .wc-sales-view-all-overlay,
+                .wc-sales-view-all-overlay * {
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                }
+                .wc-sales-view-all-modal {
+                    animation: wcSalesModalIn .22s ease-out both;
+                    border-radius: 14px !important;
+                    box-shadow: 0 24px 70px rgba(15, 23, 42, .20) !important;
+                }
+                .wc-sales-view-all-modal table thead th {
+                    background: #F5F7FB !important;
+                    color: #334155 !important;
+                    font-size: 0.68rem !important;
+                    font-weight: 800 !important;
+                    border-bottom: 1px solid #DDE5EF !important;
+                    padding: 9px 10px !important;
+                }
+                .wc-sales-view-all-modal table tbody td {
+                    font-size: 0.72rem !important;
+                    color: #334155 !important;
+                    padding: 9px 10px !important;
+                    border-bottom: 1px solid #EEF2F7 !important;
+                }
+                .wc-sales-view-all-modal table tbody tr:nth-child(even) td {
+                    background: #FBFCFE;
+                }
+                .wc-sales-view-all-modal table tbody tr:hover td {
+                    background: #F1F5FF !important;
+                }
+                @keyframes wcSalesModalIn {
+                    from { opacity: 0; transform: translateY(5px) scale(.995); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @media (max-width: 900px) {
+                    .wc-sales-page .wc-sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+                }
+                @media (max-width: 600px) {
+                    .wc-sales-page .wc-sales-kpis { grid-template-columns: 1fr !important; }
+                    .wc-sales-view-all-modal { width: 100vw !important; height: 100dvh !important; border-radius: 0 !important; }
+                }
+            `}</style>
+            <style>{`
                 .wc-trade-view-all-table table th,
                 .wc-trade-view-all-table table td {
                     padding: 5px 6px !important;
@@ -15677,10 +16489,16 @@ export default function WorkingCapitalReport() {
                 .wc-trade-view-all-table table th {
                     white-space: nowrap;
                 }
+                .wc-trade-view-all-grid > .wc-trade-view-all-table {
+                    min-width: 0;
+                }
+                .wc-trade-view-all-grid > .wc-trade-view-all-table table {
+                    min-width: 0 !important;
+                }
                 @media (max-width: 1050px) {
                     .wc-trade-view-all-grid {
-                        grid-template-columns: 1fr !important;
-                        grid-template-rows: minmax(300px, 1fr) minmax(300px, 0.9fr) !important;
+                        grid-template-columns: minmax(0, 1fr) !important;
+                        grid-template-rows: minmax(220px, 1fr) minmax(240px, 0.8fr) !important;
                     }
                 }
             `}</style>
@@ -16105,12 +16923,47 @@ export default function WorkingCapitalReport() {
                 }
 
                 .wc-sales-page .sales-style-kpi {
-                    border: none !important;
-                    border-radius: 12px !important;
-                    padding: 10px !important;
-                    min-height: 74px !important;
-                    box-shadow: none !important;
-                    transition: all .25s cubic-bezier(.4,0,.2,1) !important;
+                    box-sizing: border-box !important;
+                    border: 1px solid rgba(226, 232, 240, .55) !important;
+                    border-radius: 13px !important;
+                    padding: 11px !important;
+                    min-height: 82px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                    overflow: hidden !important;
+                    transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
+                }
+
+                .wc-sales-page .sales-style-kpi > div {
+                    align-items: center !important;
+                    gap: 8px !important;
+                }
+
+                .wc-sales-page .sales-style-kpi > div > div:first-child {
+                    flex: 0 0 34px !important;
+                    width: 34px !important;
+                    height: 34px !important;
+                    min-width: 34px !important;
+                    border-radius: 50% !important;
+                }
+                .wc-sales-page .sales-style-kpi:hover {
+                    box-shadow: 0 8px 18px rgba(79, 70, 229, .10) !important;
+                }
+
+                .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+                    display: inline-flex !important;
+                    align-self: flex-start !important;
+                    align-items: center !important;
+                    width: fit-content !important;
+                    max-width: 100% !important;
+                    margin-top: 3px !important;
+                    padding: 2px 6px !important;
+                    border-radius: 5px !important;
+                    background: rgba(255,255,255,.68) !important;
+                    color: #475569 !important;
+                    font-size: .60rem !important;
+                    line-height: 1.2 !important;
+                    font-weight: 700 !important;
+                    letter-spacing: 0 !important;
                 }
 
                 .wc-sales-page .sales-style-kpi:hover {
@@ -16193,6 +17046,35 @@ export default function WorkingCapitalReport() {
 
                 @media (max-width: 600px) {
                     .wc-sales-page .wc-sales-kpis {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+                /* Cycle KPI metrics are independent cards, styled exactly like the
+                   Sales-style KPI cards above; responsive only at smaller widths. */
+                .wc-sales-page .wc-cycle-kpis {
+                    display: grid !important;
+                    width: 100% !important;
+                    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                    gap: 10px !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 16px !important;
+                    align-items: stretch !important;
+                }
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+                    box-sizing: border-box !important;
+                    min-height: 82px !important;
+                    border: 1px solid rgba(226, 232, 240, .55) !important;
+                    border-radius: 13px !important;
+                    padding: 11px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                }
+                @media (max-width: 1200px) {
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                    }
+                }
+                @media (max-width: 600px) {
+                    .wc-sales-page .wc-cycle-kpis {
                         grid-template-columns: 1fr !important;
                     }
                 }
@@ -16285,7 +17167,7 @@ export default function WorkingCapitalReport() {
                 <div className="page-header" style={{ marginBottom: "16px", paddingTop: "0", gap: "16px" }}>
                     <div>
                         <h1 className="page-header-title wc-page-title" style={{ fontSize: "1.45rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                            <span style={{ fontSize: "1.3rem" }}>📈</span> Working Capital Report
+                            <span style={{ fontSize: "1.3rem" }}>📈</span> Trade Working Capital Report
                         </h1>
 
                         <p className="page-header-subtitle">
@@ -16371,19 +17253,23 @@ export default function WorkingCapitalReport() {
                             Loading Working Capital filter options...
                         </div>
                     )}
-                    <MultiSelectField
-                        label="Legal Group"
-                        values={filters.legalGroups}
-                        options={cascadingFilterOptions.legalGroups}
-                        onChange={(value) => updateFilter("legalGroups", value)}
-                    />
+                    {hasLegalGroupScope && (
+                        <MultiSelectField
+                            label="Legal Group"
+                            values={filters.legalGroups}
+                            options={cascadingFilterOptions.legalGroups}
+                            onChange={(value) => updateFilter("legalGroups", value)}
+                        />
+                    )}
 
-                    <MultiSelectField
-                        label="Legal Entity"
-                        values={filters.legalEntities}
-                        options={cascadingFilterOptions.legalEntities}
-                        onChange={(value) => updateFilter("legalEntities", value)}
-                    />
+                    {hasLegalEntityScope && (
+                        <MultiSelectField
+                            label="Legal Entity"
+                            values={filters.legalEntities}
+                            options={cascadingFilterOptions.legalEntities}
+                            onChange={(value) => updateFilter("legalEntities", value)}
+                        />
+                    )}
 
                     <MultiSelectField
                         label="Parent Division"
@@ -16451,7 +17337,7 @@ export default function WorkingCapitalReport() {
                             height: "32px",
                             border: "none",
                             background: "transparent",
-                            color: "#263BD4",
+                            color: "#6B7280",
                             fontSize: "11px",
                             fontWeight: 600,
                             cursor: "pointer",
@@ -16527,48 +17413,47 @@ export default function WorkingCapitalReport() {
                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
                                 icon="◔"
                             />
+                        </div>
+
+                        {/* Cycle metrics are four independent KPI cards in their own row.
+                            They are deliberately NOT nested inside Trade Working Capital
+                            or any other card. Values remain backend-authoritative. */}
+                        <div
+                            className="wc-sales-kpis wc-cycle-kpis"
+                            aria-label="Cash conversion cycle KPI cards"
+                            style={{
+                                display: "grid",
+                                width: "100%",
+                                marginTop: "0",
+                                marginBottom: "16px",
+                                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                                gap: "10px",
+                                alignItems: "stretch",
+                            }}
+                        >
                             <KpiCard
-                                title="DSO"
-                                value={toNumber(kpis?.dso_days) === null ? "—" : `${toNumber(kpis.dso_days).toFixed(2)} Days`}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
+                                title="CCC (Cash Conversion Cycle)"
+                                value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} days`}
+                                subtitle="Cash Conversion Cycle"
                                 icon="◷"
                             />
                             <KpiCard
-                                title="DIO"
-                                value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} Days`}
-                                subtitle={toNumber(kpis?.dio_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="▦"
+                                title="Target DSO"
+                                value={toNumber(kpis?.target_dso_days ?? kpis?.target_dso) === null ? "—" : `${toNumber(kpis?.target_dso_days ?? kpis?.target_dso).toFixed(2)} days`}
+                                subtitle="Target Days Sales Outstanding"
+                                icon="◎"
                             />
                             <KpiCard
                                 title="DPO"
-                                value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} Days`}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
+                                value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} days`}
+                                subtitle="Days Payable Outstanding"
                                 icon="◒"
                             />
                             <KpiCard
-                                title="CCC"
-                                value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} Days`}
-                                subtitle={toNumber(kpis?.cash_conversion_cycle_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◴"
-                            />
-                            <KpiCard
-                                title="Target CCC"
-                                value={(() => {
-                                    const target = toNumber(
-                                        getValue(
-                                            kpis,
-                                            "target_ccc_days",
-                                            "target_cash_conversion_cycle_days",
-                                            "target_cash_conversion_cycle",
-                                            "ccc_target_days",
-                                            "ccc_target",
-                                            "target_ccc"
-                                        )
-                                    );
-                                    return target === null ? "—" : `${target.toFixed(2)} Days`;
-                                })()}
-                                subtitle="Backend target"
-                                icon="◎"
+                                title="DIO"
+                                value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} days`}
+                                subtitle="Days Inventory Outstanding"
+                                icon="▦"
                             />
                         </div>
 
@@ -16630,20 +17515,10 @@ export default function WorkingCapitalReport() {
                                 levelLabel="Sub-Division"
                                 onViewAll={() => openViewAll("cfo", null, "Sub-Division")}
                                 onExportExcel={() =>
-                                    exportTrendToExcel(
-                                        subDivisionTrend,
-                                        "Working Capital by Sub-Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
+                                    handleExport("excel", "sub-division-trend", appliedFilters, subDivisionTrend)
                                 }
                                 onExportPdf={() =>
-                                    exportTrendToPdf(
-                                        subDivisionTrend,
-                                        "Working Capital by Sub-Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
+                                    handleExport("pdf", "sub-division-trend", appliedFilters, subDivisionTrend)
                                 }
                             />
 
@@ -16654,20 +17529,10 @@ export default function WorkingCapitalReport() {
                                 levelLabel="Parent Division"
                                 onViewAll={() => openViewAll("cfo", null, "Parent Division")}
                                 onExportExcel={() =>
-                                    exportTrendToExcel(
-                                        parentDivisionTrend,
-                                        "Working Capital by Parent Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
+                                    handleExport("excel", "parent-division-trend", appliedFilters, parentDivisionTrend)
                                 }
                                 onExportPdf={() =>
-                                    exportTrendToPdf(
-                                        parentDivisionTrend,
-                                        "Working Capital by Parent Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
+                                    handleExport("pdf", "parent-division-trend", appliedFilters, parentDivisionTrend)
                                 }
                             />
                         </div>

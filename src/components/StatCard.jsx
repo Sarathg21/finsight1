@@ -738,7 +738,7 @@ export default function StatCard({
       />
 
       {loading ? (
-        <div className="relative z-[1] flex h-full min-h-[54px] items-center gap-3 animate-pulse">
+        <div className="relative z-1 flex h-full min-h-13.5 items-center gap-3 animate-pulse">
           <div className="h-8 w-8 shrink-0 rounded-full bg-slate-200/80" />
           <div className="min-w-0 flex-1">
             <div className="mb-2 h-2.5 w-24 rounded bg-slate-200/80" />
@@ -747,7 +747,7 @@ export default function StatCard({
           </div>
         </div>
       ) : (
-        <div className="flex min-w-0 items-center gap-[9px]">
+        <div className="flex min-w-0 items-center gap-2.25">
           {Icon && (
             <div
               className={iconContainerClass}
@@ -878,7 +878,7 @@ export default function StatCard({
 
       {children && !loading && (
         <div
-          className="relative z-[1] min-w-0 border-t border-slate-200/60"
+          className="relative z-1 min-w-0 border-t border-slate-200/60"
           style={{ width: "100%", marginTop: 7, paddingTop: 6, boxSizing: "border-box" }}
         >
           {children}

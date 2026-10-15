@@ -1317,7 +1317,7 @@
 
 //     /* =======================================================
 //        TOTAL VARIANCE %
-       
+
 //        Total variance % is calculated from
 //        total variance / total target * 100.
 //     ======================================================= */
@@ -2096,14 +2096,14 @@
 
 //     /* =====================================================
 //        BACKEND EXPORT API
-  
+
 //        Integration specification:
 //          GET /api/opex/{report_name}/export
-  
+
 //        Actual vs Target       -> category-comparison
 //        OPEX Composition       -> composition
 //        Expense Category Drill -> category-breakdown
-  
+
 //        These mappings are used only by the corresponding View All
 //        report. Every other View All type keeps its existing export.
 //     ===================================================== */
@@ -2483,11 +2483,11 @@
 
 //     /* =====================================================
 //        FILTER DISPLAY VALUES
-  
+
 //        IMPORTANT:
 //        These values are ONLY for displaying the selected
 //        filter names in the chips.
-  
+
 //        They do NOT modify API/data filtering.
 //     ===================================================== */
 
@@ -7506,16 +7506,25 @@ export default function OperatingAnalysisViewAllModal({
 
         const format = type === "excel" ? "excel" : "pdf";
 
+
+        const token =
+            localStorage.getItem("finsight_token") ||
+            localStorage.getItem("token");
+
         const response = await fetch(url, {
             method: "GET",
             credentials: "include",
             headers: {
+                ...(token
+                    ? { Authorization: `Bearer ${token}` }
+                    : {}),
                 Accept:
                     format === "pdf"
                         ? "application/pdf, application/json"
                         : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/json, application/octet-stream",
             },
         });
+
 
         if (!response.ok) {
             let message = `Export failed (${response.status})`;

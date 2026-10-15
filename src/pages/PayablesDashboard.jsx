@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
+import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
+import { useAuth } from "../context/AuthContext";
 import {
     getPayablesFilterOptions,
     getPayablesDashboard,
@@ -238,6 +240,90 @@ const normalizeParentDivisionMonthOnMonthRows = (response) => {
 
     return Array.from(grouped.values());
 };
+
+/* ============================================================
+   ACCESS-SCOPE VISIBILITY HELPERS
+   Scope visibility is derived only from the authenticated /access/me
+   response. It is not inferred from dropdown options or role names.
+   ============================================================ */
+const payablesScopeHasValue = (value) => {
+    if (value === null || value === undefined) return false;
+    if (Array.isArray(value)) return value.some(payablesScopeHasValue);
+    if (typeof value === "object") {
+        return payablesScopeHasValue(
+            value.value ?? value.code ?? value.name ?? value.label ??
+            value.scope_value ?? value.scopeValue ?? value.values ?? value.ids
+        );
+    }
+    const text = String(value).trim();
+    return text !== "" && text.toLowerCase() !== "null" && text.toLowerCase() !== "undefined";
+};
+
+const findPayablesAccessScopeValue = (source, aliases) => {
+    const visited = new Set();
+    const queue = [source];
+    let emptyAliasFound = false;
+
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || visited.has(current)) continue;
+        visited.add(current);
+
+        if (Array.isArray(current)) {
+            current.forEach((item) => queue.push(item));
+            continue;
+        }
+
+        // Do not stop on an empty top-level alias: /access/me may include an
+        // empty convenience field while the real value lives in access_scopes.
+        for (const alias of aliases) {
+            if (Object.prototype.hasOwnProperty.call(current, alias)) {
+                const candidate = current[alias];
+                if (payablesScopeHasValue(candidate)) return candidate;
+                emptyAliasFound = true;
+            }
+        }
+
+        // Support centralized RBAC payloads that represent scopes as rows,
+        // e.g. { scope_type: "LEGAL_ENTITY", scope_value: [...] } rather than
+        // as direct legal_entity_name/legal_entity_code properties.
+        const scopeCollections = [current.access_scopes, current.accessScopes, current.scopes, current.scope_assignments, current.scopeAssignments];
+        for (const collection of scopeCollections) {
+            if (!collection) continue;
+            const rows = Array.isArray(collection) ? collection : Object.values(collection);
+            for (const row of rows) {
+                if (!row || typeof row !== "object") continue;
+                const kind = String(
+                    row.scope_type ?? row.scopeType ?? row.scope_level ?? row.scopeLevel ??
+                    row.resource_type ?? row.resourceType ?? row.entity_type ?? row.entityType ??
+                    row.type ?? row.key ?? row.name ?? ""
+                ).toLowerCase().replace(/[\s-]+/g, "_");
+                const isEntityScope = kind.includes("legal_entity") || kind.includes("legalentity");
+                if (isEntityScope) {
+                    const candidate = row.scope_value ?? row.scopeValue ?? row.values ?? row.value ??
+                        row.ids ?? row.names ?? row.legal_entity_name ?? row.legal_entity_code ??
+                        row.legal_entity_id ?? row.legalEntityName ?? row.legalEntityCode ?? row.legalEntityId;
+                    if (payablesScopeHasValue(candidate)) return candidate;
+                }
+            }
+        }
+
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+    }
+    return null;
+};
+
+const normalizePayablesPermissions = (response) => {
+    if (Array.isArray(response)) return response;
+    if (response && Array.isArray(response.data)) return response.data;
+    if (response && Array.isArray(response.permissions)) return response.permissions;
+    if (response && typeof response === "object") return [response];
+    return [];
+};
+
+const PAYABLES_ACCESS_MODULE = "PAYABLES";
 
 /* ============================================================
    PAYABLES DASHBOARD
@@ -1456,6 +1542,7 @@ function FilterSelect({
     options = [],
     onChange,
     multiple = false,
+    className = "",
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -1626,9 +1713,11 @@ function FilterSelect({
     return (
         <div
             ref={dropdownRef}
+            className={`payables-filter-field ${className}`.trim()}
             style={{
                 flex: "1 1 115px",
-                minWidth: 115,
+                minWidth: 0,
+                width: "100%",
                 position: "relative",
             }}
         >
@@ -1950,6 +2039,7 @@ function FilterSelect({
 function DateFilter({
     value,
     onChange,
+    className = "",
 }) {
     const dateInputRef = useRef(null);
 
@@ -1976,9 +2066,11 @@ function DateFilter({
 
     return (
         <div
+            className={`payables-filter-field payables-filter-date ${className}`.trim()}
             style={{
-                flex: "1 1 115px",
-                minWidth: 115,
+                flex: "0.82 1 100px",
+                minWidth: 0,
+                width: "100%",
                 position: "relative",
             }}
         >
@@ -3043,18 +3135,16 @@ function DonutChart({
                                             : 4,
 
                                     // =================================================
-                                    // AGING SUMMARY ONLY:
-                                    // Reduce gap between legend rows.
-                                    //
-                                    // Default remains exactly the same:
-                                    //   - Normal donuts: 16px
-                                    //   - Overdue Summary: 1px
+                                    // LEGEND ROW SPACING
+                                    // Overdue Summary only: add clear vertical space
+                                    // between legend entries. Aging Summary and all
+                                    // other donuts retain their existing spacing.
                                     // =================================================
                                     marginBottom:
                                         compactAgingLegend
                                             ? 5
                                             : largeOverdueChart
-                                                ? 1
+                                                ? 10
                                                 : 16,
 
                                     fontSize: compactAgingLegend ? 10 : 12,
@@ -6274,6 +6364,10 @@ function PayablesPageSkeleton() {
    ============================================================ */
 
 export default function PayablesDashboard() {
+    const [userAccess, setUserAccess] = useState(null);
+    const [permissions, setPermissions] = useState([]);
+    const { hasExportRight } = useAuth();
+    const canExportPayables = hasExportRight(PAYABLES_ACCESS_MODULE);
     const [filters, setFilters] = useState({ ...defaultPayableFilters });
     const [appliedFilters, setAppliedFilters] = useState({ ...defaultPayableFilters });
     const [filterOptions, setFilterOptions] = useState({
@@ -6290,6 +6384,56 @@ export default function PayablesDashboard() {
     const [showViewAll, setShowViewAll] = useState(false);
     const [viewAllContext, setViewAllContext] = useState({});
     const [viewAllResetKey, setViewAllResetKey] = useState(0);
+
+    // Scope visibility is driven by /access/me; role permissions and export
+    // authorization follow the Receivables/Sales Revenue RBAC pattern.
+    const legalGroupScopeValue = findPayablesAccessScopeValue(userAccess ?? {}, [
+        "legal_group_code", "legal_group_name", "legal_group", "legalGroupCode", "legalGroupName", "legalGroup",
+    ]);
+    const legalEntityScopeValue = findPayablesAccessScopeValue(userAccess ?? {}, [
+        "legal_entity_name", "legal_entity_code", "legal_entity_id", "legal_entity_ids",
+        "legal_entities", "legal_entity", "legalEntityName", "legalEntityCode", "legalEntityId",
+        "legalEntityIds", "legalEntities", "legalEntity",
+    ]);
+    const showLegalGroupFilter = payablesScopeHasValue(legalGroupScopeValue);
+    const showLegalEntityFilter = payablesScopeHasValue(legalEntityScopeValue);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetchAccessMe()
+            .then((data) => {
+                if (cancelled) return;
+                setUserAccess(data);
+
+                if (data && data.role_code) {
+                    return fetchRolePermissions(data.role_code)
+                        .then((perms) => {
+                            if (!cancelled) setPermissions(normalizePayablesPermissions(perms));
+                        })
+                        .catch((error) => {
+                            if (!cancelled) {
+                                setPermissions([]);
+                                console.warn("Failed to fetch Payables role permissions:", error);
+                            }
+                        });
+                }
+
+                setPermissions([]);
+                return null;
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    setUserAccess(null);
+                    setPermissions([]);
+                    console.warn("Payables access/me request failed:", error);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // Local table searches only; existing API/data/pagination logic is unchanged.
     const [topSuppliersSearch, setTopSuppliersSearch] = useState("");
@@ -6576,6 +6720,7 @@ export default function PayablesDashboard() {
     };
 
     const handleExport = async (format, extra = {}) => {
+        if (!canExportPayables) return;
         try {
             const apiFilters = {
                 ...buildApiFilters(),
@@ -6938,50 +7083,54 @@ export default function PayablesDashboard() {
           background: #fff !important;
         }
         .payables-sales-ui .sales-style-filter-bar {
-          display: grid !important;
-          grid-template-columns: repeat(6, minmax(76px, 1fr)) 100px 96px 108px auto auto !important;
-          align-items: end !important;
-          gap: 6px !important;
+          display: flex !important;
+          align-items: flex-end !important;
+          flex-wrap: nowrap !important;
+          gap: 8px !important;
           width: 100% !important;
-        }
-        .payables-sales-ui .sales-style-filter-bar > div {
           min-width: 0 !important;
-          width: 100% !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-field {
+          flex: 1 1 115px !important;
+          min-width: 0 !important;
+          width: auto !important;
           max-width: none !important;
         }
-        /* Keep the Reporting Currency filter compact so the complete
-           filter row remains on one line at normal desktop widths. */
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(7),
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(8) {
+        /* Keep Reporting Currency compact without relying on child positions,
+           which change with RBAC-controlled Legal Group/Entity filters. */
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-currency {
+          flex: 0.68 1 88px !important;
+          min-width: 76px !important;
+          max-width: 112px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-aging {
+          flex: 0.72 1 92px !important;
+          min-width: 78px !important;
+          max-width: 120px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-date {
+          flex: 0.82 1 100px !important;
+          min-width: 94px !important;
+          max-width: 126px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-field > button {
           min-width: 0 !important;
           width: 100% !important;
-          max-width: 100% !important;
+          padding-left: 7px !important;
+          padding-right: 20px !important;
+          font-size: 0.68rem !important;
         }
-        /* Keep Reporting Currency and Aging Basis labels clear and prevent
-           adjacent filter labels from overlapping. */
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(7) label,
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(8) label {
-          display: block !important;
-          white-space: normal !important;
-          overflow: visible !important;
-          word-break: keep-all !important;
-        }
-        /* The date field must keep DD-MM-YYYY on one line. */
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9),
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9) > button {
-          min-width: 96px !important;
-        }
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9) > button {
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-currency > button,
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-aging > button {
           white-space: nowrap !important;
           overflow: hidden !important;
-          text-overflow: clip !important;
-          padding-left: 7px !important;
-          padding-right: 31px !important;
-          font-size: 10px !important;
+          text-overflow: ellipsis !important;
         }
         .payables-sales-ui .sales-style-filter-bar > button {
-          width: auto !important;
-          min-width: 72px !important;
+          flex: 0 0 auto !important;
+          min-width: 0 !important;
+          padding-left: 10px !important;
+          padding-right: 10px !important;
         }
         .payables-sales-ui .sales-style-filter-bar label {
           color: #1e3a8a !important;
@@ -7284,9 +7433,7 @@ export default function PayablesDashboard() {
         }
         .payables-sales-ui .payables-sales-main { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         .payables-sales-ui .sales-style-filter-bar { min-height: 58px; }
-        .payables-sales-ui .sales-style-filter-bar > div { min-width: 0 !important; }
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(7) { min-width: 82px !important; }
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9) { min-width: 96px !important; }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-field { min-width: 0 !important; }
         .payables-sales-ui .sales-style-view-all-modal { overflow-y: auto !important; overflow-x: hidden !important; }
         .payables-sales-ui .sales-style-view-all-modal > div:not([aria-hidden]) { box-sizing: border-box; }
         .payables-sales-ui .sales-style-view-all-modal table th { position: sticky; top: 0; z-index: 3; }
@@ -7771,38 +7918,45 @@ export default function PayablesDashboard() {
                         flexWrap: "nowrap",
                     }}
                 >
-                    <FilterSelect
-                        label="Legal Group"
-                        value={filters.legal_group}
-                        options={filterOptions.legal_groups.map((x) => x.label)}
-                        multiple
-                        onChange={(value) =>
-                            setFilters((prev) => ({
-                                ...prev,
-                                legal_group: value,
-                                legal_entities: [],
-                                parent_divisions: [],
-                                sub_divisions: [],
-                            }))
-                        }
-                    />
+                    {showLegalGroupFilter && (
+                        <FilterSelect
+                            className="payables-filter-hierarchy"
+                            label="Legal Group"
+                            value={filters.legal_group}
+                            options={filterOptions.legal_groups.map((x) => x.label)}
+                            multiple
+                            onChange={(value) =>
+                                setFilters((prev) => ({
+                                    ...prev,
+                                    legal_group: value,
+                                    legal_entities: [],
+                                    parent_divisions: [],
+                                    sub_divisions: [],
+                                }))
+                            }
+                        />
+                    )}
+
+                    {showLegalEntityFilter && (
+                        <FilterSelect
+                            className="payables-filter-hierarchy"
+                            label="Legal Entity"
+                            value={filters.legal_entities}
+                            options={mainLegalEntities.map((x) => x.label)}
+                            multiple
+                            onChange={(value) =>
+                                setFilters((prev) => ({
+                                    ...prev,
+                                    legal_entities: value,
+                                    parent_divisions: [],
+                                    sub_divisions: [],
+                                }))
+                            }
+                        />
+                    )}
 
                     <FilterSelect
-                        label="Legal Entity"
-                        value={filters.legal_entities}
-                        options={mainLegalEntities.map((x) => x.label)}
-                        multiple
-                        onChange={(value) =>
-                            setFilters((prev) => ({
-                                ...prev,
-                                legal_entities: value,
-                                parent_divisions: [],
-                                sub_divisions: [],
-                            }))
-                        }
-                    />
-
-                    <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="Parent Division"
                         value={filters.parent_divisions}
                         options={mainParentDivisions.map((x) => x.label)}
@@ -7817,6 +7971,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="Sub-Division"
                         value={filters.sub_divisions}
                         options={mainSubDivisions.map((x) => x.label)}
@@ -7830,6 +7985,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="Supplier Type"
                         value={filters.supplier_types}
                         options={filterOptions.supplier_types.map((x) => x.label)}
@@ -7843,6 +7999,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="GL Code"
                         value={filters.gl_codes}
                         options={filterOptions.gl_codes.map((x) => x.label)}
@@ -7856,6 +8013,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-currency"
                         label="Reporting Currency"
                         value={filters.reporting_currency}
                         options={filterOptions.reporting_currencies.map((x) => x.label)}
@@ -7868,6 +8026,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-aging"
                         label="Aging Basis"
                         value={filters.aging_basis}
                         options={filterOptions.aging_bases.map((x) => x.label)}
@@ -7880,6 +8039,7 @@ export default function PayablesDashboard() {
                     />
 
                     <DateFilter
+                        className="payables-filter-date"
                         value={filters.as_on_date}
                         options={filterOptions?.as_on_dates || []}
                         onChange={(value) => {
@@ -8174,8 +8334,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Aging Summary" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Aging Summary" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Aging Summary" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Aging Summary" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Aging Summary" }) : undefined}
                                 />
                                 <SectionTitle info="Payables grouped by aging bucket">
                                     Payables Aging Summary ({currency})
@@ -8225,8 +8385,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Monthly Trend" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Monthly Trend" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Monthly Trend" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Monthly Trend" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Monthly Trend" }) : undefined}
                                 />
                                 <SectionTitle info="Historical total payables and DPO">
                                     Payables Trend ({currency})
@@ -8263,8 +8423,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Parent Division" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Parent Division" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Parent Division" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Parent Division" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Parent Division" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Payables by Parent Division ({currency})
@@ -8311,8 +8471,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Top 10 Suppliers" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Top 10 Suppliers" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Top 10 Suppliers" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Top 10 Suppliers" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Top 10 Suppliers" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Top 10 Suppliers by Payables ({currency})
@@ -8430,8 +8590,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ balance_status: "OVERDUE", component: "Overdue Summary" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Overdue Summary" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Overdue Summary" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Overdue Summary" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Overdue Summary" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Overdue Summary ({currency})
@@ -8472,8 +8632,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Sub-Division" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Sub-Division" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Sub-Division" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Sub-Division" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Sub-Division" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Payables by Sub-Division ({currency})
@@ -8504,7 +8664,7 @@ export default function PayablesDashboard() {
                                     <DataTable
                                         columns={subDivisionColumns}
                                         rows={filteredSubDivisionTableRows}
-                                        pageSize={10}
+                                        pageSize={12}
                                         keepFirstRow={true}
                                         showPageNumbers={true}
                                         paginationStyle="compact"
@@ -8692,18 +8852,18 @@ export default function PayablesDashboard() {
                                     {/* 3 DOTS */}
                                     <SectionActions
                                         onViewAll={() => openPayablesViewAll({ component: "Month-on-Month Payables" })}
-                                        onExportExcel={() =>
+                                        onExportExcel={canExportPayables ? () =>
                                             handleExport("excel", {
                                                 report_section: "Month-on-Month Payables",
                                                 unit: momDisplayUnit,
                                             })
-                                        }
-                                        onExportPdf={() =>
+                                            : undefined}
+                                        onExportPdf={canExportPayables ? () =>
                                             handleExport("pdf", {
                                                 report_section: "Month-on-Month Payables",
                                                 unit: momDisplayUnit,
                                             })
-                                        }
+                                            : undefined}
                                     />
                                 </div>
                             </div>
@@ -8800,6 +8960,9 @@ export default function PayablesDashboard() {
                     mainKpis={kpis}
                     currency={currency}
                     filterOptions={filterOptions}
+                    showLegalGroupFilter={showLegalGroupFilter}
+                    showLegalEntityFilter={showLegalEntityFilter}
+                    canExportPayables={canExportPayables}
                     baseFilters={baseApiFilters}
                     drilldown={viewAllContext}
                     onClose={() => setShowViewAll(false)}
@@ -8819,6 +8982,9 @@ function PayablesViewAll({
     mainKpis = {},
     currency,
     filterOptions = {},
+    showLegalGroupFilter = false,
+    showLegalEntityFilter = false,
+    canExportPayables = false,
     baseFilters = {},
     drilldown = {},
     onClose,
@@ -10475,6 +10641,7 @@ function PayablesViewAll({
     const handleExport = async (
         format
     ) => {
+        if (!canExportPayables) return;
         try {
             const apiFilters =
                 buildDetailFilters();
@@ -10788,6 +10955,7 @@ function PayablesViewAll({
     ]);
 
     const handleParentDivisionMonthOnMonthExport = async (format) => {
+        if (!canExportPayables) return;
         try {
             const response = await exportParentDivisionMonthOnMonth(
                 buildParentDivisionMonthOnMonthFilters(),
@@ -11982,7 +12150,7 @@ function PayablesViewAll({
                                     height: 34,
                                     minWidth: 80,
                                     padding: "0 13px",
-                                    display: "inline-flex",
+                                    display: canExportPayables ? "inline-flex" : "none",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     gap: 6,
@@ -12010,7 +12178,7 @@ function PayablesViewAll({
                                     height: 34,
                                     minWidth: 72,
                                     padding: "0 13px",
-                                    display: "inline-flex",
+                                    display: canExportPayables ? "inline-flex" : "none",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     gap: 6,
@@ -12198,24 +12366,30 @@ function PayablesViewAll({
                             style={{
                                 display:
                                     "grid",
-                                gridTemplateColumns:
-                                    showNonAgingTradePayables
-                                        ? "repeat(7, minmax(105px, 1fr)) auto auto"
-                                        : "repeat(9, minmax(105px, 1fr)) auto auto",
+                                gridTemplateColumns: `repeat(${Math.max(
+                                    1,
+                                    (showNonAgingTradePayables ? 7 : 9) -
+                                    (showLegalGroupFilter ? 0 : 1) -
+                                    (showLegalEntityFilter ? 0 : 1)
+                                )}, minmax(105px, 1fr)) auto auto`,
                                 gap: 10,
                                 alignItems:
                                     "end",
                             }}
                         >
-                            <MultiSelectDropdown
-                                filterKey="legal_group"
-                                label="Legal Group"
-                            />
+                            {showLegalGroupFilter && (
+                                <MultiSelectDropdown
+                                    filterKey="legal_group"
+                                    label="Legal Group"
+                                />
+                            )}
 
-                            <MultiSelectDropdown
-                                filterKey="legal_entities"
-                                label="Legal Entity"
-                            />
+                            {showLegalEntityFilter && (
+                                <MultiSelectDropdown
+                                    filterKey="legal_entities"
+                                    label="Legal Entity"
+                                />
+                            )}
 
                             <MultiSelectDropdown
                                 filterKey="parent_divisions"

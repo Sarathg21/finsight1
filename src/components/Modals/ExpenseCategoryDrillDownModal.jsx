@@ -614,6 +614,41 @@
 // //         subdivision: [],
 // //         period: [],
 // //     });
+
+// //     // View All display-only toggle. Backend/API values remain unchanged.
+// //     const [displayUnit, setDisplayUnit] = useState("AED");
+
+// //     const formatDisplayNumber = (value) => {
+// //         if (
+// //             value === null ||
+// //             value === undefined ||
+// //             value === "" ||
+// //             value === "-"
+// //         ) {
+// //             return "—";
+// //         }
+
+// //         const number = Number(value);
+
+// //         if (!Number.isFinite(number)) {
+// //             return "—";
+// //         }
+
+// //         const displayValue =
+// //             displayUnit === "AED_MILLIONS"
+// //                 ? number / 1000000
+// //                 : number;
+
+// //         const formattedValue = displayValue.toLocaleString("en-US", {
+// //             minimumFractionDigits: 0,
+// //             maximumFractionDigits:
+// //                 displayUnit === "AED_MILLIONS" ? 2 : 0,
+// //         });
+
+// //         return displayUnit === "AED_MILLIONS"
+// //             ? `${formattedValue} M`
+// //             : formattedValue;
+// //     };
 // //     const getSelectedFilterValues = (value) => {
 // //         if (
 // //             value === undefined ||
@@ -1550,7 +1585,7 @@
 // //                                 }}
 // //                             >
 // //                                 Detailed PTD and YTD expense
-// //                                 category analysis   <span style={{ fontWeight: 900 }}>Amounts in {reportingCurrency || "AED"}</span>
+// //                                 category analysis   <span style={{ fontWeight: 900 }}>Amounts in {displayUnit === "AED_MILLIONS" ? "AED Millions" : "AED"}</span>
 // //                             </div>
 // //                         </div>
 
@@ -1638,6 +1673,84 @@
 // //                             selectedValues={viewAllFilters.period}
 // //                             onChange={(vals) => handleFilterChange("period", vals)}
 // //                         />
+
+// //                         {/* AED / AED MILLIONS DISPLAY TOGGLE */}
+// //                         <div
+// //                             style={{
+// //                                 display: "inline-flex",
+// //                                 alignItems: "center",
+// //                                 height: "38px",
+// //                                 padding: "3px",
+// //                                 border: "1px solid #e0e6ed",
+// //                                 borderRadius: "10px",
+// //                                 background: "#f8fafc",
+// //                                 boxSizing: "border-box",
+// //                             }}
+// //                         >
+// //                             <button
+// //                                 type="button"
+// //                                 onClick={() => setDisplayUnit("AED")}
+// //                                 style={{
+// //                                     height: "30px",
+// //                                     padding: "0 12px",
+// //                                     border: "none",
+// //                                     borderRadius: "7px",
+// //                                     background:
+// //                                         displayUnit === "AED"
+// //                                             ? "#ffffff"
+// //                                             : "transparent",
+// //                                     color:
+// //                                         displayUnit === "AED"
+// //                                             ? "#2b3b75"
+// //                                             : "#64748b",
+// //                                     fontSize: "12px",
+// //                                     fontWeight:
+// //                                         displayUnit === "AED" ? 700 : 600,
+// //                                     cursor: "pointer",
+// //                                     boxShadow:
+// //                                         displayUnit === "AED"
+// //                                             ? "0 1px 3px rgba(15, 23, 42, 0.10)"
+// //                                             : "none",
+// //                                     outline: "none",
+// //                                 }}
+// //                             >
+// //                                 AED
+// //                             </button>
+
+// //                             <button
+// //                                 type="button"
+// //                                 onClick={() =>
+// //                                     setDisplayUnit("AED_MILLIONS")
+// //                                 }
+// //                                 style={{
+// //                                     height: "30px",
+// //                                     padding: "0 12px",
+// //                                     border: "none",
+// //                                     borderRadius: "7px",
+// //                                     background:
+// //                                         displayUnit === "AED_MILLIONS"
+// //                                             ? "#ffffff"
+// //                                             : "transparent",
+// //                                     color:
+// //                                         displayUnit === "AED_MILLIONS"
+// //                                             ? "#2b3b75"
+// //                                             : "#64748b",
+// //                                     fontSize: "12px",
+// //                                     fontWeight:
+// //                                         displayUnit === "AED_MILLIONS"
+// //                                             ? 700
+// //                                             : 600,
+// //                                     cursor: "pointer",
+// //                                     boxShadow:
+// //                                         displayUnit === "AED_MILLIONS"
+// //                                             ? "0 1px 3px rgba(15, 23, 42, 0.10)"
+// //                                             : "none",
+// //                                     outline: "none",
+// //                                 }}
+// //                             >
+// //                                 AED Millions
+// //                             </button>
+// //                         </div>
 
 // //                         {/* Apply / Reset & Export Controls */}
 // //                         <div
@@ -1769,7 +1882,7 @@
 // //                                     {[
 // //                                         {
 // //                                             label: "PTD Actual",
-// //                                             value: `${currency} ${formatNumber(
+// //                                             value: `${currency} ${formatDisplayNumber(
 // //                                                 totals.actualPTD
 // //                                             )}`,
 // //                                             accent: "#4f46e5",
@@ -1780,7 +1893,7 @@
 // //                                             value: hasValue(
 // //                                                 totals.targetPTD
 // //                                             )
-// //                                                 ? `${currency} ${formatNumber(
+// //                                                 ? `${currency} ${formatDisplayNumber(
 // //                                                     totals.targetPTD
 // //                                                 )}`
 // //                                                 : "—",
@@ -1789,7 +1902,7 @@
 // //                                         },
 // //                                         {
 // //                                             label: "YTD Actual",
-// //                                             value: `${currency} ${formatNumber(
+// //                                             value: `${currency} ${formatDisplayNumber(
 // //                                                 totals.actualYTD
 // //                                             )}`,
 // //                                             accent: "#059669",
@@ -1800,7 +1913,7 @@
 // //                                             value: hasValue(
 // //                                                 totals.targetYTD
 // //                                             )
-// //                                                 ? `${currency} ${formatNumber(
+// //                                                 ? `${currency} ${formatDisplayNumber(
 // //                                                     totals.targetYTD
 // //                                                 )}`
 // //                                                 : "—",
@@ -2234,7 +2347,7 @@
 // //                                                                             "nowrap",
 // //                                                                     }}
 // //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(actualPTD) }}>{formatNumber(actualPTD)}</span>
+// //                                                                     <span style={{ color: getNumberColor(actualPTD) }}>{formatDisplayNumber(actualPTD)}</span>
 // //                                                                 </td>
 
 // //                                                                 <td
@@ -2251,7 +2364,7 @@
 // //                                                                             "nowrap",
 // //                                                                     }}
 // //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(targetPTD) }}>{formatNumber(targetPTD)}</span>
+// //                                                                     <span style={{ color: getNumberColor(targetPTD) }}>{formatDisplayNumber(targetPTD)}</span>
 // //                                                                 </td>
 
 // //                                                                 <td
@@ -2268,7 +2381,7 @@
 // //                                                                             "nowrap",
 // //                                                                     }}
 // //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(variancePTD) }}>{formatNumber(variancePTD)}</span>
+// //                                                                     <span style={{ color: getNumberColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
 // //                                                                 </td>
 
 // //                                                                 <td
@@ -2304,7 +2417,7 @@
 // //                                                                             "nowrap",
 // //                                                                     }}
 // //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(actualYTD) }}>{formatNumber(actualYTD)}</span>
+// //                                                                     <span style={{ color: getNumberColor(actualYTD) }}>{formatDisplayNumber(actualYTD)}</span>
 // //                                                                 </td>
 
 // //                                                                 <td
@@ -2321,7 +2434,7 @@
 // //                                                                             "nowrap",
 // //                                                                     }}
 // //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(targetYTD) }}>{formatNumber(targetYTD)}</span>
+// //                                                                     <span style={{ color: getNumberColor(targetYTD) }}>{formatDisplayNumber(targetYTD)}</span>
 // //                                                                 </td>
 
 // //                                                                 <td
@@ -2338,7 +2451,7 @@
 // //                                                                             "nowrap",
 // //                                                                     }}
 // //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(varianceYTD) }}>{formatNumber(varianceYTD)}</span>
+// //                                                                     <span style={{ color: getNumberColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
 // //                                                                 </td>
 
 // //                                                                 <td
@@ -2550,7 +2663,7 @@
 // //                                                                                         ),
 // //                                                                                     }}
 // //                                                                                 >
-// //                                                                                     {formatNumber(
+// //                                                                                     {formatDisplayNumber(
 // //                                                                                         getValue(account, [
 // //                                                                                             "actual_ptd_aed",
 // //                                                                                             "actual_ptd",
@@ -2639,7 +2752,7 @@
 // //                                                                                         ),
 // //                                                                                     }}
 // //                                                                                 >
-// //                                                                                     {formatNumber(
+// //                                                                                     {formatDisplayNumber(
 // //                                                                                         getValue(account, [
 // //                                                                                             "actual_ytd_aed",
 // //                                                                                             "actual_ytd",
@@ -2787,7 +2900,7 @@
 // //                                                             700,
 // //                                                     }}
 // //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatNumber(totals.actualPTD)}</span>
+// //                                                     <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatDisplayNumber(totals.actualPTD)}</span>
 // //                                                 </td>
 
 // //                                                 <td
@@ -2806,7 +2919,7 @@
 // //                                                             700,
 // //                                                     }}
 // //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatNumber(totals.targetPTD)}</span>
+// //                                                     <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatDisplayNumber(totals.targetPTD)}</span>
 // //                                                 </td>
 
 // //                                                 <td
@@ -2825,7 +2938,7 @@
 // //                                                             700,
 // //                                                     }}
 // //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatNumber(totals.variancePTD)}</span>
+// //                                                     <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
 // //                                                 </td>
 
 // //                                                 <td
@@ -2865,7 +2978,7 @@
 // //                                                             700,
 // //                                                     }}
 // //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatNumber(totals.actualYTD)}</span>
+// //                                                     <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatDisplayNumber(totals.actualYTD)}</span>
 // //                                                 </td>
 
 // //                                                 <td
@@ -2884,7 +2997,7 @@
 // //                                                             700,
 // //                                                     }}
 // //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatNumber(totals.targetYTD)}</span>
+// //                                                     <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatDisplayNumber(totals.targetYTD)}</span>
 // //                                                 </td>
 
 // //                                                 <td
@@ -2903,7 +3016,7 @@
 // //                                                             700,
 // //                                                     }}
 // //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatNumber(totals.varianceYTD)}</span>
+// //                                                     <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
 // //                                                 </td>
 
 // //                                                 <td
@@ -2974,9 +3087,9 @@
 
 
 
+
 // import React, { useMemo, useState, useEffect, useRef } from "react";
 // import ExportButtons from "../Common/ExportButtons";
-// import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 // import { exportOpexCategoryBreakdown } from "../../api/opexApi";
 
 // /* =========================================================
@@ -3552,6 +3665,78 @@
 //     );
 // };
 
+
+// /* =========================================================
+//    CATEGORY DETAIL API
+//    PTD/YTD account expansion uses /api/opex/category-detail.
+//    Monthly account expansion remains a separate concern and
+//    must use /api/opex/category-detail-monthly only.
+// ========================================================= */
+// const getOpexApiBase = () =>
+//     String(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
+// const appendFilterValues = (params, key, values) => {
+//     const list = normalizeMultiValue(values).filter(
+//         (value) => value !== "" && value !== "All"
+//     );
+//     list.forEach((value) => params.append(key, value));
+// };
+
+// const fetchCategoryDetail = async (category, filters, currency) => {
+//     const params = new URLSearchParams();
+//     params.set("category", String(category ?? ""));
+//     params.set("reporting_currency", String(currency || "AED"));
+
+//     const year = filters?.year;
+//     const period = filters?.period;
+//     appendFilterValues(params, "year", year);
+//     appendFilterValues(params, "period_name", period);
+//     appendFilterValues(params, "legal_entity_id", filters?.legal_entity);
+//     appendFilterValues(params, "parent_division_id", filters?.parent_division);
+//     appendFilterValues(params, "subdivision_id", filters?.subdivision);
+
+//     const token =
+//         (typeof window !== "undefined" &&
+//             (window.localStorage?.getItem("finsight_token") ||
+//                 window.localStorage?.getItem("token"))) ||
+//         "";
+
+//     const base = getOpexApiBase();
+//     const url = `${base}/api/opex/category-detail?${params.toString()}`;
+//     const response = await fetch(url, {
+//         method: "GET",
+//         headers: {
+//             Accept: "application/json",
+//             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+//         },
+//     });
+
+//     if (!response.ok) {
+//         const message = await response.text().catch(() => "");
+//         throw new Error(
+//             `category-detail request failed (${response.status})${message ? `: ${message}` : ""}`
+//         );
+//     }
+
+//     return response.json();
+// };
+
+// const normalizeAccountDetailRow = (row) => {
+//     if (!row || typeof row !== "object") return row;
+//     // Spread first so all backend target/variance and future fields survive.
+//     return {
+//         ...row,
+//         actual_ptd: getValue(row, ["actual_ptd", "actual_ptd_aed"]),
+//         target_ptd: getValue(row, ["target_ptd", "target_ptd_aed"]),
+//         variance_ptd: getValue(row, ["variance_ptd", "variance_ptd_aed"]),
+//         variance_ptd_pct: getValue(row, ["variance_ptd_pct"]),
+//         actual_ytd: getValue(row, ["actual_ytd", "actual_ytd_aed"]),
+//         target_ytd: getValue(row, ["target_ytd", "target_ytd_aed"]),
+//         variance_ytd: getValue(row, ["variance_ytd", "variance_ytd_aed"]),
+//         variance_ytd_pct: getValue(row, ["variance_ytd_pct"]),
+//     };
+// };
+
 // /* =========================================================
 //    EXPENSE CATEGORY DRILL-DOWN MODAL
 // ========================================================= */
@@ -3571,8 +3756,6 @@
 //     filterOptions = {},
 //     onApplyFilters,
 //     onRefresh,
-
-//     onExpandCategory,
 // }) {
 //     /* =====================================================
 //        EXPANDED CATEGORIES & LOCAL FILTER STATE
@@ -3581,6 +3764,7 @@
 //     const [expandedCategories, setExpandedCategories] = useState({});
 //     const [detailData, setDetailData] = useState({});
 //     const [detailLoading, setDetailLoading] = useState({});
+//     const detailRequestInFlight = useRef(new Set());
 
 //     const [viewAllFilters, setViewAllFilters] = useState({
 //         year: [],
@@ -3614,12 +3798,15 @@
 //                 ? number / 1000000
 //                 : number;
 
-//         return displayValue.toLocaleString("en-US", {
-//             minimumFractionDigits:
-//                 displayUnit === "AED_MILLIONS" ? 0 : 0,
+//         const formattedValue = displayValue.toLocaleString("en-US", {
+//             minimumFractionDigits: 0,
 //             maximumFractionDigits:
 //                 displayUnit === "AED_MILLIONS" ? 2 : 0,
 //         });
+
+//         return displayUnit === "AED_MILLIONS"
+//             ? `${formattedValue} M`
+//             : formattedValue;
 //     };
 //     const getSelectedFilterValues = (value) => {
 //         if (
@@ -3745,6 +3932,10 @@
 //             return;
 //         }
 
+//         setExpandedCategories({});
+//         setDetailData({});
+//         setDetailLoading({});
+//         detailRequestInFlight.current.clear();
 //         await onApplyFilters(selectedFilters);
 //     };
 
@@ -3798,6 +3989,10 @@
 //          * Immediately update dropdowns.
 //          */
 //         setViewAllFilters(resetFilters);
+//         setExpandedCategories({});
+//         setDetailData({});
+//         setDetailLoading({});
+//         detailRequestInFlight.current.clear();
 
 //         /*
 //          * Refresh the View All table using
@@ -3995,94 +4190,71 @@
 
 //     /* =====================================================
 //        EXPAND CATEGORY
+//        PTD/YTD account rows are fetched with the modal's local
+//        filters from /api/opex/category-detail.
 //     ===================================================== */
 
 //     const handleToggleCategory = async (category, row) => {
-//         if (!category) {
-//             return;
-//         }
+//         if (!category) return;
 
-//         const isExpanded =
-//             expandedCategories[category];
-
-//         if (isExpanded) {
+//         if (expandedCategories[category]) {
 //             setExpandedCategories((previous) => ({
 //                 ...previous,
 //                 [category]: false,
 //             }));
-
 //             return;
 //         }
 
-//         if (
-//             Array.isArray(detailData[category]) &&
-//             detailData[category].length > 0
-//         ) {
+//         if (detailRequestInFlight.current.has(category)) return;
+
+//         // Reuse cached rows only when they were loaded for the current
+//         // modal filter state. Apply/reset explicitly clears the cache below.
+//         if (Array.isArray(detailData[category])) {
 //             setExpandedCategories((previous) => ({
 //                 ...previous,
 //                 [category]: true,
 //             }));
-
 //             return;
 //         }
 
-//         if (!onExpandCategory) {
-//             const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-//             setDetailData((previous) => ({
-//                 ...previous,
-//                 [category]: fallbackRows,
-//             }));
-//             setExpandedCategories((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-
-//             return;
-//         }
+//         detailRequestInFlight.current.add(category);
+//         setDetailLoading((previous) => ({ ...previous, [category]: true }));
 
 //         try {
-//             setDetailLoading((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-
-//             const response =
-//                 await onExpandCategory(category, row);
-
-//             let detailRows =
-//                 normalizeDetailRows(response);
-
-//             if ((!detailRows || detailRows.length === 0) && row) {
-//                 detailRows = deriveCategoryNaturalAccounts(row, category);
-//             }
+//             const response = await fetchCategoryDetail(
+//                 category,
+//                 viewAllFilters,
+//                 currency || reportingCurrency || "AED"
+//             );
+//             const detailRows = normalizeDetailRows(response)
+//                 .filter((item) => item && typeof item === "object")
+//                 .map(normalizeAccountDetailRow);
 
 //             setDetailData((previous) => ({
 //                 ...previous,
 //                 [category]: detailRows,
 //             }));
-
 //             setExpandedCategories((previous) => ({
 //                 ...previous,
 //                 [category]: true,
 //             }));
 //         } catch (error) {
 //             console.error(
-//                 `Failed to load natural account details for ${category}:`,
+//                 `Failed to load PTD/YTD account details for ${category}:`,
 //                 error
 //             );
-
-//             const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-
+//             // Do not substitute derived/category-summary data: it can show
+//             // incorrect PTD/YTD target and variance values.
 //             setDetailData((previous) => ({
 //                 ...previous,
-//                 [category]: fallbackRows,
+//                 [category]: [],
 //             }));
-
 //             setExpandedCategories((previous) => ({
 //                 ...previous,
 //                 [category]: true,
 //             }));
 //         } finally {
+//             detailRequestInFlight.current.delete(category);
 //             setDetailLoading((previous) => ({
 //                 ...previous,
 //                 [category]: false,
@@ -4098,6 +4270,7 @@
 //         setExpandedCategories({});
 //         setDetailData({});
 //         setDetailLoading({});
+//         detailRequestInFlight.current.clear();
 //         onClose?.();
 //     };
 
@@ -4177,15 +4350,21 @@
 //                         "Account Name":
 //                             account.account_name || "—",
 //                         [`Actual PTD (${currency})`]:
-//                             getValue(account, [
-//                                 "actual_ptd_aed",
-//                                 "actual_ptd",
-//                             ]) ?? "",
+//                             getValue(account, ["actual_ptd_aed", "actual_ptd"]) ?? "",
+//                         [`Target PTD (${currency})`]:
+//                             getValue(account, ["target_ptd", "target_ptd_aed"]) ?? "",
+//                         [`Variance PTD (${currency})`]:
+//                             getValue(account, ["variance_ptd", "variance_ptd_aed"]) ?? "",
+//                         "Variance PTD %":
+//                             getValue(account, ["variance_ptd_pct"]) ?? "",
 //                         [`Actual YTD (${currency})`]:
-//                             getValue(account, [
-//                                 "actual_ytd_aed",
-//                                 "actual_ytd",
-//                             ]) ?? "",
+//                             getValue(account, ["actual_ytd_aed", "actual_ytd"]) ?? "",
+//                         [`Target YTD (${currency})`]:
+//                             getValue(account, ["target_ytd", "target_ytd_aed"]) ?? "",
+//                         [`Variance YTD (${currency})`]:
+//                             getValue(account, ["variance_ytd", "variance_ytd_aed"]) ?? "",
+//                         "Variance YTD %":
+//                             getValue(account, ["variance_ytd_pct"]) ?? "",
 //                     });
 //                 });
 //             });
@@ -4865,7 +5044,7 @@
 //                                             value: hasValue(
 //                                                 totals.targetPTD
 //                                             )
-//                                                 ? `${currency} ${formatNumber(
+//                                                 ? `${currency} ${formatDisplayNumber(
 //                                                     totals.targetPTD
 //                                                 )}`
 //                                                 : "—",
@@ -4885,7 +5064,7 @@
 //                                             value: hasValue(
 //                                                 totals.targetYTD
 //                                             )
-//                                                 ? `${currency} ${formatNumber(
+//                                                 ? `${currency} ${formatDisplayNumber(
 //                                                     totals.targetYTD
 //                                                 )}`
 //                                                 : "—",
@@ -5224,9 +5403,9 @@
 //                                                         ];
 
 //                                                     const accounts =
-//                                                         (Array.isArray(detailData[category]) && detailData[category].length > 0)
+//                                                         Array.isArray(detailData[category])
 //                                                             ? detailData[category]
-//                                                             : (row ? deriveCategoryNaturalAccounts(row, category) : []);
+//                                                             : [];
 
 //                                                     return (
 //                                                         <React.Fragment
@@ -5635,7 +5814,7 @@
 //                                                                                         ),
 //                                                                                     }}
 //                                                                                 >
-//                                                                                     {formatNumber(
+//                                                                                     {formatDisplayNumber(
 //                                                                                         getValue(account, [
 //                                                                                             "actual_ptd_aed",
 //                                                                                             "actual_ptd",
@@ -5658,7 +5837,9 @@
 //                                                                                         "#94a3b8",
 //                                                                                 }}
 //                                                                             >
-//                                                                                 —
+//                                                                                 <span style={{ color: getNumberColor(getValue(account, ["target_ptd"]), "#475569") }}>
+//                                                                                     {formatDisplayNumber(getValue(account, ["target_ptd"]))}
+//                                                                                 </span>
 //                                                                             </td>
 
 //                                                                             <td
@@ -5675,7 +5856,9 @@
 //                                                                                         "#94a3b8",
 //                                                                                 }}
 //                                                                             >
-//                                                                                 —
+//                                                                                 <span style={{ color: getNumberColor(getValue(account, ["variance_ptd"]), "#475569") }}>
+//                                                                                     {formatDisplayNumber(getValue(account, ["variance_ptd"]))}
+//                                                                                 </span>
 //                                                                             </td>
 
 //                                                                             <td
@@ -5694,7 +5877,9 @@
 //                                                                                         "#94a3b8",
 //                                                                                 }}
 //                                                                             >
-//                                                                                 —
+//                                                                                 <span style={{ color: getNumberColor(getValue(account, ["variance_ptd_pct"]), "#475569") }}>
+//                                                                                     {formatPercentage(getValue(account, ["variance_ptd_pct"]))}
+//                                                                                 </span>
 //                                                                             </td>
 
 //                                                                             <td
@@ -5724,7 +5909,7 @@
 //                                                                                         ),
 //                                                                                     }}
 //                                                                                 >
-//                                                                                     {formatNumber(
+//                                                                                     {formatDisplayNumber(
 //                                                                                         getValue(account, [
 //                                                                                             "actual_ytd_aed",
 //                                                                                             "actual_ytd",
@@ -5747,7 +5932,9 @@
 //                                                                                         "#94a3b8",
 //                                                                                 }}
 //                                                                             >
-//                                                                                 —
+//                                                                                 <span style={{ color: getNumberColor(getValue(account, ["target_ytd"]), "#475569") }}>
+//                                                                                     {formatDisplayNumber(getValue(account, ["target_ytd"]))}
+//                                                                                 </span>
 //                                                                             </td>
 
 //                                                                             <td
@@ -5764,7 +5951,9 @@
 //                                                                                         "#94a3b8",
 //                                                                                 }}
 //                                                                             >
-//                                                                                 —
+//                                                                                 <span style={{ color: getNumberColor(getValue(account, ["variance_ytd"]), "#475569") }}>
+//                                                                                     {formatDisplayNumber(getValue(account, ["variance_ytd"]))}
+//                                                                                 </span>
 //                                                                             </td>
 
 //                                                                             <td
@@ -5781,7 +5970,9 @@
 //                                                                                         "#94a3b8",
 //                                                                                 }}
 //                                                                             >
-//                                                                                 —
+//                                                                                 <span style={{ color: getNumberColor(getValue(account, ["variance_ytd_pct"]), "#475569") }}>
+//                                                                                     {formatPercentage(getValue(account, ["variance_ytd_pct"]))}
+//                                                                                 </span>
 //                                                                             </td>
 //                                                                         </tr>
 //                                                                     )
@@ -5872,7 +6063,7 @@
 //                                                             700,
 //                                                     }}
 //                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatNumber(totals.actualPTD)}</span>
+//                                                     <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatDisplayNumber(totals.actualPTD)}</span>
 //                                                 </td>
 
 //                                                 <td
@@ -5891,7 +6082,7 @@
 //                                                             700,
 //                                                     }}
 //                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatNumber(totals.targetPTD)}</span>
+//                                                     <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatDisplayNumber(totals.targetPTD)}</span>
 //                                                 </td>
 
 //                                                 <td
@@ -5910,7 +6101,7 @@
 //                                                             700,
 //                                                     }}
 //                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatNumber(totals.variancePTD)}</span>
+//                                                     <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
 //                                                 </td>
 
 //                                                 <td
@@ -5950,7 +6141,7 @@
 //                                                             700,
 //                                                     }}
 //                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatNumber(totals.actualYTD)}</span>
+//                                                     <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatDisplayNumber(totals.actualYTD)}</span>
 //                                                 </td>
 
 //                                                 <td
@@ -5969,7 +6160,7 @@
 //                                                             700,
 //                                                     }}
 //                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatNumber(totals.targetYTD)}</span>
+//                                                     <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatDisplayNumber(totals.targetYTD)}</span>
 //                                                 </td>
 
 //                                                 <td
@@ -5988,7 +6179,7 @@
 //                                                             700,
 //                                                     }}
 //                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatNumber(totals.varianceYTD)}</span>
+//                                                     <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
 //                                                 </td>
 
 //                                                 <td
@@ -6062,7 +6253,6 @@
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import ExportButtons from "../Common/ExportButtons";
-import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 import { exportOpexCategoryBreakdown } from "../../api/opexApi";
 
 /* =========================================================
@@ -6111,7 +6301,10 @@ const formatPercentage = (value) => {
         return "—";
     }
 
-    return `${Math.round(number)}%`;
+    return `${number.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    })}%`;
 };
 
 /* =========================================================
@@ -6145,15 +6338,29 @@ const hasValue = (value) => {
 };
 
 /* =========================================================
-   TABLE NUMBER COLOR
-   Negative values are displayed in red.
+   TABLE NUMBER COLORS
+   Actual/target negatives remain red. Expense variances use
+   favourable/unfavourable semantics: negative = green,
+   positive = red, zero or unavailable = default color.
 ========================================================= */
 
 const getNumberColor = (value, defaultColor = "#334155") => {
+    if (value === null || value === undefined || value === "") {
+        return defaultColor;
+    }
     const number = Number(value);
     return Number.isFinite(number) && number < 0
         ? "#dc2626"
         : defaultColor;
+};
+
+const getVarianceColor = (value, defaultColor = "#334155") => {
+    if (value === null || value === undefined || value === "") {
+        return defaultColor;
+    }
+    const number = Number(value);
+    if (!Number.isFinite(number) || number === 0) return defaultColor;
+    return number < 0 ? "#16a34a" : "#dc2626";
 };
 
 /* =========================================================
@@ -6638,6 +6845,78 @@ const MultiSelectDropdown = ({
     );
 };
 
+
+/* =========================================================
+   CATEGORY DETAIL API
+   PTD/YTD account expansion uses /api/opex/category-detail.
+   Monthly account expansion remains a separate concern and
+   must use /api/opex/category-detail-monthly only.
+========================================================= */
+const getOpexApiBase = () =>
+    String(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
+const appendFilterValues = (params, key, values) => {
+    const list = normalizeMultiValue(values).filter(
+        (value) => value !== "" && value !== "All"
+    );
+    list.forEach((value) => params.append(key, value));
+};
+
+const fetchCategoryDetail = async (category, filters, currency) => {
+    const params = new URLSearchParams();
+    params.set("category", String(category ?? ""));
+    params.set("reporting_currency", String(currency || "AED"));
+
+    const year = filters?.year;
+    const period = filters?.period;
+    appendFilterValues(params, "year", year);
+    appendFilterValues(params, "period_name", period);
+    appendFilterValues(params, "legal_entity_id", filters?.legal_entity);
+    appendFilterValues(params, "parent_division_id", filters?.parent_division);
+    appendFilterValues(params, "subdivision_id", filters?.subdivision);
+
+    const token =
+        (typeof window !== "undefined" &&
+            (window.localStorage?.getItem("finsight_token") ||
+                window.localStorage?.getItem("token"))) ||
+        "";
+
+    const base = getOpexApiBase();
+    const url = `${base}/api/opex/category-detail?${params.toString()}`;
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+    });
+
+    if (!response.ok) {
+        const message = await response.text().catch(() => "");
+        throw new Error(
+            `category-detail request failed (${response.status})${message ? `: ${message}` : ""}`
+        );
+    }
+
+    return response.json();
+};
+
+const normalizeAccountDetailRow = (row) => {
+    if (!row || typeof row !== "object") return row;
+    // Spread first so all backend target/variance and future fields survive.
+    return {
+        ...row,
+        actual_ptd: getValue(row, ["actual_ptd", "actual_ptd_aed"]),
+        target_ptd: getValue(row, ["target_ptd", "target_ptd_aed"]),
+        variance_ptd: getValue(row, ["variance_ptd", "variance_ptd_aed"]),
+        variance_ptd_pct: getValue(row, ["variance_ptd_pct"]),
+        actual_ytd: getValue(row, ["actual_ytd", "actual_ytd_aed"]),
+        target_ytd: getValue(row, ["target_ytd", "target_ytd_aed"]),
+        variance_ytd: getValue(row, ["variance_ytd", "variance_ytd_aed"]),
+        variance_ytd_pct: getValue(row, ["variance_ytd_pct"]),
+    };
+};
+
 /* =========================================================
    EXPENSE CATEGORY DRILL-DOWN MODAL
 ========================================================= */
@@ -6657,8 +6936,6 @@ export default function ExpenseCategoryDrillDownModal({
     filterOptions = {},
     onApplyFilters,
     onRefresh,
-
-    onExpandCategory,
 }) {
     /* =====================================================
        EXPANDED CATEGORIES & LOCAL FILTER STATE
@@ -6667,6 +6944,7 @@ export default function ExpenseCategoryDrillDownModal({
     const [expandedCategories, setExpandedCategories] = useState({});
     const [detailData, setDetailData] = useState({});
     const [detailLoading, setDetailLoading] = useState({});
+    const detailRequestInFlight = useRef(new Set());
 
     const [viewAllFilters, setViewAllFilters] = useState({
         year: [],
@@ -6700,10 +6978,11 @@ export default function ExpenseCategoryDrillDownModal({
                 ? number / 1000000
                 : number;
 
+        // Preserve the API precision for normal AED values as well as
+        // million-unit display; formatting is presentation-only.
         const formattedValue = displayValue.toLocaleString("en-US", {
             minimumFractionDigits: 0,
-            maximumFractionDigits:
-                displayUnit === "AED_MILLIONS" ? 2 : 0,
+            maximumFractionDigits: 0,
         });
 
         return displayUnit === "AED_MILLIONS"
@@ -6834,6 +7113,10 @@ export default function ExpenseCategoryDrillDownModal({
             return;
         }
 
+        setExpandedCategories({});
+        setDetailData({});
+        setDetailLoading({});
+        detailRequestInFlight.current.clear();
         await onApplyFilters(selectedFilters);
     };
 
@@ -6887,6 +7170,10 @@ export default function ExpenseCategoryDrillDownModal({
          * Immediately update dropdowns.
          */
         setViewAllFilters(resetFilters);
+        setExpandedCategories({});
+        setDetailData({});
+        setDetailLoading({});
+        detailRequestInFlight.current.clear();
 
         /*
          * Refresh the View All table using
@@ -7084,94 +7371,71 @@ export default function ExpenseCategoryDrillDownModal({
 
     /* =====================================================
        EXPAND CATEGORY
+       PTD/YTD account rows are fetched with the modal's local
+       filters from /api/opex/category-detail.
     ===================================================== */
 
     const handleToggleCategory = async (category, row) => {
-        if (!category) {
-            return;
-        }
+        if (!category) return;
 
-        const isExpanded =
-            expandedCategories[category];
-
-        if (isExpanded) {
+        if (expandedCategories[category]) {
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: false,
             }));
-
             return;
         }
 
-        if (
-            Array.isArray(detailData[category]) &&
-            detailData[category].length > 0
-        ) {
+        if (detailRequestInFlight.current.has(category)) return;
+
+        // Reuse cached rows only when they were loaded for the current
+        // modal filter state. Apply/reset explicitly clears the cache below.
+        if (Array.isArray(detailData[category])) {
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
             }));
-
             return;
         }
 
-        if (!onExpandCategory) {
-            const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-            setDetailData((previous) => ({
-                ...previous,
-                [category]: fallbackRows,
-            }));
-            setExpandedCategories((previous) => ({
-                ...previous,
-                [category]: true,
-            }));
-
-            return;
-        }
+        detailRequestInFlight.current.add(category);
+        setDetailLoading((previous) => ({ ...previous, [category]: true }));
 
         try {
-            setDetailLoading((previous) => ({
-                ...previous,
-                [category]: true,
-            }));
-
-            const response =
-                await onExpandCategory(category, row);
-
-            let detailRows =
-                normalizeDetailRows(response);
-
-            if ((!detailRows || detailRows.length === 0) && row) {
-                detailRows = deriveCategoryNaturalAccounts(row, category);
-            }
+            const response = await fetchCategoryDetail(
+                category,
+                viewAllFilters,
+                currency || reportingCurrency || "AED"
+            );
+            const detailRows = normalizeDetailRows(response)
+                .filter((item) => item && typeof item === "object")
+                .map(normalizeAccountDetailRow);
 
             setDetailData((previous) => ({
                 ...previous,
                 [category]: detailRows,
             }));
-
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
             }));
         } catch (error) {
             console.error(
-                `Failed to load natural account details for ${category}:`,
+                `Failed to load PTD/YTD account details for ${category}:`,
                 error
             );
-
-            const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-
+            // Do not substitute derived/category-summary data: it can show
+            // incorrect PTD/YTD target and variance values.
             setDetailData((previous) => ({
                 ...previous,
-                [category]: fallbackRows,
+                [category]: [],
             }));
-
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
             }));
         } finally {
+            detailRequestInFlight.current.delete(category);
             setDetailLoading((previous) => ({
                 ...previous,
                 [category]: false,
@@ -7187,6 +7451,7 @@ export default function ExpenseCategoryDrillDownModal({
         setExpandedCategories({});
         setDetailData({});
         setDetailLoading({});
+        detailRequestInFlight.current.clear();
         onClose?.();
     };
 
@@ -7266,15 +7531,21 @@ export default function ExpenseCategoryDrillDownModal({
                         "Account Name":
                             account.account_name || "—",
                         [`Actual PTD (${currency})`]:
-                            getValue(account, [
-                                "actual_ptd_aed",
-                                "actual_ptd",
-                            ]) ?? "",
+                            getValue(account, ["actual_ptd_aed", "actual_ptd"]) ?? "",
+                        [`Target PTD (${currency})`]:
+                            getValue(account, ["target_ptd", "target_ptd_aed"]) ?? "",
+                        [`Variance PTD (${currency})`]:
+                            getValue(account, ["variance_ptd", "variance_ptd_aed"]) ?? "",
+                        "Variance PTD %":
+                            getValue(account, ["variance_ptd_pct"]) ?? "",
                         [`Actual YTD (${currency})`]:
-                            getValue(account, [
-                                "actual_ytd_aed",
-                                "actual_ytd",
-                            ]) ?? "",
+                            getValue(account, ["actual_ytd_aed", "actual_ytd"]) ?? "",
+                        [`Target YTD (${currency})`]:
+                            getValue(account, ["target_ytd", "target_ytd_aed"]) ?? "",
+                        [`Variance YTD (${currency})`]:
+                            getValue(account, ["variance_ytd", "variance_ytd_aed"]) ?? "",
+                        "Variance YTD %":
+                            getValue(account, ["variance_ytd_pct"]) ?? "",
                     });
                 });
             });
@@ -8313,9 +8584,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                         ];
 
                                                     const accounts =
-                                                        (Array.isArray(detailData[category]) && detailData[category].length > 0)
+                                                        Array.isArray(detailData[category])
                                                             ? detailData[category]
-                                                            : (row ? deriveCategoryNaturalAccounts(row, category) : []);
+                                                            : [];
 
                                                     return (
                                                         <React.Fragment
@@ -8442,7 +8713,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
+                                                                    <span style={{ color: getVarianceColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8461,7 +8732,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(variancePTDPercent) }}>{formatPercentage(variancePTDPercent)}</span>
+                                                                    <span style={{ color: getVarianceColor(variancePTDPercent) }}>{formatPercentage(variancePTDPercent)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8512,7 +8783,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
+                                                                    <span style={{ color: getVarianceColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8529,7 +8800,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(varianceYTDPercent) }}>{formatPercentage(varianceYTDPercent)}</span>
+                                                                    <span style={{ color: getVarianceColor(varianceYTDPercent) }}>{formatPercentage(varianceYTDPercent)}</span>
                                                                 </td>
                                                             </tr>
 
@@ -8747,7 +9018,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getNumberColor(getValue(account, ["target_ptd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["target_ptd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8764,7 +9037,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ptd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["variance_ptd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8783,7 +9058,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ptd_pct"]), "#475569") }}>
+                                                                                    {formatPercentage(getValue(account, ["variance_ptd_pct"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8836,7 +9113,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getNumberColor(getValue(account, ["target_ytd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["target_ytd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8853,7 +9132,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ytd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["variance_ytd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8870,7 +9151,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ytd_pct"]), "#475569") }}>
+                                                                                    {formatPercentage(getValue(account, ["variance_ytd_pct"]))}
+                                                                                </span>
                                                                             </td>
                                                                         </tr>
                                                                     )
@@ -8999,7 +9282,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
+                                                    <span style={{ color: getVarianceColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
                                                 </td>
 
                                                 <td
@@ -9020,7 +9303,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totalVariancePTDPercent, "#0f172a") }}>{formatPercentage(totalVariancePTDPercent)}</span>
+                                                    <span style={{ color: getVarianceColor(totalVariancePTDPercent, "#0f172a") }}>{formatPercentage(totalVariancePTDPercent)}</span>
                                                 </td>
 
                                                 <td
@@ -9077,7 +9360,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
+                                                    <span style={{ color: getVarianceColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
                                                 </td>
 
                                                 <td
@@ -9096,7 +9379,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totalVarianceYTDPercent, "#0f172a") }}>{formatPercentage(totalVarianceYTDPercent)}</span>
+                                                    <span style={{ color: getVarianceColor(totalVarianceYTDPercent, "#0f172a") }}>{formatPercentage(totalVarianceYTDPercent)}</span>
                                                 </td>
                                             </tr>
                                         </tbody>
