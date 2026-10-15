@@ -1,5 +1,15 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loginWithBackend as _apiLogin, logoutFromBackend, getCurrentUser, fetchAccessMe, getStoredToken } from '../services/authApi';
+import {
+  canView as rbacCanView,
+  canExport as rbacCanExport,
+  canUpload as rbacCanUpload,
+  canAdmin as rbacCanAdmin,
+  canAccess as rbacCanAccess,
+  computeAuthorizationState,
+  resolveLandingRoute,
+  CANONICAL_ROUTE_REGISTRY,
+} from '../utils/rbacPermissions';
 
 // ── Auth Context ────────────────────────────────────────────────────
 // Manages login state, RBAC roles, and data-scope enforcement for Finsight
@@ -93,6 +103,7 @@ const ACCT_MODULES = [
   { module_code: 'PAYABLES', can_view: true, can_export: true, can_upload: true, can_admin: false, actions: ['VIEW', 'EXPORT', 'UPLOAD'] },
   { module_code: 'RECEIVABLES', can_view: true, can_export: true, can_upload: true, can_admin: false, actions: ['VIEW', 'EXPORT', 'UPLOAD'] },
   { module_code: 'FIXED_ASSETS', can_view: true, can_export: true, can_upload: true, can_admin: false, actions: ['VIEW', 'EXPORT', 'UPLOAD'] },
+  { module_code: 'INVENTORY', can_view: true, can_export: true, can_upload: true, can_admin: false, actions: ['VIEW', 'EXPORT', 'UPLOAD'] },
 ];
 
 const SALES_MODULES = [
@@ -218,7 +229,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE','Qatar'], entities: [1,15,10,11], divisions: ['Flowtech UAE, QTR, OMN','FJ Care'] },
     exportRights: 'controlled',
     canManageUsers: false,
-    allowedPages: ['dashboard','division','pl','ar','inventory', 'excel-consolidator', 'profile'],
+    allowedPages: ['dashboard','exec-dashboard','division','pl','ar','revenue','receivables','inventory', 'excel-consolidator', 'profile'],
     module_permissions: GM_MODULES,
     access_scopes: GM_SCOPES,
   },
@@ -241,7 +252,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE'], entities: [10,11], divisions: ['FJ Care'] },
     exportRights: 'controlled',
     canManageUsers: false,
-    allowedPages: ['dashboard','bu-pack','pl','ar','ap','inventory','salesman', 'excel-consolidator', 'profile'],
+    allowedPages: ['pl','revenue','receivables','payables','inventory','salesman','profile'],
     module_permissions: BUM_MODULES,
     access_scopes: BU_SCOPES,
   },
@@ -265,7 +276,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE'], entities: [10], divisions: ['FJ Care'] },
     exportRights: 'operational',
     canManageUsers: false,
-    allowedPages: ['pl','balance-sheet','ar','ap','fixed-assets','cash-collection','revenue', 'excel-consolidator', 'profile'],
+    allowedPages: ['pl','balance-sheet','receivables','payables','revenue','inventory','profile'],
     module_permissions: ACCT_MODULES,
     access_scopes: ACCT_SCOPES,
   },
@@ -329,83 +340,80 @@ export const DEMO_TIERS = [
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
+  // ── Logout ────────────────────────────────────────────────────────
+  const logout = useCallback(() => {
+    _auditWrite('logout');
+    setUser(null);
+    setAuthError(null);
+    localStorage.removeItem('finsight_user');
+    logoutFromBackend(); // also clears finsight_token and token
+  }, []);
 
   // ── Restore session ───────────────────────────────────────────────
-  // Loads cached session from localStorage immediately, then if a JWT token
-  // exists, calls GET /api/access/me to refresh module_permissions and access_scopes.
+  // Requires a valid JWT and a successful, active profile from GET /api/access/me.
+  // A failed profile request must NEVER activate cached permissions (fails closed).
   useEffect(() => {
     async function restoreSession() {
-      let saved = null;
-      try {
-        const raw = localStorage.getItem('finsight_user');
-        if (raw) saved = JSON.parse(raw);
-      } catch { /* ignore */ }
-
       const token = getStoredToken();
 
-      if (token) {
-        try {
-          const accessProfile = await getCurrentUser(token);
-          if (accessProfile && accessProfile.active !== false) {
-            const resolvedRole = accessProfile.role_code || accessProfile.role || saved?.role || 'accountant';
-            const demoMatch = DEMO_USERS.find(
-              u => u.email.toLowerCase() === (accessProfile.official_email || accessProfile.email || '').toLowerCase()
-            );
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
 
-            const updatedUser = {
-              ...(saved || {}),
-              ...accessProfile,
-              id: accessProfile.user_profile_id || accessProfile.id || saved?.id,
-              name: accessProfile.employee_name || accessProfile.full_name || saved?.name || 'User',
-              email: accessProfile.official_email || accessProfile.email || saved?.email,
-              employee_name: accessProfile.employee_name || saved?.employee_name,
-              employee_code: accessProfile.employee_code || saved?.employee_code,
-              designation: accessProfile.designation || saved?.designation || 'Finance Professional',
-              department: accessProfile.department || saved?.department || 'Finance',
-              role: resolvedRole,
-              role_code: accessProfile.role_code || resolvedRole,
-              role_name: accessProfile.role_name || saved?.role_name || resolvedRole,
-              layer: demoMatch?.layer ?? saved?.layer ?? (['board', 'cfo', 'admin'].includes(String(resolvedRole).toLowerCase()) ? 1 : 5),
-              avatar: saved?.avatar || (accessProfile.employee_name || accessProfile.official_email || 'U').slice(0, 2).toUpperCase(),
-              scope: saved?.scope || demoMatch?.scope || { countries: 'all', entities: 'all', divisions: 'all' },
-              exportRights: saved?.exportRights || demoMatch?.exportRights || 'full',
-              canManageUsers: demoMatch?.canManageUsers ?? (['admin', 'cfo', 'board'].includes(String(resolvedRole).toLowerCase())),
-              defaultPage: saved?.defaultPage || demoMatch?.defaultPage || '/exec-dashboard',
-              allowedPages: saved?.allowedPages || demoMatch?.allowedPages || ['*'],
-              module_permissions: Array.isArray(accessProfile.module_permissions) ? accessProfile.module_permissions : (saved?.module_permissions || []),
-              access_scopes: Array.isArray(accessProfile.access_scopes) ? accessProfile.access_scopes : (saved?.access_scopes || []),
-              access_token: token,
-              token: token,
-            };
+      try {
+        const accessProfile = await getCurrentUser(token);
+        if (accessProfile && accessProfile.active !== false) {
+          const resolvedRole = accessProfile.role_code || accessProfile.role || 'accountant';
 
-            setUser(updatedUser);
-            localStorage.setItem('finsight_user', JSON.stringify(updatedUser));
-            setLoading(false);
-            return;
-          }
-        } catch (err) {
-          console.warn('[AuthContext] Session restore via /api/access/me failed:', err);
-          if (err?.status === 401) {
-            // Token expired or invalid
-            localStorage.removeItem('token');
-            localStorage.removeItem('finsight_token');
-            localStorage.removeItem('finsight_user');
-            setUser(null);
-            setLoading(false);
-            return;
-          }
+          const authoritativeUser = {
+            id: accessProfile.user_profile_id || accessProfile.id,
+            user_profile_id: accessProfile.user_profile_id || accessProfile.id,
+            name: accessProfile.employee_name || accessProfile.full_name || 'User',
+            email: accessProfile.official_email || accessProfile.email,
+            employee_name: accessProfile.employee_name || 'User',
+            employee_code: accessProfile.employee_code || null,
+            designation: accessProfile.designation || 'Finance Professional',
+            department: accessProfile.department || 'Finance',
+            role: resolvedRole,
+            role_code: accessProfile.role_code || resolvedRole,
+            role_name: accessProfile.role_name || resolvedRole,
+            roleLabel: accessProfile.role_name || resolvedRole,
+            avatar: (accessProfile.employee_name || accessProfile.official_email || 'U').slice(0, 2).toUpperCase(),
+            // Authoritative arrays strictly from /api/access/me
+            module_permissions: Array.isArray(accessProfile.module_permissions) ? accessProfile.module_permissions : [],
+            access_scopes: Array.isArray(accessProfile.access_scopes) ? accessProfile.access_scopes : [],
+            access_token: token,
+            token: token,
+          };
+
+          setUser(authoritativeUser);
+          localStorage.setItem('finsight_user', JSON.stringify(authoritativeUser));
+          setAuthError(null);
+        } else {
+          // Inactive user or empty profile response
+          logout();
         }
+      } catch (err) {
+        console.warn('[AuthContext] Session restore via /api/access/me failed:', err);
+        if (err?.status === 401 || err?.status === 403) {
+          // Token expired or invalid credentials
+          logout();
+        } else {
+          // Transient error / network failure: Fail closed, do NOT activate cached permissions
+          setUser(null);
+          setAuthError(err);
+        }
+      } finally {
+        setLoading(false);
       }
-
-      // If no token or network error, fallback to saved user from localStorage
-      if (saved) {
-        setUser(saved);
-      }
-      setLoading(false);
     }
 
     restoreSession();
-  }, []);
+  }, [logout]);
 
   // Step 1: Check credentials only — does NOT create a session.
   // Used by LoginPage before the MFA step.
@@ -423,12 +431,12 @@ export function AuthProvider({ children }) {
     return { success: true, user: safe };
   }
 
-  // Step 2: Called after MFA passes — creates the session.
-  function completeLogin(safeUser) {
+  // Step 2: Creates the session in React state and local storage.
+  const completeLogin = useCallback((safeUser) => {
     setUser(safeUser);
     localStorage.setItem('finsight_user', JSON.stringify(safeUser));
     _auditWrite('login', { userId: safeUser.id, userName: safeUser.name, userRole: safeUser.role });
-  }
+  }, []);
 
   // Kept for backward-compat (non-MFA internal use)
   function login(email, password) {
@@ -437,82 +445,71 @@ export function AuthProvider({ children }) {
     return result;
   }
 
-  function logout() {
-    _auditWrite('logout');
-    setUser(null);
-    localStorage.removeItem('finsight_user');
-    logoutFromBackend(); // also clears finsight_token and token
-  }
-
   // ── Real backend login ────────────────────────────────────────────
-  // 1. Calls POST /api/auth/login and receives JWT access_token.
-  // 2. Immediately calls GET /api/access/me to fetch authoritative module_permissions,
-  //    access_scopes, employee profile, and roles.
-  // 3. Builds authoritative session object with all access details for the Profile page and RBAC.
+  // 1. Authenticates against POST /api/auth/login to get JWT token.
+  // 2. Immediately verifies GET /api/access/me for authoritative profile.
+  // 3. Commits session once.
   async function loginWithBackend(email, password) {
-    const { token, raw } = await _apiLogin(email, password);
-    const backendUser = raw?.user || raw?.user_info || null;
-    const trimmedEmail = (email || '').trim().toLowerCase();
-
-    const demoMatch = DEMO_USERS.find(
-      u => u.email.toLowerCase() === trimmedEmail
-    );
-
-    // Fetch authoritative user profile and permissions from /api/access/me
-    let accessProfile = null;
-    try {
-      accessProfile = await getCurrentUser(token);
-    } catch (err) {
-      console.warn('[AuthContext] Could not fetch /api/access/me right after login:', err);
+    const { token } = await _apiLogin(email, password);
+    if (!token) {
+      throw { status: 500, message: 'Server did not return a valid authentication token.', isAuthError: false };
     }
 
-    const resolvedRole = accessProfile?.role_code || backendUser?.role_code || backendUser?.role || demoMatch?.role || 'accountant';
+    // Authoritative profile from /api/access/me
+    const accessProfile = await getCurrentUser(token);
+    if (!accessProfile || accessProfile.active === false) {
+      logoutFromBackend();
+      throw {
+        status: 403,
+        message: 'Your account is inactive or access profile could not be loaded.',
+        isAuthError: true,
+      };
+    }
 
-    // Build the session object: /api/access/me fields take authoritative precedence
+    const resolvedRole = accessProfile.role_code || accessProfile.role || 'accountant';
+
     const session = {
-      ...(backendUser || {}),
-      ...(accessProfile || {}),
+      id: accessProfile.user_profile_id || accessProfile.id,
+      user_profile_id: accessProfile.user_profile_id || accessProfile.id,
+      name: accessProfile.employee_name || accessProfile.full_name || email,
+      email: accessProfile.official_email || accessProfile.email || email,
+      employee_name: accessProfile.employee_name || email,
+      employee_code: accessProfile.employee_code || null,
+      designation: accessProfile.designation || 'Finance Professional',
+      department: accessProfile.department || 'Finance',
+      role: resolvedRole,
+      role_code: accessProfile.role_code || resolvedRole,
+      role_name: accessProfile.role_name || resolvedRole,
+      roleLabel: accessProfile.role_name || resolvedRole,
+      avatar: (accessProfile.employee_name || email).slice(0, 2).toUpperCase(),
+      // Strictly backend-driven permissions & scopes (no demo overrides)
+      module_permissions: Array.isArray(accessProfile.module_permissions) ? accessProfile.module_permissions : [],
+      access_scopes: Array.isArray(accessProfile.access_scopes) ? accessProfile.access_scopes : [],
       access_token: token,
       token: token,
-      id:          accessProfile?.user_profile_id || backendUser?.user_profile_id || backendUser?.user_id || backendUser?.id || demoMatch?.id || `backend-${Date.now()}`,
-      name:        accessProfile?.employee_name || backendUser?.full_name || backendUser?.name || demoMatch?.name || email,
-      email:       accessProfile?.official_email || backendUser?.email || email,
-      employee_name: accessProfile?.employee_name || backendUser?.full_name || demoMatch?.name || email,
-      employee_code: accessProfile?.employee_code || backendUser?.employee_code || demoMatch?.employee_code || null,
-      designation: accessProfile?.designation || demoMatch?.designation || 'Finance Professional',
-      department:  accessProfile?.department || demoMatch?.department || 'Finance',
-      role:        resolvedRole,
-      role_code:   accessProfile?.role_code || backendUser?.role_code || resolvedRole,
-      role_name:   accessProfile?.role_name || backendUser?.role_name || demoMatch?.roleLabel || resolvedRole,
-      roleLabel:   accessProfile?.role_name || backendUser?.roleLabel || demoMatch?.roleLabel || resolvedRole,
-      layer:       demoMatch?.layer ?? (['board', 'cfo', 'admin'].includes(String(resolvedRole).toLowerCase()) ? 1 : 5),
-      avatar:      demoMatch?.avatar || (email.slice(0, 2).toUpperCase()),
-      scope:       demoMatch?.scope || { countries: 'all', entities: 'all', divisions: 'all' },
-      exportRights:   demoMatch?.exportRights || 'controlled',
-      canManageUsers: demoMatch?.canManageUsers ?? (['admin', 'cfo', 'board'].includes(String(resolvedRole).toLowerCase()) ? true : false),
-      defaultPage:    demoMatch?.defaultPage || '/exec-dashboard',
-      allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || 
-                      (['admin', 'cfo', 'board'].includes(String(resolvedRole).toLowerCase()) ? ['*'] : ['dashboard', 'revenue', 'pl', 'profile']),
-      module_permissions: Array.isArray(accessProfile?.module_permissions) ? accessProfile.module_permissions : (demoMatch?.module_permissions || []),
-      access_scopes:      Array.isArray(accessProfile?.access_scopes) ? accessProfile.access_scopes : (demoMatch?.access_scopes || []),
     };
 
+    // Commit session once
     completeLogin(session);
+    setAuthError(null);
     return session;
   }
 
-  // ── On-demand profile refresh ─────────────────────────────────────
-  // Re-fetches /api/access/me and updates user context and localStorage
-  async function refreshProfile() {
+  // ── Authoritative Profile Refresh ─────────────────────────────────
+  // Re-fetches /api/access/me and strictly replaces permissions/scopes.
+  const refreshProfile = useCallback(async () => {
     const token = getStoredToken();
     if (!token) return null;
     try {
       const accessProfile = await getCurrentUser(token);
-      if (accessProfile) {
+      if (accessProfile && accessProfile.active !== false) {
+        let updatedUser = null;
         setUser(prev => {
-          const updated = {
+          updatedUser = {
             ...(prev || {}),
             ...accessProfile,
+            id: accessProfile.user_profile_id || prev?.id,
+            user_profile_id: accessProfile.user_profile_id || prev?.user_profile_id,
             name: accessProfile.employee_name || accessProfile.full_name || prev?.name,
             email: accessProfile.official_email || accessProfile.email || prev?.email,
             employee_name: accessProfile.employee_name || prev?.employee_name,
@@ -521,142 +518,144 @@ export function AuthProvider({ children }) {
             department: accessProfile.department || prev?.department,
             role_code: accessProfile.role_code || prev?.role_code,
             role_name: accessProfile.role_name || prev?.role_name,
-            module_permissions: Array.isArray(accessProfile.module_permissions) ? accessProfile.module_permissions : (prev?.module_permissions || []),
-            access_scopes: Array.isArray(accessProfile.access_scopes) ? accessProfile.access_scopes : (prev?.access_scopes || []),
+            // Strictly replace module_permissions and access_scopes - never merge
+            module_permissions: Array.isArray(accessProfile.module_permissions) ? accessProfile.module_permissions : [],
+            access_scopes: Array.isArray(accessProfile.access_scopes) ? accessProfile.access_scopes : [],
           };
-          localStorage.setItem('finsight_user', JSON.stringify(updated));
-          return updated;
+          localStorage.setItem('finsight_user', JSON.stringify(updatedUser));
+          return updatedUser;
         });
         return accessProfile;
+      } else {
+        logout();
+        return null;
       }
     } catch (err) {
       console.warn('[AuthContext] refreshProfile error:', err);
-    }
-    return null;
-  }
-
-  function canAccess(page) {
-    if (!user) return false;
-    if (user.allowedPages && user.allowedPages.includes('*')) return true;
-    if (['board', 'cfo', 'admin'].includes(String(user.role || user.role_code).toLowerCase())) return true;
-    if (user.allowedPages && user.allowedPages.includes(page)) return true;
-
-    // Check backend module_permissions if present
-    if (Array.isArray(user?.module_permissions)) {
-      const pageToModule = {
-        'dashboard': 'DASHBOARD',
-        'exec-dashboard': 'DASHBOARD',
-        'revenue': 'SALES_REVENUE',
-        'sales-revenue': 'SALES_REVENUE',
-        'pl': 'PROFIT_LOSS',
-        'balance-sheet': 'BALANCE_SHEET',
-        'operating-expenses': 'OPERATING_EXPENSES',
-        'opex': 'OPERATING_EXPENSES',
-        'payables': 'PAYABLES',
-        'ap': 'PAYABLES',
-        'receivables': 'RECEIVABLES',
-        'ar': 'RECEIVABLES',
-        'working-capital': 'WORKING_CAPITAL',
-        'workingcapital': 'WORKING_CAPITAL',
-        'inventory': 'INVENTORY',
-        'fixed-assets': 'FIXED_ASSETS',
-        'financial-position': 'FINANCIAL_POSITION',
-        'master-data': 'MASTER_DATA',
-        'admin': 'USER_MANAGEMENT',
-        'profile': '*',
-      };
-      const key = String(page || '').toLowerCase();
-      const mod = pageToModule[page] || pageToModule[key];
-      if (mod === '*') return true;
-      if (mod) {
-        const found = user.module_permissions.find(p => p.module_code === mod);
-        if (found) return Boolean(found.can_view);
+      if (err?.status === 401 || err?.status === 403) {
+        logout();
       }
     }
+    return null;
+  }, [logout]);
 
-    return false;
-  }
+  // ── Authoritative RBAC Helper Methods ─────────────────────────────
+  const canView = useCallback((moduleCode) => {
+    return rbacCanView(user?.module_permissions, moduleCode);
+  }, [user?.module_permissions]);
 
-    function hasExportRight(type) {
-    const typeMap = { all: 3, excel: 2, pdf: 2, csv: 1 };
-    if (typeMap[type] !== undefined) {
-      const map = { full: 3, controlled: 2, operational: 2, limited: 1 };
-      return (map[user?.exportRights] || 0) >= typeMap[type];
-    }
-    
-    if (user?.module_permissions && Array.isArray(user.module_permissions)) {
-      const mod = user.module_permissions.find(p => p.module_code === type);
-      if (mod) return !!mod.can_export;
-    }
-    
-    if (user?.role && ['board', 'cfo', 'admin'].includes(String(user.role).toLowerCase())) {
-      return true;
-    }
-    
-    return false;
-  }
+  const canExport = useCallback((moduleCode) => {
+    return rbacCanExport(user?.module_permissions, moduleCode);
+  }, [user?.module_permissions]);
+
+  const canUpload = useCallback((moduleCode) => {
+    return rbacCanUpload(user?.module_permissions, moduleCode);
+  }, [user?.module_permissions]);
+
+  const canAdmin = useCallback((moduleCode) => {
+    return rbacCanAdmin(user?.module_permissions, moduleCode);
+  }, [user?.module_permissions]);
+
+  const canAccess = useCallback((routeOrKey) => {
+    return rbacCanAccess(user?.module_permissions, routeOrKey);
+  }, [user?.module_permissions]);
+
+  const getAuthorizationState = useCallback(() => {
+    return computeAuthorizationState({ user, loading, error: authError });
+  }, [user, loading, authError]);
+
+  const resolveLanding = useCallback(() => {
+    return resolveLandingRoute(user?.module_permissions, user?.role_code || user?.role);
+  }, [user?.module_permissions, user?.role_code, user?.role]);
+
+  // Backwards compatibility alias: hasExportRight delegates to canExport
+  const hasExportRight = useCallback((moduleCodeOrType) => {
+    return rbacCanExport(user?.module_permissions, moduleCodeOrType);
+  }, [user?.module_permissions]);
 
   // ── Data scope enforcement ────────────────────────────────────────
-  // Returns only entities user is authorised to view.
-  // Unauthorised entities must not appear even in filter dropdowns.
   function getScopedEntities() {
     if (!user) return [];
-    const scope = user.scope;
-    if (scope?.countries === 'all' && scope?.entities === 'all') return ALL_ENTITIES;
-    return ALL_ENTITIES.filter(e => {
-      const countryOk = !scope?.countries || scope.countries === 'all'
-        || (Array.isArray(scope.countries) && scope.countries.includes(e.country));
-      const entityOk  = !scope?.entities  || scope.entities  === 'all'
-        || (Array.isArray(scope.entities)  && scope.entities.includes(e.id));
-      return countryOk && entityOk;
-    });
+    if (Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const hasAll = user.access_scopes.some(
+        s => s.legal_entity_name === 'All Entities' || s.legal_entity_name === 'ALL'
+      );
+      if (hasAll) return ALL_ENTITIES;
+      const allowedNames = new Set(user.access_scopes.map(s => s.legal_entity_name).filter(Boolean));
+      return ALL_ENTITIES.filter(e => allowedNames.has(e.name));
+    }
+    return [];
   }
 
-  // Returns only countries user is authorised to view.
   function getScopedCountries() {
     if (!user) return [];
-    const scope = user.scope;
-    if (scope?.countries === 'all') return ALL_COUNTRIES;
-    return Array.isArray(scope?.countries) ? scope.countries : ALL_COUNTRIES;
+    if (Array.isArray(user.access_scopes) && user.access_scopes.length > 0) {
+      const hasAll = user.access_scopes.some(
+        s => s.country === 'ALL' || s.country === 'All Countries' || s.legal_entity_name === 'All Entities' || s.legal_entity_name === 'ALL'
+      );
+      if (hasAll) return ALL_COUNTRIES;
+      const allowedCountries = new Set();
+      user.access_scopes.forEach(s => {
+        if (s.country) {
+          allowedCountries.add(s.country);
+        } else if (s.legal_entity_name) {
+          const matched = ALL_ENTITIES.find(e => e.name === s.legal_entity_name);
+          if (matched?.country) allowedCountries.add(matched.country);
+        }
+      });
+      if (allowedCountries.size > 0) {
+        return Array.from(allowedCountries);
+      }
+    }
+    return [];
   }
 
-  // Returns the salesperson filter value if the user's scope is locked to one.
   function getScopedSalesperson() {
-    return user?.scope?.salesman || null;
+    if (!user?.access_scopes || !Array.isArray(user.access_scopes)) return null;
+    const scopedUser = user.access_scopes.find(s => s.salesman);
+    return scopedUser?.salesman || null;
   }
 
-  // Returns true only for board/cfo roles on sensitive finance detail pages.
   function hasSensitiveAccess(page) {
     if (!user) return false;
-    if (!SENSITIVE_PAGES.includes(page)) return true; // not a sensitive page
-    return SENSITIVE_ROLES.includes(user.role);
+    if (!SENSITIVE_PAGES.includes(page)) return true;
+    return SENSITIVE_ROLES.includes(String(user.role_code || user.role).toLowerCase());
   }
 
-  // Log an audit event from any component (filter changes, exports, etc.)
   function auditLog(action, payload = {}) {
     _auditWrite(action, payload);
   }
 
-  // ── Compat shim for MyProfile.jsx ────────────────────────────────
-  // MyProfile expects getAccessScopes() from useAuth().
-  // Returns the user's allowedPages as an array of scope strings so
-  // that MyProfile can display what this user has access to.
-  // This does NOT change any existing RBAC logic.
   function getAccessScopes() {
     if (!user) return [];
-    if (Array.isArray(user.access_scopes)) return user.access_scopes;
-    return Array.isArray(user.allowedPages) ? user.allowedPages : [];
+    return Array.isArray(user.access_scopes) ? user.access_scopes : [];
   }
 
   return (
     <AuthContext.Provider value={{
-      user, login, logout, canAccess, hasExportRight, loading,
-      verifyCredentials, completeLogin,
-      loginWithBackend,
-      getScopedEntities, getScopedCountries, getScopedSalesperson,
-      hasSensitiveAccess, auditLog,
-      getAccessScopes,
+      user,
+      loading,
+      authError,
+      login,
+      logout,
+      canView,
+      canExport,
+      canUpload,
+      canAdmin,
+      canAccess,
+      resolveLanding,
+      getAuthorizationState,
       refreshProfile,
+      hasExportRight,
+      verifyCredentials,
+      completeLogin,
+      loginWithBackend,
+      getScopedEntities,
+      getScopedCountries,
+      getScopedSalesperson,
+      hasSensitiveAccess,
+      auditLog,
+      getAccessScopes,
     }}>
       {children}
     </AuthContext.Provider>

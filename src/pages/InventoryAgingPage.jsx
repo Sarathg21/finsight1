@@ -1,9 +1,26 @@
 /* ================================================================
    DATE FORMAT HELPERS
    ================================================================ */
-function formatDisplayDateGlobal(d) {
-  if (!d || d === "All") return "Selected Date";
-  const str = String(d).trim();
+function formatDisplayDateGlobal(d, fallback = null) {
+  const target = (!d || d === "All" || d === "") ? fallback : d;
+  if (!target || target === "All" || target === "") {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const str = String(target).trim();
+  const ymdMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymdMatch) {
+    const [, year, month, day] = ymdMatch;
+    return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
+  }
+  const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
+  }
   const dateObj = new Date(str);
   if (!isNaN(dateObj.getTime())) {
     const day = String(dateObj.getDate()).padStart(2, '0');
@@ -14,9 +31,26 @@ function formatDisplayDateGlobal(d) {
   return str;
 }
 
-function getRawDateForInputGlobal(d) {
-  if (!d || d === "All") return "";
-  const str = String(d).trim();
+function getRawDateForInputGlobal(d, fallback = null) {
+  const target = (!d || d === "All" || d === "") ? fallback : d;
+  if (!target || target === "All" || target === "") {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${year}-${month}-${day}`;
+  }
+  const str = String(target).trim();
+  const ymdMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymdMatch) {
+    const [, year, month, day] = ymdMatch;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  const dmyMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
   const dateObj = new Date(str);
   if (!isNaN(dateObj.getTime())) {
     const day = String(dateObj.getDate()).padStart(2, '0');
@@ -84,7 +118,7 @@ import { useAuth } from "../context/AuthContext";
 /* ================================================================
    DATE FILTER
    ================================================================ */
-function DateFilter({ value, onChange, minWidth = 120 }) {
+function DateFilter({ value, onChange, minWidth = 120, defaultDate = null }) {
     const dateInputRef = React.useRef(null);
     const openCalendar = () => {
         if (dateInputRef.current) {
@@ -111,34 +145,14 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
         }
         onChange(selectedDate);
     };
-    const formatDisplayDate = (d) => {
-        return formatDisplayDateGlobal(d);
-    };
 
-    const displayText = formatDisplayDate(value);
+    const displayText = formatDisplayDateGlobal(value, defaultDate);
+    const rawVal = getRawDateForInputGlobal(value, defaultDate);
 
     const renderDateContent = () => {
         if (!displayText) return null;
-        if (displayText.includes(" ")) {
-            const parts = displayText.split(" ");
-            if (parts.length === 2) {
-                return (
-                    <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, fontSize: "0.68rem", fontWeight: 700, textAlign: "left", color: "#173b8f" }}>
-                        <span>{parts[0]}</span>
-                        <span>{parts[1]}</span>
-                    </div>
-                );
-            }
-            const mid = Math.ceil(parts.length / 2);
-            return (
-                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, fontSize: "0.68rem", fontWeight: 700, textAlign: "left", color: "#173b8f" }}>
-                    <span>{parts.slice(0, mid).join(" ")}</span>
-                    <span>{parts.slice(mid).join(" ")}</span>
-                </div>
-            );
-        }
         return (
-            <span style={{ fontSize: "0.72rem", fontWeight: 600, textAlign: "left", lineHeight: 1.2, color: "#173b8f" }}>
+            <span style={{ fontSize: "0.78rem", fontWeight: 700, textAlign: "left", lineHeight: 1.2, color: "#173b8f", whiteSpace: "nowrap" }}>
                 {displayText}
             </span>
         );
@@ -152,7 +166,7 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
             <input
                 ref={dateInputRef}
                 type="date"
-                value={value || ""}
+                value={rawVal}
                 max={todayStr}
                 onChange={handleDateChange}
                 style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
@@ -166,7 +180,7 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
                     outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                     display: "flex", alignItems: "center", justifyContent: "flex-start"
                 }}
-                title={value && value !== "All" ? value : "Selected Date"}
+                title={displayText}
             >
                 {renderDateContent()}
                 <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>📅</span>
@@ -176,7 +190,8 @@ function DateFilter({ value, onChange, minWidth = 120 }) {
 }
 
 export default function InventoryOverview() {
-  const { user } = useAuth();
+  const { user, canExport } = useAuth();
+  const canExportInventory = Boolean(canExport?.('INVENTORY'));
 
   // Helper to ensure Legal Groups are always properly resolved from API, user scopes, or defaults
   const resolveLegalGroups = useCallback((rawGroups) => {
@@ -285,8 +300,14 @@ export default function InventoryOverview() {
       const scopeMap = new Map();
       user.access_scopes.forEach((s) => {
         if (activeFilters?.legalGroup) {
+          const lgVal = s.legal_group_code === 'FJ_GROUP' ? 4 : (s.legal_group_code === 'RKME_GROUP' ? 3 : s.legal_group_id);
+          const lgLabel = s.legal_group_code === 'FJ_GROUP' ? 'FJ Group' : (s.legal_group_code === 'RKME_GROUP' ? 'RKME Group' : (s.legal_group_name || s.legal_group));
           const lgMatch = matchesScopeFilter(s.legal_group_code, activeFilters.legalGroup) ||
                           matchesScopeFilter(s.legal_group, activeFilters.legalGroup) ||
+                          matchesScopeFilter(lgLabel, activeFilters.legalGroup) ||
+                          matchesScopeFilter(lgVal, activeFilters.legalGroup) ||
+                          (matchesScopeFilter(4, activeFilters.legalGroup) && s.legal_group_code === 'FJ_GROUP') ||
+                          (matchesScopeFilter(3, activeFilters.legalGroup) && s.legal_group_code === 'RKME_GROUP') ||
                           (matchesScopeFilter(1, activeFilters.legalGroup) && s.legal_group_code === 'FJ_GROUP') ||
                           (matchesScopeFilter(2, activeFilters.legalGroup) && s.legal_group_code === 'RKME_GROUP');
           if (!lgMatch) return;
@@ -348,8 +369,14 @@ export default function InventoryOverview() {
           if (!leMatch) return;
         }
         if (activeFilters?.legalGroup) {
+          const lgVal = s.legal_group_code === 'FJ_GROUP' ? 4 : (s.legal_group_code === 'RKME_GROUP' ? 3 : s.legal_group_id);
+          const lgLabel = s.legal_group_code === 'FJ_GROUP' ? 'FJ Group' : (s.legal_group_code === 'RKME_GROUP' ? 'RKME Group' : (s.legal_group_name || s.legal_group));
           const lgMatch = matchesScopeFilter(s.legal_group_code, activeFilters.legalGroup) ||
                           matchesScopeFilter(s.legal_group, activeFilters.legalGroup) ||
+                          matchesScopeFilter(lgLabel, activeFilters.legalGroup) ||
+                          matchesScopeFilter(lgVal, activeFilters.legalGroup) ||
+                          (matchesScopeFilter(4, activeFilters.legalGroup) && s.legal_group_code === 'FJ_GROUP') ||
+                          (matchesScopeFilter(3, activeFilters.legalGroup) && s.legal_group_code === 'RKME_GROUP') ||
                           (matchesScopeFilter(1, activeFilters.legalGroup) && s.legal_group_code === 'FJ_GROUP') ||
                           (matchesScopeFilter(2, activeFilters.legalGroup) && s.legal_group_code === 'RKME_GROUP');
           if (!lgMatch) return;
@@ -535,6 +562,10 @@ export default function InventoryOverview() {
   // ============================================================
 
   const handleExport = async (type, section = null, customFilters = null, drilldownFilters = null) => {
+    if (!canExportInventory) {
+      toast.error("You do not have permission to export inventory data.");
+      return;
+    }
     if (section === 'aging') {
       return handleExportAgingSummary(type);
     }
@@ -594,6 +625,10 @@ export default function InventoryOverview() {
   };
 
   const handleExportMoM = (format = "excel", isObsolete = false) => {
+    if (!canExportInventory) {
+      toast.error("You do not have permission to export inventory data.");
+      return;
+    }
     let rawList = [];
     if (isObsolete) {
       const slowSource = (viewAllData && viewAllData.length > 0)
@@ -1153,7 +1188,7 @@ const [loading, setLoading] = useState(true);
     details: [],
     turnoverDioTrend: { labels: [], turnover: [], dio: [] },
     reporting_currency: "AED",
-    dataAsOf: null
+    dataAsOf: new Date().toISOString().split('T')[0]
   }));
 
   
@@ -1282,6 +1317,10 @@ const [loading, setLoading] = useState(true);
   }, [filters.legalGroup, filters.legalEntity, filters.parentDivision, filters.subdivision, filters.subinventory]);
 
   const handleExportAgingSummary = async (format = "excel") => {
+    if (!canExportInventory) {
+      toast.error("You do not have permission to export inventory data.");
+      return;
+    }
     setIsExporting(true);
     const toastId = toast.loading(`Exporting Inventory Aging Summary to ${format.toUpperCase()}...`);
     try {
@@ -1872,7 +1911,7 @@ const [loading, setLoading] = useState(true);
                   totalInventory: Number(dData.kpis?.total_inventory || 0),
                   rawKpis: dData.kpis || null,
                   reporting_currency: dData.reporting_currency || dData.currency || appliedFilters.currency || "AED",
-                  dataAsOf: dData.data_as_of || dData.dataAsOf || fData.data_as_of || null
+                  dataAsOf: dData.as_on_date || dData.kpis?.as_on_date || fData.as_on_date || dData.data_as_of || dData.dataAsOf || fData.data_as_of || (new Date().toISOString().split('T')[0])
               });
           } catch (err) {
               if (currentSeq === loadDataReqSeqRef.current) {
@@ -4156,38 +4195,42 @@ const [loading, setLoading] = useState(true);
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={styles.headerActions}>
-            <button type="button"
-              id="btn-export-excel-inventory"
-              disabled={isExporting}
-              onClick={() => handleExport('excel')}
-              title="Export to Excel"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                height: 32, padding: '0 12px',
-                background: '#f0fdf4', color: '#15803d',
-                border: '1px solid #bbf7d0', borderRadius: 7,
-                fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-            >
-              📊 Excel
-            </button>
-            <button type="button"
-              id="btn-export-pdf-inventory"
-              disabled={isExporting}
-              onClick={() => handleExport('pdf')}
-              title="Export to PDF"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                height: 32, padding: '0 12px',
-                background: '#fff1f2', color: '#be123c',
-                border: '1px solid #fecdd3', borderRadius: 7,
-                fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-            >
-              📄 PDF
-            </button>
+            {canExportInventory && (
+              <>
+                <button type="button"
+                  id="btn-export-excel-inventory"
+                  disabled={isExporting}
+                  onClick={() => handleExport('excel')}
+                  title="Export to Excel"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    height: 32, padding: '0 12px',
+                    background: '#f0fdf4', color: '#15803d',
+                    border: '1px solid #bbf7d0', borderRadius: 7,
+                    fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  📊 Excel
+                </button>
+                <button type="button"
+                  id="btn-export-pdf-inventory"
+                  disabled={isExporting}
+                  onClick={() => handleExport('pdf')}
+                  title="Export to PDF"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    height: 32, padding: '0 12px',
+                    background: '#fff1f2', color: '#be123c',
+                    border: '1px solid #fecdd3', borderRadius: 7,
+                    fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  📄 PDF
+                </button>
+              </>
+            )}
             <button type="button"
               onClick={() => window.location.reload()}
               title="Refresh"
@@ -4260,6 +4303,7 @@ const [loading, setLoading] = useState(true);
 
         <DateFilter
           value={filters.asOnDate}
+          defaultDate={mockData.dataAsOf || (new Date().toISOString().split('T')[0])}
           onChange={(value) => updateFilter("asOnDate", value)}
           minWidth={115}
         />

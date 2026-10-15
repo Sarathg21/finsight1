@@ -13,12 +13,13 @@ import {
   useLocation,
   Link,
 } from "react-router-dom";
+import { resolveLandingRoute } from "../utils/rbacPermissions";
 
 export default function LoginPage() {
   const {
     user,
     loginWithBackend,
-    completeLogin,
+    resolveLanding,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -45,22 +46,20 @@ export default function LoginPage() {
   useEffect(() => {
     if (!user) return;
 
-    if (user.role_code === "ADMIN") {
-      return;
-    }
+    const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
+    const target =
+      validFrom ||
+      resolveLanding?.() ||
+      (user.role_code === "ADMIN" ? "/admin/dashboard" : "/pl");
 
-    navigate(
-      from ||
-      user.defaultPage ||
-      "/exec-dashboard",
-      {
-        replace: true,
-      }
-    );
+    navigate(target, {
+      replace: true,
+    });
   }, [
     user,
     navigate,
     from,
+    resolveLanding,
   ]);
 
   /* ================================================================
@@ -98,123 +97,21 @@ export default function LoginPage() {
         password
       );
 
-      console.log("LOGIN SESSION:", session);
-      console.log(
-        "ACCESS TOKEN:",
-        !!session?.access_token
-      );
-      console.log(
-        "ROLE CODE:",
-        session?.role_code
-      );
-
       setBackendStatus("online");
-      completeLogin?.(session);
 
       const roleCode =
         session?.role_code ||
         session?.user?.role_code;
 
-      if (
-        roleCode === "ADMIN" ||
-        roleCode === "BU_ACCOUNTANT"
-      ) {
-        const payablesOrigin =
-          import.meta.env.VITE_PAYABLES_ORIGIN;
-
-        let payablesWindow = null;
-
-        const handlePayablesReady = (event) => {
-          if (event.origin !== payablesOrigin) {
-            return;
-          }
-
-          if (
-            event.data?.type !==
-            "PAYABLES_READY"
-          ) {
-            return;
-          }
-
-          console.log(
-            "Payables is ready. Sending authentication token."
-          );
-
-          if (
-            payablesWindow &&
-            !payablesWindow.closed
-          ) {
-            console.log(
-              "PAYABLES_READY received from:",
-              event.origin,
-              event.data
-            );
-
-            console.log(
-              "Sending FINSIGHT_AUTH to:",
-              payablesOrigin
-            );
-
-            console.log(
-              "Token available:",
-              !!session?.access_token
-            );
-
-            payablesWindow.postMessage(
-              {
-                type: "FINSIGHT_AUTH",
-                token: session.access_token,
-              },
-              payablesOrigin
-            );
-          }
-
-          window.removeEventListener(
-            "message",
-            handlePayablesReady
-          );
-        };
-
-        window.addEventListener(
-          "message",
-          handlePayablesReady
-        );
-
-        payablesWindow = window.open(
-          payablesOrigin,
-          "_blank"
-        );
-
-        if (!payablesWindow) {
-          window.removeEventListener(
-            "message",
-            handlePayablesReady
-          );
-
-          setError(
-            "Payables window was blocked. Please allow pop-ups."
-          );
-
-          return;
-        }
-
-        window.payablesWindow =
-          payablesWindow;
-
-        navigate(
-          from || "/exec-dashboard",
-          {
-            replace: true,
-          }
-        );
-
-        return;
-      }
+      const landing = resolveLandingRoute(session?.module_permissions, roleCode);
+      const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
+      const destination =
+        validFrom ||
+        landing ||
+        (roleCode === "ADMIN" ? "/admin/dashboard" : "/pl");
 
       navigate(
-        from ||
-        session?.defaultPage ||
-        "/exec-dashboard",
+        destination,
         {
           replace: true,
         }

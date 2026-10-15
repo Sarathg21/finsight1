@@ -135,7 +135,6 @@ export async function loginWithBackend(email, password) {
 
   // ── Step 3: Parse response ────────────────────────────────────
   const body = await res.json().catch(() => ({}));
-  console.log('[authApi] Login response status:', res.status, 'body:', body, 'isFormData:', isFormData);
 
   if (!res.ok) {
     if (res.status >= 500) {
@@ -168,11 +167,11 @@ export async function loginWithBackend(email, password) {
 
   const token = body?.access_token || body?.token;
   if (!token) {
-    console.error('[authApi] Login succeeded (HTTP 200) but no token found in response!', body);
+    console.error('[authApi] Login succeeded (HTTP 200) but no token found in response!');
     throw {
       status: 500,
       message: 'Server returned an invalid auth response (no token).',
-      isNetworkError: true, // triggers Demo fallback
+      isNetworkError: true,
       isAuthError: false,
     };
   }

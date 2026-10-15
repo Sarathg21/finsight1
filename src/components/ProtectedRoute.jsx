@@ -1,8 +1,8 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAudit } from '../context/AuditContext';
 import { useEffect } from 'react';
-import { ShieldOff } from 'lucide-react';
+import { ShieldOff, ArrowLeft, User, LogOut } from 'lucide-react';
 
 export default function ProtectedRoute({
   pageKey,
@@ -13,6 +13,9 @@ export default function ProtectedRoute({
     user,
     canAccess,
     canAdmin,
+    canView,
+    resolveLanding,
+    logout,
     loading,
   } = useAuth();
 
@@ -21,37 +24,55 @@ export default function ProtectedRoute({
 
   /*
    * -----------------------------------------------------------
-   * Centralized authorization
-   *
-   * Normal routes:
-   *   pageKey ? module_code ? VIEW permission
-   *
-   * Admin routes:
-   *   USER_MANAGEMENT ? ADMIN permission
-   *
-   * IMPORTANT:
-   * ProtectedRoute does NOT inspect access_scopes.
-   *
-   * access_scopes are only for DATA filtering.
+   * Centralized RBAC authorization
+   * - /profile: Allowed for any authenticated user session
+   * - Admin parent route: USER_MANAGEMENT or MASTER_DATA view/admin permission
+   * - Admin child routes: Exact module permission checks per page
+   * - Report routes: canonical route registry check via canAccess(pageKey)
    * -----------------------------------------------------------
    */
+  let allowed = false;
+  if (pageKey === 'profile') {
+    allowed = Boolean(user);
+  } else if (pageKey === 'exec-dashboard' || pageKey === '/exec-dashboard') {
+    const allowedRoles = ['CFO', 'COO', 'CEO', 'BOARD'];
+    const currentRole = (user?.role_code || user?.role || '').toUpperCase();
+    if (!allowedRoles.includes(currentRole)) {
+      allowed = false;
+    } else {
+      allowed = Boolean(canAccess?.(pageKey));
+    }
+  } else if (pageKey === 'admin/master-data' || pageKey === 'master-data') {
+    allowed = Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
+  } else if (
+    pageKey === 'admin/users' || pageKey === 'users' ||
+    pageKey === 'admin/roles' || pageKey === 'roles' ||
+    pageKey === 'admin/useraccess' || pageKey === 'useraccess'
+  ) {
+    allowed = Boolean(canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
+  } else if (adminOnly || pageKey === 'admin' || pageKey === 'admin/dashboard' || pageKey === 'admin-dashboard') {
+    allowed = Boolean(
+      canAdmin?.('USER_MANAGEMENT') ||
+      canView?.('USER_MANAGEMENT') ||
+      canAdmin?.('MASTER_DATA') ||
+      canView?.('MASTER_DATA')
+    );
+  } else {
+    allowed = Boolean(canAccess?.(pageKey));
+  }
 
-const allowed = adminOnly
-  ? canAdmin?.("USER_MANAGEMENT") ?? false
-  : canAccess?.(pageKey) ?? false;
   /* -----------------------------------------------------------
      Audit access decision
   ----------------------------------------------------------- */
-
   useEffect(() => {
     if (user && !loading) {
       if (allowed) {
-        log('report_access', {
+        log?.('report_access', {
           page: pageKey,
           path: location.pathname,
         });
       } else {
-        log('access_denied', {
+        log?.('access_denied', {
           page: pageKey,
           path: location.pathname,
         });
@@ -66,11 +87,9 @@ const allowed = adminOnly
     log,
   ]);
 
-
   /* -----------------------------------------------------------
      Wait until /api/access/me has completed
   ----------------------------------------------------------- */
-
   if (loading) {
     return (
       <div
@@ -83,16 +102,14 @@ const allowed = adminOnly
           fontSize: '0.9rem',
         }}
       >
-        Loading...
+        Loading access permissions...
       </div>
     );
   }
 
-
   /* -----------------------------------------------------------
      No authenticated user
   ----------------------------------------------------------- */
-
   if (!user) {
     return (
       <Navigate
@@ -103,19 +120,14 @@ const allowed = adminOnly
     );
   }
 
-
   /* -----------------------------------------------------------
-     Admin route access denied
-     
-     Requires:
-       USER_MANAGEMENT
-       +
-       ADMIN permission
-     
-     from module_permissions.
+     Access Denied (Fail Closed - Safe Access Restricted View)
+     Do not automatically redirect to hardcoded routes.
   ----------------------------------------------------------- */
+  if (!allowed) {
+    const landingRoute = resolveLanding?.();
+    const isAdmin = adminOnly || pageKey === 'admin';
 
-  if (adminOnly && !allowed) {
     return (
       <div
         className="animate-in"
@@ -127,6 +139,7 @@ const allowed = adminOnly
           minHeight: '60vh',
           gap: 16,
           textAlign: 'center',
+          padding: '24px',
         }}
       >
         <div
@@ -152,114 +165,104 @@ const allowed = adminOnly
         <div>
           <h2
             style={{
-              fontSize: '1.2rem',
+              fontSize: '1.25rem',
               fontWeight: 700,
-              color: 'var(--clr-text)',
+              color: 'var(--clr-text, #0f172a)',
               marginBottom: 8,
             }}
           >
-            Admin Access Restricted
+            {isAdmin ? 'Admin Access Restricted' : 'Access Restricted'}
           </h2>
 
           <p
             style={{
-              fontSize: '0.85rem',
-              color: 'var(--clr-text-muted)',
-              maxWidth: 360,
-              margin: '0 auto 20px',
+              fontSize: '0.875rem',
+              color: 'var(--clr-text-muted, #64748b)',
+              maxWidth: 440,
+              margin: '0 auto 24px',
+              lineHeight: 1.5,
             }}
           >
-            Your account does not have the required
-            administrative permission for this area.
-            Contact your administrator to request access.
+            {isAdmin
+              ? 'Your account does not have administrative permissions for this area. Contact your administrator if you require access.'
+              : 'Your account does not have permission to view this report module. Please select an authorized module or review your profile.'}
           </p>
 
-          <Navigate
-            to={user?.defaultPage || '/exec-dashboard'}
-            replace
-          />
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            {landingRoute && (
+              <Link
+                to={landingRoute}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  background: 'var(--clr-primary, #6366f1)',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                <ArrowLeft size={16} />
+                Go to Authorized Report
+              </Link>
+            )}
+            <Link
+              to="/profile"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: '#f1f5f9',
+                color: '#334155',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+                border: '1px solid #cbd5e1',
+              }}
+            >
+              <User size={16} />
+              My Profile
+            </Link>
+            <button
+              onClick={logout}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: '#fee2e2',
+                color: '#ef4444',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                border: '1px solid #fca5a5',
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut size={16} />
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );
   }
-
-
-  /* -----------------------------------------------------------
-     Normal page-level RBAC
-  ----------------------------------------------------------- */
-
-  if (!adminOnly && !allowed) {
-    return (
-      <div
-        className="animate-in"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
-          gap: 16,
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: 'rgba(239,68,68,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid rgba(239,68,68,0.2)',
-          }}
-        >
-          <ShieldOff
-            size={32}
-            style={{
-              color: 'var(--clr-danger, #ef4444)',
-            }}
-          />
-        </div>
-
-        <div>
-          <h2
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 700,
-              color: 'var(--clr-text)',
-              marginBottom: 8,
-            }}
-          >
-            Access Restricted
-          </h2>
-
-          <p
-            style={{
-              fontSize: '0.85rem',
-              color: 'var(--clr-text-muted)',
-              maxWidth: 360,
-              margin: '0 auto 20px',
-            }}
-          >
-            Your account does not have permission to view
-            this page. Contact your administrator to request
-            access.
-          </p>
-
-          <Navigate
-            to={user?.defaultPage || '/exec-dashboard'}
-            replace
-          />
-        </div>
-      </div>
-    );
-  }
-
 
   /* -----------------------------------------------------------
      Authorized
   ----------------------------------------------------------- */
-
   return element;
 }
+
