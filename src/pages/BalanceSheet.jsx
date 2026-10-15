@@ -3013,6 +3013,7 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
 
   // Detect what columns are available in the data
   const hasSubDivision = rows.some(r => r.sub_division_name);
+  const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
   const hasDrCr = rows.some(r => r.dr_cr);
   const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '\u2014');
 
@@ -3033,7 +3034,7 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: 16,
-          width: '90vw', maxWidth: 900,
+          width: '90vw', maxWidth: 980,
           maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 48px rgba(0,0,0,0.22)',
           overflow: 'hidden', border: '1px solid #e2e8f0',
@@ -3061,6 +3062,7 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                 <tr>
                   <th style={MTH_L}>Account</th>
                   <th style={{ ...MTH, width: 100 }}>Code</th>
+                  {hasLegalEntity && <th style={MTH}>Legal Entity</th>}
                   {hasSubDivision && <th style={MTH}>Sub-Division</th>}
                   {hasLedger && <th style={MTH}>Ledger</th>}
                   {hasDrCr && <th style={{ ...MTH, width: 56 }}>DR/CR</th>}
@@ -3077,6 +3079,11 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                   >
                     <td style={{ ...MTD_L, fontWeight: 600 }}>{row.account_name || row.sub_division_name || '\u2014'}</td>
                     <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.account_code || row.sub_division_code || '\u2014'}</td>
+                    {hasLegalEntity && (
+                      <td style={{ ...MTD, fontSize: '0.72rem' }}>
+                        {row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '\u2014'}
+                      </td>
+                    )}
                     {hasSubDivision && <td style={{ ...MTD, fontSize: '0.72rem' }}>{row.sub_division_name || '\u2014'}</td>}
                     {hasLedger && <td style={{ ...MTD, fontSize: '0.68rem', color: C.muted }}>{row.ledger_code || '\u2014'}</td>}
                     {hasDrCr && <td style={{ ...MTD, color: row.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700 }}>{row.dr_cr}</td>}
