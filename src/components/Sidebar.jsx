@@ -87,7 +87,6 @@ const NAV_BY_ROLE = {
     { to: '/revenue', label: 'Sales Revenue', group: 'Reports' },
   ],
   gm: [
-    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
     { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue', group: 'Reports' },
@@ -95,7 +94,6 @@ const NAV_BY_ROLE = {
     { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
   ],
   bu_manager: [
-    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
     { to: '/financial-position', label: 'Financial Position', group: 'BU Reports' },
     { to: '/revenue', label: 'Sales Revenue', group: 'BU Reports' },
@@ -104,7 +102,6 @@ const NAV_BY_ROLE = {
     { to: '/inventory', label: 'Inventory Overview', group: 'BU Reports' },
   ],
   accountant: [
-    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
     { to: '/pl', label: 'P&L Report', group: 'Finance' },
     { to: '/financial-position', label: 'Financial Position', group: 'Finance' },
     { to: '/balance-sheet', label: 'Balance Sheet', group: 'Finance' },
@@ -114,8 +111,14 @@ const NAV_BY_ROLE = {
     { to: '/payables', label: 'Payables Report', group: 'Finance' },
     { to: '/inventory', label: 'Inventory Overview', group: 'Finance' },
   ],
+  admin: [
+    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
+    { to: '/admin/users', label: 'Users', group: 'Admin' },
+    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
+    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
+    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
+  ],
   sales: [
-    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
     { to: '/revenue', label: 'Sales Revenue', group: 'Sales' },
   ],
 };
@@ -125,6 +128,9 @@ function normalizeRole(role) {
   const r = (role || '').toLowerCase().replace(/[\s-]+/g, '_');
   if (r === 'bu_accountant') return 'accountant';
   if (r === 'sales_engineer') return 'sales';
+  if (r === 'ceo' || r === 'coo') return 'executive';
+  if (r === 'fm' || r === 'finance_manager') return 'accountant';
+  if (r === 'dm' || r === 'division_manager') return 'bu_manager';
   return r;
 }
 
@@ -173,13 +179,22 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
   const [query, setQuery] = useState('');
 
   const roleKey = normalizeRole(user?.role_code || user?.role);
-  const navItems = NAV_BY_ROLE[roleKey] || NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.cfo;
+  const navItems = NAV_BY_ROLE[roleKey] || NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.accountant;
   const isExpanded = !collapsed;
   const accentColor = roleColor(roleKey);
 
-  /* Filter navigation using canonical route registry and backend-derived canView */
+  /* Filter navigation using canonical route registry, role rules, and backend-derived canView */
   const permittedNavItems = navItems.filter(item => {
     if (!item?.to) return false;
+
+    // Strict Executive Dashboard restriction: strictly CFO, COO, CEO, and BOARD
+    if (item.to === '/exec-dashboard') {
+      const allowedRoles = ['CFO', 'COO', 'CEO', 'BOARD'];
+      const currentRole = (user?.role_code || user?.role || '').toUpperCase();
+      if (!allowedRoles.includes(currentRole)) return false;
+      return Boolean(canAccess?.('/exec-dashboard'));
+    }
+
     if (item.to.startsWith('/admin')) {
       if (item.to === '/admin/master-data') {
         return Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));

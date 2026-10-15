@@ -180,11 +180,19 @@ export const LANDING_PRIORITY_ROUTES = Object.freeze([
 
 /**
  * Resolves the user's landing page based on approved priority order.
+ * Strictly guarantees that non-executive roles (roles other than CFO, COO, CEO, BOARD)
+ * never land on /exec-dashboard.
  * Returns null if the user has no permitted report modules (fails closed).
  */
-export function resolveLandingRoute(permissions) {
+export function resolveLandingRoute(permissions, roleCode = null) {
   if (!Array.isArray(permissions)) return null;
+  const role = (roleCode || '').toUpperCase();
+  const executiveRoles = ['CFO', 'COO', 'CEO', 'BOARD'];
+
   for (const item of LANDING_PRIORITY_ROUTES) {
+    if (item.route === '/exec-dashboard' && role && !executiveRoles.includes(role)) {
+      continue;
+    }
     if (canView(permissions, item.moduleCode)) {
       return item.route;
     }

@@ -27,14 +27,15 @@ const PAGE_TITLES = {
   '/admin/master-data': { title: 'Master Data', sub: 'System master data management' },
 };
 export default function Topbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, resolveLanding } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const page = PAGE_TITLES[pathname] || { title: 'Finsight', sub: 'FJ Group Finance Intelligence' };
 
   const handleProfileClick = () => {
     if (pathname === '/profile') {
-      navigate('/exec-dashboard');
+      const destination = resolveLanding?.() || '/';
+      navigate(destination);
     } else {
       navigate('/profile');
     }

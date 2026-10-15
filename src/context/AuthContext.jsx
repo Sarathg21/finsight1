@@ -252,7 +252,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE'], entities: [10,11], divisions: ['FJ Care'] },
     exportRights: 'controlled',
     canManageUsers: false,
-    allowedPages: ['dashboard','exec-dashboard','bu-pack','pl','ar','ap','revenue','receivables','payables','inventory','salesman', 'excel-consolidator', 'profile'],
+    allowedPages: ['pl','revenue','receivables','payables','inventory','salesman','profile'],
     module_permissions: BUM_MODULES,
     access_scopes: BU_SCOPES,
   },
@@ -276,7 +276,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE'], entities: [10], divisions: ['FJ Care'] },
     exportRights: 'operational',
     canManageUsers: false,
-    allowedPages: ['exec-dashboard','pl','balance-sheet','ar','ap','receivables','payables','fixed-assets','cash-collection','revenue','inventory', 'excel-consolidator', 'profile'],
+    allowedPages: ['pl','balance-sheet','receivables','payables','revenue','inventory','profile'],
     module_permissions: ACCT_MODULES,
     access_scopes: ACCT_SCOPES,
   },
@@ -565,8 +565,8 @@ export function AuthProvider({ children }) {
   }, [user, loading, authError]);
 
   const resolveLanding = useCallback(() => {
-    return resolveLandingRoute(user?.module_permissions);
-  }, [user?.module_permissions]);
+    return resolveLandingRoute(user?.module_permissions, user?.role_code || user?.role);
+  }, [user?.module_permissions, user?.role_code, user?.role]);
 
   // Backwards compatibility alias: hasExportRight delegates to canExport
   const hasExportRight = useCallback((moduleCodeOrType) => {

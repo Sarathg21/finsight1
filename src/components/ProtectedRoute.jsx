@@ -34,6 +34,14 @@ export default function ProtectedRoute({
   let allowed = false;
   if (pageKey === 'profile') {
     allowed = Boolean(user);
+  } else if (pageKey === 'exec-dashboard' || pageKey === '/exec-dashboard') {
+    const allowedRoles = ['CFO', 'COO', 'CEO', 'BOARD'];
+    const currentRole = (user?.role_code || user?.role || '').toUpperCase();
+    if (!allowedRoles.includes(currentRole)) {
+      allowed = false;
+    } else {
+      allowed = Boolean(canAccess?.(pageKey));
+    }
   } else if (pageKey === 'admin/master-data' || pageKey === 'master-data') {
     allowed = Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
   } else if (

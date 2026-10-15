@@ -13,6 +13,7 @@ import {
   useLocation,
   Link,
 } from "react-router-dom";
+import { resolveLandingRoute } from "../utils/rbacPermissions";
 
 export default function LoginPage() {
   const {
@@ -45,10 +46,11 @@ export default function LoginPage() {
   useEffect(() => {
     if (!user) return;
 
+    const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
     const target =
-      from ||
+      validFrom ||
       resolveLanding?.() ||
-      (user.role_code === "ADMIN" ? "/admin/dashboard" : "/profile");
+      (user.role_code === "ADMIN" ? "/admin/dashboard" : "/pl");
 
     navigate(target, {
       replace: true,
@@ -101,86 +103,12 @@ export default function LoginPage() {
         session?.role_code ||
         session?.user?.role_code;
 
+      const landing = resolveLandingRoute(session?.module_permissions, roleCode);
+      const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
       const destination =
-        from ||
-        resolveLanding?.() ||
-        (roleCode === "ADMIN" ? "/admin/dashboard" : "/profile");
-
-      if (
-        roleCode === "ADMIN" ||
-        roleCode === "BU_ACCOUNTANT"
-      ) {
-        const payablesOrigin =
-          import.meta.env.VITE_PAYABLES_ORIGIN;
-
-        let payablesWindow = null;
-
-        const handlePayablesReady = (event) => {
-          if (event.origin !== payablesOrigin) {
-            return;
-          }
-
-          if (
-            event.data?.type !==
-            "PAYABLES_READY"
-          ) {
-            return;
-          }
-
-          if (
-            payablesWindow &&
-            !payablesWindow.closed
-          ) {
-            payablesWindow.postMessage(
-              {
-                type: "FINSIGHT_AUTH",
-                token: session.access_token,
-              },
-              payablesOrigin
-            );
-          }
-
-          window.removeEventListener(
-            "message",
-            handlePayablesReady
-          );
-        };
-
-        window.addEventListener(
-          "message",
-          handlePayablesReady
-        );
-
-        payablesWindow = window.open(
-          payablesOrigin,
-          "_blank"
-        );
-
-        if (!payablesWindow) {
-          window.removeEventListener(
-            "message",
-            handlePayablesReady
-          );
-
-          setError(
-            "Payables window was blocked. Please allow pop-ups."
-          );
-
-          return;
-        }
-
-        window.payablesWindow =
-          payablesWindow;
-
-        navigate(
-          destination,
-          {
-            replace: true,
-          }
-        );
-
-        return;
-      }
+        validFrom ||
+        landing ||
+        (roleCode === "ADMIN" ? "/admin/dashboard" : "/pl");
 
       navigate(
         destination,
