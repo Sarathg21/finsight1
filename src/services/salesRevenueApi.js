@@ -28,7 +28,10 @@ function getAuthHeaders() {
 /* ── Mock data for Demo fallback ──────────────────────────────── */
 
 const MOCK_FILTERS = {
-  legal_groups: ['FJ Group'],
+  legal_groups: [
+    { id: 4, name: 'FJ Group', label: 'FJ_GROUP', value: 4 },
+    { id: 3, name: 'RKME Group', label: 'RKME_GROUP', value: 3 }
+  ],
   legal_entities: ['FJ HQ', 'FJ Care UAE', 'FJ Care Int\'l', 'Flowtech Qatar', 'Flowtech Oman', 'FJ Engineering KSA'],
   parent_divisions: ['Corporate', 'FJ Care', 'Flowtech UAE, QTR, OMN', 'Engineering'],
   sub_divisions: ['HQ Operations', 'FJ Care Services', 'Flowtech Sales', 'Engineering Services'],
@@ -947,17 +950,32 @@ export async function fetchFilterOptions(params = {}) {
     if (!Array.isArray(list)) return [];
     return list.map((e, i) => {
       if (typeof e === 'object' && e !== null) {
-        // ── New contract: { label: "Alpha Ducts LLC", value: 4 } ──
+        // ── New contract: { label: "FJ_GROUP", value: 4 } ──
         if (e.value !== undefined && e.label !== undefined) {
           const numId = typeof e.value === 'number' ? e.value : parseInt(e.value, 10);
           return { id: isNaN(numId) ? e.value : numId, name: e.label };
         }
-        // ── Legacy contract: { id, name } or field-specific id keys ──
-        const rawId = e.id ?? e.legal_entity_id ?? e.parent_division_id ?? e.subdivision_id ?? e.legal_group_id ?? i;
-        const numId = typeof rawId === 'number' ? rawId : parseInt(rawId, 10);
-        return { id: isNaN(numId) ? rawId : numId, name: e.name || e.label || String(rawId) };
+        // ── Field-specific keys: legal_group_id takes priority for groups ──
+        const rawId = e.legal_group_id ?? e.id ?? e.legal_entity_id ?? e.parent_division_id ?? e.subdivision_id;
+        const rawName = e.legal_group_name ?? e.name ?? e.label ?? e.legal_entity_name ?? e.parent_division_name ?? e.subdivision_name;
+        
+        let numId = typeof rawId === 'number' ? rawId : parseInt(rawId, 10);
+        // If ID is missing or NaN, check name for authoritative production groups (FJ Group: 4, RKME Group: 3)
+        if (isNaN(numId) && rawName) {
+          const nameLower = String(rawName).toLowerCase();
+          if (nameLower.includes('fj')) numId = 4;
+          else if (nameLower.includes('rkme')) numId = 3;
+        }
+
+        return { id: isNaN(numId) ? (rawId ?? i) : numId, name: rawName || String(rawId ?? i) };
       }
-      // plain string — use as display name only; no numeric ID available
+      // plain string — resolve authoritative production IDs (FJ Group: 4, RKME Group: 3)
+      if (typeof e === 'string') {
+        const lower = e.toLowerCase();
+        if (lower.includes('fj')) return { id: 4, name: e };
+        if (lower.includes('rkme')) return { id: 3, name: e };
+        return { id: e, name: String(e) };
+      }
       return { id: e, name: String(e) };
     }).filter(e => e.name && String(e.name).toLowerCase() !== 'all');
   };

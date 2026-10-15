@@ -63,7 +63,7 @@ export const masterCards = [
 ];
 export const legalGroups = [
   {
-    id: 1,
+    id: 4,
     code: "FJ",
     name: "FJ Group",
     description: "FJ Group of Companies",
@@ -71,7 +71,7 @@ export const legalGroups = [
     legalEntities: 12,
   },
   {
-    id: 2,
+    id: 3,
     code: "RKME",
     name: "RKME Group",
     description: "RKME Operations",
