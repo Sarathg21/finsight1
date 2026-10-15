@@ -720,8 +720,9 @@ function buildParams(filters = {}) {
   // Strips 'All', 'all', empty strings, and any non-numeric string values
   // (e.g. "Alpha Ducts LLC") that would cause FastAPI int_parsing 422 errors.
   const activeIds = (arr) => {
-    if (!arr || !Array.isArray(arr)) return undefined;
-    const ids = arr
+    if (arr === null || arr === undefined) return undefined;
+    const list = Array.isArray(arr) ? arr : [arr];
+    const ids = list
       .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
       .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
       .filter(v => !isNaN(v));
@@ -868,8 +869,9 @@ export async function fetchFilterOptions(params = {}) {
   // Build cascade params using IDs when available, fall back to names
   // Build cascade params — send only valid integer IDs, strip 'All' and string names
   const toIntIds = (arr) => {
-    if (!arr || !Array.isArray(arr)) return undefined;
-    const ids = arr
+    if (arr === null || arr === undefined) return undefined;
+    const list = Array.isArray(arr) ? arr : [arr];
+    const ids = list
       .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
       .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
       .filter(v => !isNaN(v));
@@ -897,9 +899,46 @@ export async function fetchFilterOptions(params = {}) {
   const cStrs = activeStrings(params.customerType);
   if (sStrs) apiParams.salesman = sStrs;
   if (cStrs) apiParams.customer_type = cStrs;
-const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
+  let raw;
+  try {
+    raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
+  } catch (err) {
+    // If request failed with 403 or error while sending a specific legal_group_id,
+    // retry once with clean baseline filter-options to recover backend master data
+    if (apiParams.legal_group_id) {
+      const cleanParams = { ...apiParams };
+      delete cleanParams.legal_group_id;
+      try {
+        raw = await apiCall('/api/sales-revenue/filter-options', cleanParams);
+      } catch (_) {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
+
   const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
-  const res = unwrap(raw) || {};
+  let res = unwrap(raw) || {};
+
+  // If legal_groups is missing or empty, fetch from master-data filter options
+  if (!Array.isArray(res.legal_groups) || res.legal_groups.length === 0) {
+    try {
+      const plFilters = await apiCall('/api/pl/filter-options', {});
+      const plData = unwrap(plFilters) || {};
+      if (Array.isArray(plData.legal_groups) && plData.legal_groups.length > 0) {
+        res.legal_groups = plData.legal_groups;
+      }
+    } catch (_) {
+      try {
+        const bsFilters = await apiCall('/api/bs/filter-options', {});
+        const bsData = unwrap(bsFilters) || {};
+        if (Array.isArray(bsData.legal_groups) && bsData.legal_groups.length > 0) {
+          res.legal_groups = bsData.legal_groups;
+        }
+      } catch (__) {}
+    }
+  }
 
   // Normalize each hierarchy list to [{id, name}] objects.
   // Backend now returns {label, value} where value is the numeric hierarchy ID.
