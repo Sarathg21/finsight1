@@ -19,6 +19,8 @@ export default function LoginPage() {
   const {
     user,
     loginWithBackend,
+    verifyCredentials,
+    completeLogin,
     resolveLanding,
   } = useAuth();
 
@@ -118,6 +120,27 @@ export default function LoginPage() {
       );
 
     } catch (backendErr) {
+      // Check if credentials match a configured development/demo account
+      const demoResult = verifyCredentials?.(email.trim(), password);
+      if (demoResult?.success) {
+        completeLogin(demoResult.user);
+        const roleCode = demoResult.user?.role_code;
+        const landing = resolveLandingRoute(demoResult.user?.module_permissions, roleCode);
+        const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
+        const destination =
+          validFrom ||
+          landing ||
+          (roleCode === "ADMIN" ? "/admin/dashboard" : "/pl");
+
+        navigate(
+          destination,
+          {
+            replace: true,
+          }
+        );
+        return;
+      }
+
       const isAuthFailure =
         backendErr?.isAuthError ||
         backendErr?.status === 401 ||
