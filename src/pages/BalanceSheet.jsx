@@ -3024,54 +3024,55 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
         position: 'fixed', inset: 0,
         background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '20px 16px 28px',
-        overflowY: 'auto',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+        overflow: 'hidden',
         zIndex: 999999,
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#fff', borderRadius: 16,
-          width: '94vw', maxWidth: 1060,
-          maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column',
+          background: '#fff', borderRadius: 14,
+          width: '95vw', maxWidth: 1080,
+          maxHeight: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 48px rgba(0,0,0,0.22)',
           overflow: 'hidden', border: '1px solid #e2e8f0',
         }}
       >
         <div style={{
-          padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+          padding: '10px 18px', borderBottom: '1px solid #f1f5f9',
           background: 'linear-gradient(90deg,#f8fafc,#fff)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>{`Drilldown: ${account}`}</div>
-            <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>
+            <div style={{ fontWeight: 800, fontSize: '0.84rem', color: C.navy }}>{`Drilldown: ${account}`}</div>
+            <div style={{ fontSize: '0.66rem', color: C.muted, marginTop: 1 }}>
               {`Period: ${data?.period_name || '\u2014'} | Currency: ${currency} | Total: ${fmtNum(Math.abs(total), currency)}`}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: C.slate, padding: '4px 8px' }}>{'\u2715'}</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.15rem', cursor: 'pointer', color: C.slate, padding: '2px 6px', lineHeight: 1 }}>{'\u2715'}</button>
         </div>
-        <div style={{ padding: '16px 20px', overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
+        <div style={{ padding: '6px 14px', overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
           {!rows.length ? (
-            <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
+            <div style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>
                 <tr>
-                  <th style={{ ...MTH_L, minWidth: 0, width: hasLegalEntity && hasSubDivision ? '21%' : '32%' }}>Account</th>
-                  <th style={{ ...MTH, minWidth: 0, width: 75, textAlign: 'center' }}>Code</th>
+                  <th style={{ ...MTH_L, minWidth: 0, width: hasLegalEntity && hasSubDivision ? '19%' : '30%', padding: '6px 8px', fontSize: '0.70rem' }}>Account</th>
+                  <th style={{ ...MTH, minWidth: 0, width: 68, textAlign: 'center', padding: '6px 6px', fontSize: '0.70rem' }}>Code</th>
                   {hasLegalEntity && (
-                    <th style={{ ...MTH_L, minWidth: 0, width: hasSubDivision ? '27%' : '40%' }}>Legal Entity</th>
+                    <th style={{ ...MTH_L, minWidth: 0, width: hasSubDivision ? '28%' : '42%', padding: '6px 8px', fontSize: '0.70rem' }}>Legal Entity</th>
                   )}
                   {hasSubDivision && (
-                    <th style={{ ...MTH_L, minWidth: 0, width: '18%' }}>Sub-Division</th>
+                    <th style={{ ...MTH_L, minWidth: 0, width: '17%', padding: '6px 8px', fontSize: '0.70rem' }}>Sub-Division</th>
                   )}
-                  {hasLedger && <th style={{ ...MTH, minWidth: 0, width: 70, textAlign: 'center' }}>Ledger</th>}
-                  {hasDrCr && <th style={{ ...MTH, minWidth: 0, width: 56, textAlign: 'center' }}>DR/CR</th>}
-                  <th style={{ ...MTH, minWidth: 0, width: 125, textAlign: 'right' }}>Balance Amount</th>
-                  <th style={{ ...MTH, minWidth: 0, width: 110, textAlign: 'right' }}>% of Total</th>
+                  {hasLedger && <th style={{ ...MTH, minWidth: 0, width: 64, textAlign: 'center', padding: '6px 6px', fontSize: '0.70rem' }}>Ledger</th>}
+                  {hasDrCr && <th style={{ ...MTH, minWidth: 0, width: 48, textAlign: 'center', padding: '6px 4px', fontSize: '0.70rem' }}>DR/CR</th>}
+                  <th style={{ ...MTH, minWidth: 0, width: 118, textAlign: 'right', padding: '6px 8px', fontSize: '0.70rem' }}>Balance Amount</th>
+                  <th style={{ ...MTH, minWidth: 0, width: 104, textAlign: 'right', padding: '6px 8px', fontSize: '0.70rem' }}>% of Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -3081,41 +3082,41 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                     onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <td style={{ ...MTD_L, minWidth: 0, fontWeight: 600, fontSize: '0.74rem', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35, padding: '9px 10px' }}>
+                    <td style={{ ...MTD_L, minWidth: 0, fontWeight: 600, fontSize: '0.71rem', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
                       {row.account_name || row.sub_division_name || '\u2014'}
                     </td>
-                    <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate, whiteSpace: 'nowrap', padding: '9px 8px' }}>
+                    <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontFamily: 'monospace', fontSize: '0.67rem', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap', padding: '5px 6px' }}>
                       {row.account_code || row.sub_division_code || '\u2014'}
                     </td>
                     {hasLegalEntity && (
-                      <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.73rem', color: '#1e293b', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35, padding: '9px 10px' }}>
+                      <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.71rem', color: '#1e293b', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
                         {row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '\u2014'}
                       </td>
                     )}
                     {hasSubDivision && (
-                      <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.73rem', color: '#334155', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35, padding: '9px 10px' }}>
+                      <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.71rem', color: '#334155', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
                         {row.sub_division_name || '\u2014'}
                       </td>
                     )}
                     {hasLedger && (
-                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontSize: '0.68rem', color: C.muted, whiteSpace: 'nowrap', padding: '9px 8px' }}>
+                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontSize: '0.67rem', color: C.muted, whiteSpace: 'nowrap', padding: '5px 6px' }}>
                         {row.ledger_code || '\u2014'}
                       </td>
                     )}
                     {hasDrCr && (
-                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', color: row.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700, fontSize: '0.72rem', whiteSpace: 'nowrap', padding: '9px 6px' }}>
+                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', color: row.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700, fontSize: '0.70rem', whiteSpace: 'nowrap', padding: '5px 4px' }}>
                         {row.dr_cr}
                       </td>
                     )}
-                    <td style={{ ...MTD, minWidth: 0, textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap', padding: '9px 10px' }}>
+                    <td style={{ ...MTD, minWidth: 0, textAlign: 'right', fontWeight: 700, fontSize: '0.71rem', whiteSpace: 'nowrap', padding: '5px 8px' }}>
                       {fmtNum(Math.abs(row.balance_amount), currency)}
                     </td>
-                    <td style={{ ...MTD, minWidth: 0, textAlign: 'right', whiteSpace: 'nowrap', padding: '9px 10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                        <div style={{ width: 48, height: 5, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
-                          <div style={{ width: `${Math.min(row.abs_pct_of_total || 0, 100)}%`, height: '100%', background: C.primary, borderRadius: 3 }} />
+                    <td style={{ ...MTD, minWidth: 0, textAlign: 'right', whiteSpace: 'nowrap', padding: '5px 8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
+                        <div style={{ width: 40, height: 4, background: '#f1f5f9', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+                          <div style={{ width: `${Math.min(row.abs_pct_of_total || 0, 100)}%`, height: '100%', background: C.primary, borderRadius: 2 }} />
                         </div>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.navy, minWidth: 34, textAlign: 'right' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: C.navy, minWidth: 32, textAlign: 'right' }}>
                           {fmtPct(row.abs_pct_of_total)}
                         </span>
                       </div>
@@ -3128,9 +3129,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
         </div>
         {/* Footer */}
         <div style={{
-          padding: '8px 20px', borderTop: '1px solid #f1f5f9',
+          padding: '5px 16px', borderTop: '1px solid #f1f5f9',
           background: '#f8fafc', display: 'flex', justifyContent: 'flex-end',
-          fontSize: '0.65rem', color: C.muted, fontWeight: 500, flexShrink: 0
+          fontSize: '0.64rem', color: C.muted, fontWeight: 500, flexShrink: 0
         }}>
           <span>Source: Oracle Fusion Cloud</span>
         </div>
