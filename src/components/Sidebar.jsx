@@ -39,87 +39,29 @@ const ROUTE_ICON = {
   '/salesman': UserCheck,
 };
 
-/* â”€â”€ Nav item definitions per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-const NAV_BY_ROLE = {
-  board: [
-    // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
-    { to: '/pl', label: 'P&L Report', group: 'Reports' },
-    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
-    { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Reports' },
+/* ── Master Navigation Catalog (permission-driven) ────────────────── */
+const MASTER_NAV_CATALOG = [
+  // Overview
+  { to: '/exec-dashboard',      label: 'Executive Dashboard',  pinned: true, group: 'Overview'          },
 
+  // Financial Reports
+  { to: '/pl',                  label: 'P&L Report',                         group: 'Financial Reports'  },
+  { to: '/balance-sheet',       label: 'Balance Sheet',                      group: 'Financial Reports'  },
+  { to: '/operating-expenses',  label: 'Operating Expenses',                 group: 'Financial Reports'  },
+  { to: '/revenue',             label: 'Sales Revenue',                      group: 'Financial Reports'  },
+  { to: '/receivables',         label: 'Receivables Report',                 group: 'Financial Reports'  },
+  { to: '/payables',            label: 'Payables Report',                    group: 'Financial Reports'  },
+  { to: '/inventory',           label: 'Inventory Overview',                 group: 'Financial Reports'  },
+  { to: '/WorkingCapital',      label: 'Working Capital Report',             group: 'Financial Reports'  },
+  { to: '/financial-position',  label: 'Financial Position',                 group: 'Financial Reports'  },
 
-    // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
-    // { to: '/working-capital',    label: 'Overview',                            group: 'Reports'          },
-    // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
-    { to: '/admin/users', label: 'Users', group: 'Admin' },
-    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
-    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
-    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
-  ],
-  cfo: [
-    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
-    // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
-
-    { to: '/pl', label: 'P&L Report', group: 'Financials' },
-    { to: '/balance-sheet', label: 'Balance Sheet', group: 'Financials' },
-    { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
-    { to: '/revenue', label: 'Sales Revenue', group: 'Financials' },
-    { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
-    { to: '/payables', label: 'Payables Report', group: 'Reports' },
-    { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
-    { to: '/WorkingCapital', label: 'WorkingCapital Report', group: 'Reports' },
-    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
-
-    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
-    { to: '/admin/users', label: 'Users', group: 'Admin' },
-    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
-    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
-    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
-  ],
-  executive: [
-    { to: '/exec-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
-
-    { to: '/pl', label: 'P&L Report', group: 'Reports' },
-    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
-    { to: '/revenue', label: 'Sales Revenue', group: 'Reports' },
-  ],
-  gm: [
-    { to: '/pl', label: 'P&L Report', group: 'Reports' },
-    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
-    { to: '/revenue', label: 'Sales Revenue', group: 'Reports' },
-    { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
-    { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
-  ],
-  bu_manager: [
-    { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
-    { to: '/financial-position', label: 'Financial Position', group: 'BU Reports' },
-    { to: '/revenue', label: 'Sales Revenue', group: 'BU Reports' },
-    { to: '/receivables', label: 'Receivables Report', group: 'BU Reports' },
-    { to: '/payables', label: 'Payables Report', group: 'BU Reports' },
-    { to: '/inventory', label: 'Inventory Overview', group: 'BU Reports' },
-  ],
-  accountant: [
-    { to: '/pl', label: 'P&L Report', group: 'Finance' },
-    { to: '/financial-position', label: 'Financial Position', group: 'Finance' },
-    { to: '/balance-sheet', label: 'Balance Sheet', group: 'Finance' },
-    { to: '/operating-expenses', label: 'Operating Expenses', group: 'Finance' },
-    { to: '/revenue', label: 'Sales Revenue', group: 'Finance' },
-    { to: '/receivables', label: 'Receivables Report', group: 'Finance' },
-    { to: '/payables', label: 'Payables Report', group: 'Finance' },
-    { to: '/inventory', label: 'Inventory Overview', group: 'Finance' },
-  ],
-  admin: [
-    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
-    { to: '/admin/users', label: 'Users', group: 'Admin' },
-    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
-    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
-    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
-  ],
-  sales: [
-    { to: '/revenue', label: 'Sales Revenue', group: 'Sales' },
-  ],
-};
+  // Admin
+  { to: '/admin/dashboard',     label: 'Dashboard',                          group: 'Admin'              },
+  { to: '/admin/users',         label: 'Users',                              group: 'Admin'              },
+  { to: '/admin/roles',         label: 'Roles & Permissions',                group: 'Admin'              },
+  { to: '/admin/useraccess',    label: 'User Access',                        group: 'Admin'              },
+  { to: '/admin/master-data',   label: 'Master Data',                        group: 'Admin'              },
+];
 
 /* â”€â”€ Role theme helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function normalizeRole(role) {
@@ -177,7 +119,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
   const [query, setQuery] = useState('');
 
   const roleKey = normalizeRole(user?.role_code || user?.role);
-  const navItems = NAV_BY_ROLE[roleKey] || NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.accountant;
+  const navItems = MASTER_NAV_CATALOG;
   const isExpanded = !collapsed;
   const accentColor = roleColor(roleKey);
 
