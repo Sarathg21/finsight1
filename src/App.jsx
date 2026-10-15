@@ -1,56 +1,38 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { AuditProvider } from './context/AuditContext';
-import { FilterProvider } from './context/FilterContext';
-import Layout from './components/Layout';
-import AdminLayout from './components/Layout/AdminLayout';
-import ProtectedRoute from './components/ProtectedRoute';
-import LoginPage from './pages/LoginPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import CFODashboard from './pages/CFODashboard';
-import ExecDashboard from './pages/ExecDashboard';
-import PLAnalytics from './pages/PLAnalytics';
-import ARDashboard from './pages/ARDashboard';
-import WCDashboard from './pages/WCDashboard';
 
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
-import AdminMainDashboard from './pages/AdminMainDashboard';
-import UsersDashboard from './pages/UsersDashboard';
-import RolesDashboard from './pages/RolesDashboard';
-import UserAccessManagement from './pages/UserAccessManagement';
-import MasterDataDashboard from './pages/MasterDataDashboard';
+import { AuthProvider } from "./context/AuthContext";
+import { AuditProvider } from "./context/AuditContext";
+import { FilterProvider } from "./context/FilterContext";
 
-import ExcelConsolidator from './pages/ExcelConsolidator';
-import FinSightDashboard from './pages/FinSightDashboard';
-import FinancialPosition from './pages/FinancialPosition'
-import WorkingCapitalReport from './pages/WorkingCapitalReport'
-import ReceivablesDashboard from './pages/ReceivablesDashboard'
-import PayablesDashboard from './pages/PayablesDashboard'
-import InventoryAging from './pages/InventoryAgingPage'
-import SalesRevenueReport from './pages/SalesRevenueReport';
-import BalanceSheet from './pages/BalanceSheet';
-import OperatingAnalysis from './pages/OperatingAnalysis';
-import MyProfile from './pages/MyProfile';
+import Layout from "./components/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-// Placeholder for yet-to-be-built pages
-const PlaceholderPage = ({ title }) => (
-  <div className="animate-in">
-    <div className="page-header">
-      <div>
-        <h1 className="page-header-title">{title}</h1>
-        <p className="page-header-subtitle">Module development in progress...</p>
-      </div>
-    </div>
-    <div className="card" style={{ padding: '60px', textAlign: 'center' }}>
-      <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🏗️</div>
-      <h2 style={{ marginBottom: '10px' }}>Advanced Analytics Coming Soon</h2>
-      <p style={{ color: 'var(--clr-text-muted)', maxWidth: '400px', margin: '0 auto' }}>
-        This reporting module is currently being mapped to the Oracle Fusion ERP data streams.
-      </p>
-    </div>
-  </div>
-);
+import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+
+import PLAnalytics from "./pages/PLAnalytics";
+import ReceivablesDashboard from "./pages/ReceivablesDashboard";
+import PayablesDashboard from "./pages/PayablesDashboard";
+import InventoryAging from "./pages/InventoryAgingPage";
+import SalesRevenueReport from "./pages/SalesRevenueReport";
+import BalanceSheet from "./pages/BalanceSheet";
+import OperatingAnalysis from "./pages/OperatingAnalysis";
+import FinancialPosition from "./pages/FinancialPosition";
+import WorkingCapitalReport from "./pages/WorkingCapitalReport";
+import MyProfile from "./pages/MyProfile";
+
+import AdminMainDashboard from "./pages/AdminMainDashboard";
+import UsersDashboard from "./pages/UsersDashboard";
+import RolesDashboard from "./pages/RolesDashboard";
+import UserAccessManagement from "./pages/UserAccessManagement";
+import MasterDataDashboard from "./pages/MasterDataDashboard";
 
 function App() {
   return (
@@ -58,53 +40,206 @@ function App() {
       <AuditProvider>
         <BrowserRouter>
           <Routes>
+            {/* Authentication */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            <Route element={<FilterProvider><Layout /></FilterProvider>}>
-              <Route path="/" element={<Navigate to="/revenue" replace />} />
-              {/* Each route is guarded by ProtectedRoute with its pageKey */}
-              {/* <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} /> */}
-              <Route path="/profile" element={<MyProfile />} />
-              {/* <Route path="/exec-dashboard"     element={<ProtectedRoute pageKey="exec-dashboard"     element={<ExecDashboard />} />} /> */}
-              {/* <Route path="/finsight-dashboard" element={<FinSightDashboard />} /> */}
-              {/* <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} /> */}
-              {/* <Route path="/working-capital"    element={<ProtectedRoute pageKey="working-capital"    element={<WCDashboard />} />} /> */}
-              {/* <Route path="/division"           element={<ProtectedRoute pageKey="division"           element={<PlaceholderPage title="Division-wise Reporting" />} />} /> */}
-              {/* <Route path="/salesman"           element={<ProtectedRoute pageKey="salesman"           element={<PlaceholderPage title="Salesman-wise Reporting" />} />} /> */}
-              {/* <Route path="/bu-pack"            element={<ProtectedRoute pageKey="bu-pack"            element={<PlaceholderPage title="BU Financial Pack" />} />} /> */}
-              <Route path="/pl" element={<ProtectedRoute pageKey="pl" element={<PLAnalytics />} />} />
-              <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance-sheet" element={<BalanceSheet />} />} />
-              <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses" element={<OperatingAnalysis />} />} />
-              <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />
+            <Route
+              path="/forgot-password"
+              element={<ForgotPasswordPage />}
+            />
 
-              <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} />
-              <Route path="/payables" element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} />
-              <Route path="/inventory" element={<ProtectedRoute pageKey="inventory" element={<InventoryAging />} />} />
-              <Route path="/WorkingCapital" element={<ProtectedRoute pageKey="WorkingCapital" element={<WorkingCapitalReport />} />} />
+            <Route
+              path="/reset-password"
+              element={<ResetPasswordPage />}
+            />
 
-              <Route path="/FinancialPosition" element={<ProtectedRoute pageKey="FinancialPosition" element={< FinancialPosition />} />} />
-              {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
-              {/* <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} /> */}
-              {/* <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} /> */}
-              {/* <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} /> */}
-              {/* <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} /> */}
-              {/* <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} /> */}
-              {/* <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} /> */}
+            {/* Main application and reporting routes */}
+            <Route
+              element={
+                <FilterProvider>
+                  <Layout />
+                </FilterProvider>
+              }
+            >
+              <Route
+                path="/"
+                element={<Navigate to="/revenue" replace />}
+              />
+
+              <Route
+                path="/profile"
+                element={<MyProfile />}
+              />
+
+              <Route
+                path="/pl"
+                element={
+                  <ProtectedRoute
+                    pageKey="pl"
+                    element={<PLAnalytics />}
+                  />
+                }
+              />
+
+              <Route
+                path="/balance-sheet"
+                element={
+                  <ProtectedRoute
+                    pageKey="balance-sheet"
+                    element={<BalanceSheet />}
+                  />
+                }
+              />
+
+              <Route
+                path="/operating-expenses"
+                element={
+                  <ProtectedRoute
+                    pageKey="operating-expenses"
+                    element={<OperatingAnalysis />}
+                  />
+                }
+              />
+
+              <Route
+                path="/revenue"
+                element={
+                  <ProtectedRoute
+                    pageKey="revenue"
+                    element={<SalesRevenueReport />}
+                  />
+                }
+              />
+
+              <Route
+                path="/receivables"
+                element={
+                  <ProtectedRoute
+                    pageKey="receivables"
+                    element={<ReceivablesDashboard />}
+                  />
+                }
+              />
+
+              <Route
+                path="/payables"
+                element={
+                  <ProtectedRoute
+                    pageKey="payables"
+                    element={<PayablesDashboard />}
+                  />
+                }
+              />
+
+              <Route
+                path="/inventory"
+                element={
+                  <ProtectedRoute
+                    pageKey="inventory"
+                    element={<InventoryAging />}
+                  />
+                }
+              />
+
+              <Route
+                path="/WorkingCapital"
+                element={
+                  <ProtectedRoute
+                    pageKey="WorkingCapital"
+                    element={<WorkingCapitalReport />}
+                  />
+                }
+              />
+
+              <Route
+                path="/FinancialPosition"
+                element={
+                  <ProtectedRoute
+                    pageKey="FinancialPosition"
+                    element={<FinancialPosition />}
+                  />
+                }
+              />
             </Route>
 
-            {/* Admin Module Routes - Uses main Layout (shared sidebar) */}
-            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<Layout />} />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminMainDashboard />} />
-              <Route path="users" element={<UsersDashboard />} />
-              <Route path="roles" element={<RolesDashboard />} />
-              <Route path="useraccess" element={<UserAccessManagement />} />
-              <Route path="master-data" element={<MasterDataDashboard />} />
+            {/*
+              Admin layout is deliberately not guarded by
+              USER_MANAGEMENT. Each child route checks its own module.
+            */}
+            <Route
+              path="/admin"
+              element={
+                <FilterProvider>
+                  <Layout />
+                </FilterProvider>
+              }
+            >
+              <Route
+                index
+                element={<Navigate to="dashboard" replace />}
+              />
+
+              <Route
+                path="dashboard"
+                element={
+                  <ProtectedRoute
+                    pageKey="admin"
+                    requiredAdminModule="USER_MANAGEMENT"
+                    element={<AdminMainDashboard />}
+                  />
+                }
+              />
+
+              <Route
+                path="users"
+                element={
+                  <ProtectedRoute
+                    pageKey="admin"
+                    requiredAdminModule="USER_MANAGEMENT"
+                    element={<UsersDashboard />}
+                  />
+                }
+              />
+
+              <Route
+                path="roles"
+                element={
+                  <ProtectedRoute
+                    pageKey="roles"
+                    requiredAdminModule="USER_MANAGEMENT"
+                    element={<RolesDashboard />}
+                  />
+                }
+              />
+
+              <Route
+                path="useraccess"
+                element={
+                  <ProtectedRoute
+                    pageKey="useraccess"
+                    requiredAdminModule="USER_MANAGEMENT"
+                    element={<UserAccessManagement />}
+                  />
+                }
+              />
+
+              <Route
+                path="master-data"
+                element={
+                  <ProtectedRoute
+                    pageKey="master-data"
+                    requiredAdminModule="MASTER_DATA"
+                    element={<MasterDataDashboard />}
+                  />
+                }
+              />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Unknown route */}
+            <Route
+              path="*"
+              element={<Navigate to="/" replace />}
+            />
           </Routes>
         </BrowserRouter>
       </AuditProvider>

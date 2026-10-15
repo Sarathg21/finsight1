@@ -1,265 +1,112 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useAudit } from '../context/AuditContext';
-import { useEffect } from 'react';
-import { ShieldOff } from 'lucide-react';
+
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useAudit } from "../context/AuditContext";
 
 export default function ProtectedRoute({
   pageKey,
   element,
   adminOnly = false,
+  requiredAdminModule = null,
 }) {
-  const {
-    user,
-    canAccess,
-    canAdmin,
-    loading,
-  } = useAuth();
-
+  const { user, canAccess, canAdmin, loading } = useAuth();
   const { log } = useAudit();
   const location = useLocation();
 
   /*
-   * -----------------------------------------------------------
-   * Centralized authorization
-   *
-   * Normal routes:
-   *   pageKey ? module_code ? VIEW permission
-   *
-   * Admin routes:
-   *   USER_MANAGEMENT ? ADMIN permission
-   *
-   * IMPORTANT:
-   * ProtectedRoute does NOT inspect access_scopes.
-   *
-   * access_scopes are only for DATA filtering.
-   * -----------------------------------------------------------
+   * Explicit module authorization takes priority.
+   * Keep adminOnly compatible with existing routes.
    */
+  const adminModule =
+    requiredAdminModule || (adminOnly ? "USER_MANAGEMENT" : null);
 
-const allowed = adminOnly
-  ? canAdmin?.("USER_MANAGEMENT") ?? false
-  : canAccess?.(pageKey) ?? false;
-  /* -----------------------------------------------------------
-     Audit access decision
-  ----------------------------------------------------------- */
-
-  useEffect(() => {
-    if (user && !loading) {
-      if (allowed) {
-        log('report_access', {
-          page: pageKey,
-          path: location.pathname,
-        });
-      } else {
-        log('access_denied', {
-          page: pageKey,
-          path: location.pathname,
-        });
-      }
-    }
-  }, [
-    user,
-    loading,
-    allowed,
-    pageKey,
-    location.pathname,
-    log,
-  ]);
-
-
-  /* -----------------------------------------------------------
-     Wait until /api/access/me has completed
-  ----------------------------------------------------------- */
+  /*
+   * Fail closed: permission must be exactly true.
+   * Admin modules use centralized canAdmin(moduleCode).
+   * Report routes use the existing canAccess(pageKey).
+   */
+  const allowed = adminModule
+    ? canAdmin?.(adminModule) === true
+    : canAccess?.(pageKey) === true;
 
   if (loading) {
     return (
       <div
+        role="status"
+        aria-live="polite"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '40vh',
-          color: 'var(--clr-text-muted)',
-          fontSize: '0.9rem',
+          minHeight: "40vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
         }}
       >
-        Loading...
+        Checking access…
       </div>
     );
   }
-
-
-  /* -----------------------------------------------------------
-     No authenticated user
-  ----------------------------------------------------------- */
 
   if (!user) {
     return (
       <Navigate
         to="/login"
-        state={{ from: location }}
         replace
+        state={{ from: location }}
       />
     );
   }
 
+  if (!allowed) {
+    /*
+     * Keep access-denied events in the existing audit system.
+     * The guard itself does not grant or modify permissions.
+     */
+    if (typeof log === "function") {
+      log({
+        action: "ACCESS_DENIED",
+        page: pageKey || location.pathname,
+        module: adminModule || null,
+        path: location.pathname,
+      });
+    }
 
-  /* -----------------------------------------------------------
-     Admin route access denied
-     
-     Requires:
-       USER_MANAGEMENT
-       +
-       ADMIN permission
-     
-     from module_permissions.
-  ----------------------------------------------------------- */
-
-  if (adminOnly && !allowed) {
     return (
       <div
-        className="animate-in"
+        role="alert"
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
-          gap: 16,
-          textAlign: 'center',
+          maxWidth: 640,
+          margin: "48px auto",
+          padding: 24,
+          textAlign: "center",
         }}
       >
-        <div
+        <h2>Access Restricted</h2>
+        <p>
+          You do not have permission to access this page.
+          Contact your administrator if you believe this is incorrect.
+        </p>
+
+        <button
+          type="button"
+          onClick={() =>
+            window.history.length > 1
+              ? window.history.back()
+              : window.location.assign("/")
+          }
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: 'rgba(239,68,68,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid rgba(239,68,68,0.2)',
+            marginTop: 12,
+            padding: "10px 18px",
+            border: 0,
+            borderRadius: 6,
+            cursor: "pointer",
           }}
         >
-          <ShieldOff
-            size={32}
-            style={{
-              color: 'var(--clr-danger, #ef4444)',
-            }}
-          />
-        </div>
-
-        <div>
-          <h2
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 700,
-              color: 'var(--clr-text)',
-              marginBottom: 8,
-            }}
-          >
-            Admin Access Restricted
-          </h2>
-
-          <p
-            style={{
-              fontSize: '0.85rem',
-              color: 'var(--clr-text-muted)',
-              maxWidth: 360,
-              margin: '0 auto 20px',
-            }}
-          >
-            Your account does not have the required
-            administrative permission for this area.
-            Contact your administrator to request access.
-          </p>
-
-          <Navigate
-            to={user?.defaultPage || '/dashboard'}
-            replace
-          />
-        </div>
+          Go Back
+        </button>
       </div>
     );
   }
-
-
-  /* -----------------------------------------------------------
-     Normal page-level RBAC
-  ----------------------------------------------------------- */
-
-  if (!adminOnly && !allowed) {
-    return (
-      <div
-        className="animate-in"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
-          gap: 16,
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: 'rgba(239,68,68,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid rgba(239,68,68,0.2)',
-          }}
-        >
-          <ShieldOff
-            size={32}
-            style={{
-              color: 'var(--clr-danger, #ef4444)',
-            }}
-          />
-        </div>
-
-        <div>
-          <h2
-            style={{
-              fontSize: '1.2rem',
-              fontWeight: 700,
-              color: 'var(--clr-text)',
-              marginBottom: 8,
-            }}
-          >
-            Access Restricted
-          </h2>
-
-          <p
-            style={{
-              fontSize: '0.85rem',
-              color: 'var(--clr-text-muted)',
-              maxWidth: 360,
-              margin: '0 auto 20px',
-            }}
-          >
-            Your account does not have permission to view
-            this page. Contact your administrator to request
-            access.
-          </p>
-
-          <Navigate
-            to={user?.defaultPage || '/dashboard'}
-            replace
-          />
-        </div>
-      </div>
-    );
-  }
-
-
-  /* -----------------------------------------------------------
-     Authorized
-  ----------------------------------------------------------- */
 
   return element;
 }
