@@ -224,11 +224,12 @@ function App() {
               />
 
               <Route
+              
                 path="master-data"
                 element={
                   <ProtectedRoute
                     pageKey="master-data"
-                    requiredAdminModule="MASTER_DATA"
+                    requiredViewModule="MASTER_DATA"
                     element={<MasterDataDashboard />}
                   />
                 }

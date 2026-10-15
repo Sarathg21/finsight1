@@ -1,4 +1,6 @@
 
+
+
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useAudit } from "../context/AuditContext";
@@ -8,26 +10,49 @@ export default function ProtectedRoute({
   element,
   adminOnly = false,
   requiredAdminModule = null,
+  requiredViewModule = null,
 }) {
   const { user, canAccess, canAdmin, loading } = useAuth();
   const { log } = useAudit();
   const location = useLocation();
 
   /*
-   * Explicit module authorization takes priority.
-   * Keep adminOnly compatible with existing routes.
+   * Admin permissions and ordinary module-view permissions
+   * are deliberately checked separately.
+   *
+   * requiredAdminModule:
+   *   Requires can_admin === true for the specified module.
+   *
+   * requiredViewModule:
+   *   Uses the page's centralized canAccess() permission.
+   *   The module code is retained as an explicit route declaration.
+   *
+   * Existing adminOnly behavior remains unchanged.
    */
   const adminModule =
     requiredAdminModule || (adminOnly ? "USER_MANAGEMENT" : null);
 
+  const normalizedViewModule = String(requiredViewModule || "")
+    .trim()
+    .toUpperCase();
+
+  const pageModuleMap = {
+    "MASTER_DATA": "master-data",
+  };
+
+  const viewPageKey = normalizedViewModule
+    ? pageModuleMap[normalizedViewModule]
+    : pageKey;
+
   /*
-   * Fail closed: permission must be exactly true.
-   * Admin modules use centralized canAdmin(moduleCode).
-   * Report routes use the existing canAccess(pageKey).
+   * Fail closed:
+   * - Admin routes require the actual admin permission.
+   * - View-only routes require the actual module view permission.
+   * - No permission is inferred from role names or export rights.
    */
   const allowed = adminModule
     ? canAdmin?.(adminModule) === true
-    : canAccess?.(pageKey) === true;
+    : canAccess?.(viewPageKey) === true;
 
   if (loading) {
     return (
@@ -58,15 +83,11 @@ export default function ProtectedRoute({
   }
 
   if (!allowed) {
-    /*
-     * Keep access-denied events in the existing audit system.
-     * The guard itself does not grant or modify permissions.
-     */
     if (typeof log === "function") {
       log({
         action: "ACCESS_DENIED",
         page: pageKey || location.pathname,
-        module: adminModule || null,
+        module: adminModule || normalizedViewModule || null,
         path: location.pathname,
       });
     }
