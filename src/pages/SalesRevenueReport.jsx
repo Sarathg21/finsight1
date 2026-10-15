@@ -46,8 +46,8 @@ const FIRST_DAY = `${_y}-${pad(_m + 1)}-01`;
 const LAST_DAY  = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())}`;
 
 const DEFAULT_FILTERS = {
-  // Hierarchy filters - ID-based (preferred per CFO UAT handoff document)
-  legalGroupId:       [1], // FJ Group by default
+  // Hierarchy filters - ID-based (dynamically populated from backend master data)
+  legalGroupId:       null,
   legalEntityId:      ['All'],
   parentDivisionId:   ['All'],
   subdivisionId:      ['All'],
@@ -1849,7 +1849,7 @@ export default function SalesRevenueReport() {
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
-    legalGroups:             [{ id: 1, name: 'FJ Group' }],   // [{id, name}] - default FJ Group
+    legalGroups:             [],   // [{id, name}] - loaded dynamically from backend
     legalEntities:           [],   // [{id, name}]
     parentDivs:              [],   // [{id, name}]
     subDivs:                 [],   // [{id, name}]
@@ -1863,6 +1863,7 @@ export default function SalesRevenueReport() {
     dataAsOf: null,
     periods: [],
   });
+  const [filtersReady, setFiltersReady] = useState(false);
 
   /* ── Chart / KPI data state ───────────────────────────────────── */
   const [summary,             setSummary]             = useState(null);
@@ -2022,11 +2023,11 @@ export default function SalesRevenueReport() {
 
   /* ── Load filter options (Cascading) ─────────────────────────── */
   const isFirstFilterLoad = useRef(true);
-  const defaultLegalGroupId = useRef([1]);
+  const defaultLegalGroupId = useRef(null);
   useEffect(() => {
     setLoading(prev => ({ ...prev, filters: true }));
     fetchFilterOptions({
-      legalGroupId:     filters.legalGroupId,
+      legalGroupId:     filters.legalGroupId || undefined,
       legalEntityId:    filters.legalEntityId,
       parentDivisionId: filters.parentDivisionId,
       subdivisionId:    filters.subdivisionId,
@@ -2045,16 +2046,15 @@ export default function SalesRevenueReport() {
         // Backend-provided default reporting currency (currently AED)
         const backendDefault = data.default_reporting_currency || 'AED';
 
-        const legalGroupsList = data.legal_groups && data.legal_groups.length > 0
-          ? data.legal_groups
-          : [{ id: 1, name: 'FJ Group' }];
+        const legalGroupsList = Array.isArray(data.legal_groups) ? data.legal_groups : [];
 
         const fjGroup = legalGroupsList.find(g =>
           String(g.name || g.label || '').toLowerCase().includes('fj') ||
           String(g.id || '').toLowerCase().includes('fj')
         );
-        if (fjGroup) {
-          defaultLegalGroupId.current = [fjGroup.id];
+        const resolvedDefaultGroup = fjGroup || legalGroupsList[0] || null;
+        if (resolvedDefaultGroup && resolvedDefaultGroup.id != null) {
+          defaultLegalGroupId.current = [resolvedDefaultGroup.id];
         }
 
         setFilterOptions(prev => ({
@@ -2077,24 +2077,29 @@ export default function SalesRevenueReport() {
         // Apply backend defaults on the very first load:
         if (isFirstFilterLoad.current) {
           isFirstFilterLoad.current = false;
-          const targetGroupId = fjGroup ? [fjGroup.id] : (filters.legalGroupId || [1]);
+          const targetGroupId = resolvedDefaultGroup ? [resolvedDefaultGroup.id] : (filters.legalGroupId || null);
           setFilters(prev => ({
             ...prev,
             reportingCurrency: prev.reportingCurrency || backendDefault,
-            legalGroupId: targetGroupId,
+            ...(targetGroupId ? { legalGroupId: targetGroupId } : {}),
             salesCategories: prev.salesCategories?.length ? prev.salesCategories : ['External Sales', 'RP Cross Sales'],
           }));
           setAppliedFilters(prev => ({
             ...prev,
             reportingCurrency: prev.reportingCurrency || backendDefault,
-            legalGroupId: targetGroupId,
+            ...(targetGroupId ? { legalGroupId: targetGroupId } : {}),
             salesCategories: prev.salesCategories?.length ? prev.salesCategories : ['External Sales', 'RP Cross Sales'],
           }));
+          setFiltersReady(true);
         }
       })
       .catch(err => {
         handle401(err);
         setErrors(prev => ({ ...prev, filters: err.message || 'Failed to load filter options' }));
+        if (isFirstFilterLoad.current) {
+          isFirstFilterLoad.current = false;
+          setFiltersReady(true);
+        }
       })
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
   }, [filters.legalGroupId, filters.legalEntityId, filters.parentDivisionId, handle401]); // legalGroupId cascades to entities, divisions, subdivisions
@@ -2442,7 +2447,10 @@ export default function SalesRevenueReport() {
 
   }, [handle401]);
 
-  useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
+  useEffect(() => {
+    if (!filtersReady) return;
+    fetchAll(appliedFilters);
+  }, [filtersReady, appliedFilters, fetchAll]);
 
   /* ── Filter apply behavior (auto-apply removed per CFO review) ──── */
   // Users must click 'Apply' to refresh the dashboard data.
@@ -2460,7 +2468,7 @@ export default function SalesRevenueReport() {
   const handleReset = () => {
     const resetFilters = {
       ...DEFAULT_FILTERS,
-      legalGroupId: defaultLegalGroupId.current || [1],
+      legalGroupId: defaultLegalGroupId.current || (filterOptions.legalGroups?.[0] ? [filterOptions.legalGroups[0].id] : null),
       salesCategories: ['External Sales', 'RP Cross Sales'],
     };
     setFilters(resetFilters);
