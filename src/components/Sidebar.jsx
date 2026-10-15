@@ -42,8 +42,6 @@ const ROUTE_ICON = {
 /* â”€â”€ Nav item definitions per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const NAV_BY_ROLE = {
   board: [
-    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
-
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
     { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
@@ -187,19 +185,20 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
   const permittedNavItems = navItems.filter(item => {
     if (!item?.to) return false;
 
-    // Strict Executive Dashboard restriction: strictly CFO, COO, CEO, and BOARD
+    // Strict Executive Dashboard restriction: strictly CFO, COO, and CEO
     if (item.to === '/exec-dashboard') {
-      const allowedRoles = ['CFO', 'COO', 'CEO', 'BOARD'];
+      const allowedRoles = ['CFO', 'COO', 'CEO'];
       const currentRole = (user?.role_code || user?.role || '').toUpperCase();
       if (!allowedRoles.includes(currentRole)) return false;
       return Boolean(canAccess?.('/exec-dashboard'));
     }
 
     if (item.to.startsWith('/admin')) {
+      const currentRole = (user?.role_code || user?.role || '').toUpperCase();
       if (item.to === '/admin/master-data') {
-        return Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
+        return Boolean(currentRole === 'ADMIN' || canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
       }
-      return Boolean(canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
+      return Boolean(currentRole === 'ADMIN' || canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
     }
     return Boolean(canAccess?.(item.to));
   });

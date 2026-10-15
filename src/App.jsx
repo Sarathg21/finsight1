@@ -52,7 +52,7 @@ const PlaceholderPage = ({ title }) => (
 
 // Permission-aware Landing Page Resolver (Specification Section 5)
 function LandingRedirect() {
-  const { user, loading, resolveLanding, canView } = useAuth();
+  const { user, loading, resolveLanding, canView, canAdmin } = useAuth();
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', color: 'var(--clr-text-muted)' }}>
@@ -63,14 +63,18 @@ function LandingRedirect() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  const roleCode = (user?.role_code || user?.role || '').toUpperCase();
+  if (roleCode === 'ADMIN') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
   const target = resolveLanding?.();
   if (target) {
     return <Navigate to={target} replace />;
   }
-  if (canView?.('USER_MANAGEMENT')) {
+  if (canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT')) {
     return <Navigate to="/admin/dashboard" replace />;
   }
-  if (canView?.('MASTER_DATA')) {
+  if (canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA')) {
     return <Navigate to="/admin/master-data" replace />;
   }
   return <Navigate to="/profile" replace />;

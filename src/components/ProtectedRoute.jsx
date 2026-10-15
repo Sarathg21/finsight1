@@ -32,26 +32,28 @@ export default function ProtectedRoute({
    * -----------------------------------------------------------
    */
   let allowed = false;
+  const currentRole = (user?.role_code || user?.role || '').toUpperCase();
+
   if (pageKey === 'profile') {
     allowed = Boolean(user);
   } else if (pageKey === 'exec-dashboard' || pageKey === '/exec-dashboard') {
-    const allowedRoles = ['CFO', 'COO', 'CEO', 'BOARD'];
-    const currentRole = (user?.role_code || user?.role || '').toUpperCase();
+    const allowedRoles = ['CFO', 'COO', 'CEO'];
     if (!allowedRoles.includes(currentRole)) {
       allowed = false;
     } else {
       allowed = Boolean(canAccess?.(pageKey));
     }
   } else if (pageKey === 'admin/master-data' || pageKey === 'master-data') {
-    allowed = Boolean(canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
+    allowed = Boolean(currentRole === 'ADMIN' || canView?.('MASTER_DATA') || canAdmin?.('MASTER_DATA'));
   } else if (
     pageKey === 'admin/users' || pageKey === 'users' ||
     pageKey === 'admin/roles' || pageKey === 'roles' ||
     pageKey === 'admin/useraccess' || pageKey === 'useraccess'
   ) {
-    allowed = Boolean(canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
+    allowed = Boolean(currentRole === 'ADMIN' || canView?.('USER_MANAGEMENT') || canAdmin?.('USER_MANAGEMENT'));
   } else if (adminOnly || pageKey === 'admin' || pageKey === 'admin/dashboard' || pageKey === 'admin-dashboard') {
     allowed = Boolean(
+      currentRole === 'ADMIN' ||
       canAdmin?.('USER_MANAGEMENT') ||
       canView?.('USER_MANAGEMENT') ||
       canAdmin?.('MASTER_DATA') ||

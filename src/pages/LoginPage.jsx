@@ -48,11 +48,12 @@ export default function LoginPage() {
   useEffect(() => {
     if (!user) return;
 
+    const roleCode = (user?.role_code || user?.role || '').toUpperCase();
     const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
     const target =
       validFrom ||
-      resolveLanding?.() ||
-      (user.role_code === "ADMIN" ? "/admin/dashboard" : "/pl");
+      (roleCode === 'ADMIN' ? '/admin/dashboard' : resolveLanding?.()) ||
+      (roleCode === 'ADMIN' ? '/admin/dashboard' : '/pl');
 
     navigate(target, {
       replace: true,
@@ -102,10 +103,12 @@ export default function LoginPage() {
       setBackendStatus("online");
 
       const roleCode =
-        session?.role_code ||
-        session?.user?.role_code;
+        (session?.role_code ||
+        session?.user?.role_code ||
+        session?.role ||
+        session?.user?.role || '').toUpperCase();
 
-      const landing = resolveLandingRoute(session?.module_permissions, roleCode);
+      const landing = roleCode === 'ADMIN' ? '/admin/dashboard' : resolveLandingRoute(session?.module_permissions, roleCode);
       const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
       const destination =
         validFrom ||
@@ -120,25 +123,27 @@ export default function LoginPage() {
       );
 
     } catch (backendErr) {
-      // Check if credentials match a configured development/demo account
-      const demoResult = verifyCredentials?.(email.trim(), password);
-      if (demoResult?.success) {
-        completeLogin(demoResult.user);
-        const roleCode = demoResult.user?.role_code;
-        const landing = resolveLandingRoute(demoResult.user?.module_permissions, roleCode);
-        const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
-        const destination =
-          validFrom ||
-          landing ||
-          (roleCode === "ADMIN" ? "/admin/dashboard" : "/pl");
+      // In development mode only, check if credentials match a configured development/demo account
+      if (import.meta.env.DEV) {
+        const demoResult = verifyCredentials?.(email.trim(), password);
+        if (demoResult?.success) {
+          completeLogin(demoResult.user);
+          const roleCode = (demoResult.user?.role_code || demoResult.user?.role || '').toUpperCase();
+          const landing = roleCode === 'ADMIN' ? '/admin/dashboard' : resolveLandingRoute(demoResult.user?.module_permissions, roleCode);
+          const validFrom = (from && from !== '/' && from !== '/login') ? from : null;
+          const destination =
+            validFrom ||
+            landing ||
+            (roleCode === "ADMIN" ? "/admin/dashboard" : "/pl");
 
-        navigate(
-          destination,
-          {
-            replace: true,
-          }
-        );
-        return;
+          navigate(
+            destination,
+            {
+              replace: true,
+            }
+          );
+          return;
+        }
       }
 
       const isAuthFailure =
