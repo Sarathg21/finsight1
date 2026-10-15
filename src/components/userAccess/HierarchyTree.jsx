@@ -29,6 +29,7 @@ function Node({
   depth,
   selected,
   setSelected,
+  ancestors = [],
   expanded,
   setExpanded,
 }) {
@@ -56,9 +57,12 @@ function Node({
     );
 
     if (alreadySelected) {
-      setSelected((prev) =>
-        prev.filter((id) => !ids.includes(id))
-      );
+      // A selected ancestor implicitly selects every descendant. When a child
+      // is cleared, remove its subtree AND selected ancestors so the ancestor
+      // cannot re-check this child on the next render/reload. Sibling branches
+      // remain explicitly selected and can be saved as independent scopes.
+      const idsToRemove = new Set([...ids, ...ancestors]);
+      setSelected((prev) => prev.filter((id) => !idsToRemove.has(id)));
     } else {
       setSelected((prev) => [
         ...new Set([...prev, ...ids]),
@@ -151,10 +155,9 @@ function Node({
             items-center
             justify-center
             transition
-            ${
-              isSelected
-                ? "bg-blue-600 border-blue-600"
-                : isPartial
+            ${isSelected
+              ? "bg-blue-600 border-blue-600"
+              : isPartial
                 ? "bg-slate-300 border-slate-300"
                 : "bg-white border-slate-300"
             }
@@ -235,6 +238,7 @@ function Node({
             depth={depth + 1}
             selected={selected}
             setSelected={setSelected}
+            ancestors={[...ancestors, node.id]}
             expanded={expanded}
             setExpanded={setExpanded}
           />
