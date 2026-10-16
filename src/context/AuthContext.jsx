@@ -575,7 +575,17 @@ export function AuthProvider({ children }) {
     return false;
   }
 
-    function hasExportRight(type) {
+  function canAdmin(moduleCode) {
+    if (!user) return false;
+    if (['board', 'admin'].includes(String(user.role || user.role_code).toLowerCase())) return true;
+    if (Array.isArray(user?.module_permissions)) {
+      const found = user.module_permissions.find(p => p.module_code === moduleCode);
+      if (found) return Boolean(found.can_admin);
+    }
+    return false;
+  }
+
+  function hasExportRight(type) {
     const typeMap = { all: 3, excel: 2, pdf: 2, csv: 1 };
     if (typeMap[type] !== undefined) {
       const map = { full: 3, controlled: 2, operational: 2, limited: 1 };
@@ -648,7 +658,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, login, logout, canAccess, hasExportRight, loading,
+      user, login, logout, canAccess, canAdmin, hasExportRight, loading,
       verifyCredentials, completeLogin,
       loginWithBackend,
       getScopedEntities, getScopedCountries, getScopedSalesperson,
