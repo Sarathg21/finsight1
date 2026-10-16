@@ -6220,10 +6220,10 @@ const detailsSource = modalFilteredDetails || [];
                         const sumObs = rows.reduce((s, r) => s + r.obsVal, 0);
 
                         return (
-                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                          <table style={{ width: "fit-content", minWidth: 880, margin: "8px auto", borderCollapse: "collapse", fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "middle", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 200, minWidth: 180, maxWidth: 220, verticalAlign: "middle", lineHeight: 1.25 }}>Parent Division</th>
                                 <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "middle", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "middle", lineHeight: 1.25 }}>% Total</th>
                                 <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "middle", lineHeight: 1.3 }}>Current (0-180)<br />({currencyHeader})</th>
@@ -6366,11 +6366,11 @@ const detailsSource = modalFilteredDetails || [];
                         const sumObs = rows.reduce((s, r) => s + r.obsVal, 0);
 
                         return (
-                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                          <table style={{ width: "fit-content", minWidth: 1050, margin: "8px auto", borderCollapse: "collapse", fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, minWidth: 150, verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, minWidth: 150, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Inventory Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Share</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>Qty<br />(Nos)</th>

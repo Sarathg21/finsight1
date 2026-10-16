@@ -526,18 +526,6 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     }
   };
 
-  const handleDeselectAll = (e) => {
-    e.stopPropagation();
-    if (q) {
-      const visibleIds = new Set(visibleOptions.map(o => String(o.id)));
-      const cur = isAll ? allRealIds : (isNone ? [] : (value || []).map(String).filter(v => v.toLowerCase() !== 'all'));
-      const remaining = cur.filter(id => !visibleIds.has(id));
-      onChange(remaining);
-    } else {
-      onChange([]);
-    }
-  };
-
   const handleClear = (e) => {
     e.stopPropagation();
     onChange([]);
@@ -587,16 +575,12 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
             </div>
           </div>
 
-          {/* ── Select All / Deselect All / Clear action bar ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', gap: 8 }}>
+          {/* ── Select All / Clear action bar ── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             <span
               onClick={handleSelectAll}
               style={{ fontSize: '0.74rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer', userSelect: 'none' }}
             >Select All</span>
-            <span
-              onClick={handleDeselectAll}
-              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
-            >Deselect All</span>
             <span
               onClick={handleClear}
               style={{ fontSize: '0.74rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer', userSelect: 'none' }}
