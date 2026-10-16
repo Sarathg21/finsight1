@@ -883,12 +883,12 @@ const [loading, setLoading] = useState(true);
       case "slowMoving":
         return [
           { id: "slowMoving", label: "Slow Moving Stock" },
-          { id: "momObsolete", label: "Month-on-Month - Obsolete Stock Position" },
+          { id: "momObsolete", label: "Month-on-Month - Stock Position" },
         ];
       case "momObsolete":
       case "month_on_month":
         return [
-          { id: "momObsolete", label: "Month-on-Month - Obsolete Stock Position" },
+          { id: "momObsolete", label: "Month-on-Month - Stock Position" },
           { id: "slowMoving", label: "Slow Moving Stock" },
         ];
       case "details":
@@ -896,7 +896,7 @@ const [loading, setLoading] = useState(true);
         return [
           { id: "details", label: "Line-Item Details" },
           { id: "slowMoving", label: "Slow Moving Stock" },
-          { id: "momObsolete", label: "Month-on-Month - Obsolete Stock Position" },
+          { id: "momObsolete", label: "Month-on-Month - Stock Position" },
         ];
     }
   };
@@ -4973,8 +4973,8 @@ const [loading, setLoading] = useState(true);
           slowMoving: ["Slow Moving Stock Detailed View", "Underlying slow moving and obsolete inventory records by parent division."],
           details: ["Inventory Detailed View", "Complete line-item inventory valuation and aging breakdown."],
           kpi: ["Inventory Valuation Detailed View", "Underlying inventory records for the selected metric."],
-          momObsolete: [`Month-on-Month ${viewAllSection === "parentDivision" ? "Inventory Value" : "Obsolete Stock"} Detailed View`, `Period comparison of ${viewAllSection === "parentDivision" ? "inventory value" : "obsolete stock"} position across parent divisions.`],
-          month_on_month: [`Month-on-Month ${viewAllSection === "parentDivision" ? "Inventory Value" : "Obsolete Stock"} Detailed View`, `Period comparison of ${viewAllSection === "parentDivision" ? "inventory value" : "obsolete stock"} position across parent divisions.`],
+          momObsolete: [`Month-on-Month ${viewAllSection === "parentDivision" ? "Inventory Value" : "Stock"} Detailed View`, `Period comparison of ${viewAllSection === "parentDivision" ? "inventory value" : "stock"} position across parent divisions.`],
+          month_on_month: [`Month-on-Month ${viewAllSection === "parentDivision" ? "Inventory Value" : "Stock"} Detailed View`, `Period comparison of ${viewAllSection === "parentDivision" ? "inventory value" : "stock"} position across parent divisions.`],
         };
 
         const activeTabKey = (modalActiveTab === "mom") ? "momObsolete" : modalActiveTab;
@@ -5845,7 +5845,7 @@ const detailsSource = modalFilteredDetails || [];
                           {modalActiveTab === "slowMoving" && "Aggregated slow moving inventory valuation and obsolete position by parent division"}
                           {(modalActiveTab === "momObsolete" || modalActiveTab === "mom") && (
                               <>
-                                {`Month-on-Month ${viewAllSection === "parentDivision" ? "total inventory" : "obsolete stock"} comparison across periods (Year: ${momYear})`}
+                                {`Month-on-Month ${viewAllSection === "parentDivision" ? "total inventory" : "stock"} comparison across periods (Year: ${momYear})`}
                                 {momData.length > 0 && (
                                   <span style={{ marginLeft: 10, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "1px 8px", fontSize: "0.72rem", fontWeight: 700, color: "#1d4ed8", verticalAlign: "middle" }}>
                                     {momData.length} Parent Division{momData.length !== 1 ? "s" : ""}
@@ -5939,7 +5939,7 @@ const detailsSource = modalFilteredDetails || [];
                     </div>
 
                     {/* TABLE AREA */}
-                    <div className="modal-table-scroll" style={{ padding: "0 10px 14px", overflowX: "auto", overflowY: "auto", maxHeight: "65vh" }}>
+                    <div className="modal-table-scroll" style={{ padding: 0, overflowX: "auto", overflowY: "auto", maxHeight: "65vh" }}>
                       {/* CONTEXT TAB 1: AGING SUMMARY BREAKDOWN */}
                       {modalActiveTab === "aging" && (() => {
                         const agingDefs = [
@@ -6223,15 +6223,14 @@ const detailsSource = modalFilteredDetails || [];
                           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Total</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-180)<br />({currencyHeader})</th>
-                                
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving (181-365)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (Above 365)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete</th>
-                                </tr>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "middle", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "middle", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "middle", lineHeight: 1.25 }}>% Total</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "middle", lineHeight: 1.3 }}>Current (0-180)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "middle", lineHeight: 1.3 }}>Slow Moving (181-365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "middle", lineHeight: 1.3 }}>Obsolete (Above 365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "middle", lineHeight: 1.25 }}>% Obsolete</th>
+                              </tr>
                             </thead>
                             <tbody>
                               {rows.length === 0 ? (
@@ -6265,14 +6264,11 @@ const detailsSource = modalFilteredDetails || [];
                                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
                                       {Math.round(row.total / scale).toLocaleString("en-US")}
                                     </td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
                                       {row.pctTotal.toFixed(1)}%
                                     </td>
                                     <td style={{ padding: "8px 10px", textAlign: "right", color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
-                                      {Math.round(row.currentVal / scale).toLocaleString("en-US")}
-                                    </td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
-                                      {Math.round(row.activeVal / scale).toLocaleString("en-US")}
+                                      {Math.round((row.currentVal + row.activeVal) / scale).toLocaleString("en-US")}
                                     </td>
                                     <td style={{ padding: "8px 10px", textAlign: "right", color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
                                       {Math.round(row.slowVal / scale).toLocaleString("en-US")}
@@ -6280,26 +6276,23 @@ const detailsSource = modalFilteredDetails || [];
                                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>
                                       {Math.round(row.obsVal / scale).toLocaleString("en-US")}
                                     </td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: row.pctObs > 20 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: row.pctObs > 20 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>
                                       {row.pctObs.toFixed(1)}%
                                     </td>
-                                    </tr>
+                                  </tr>
                                 ))
                               )}
                             </tbody>
                             {rows.length > 0 && (
                               <tfoot style={{ background: "#f8fafc" }}>
-                                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                                    <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(sumTotal / scale).toLocaleString("en-US")}
                                   </td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>100.0%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "center", color: "#1e3a8a" }}>100.0%</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
-                                    {Math.round(sumCurrent / scale).toLocaleString("en-US")}
-                                  </td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
-                                    {Math.round(sumActive / scale).toLocaleString("en-US")}
+                                    {Math.round((sumCurrent + sumActive) / scale).toLocaleString("en-US")}
                                   </td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(sumSlow / scale).toLocaleString("en-US")}
@@ -6307,10 +6300,9 @@ const detailsSource = modalFilteredDetails || [];
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(sumObs / scale).toLocaleString("en-US")}
                                   </td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>
+                                  <td style={{ padding: "10px 10px", textAlign: "center", color: "#e11d48" }}>
                                     {(sumTotal > 0 ? (sumObs / sumTotal) * 100 : 0).toFixed(1)}%
                                   </td>
-                                  <td style={{ padding: "10px 10px" }} />
                                 </tr>
                               </tfoot>
                             )}
@@ -6762,33 +6754,37 @@ const detailsSource = modalFilteredDetails || [];
                         const totalPrev = momRows.reduce((sum, r) => sum + (r.prevMonth || 0), 0);
                         const totalVariance = totalLatest - totalPrev;
                         const totalVariancePct = totalPrev > 0 ? ((totalLatest - totalPrev) / totalPrev) * 100 : 0;
+                        const isObsoleteView = viewAllSection !== "parentDivision";
+                        const showDio = !isObsoleteView;
 
                         return (
                           <>
-                          <table style={{ width: "100%", minWidth: 1250, borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.80rem" }}>
+                          <table style={{ width: "100%", minWidth: showDio ? 1250 : 1000, borderCollapse: "separate", borderSpacing: 0, marginTop: 0, fontSize: "0.80rem" }}>
                             <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#ffffff" }}>
                               <tr>
-                                <th rowSpan={2} style={{ position: "sticky", left: 0, zIndex: 32, background: "#ffffff", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 140, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", verticalAlign: "bottom", textTransform: "uppercase", fontSize: "0.75rem" }}>Parent<br />Division</th>
+                                <th rowSpan={2} style={{ position: "sticky", left: 0, zIndex: 35, background: "#ffffff", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 140, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", verticalAlign: "middle", textTransform: "uppercase", fontSize: "0.75rem" }}>Parent<br />Division</th>
                                 {allMonths.map(m => (
-                                  <th key={m} colSpan={2} style={{ padding: "8px 6px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, minWidth: 110, borderBottom: "1px solid #e2e8f0", borderRight: "1px solid #e2e8f0", background: "#ffffff", textTransform: "uppercase", fontSize: "0.75rem" }}>{m}-{String(momYear || 2026).slice(-2)}</th>
+                                  <th key={m} colSpan={showDio ? 2 : 1} style={{ padding: "8px 6px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, minWidth: showDio ? 110 : 80, borderBottom: "1px solid #e2e8f0", borderRight: "1px solid #e2e8f0", background: "#ffffff", textTransform: "uppercase", fontSize: "0.75rem" }}>{m}-{String(momYear || 2026).slice(-2)}</th>
                                 ))}
-                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>LATEST</th>
-                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>PREVIOUS<br />MONTH</th>
-                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>VARIANCE</th>
-                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>VARIANCE<br />%</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "middle", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>LATEST</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "middle", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>PREVIOUS<br />MONTH</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "middle", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>VARIANCE</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "middle", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>VARIANCE<br />%</th>
                               </tr>
                               <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                                 {allMonths.map(m => (
                                   <React.Fragment key={`${m}-sub`}>
-                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 80, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock Value</th>
-                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 45, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>DIO</th>
+                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 80, borderBottom: "1px solid #e2e8f0", borderRight: showDio ? "none" : "1px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock Value</th>
+                                    {showDio && (
+                                      <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", minWidth: 45, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>DIO</th>
+                                    )}
                                   </React.Fragment>
                                 ))}
                               </tr>
                             </thead>
                             <tbody>
                               {momRows.length === 0 ? (
-                                <tr><td colSpan={18} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                                <tr><td colSpan={1 + (allMonths.length * (showDio ? 2 : 1)) + 4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                               ) : (
                                 momRows.map((row, idx) => (
                                   <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0", background: idx % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
@@ -6805,7 +6801,8 @@ const detailsSource = modalFilteredDetails || [];
                                             fontVariantNumeric: "tabular-nums",
                                             fontWeight: row.monthlyVals[m] ? 600 : 400,
                                             cursor: row.monthlyVals[m] ? "pointer" : "default",
-                                            textDecoration: "none"
+                                            textDecoration: "none",
+                                            borderRight: showDio ? "none" : "1px solid #e2e8f0"
                                           }} 
                                           title={`Click to view details for ${row.name} - ${m}`}
                                           onClick={(e) => {
@@ -6825,9 +6822,11 @@ const detailsSource = modalFilteredDetails || [];
                                         >
                                           {row.monthlyVals[m] ? Math.round((row.monthlyVals[m] || 0) / scale).toLocaleString("en-US") : "-"}
                                         </td>
-                                        <td style={{ padding: "10px 6px", textAlign: "right", color: row.monthlyDio && row.monthlyDio[m] != null ? "#1e293b" : "#94a3b8", fontVariantNumeric: "tabular-nums", fontWeight: 500, borderRight: "1px solid #e2e8f0" }} title={`DIO for ${row.name} - ${m}`}>
-                                          {row.monthlyDio && row.monthlyDio[m] != null ? Number(row.monthlyDio[m]).toFixed(0) : "-"}
-                                        </td>
+                                        {showDio && (
+                                          <td style={{ padding: "10px 6px", textAlign: "right", color: row.monthlyDio && row.monthlyDio[m] != null ? "#1e293b" : "#94a3b8", fontVariantNumeric: "tabular-nums", fontWeight: 500, borderRight: "1px solid #e2e8f0" }} title={`DIO for ${row.name} - ${m}`}>
+                                            {row.monthlyDio && row.monthlyDio[m] != null ? Number(row.monthlyDio[m]).toFixed(0) : "-"}
+                                          </td>
+                                        )}
                                       </React.Fragment>
                                     ))}
                                     <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", background: "#f8fafc", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }} title={`Latest obsolete details for ${row.name}`}>
@@ -6855,18 +6854,20 @@ const detailsSource = modalFilteredDetails || [];
                             {momRows.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 30, background: "#f1f5f9" }}>
                                 <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f1f5f9", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                                  <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", color: "#1e3a8a", fontWeight: 800, borderRight: "2px solid #cbd5e1" }}>Total</td>
+                                  <td style={{ position: "sticky", left: 0, bottom: 0, zIndex: 35, background: "#f1f5f9", padding: "9px 10px", color: "#1e3a8a", fontWeight: 800, borderRight: "2px solid #cbd5e1" }}>Total</td>
                                   {allMonths.map(m => (
                                     <React.Fragment key={`${m}-total`}>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e3a8a", fontVariantNumeric: "tabular-nums", borderRight: showDio ? "none" : "1px solid #e2e8f0" }}>
                                         {Math.round((monthTotals[m] || 0) / scale).toLocaleString("en-US")}
                                       </td>
-                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#94a3b8", fontVariantNumeric: "tabular-nums", borderRight: "1px solid #e2e8f0" }}>
-                                        -
-                                      </td>
+                                      {showDio && (
+                                        <td style={{ padding: "9px 6px", textAlign: "right", color: "#94a3b8", fontVariantNumeric: "tabular-nums", borderRight: "1px solid #e2e8f0" }}>
+                                          -
+                                        </td>
+                                      )}
                                     </React.Fragment>
                                   ))}
-                                  <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#e2e8f0", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }}>
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e3a8a", background: "#e2e8f0", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(totalLatest / scale).toLocaleString("en-US")}
                                   </td>
                                   <td style={{ padding: "9px 10px", textAlign: "right", color: "#475569", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
