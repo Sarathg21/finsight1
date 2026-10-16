@@ -265,9 +265,9 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
                    o.legal_entity_name !== undefined ? o.legal_entity_name :
                    o.parent_division_name !== undefined ? o.parent_division_name :
                    o.subdivision_name !== undefined ? o.subdivision_name : String(id);
-      const cleanName = typeof name === 'object' ? String(name?.label || name?.name || id) : String(name);
+      const cleanName = typeof name === 'object' ? String(name?.label || name?.name || id || '') : String(name ?? '');
       const lower = cleanName.trim().toLowerCase();
-      if (lower !== 'all' && lower !== '' && !seenNames.has(lower)) {
+      if (lower !== 'all' && lower !== '' && lower !== 'null' && lower !== 'undefined' && String(id ?? '') !== '' && String(id) !== 'null' && !seenNames.has(lower)) {
         seenNames.add(lower);
         result.push({ id: String(id), name: cleanName });
       }
@@ -534,7 +534,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
         return (list || []).filter(item => {
           if (!isActiveEntry(item)) return false;
           const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || '').trim().toLowerCase();
-          if (!name || name === 'all') return false;
+          if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
           if (seen.has(name)) return false;
           seen.add(name);
           return true;
@@ -610,7 +610,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
     const seen = new Set();
     return source.filter(s => {
       const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
-      if (!name) return true;
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
       if (seen.has(name)) return false;
       seen.add(name);
       return true;

@@ -52122,7 +52122,7 @@ const normalizeOptions = (items = []) => {
         if (typeof item !== "object") {
             const str = String(item);
             const lower = str.trim().toLowerCase();
-            if (lower === '' || lower === 'all' || seen.has(lower)) return null;
+            if (lower === '' || lower === 'all' || lower === 'null' || lower === 'undefined' || seen.has(lower)) return null;
             seen.add(lower);
             return { value: str, label: str, meta: item };
         }
@@ -52131,7 +52131,7 @@ const normalizeOptions = (items = []) => {
         const strVal = String(value ?? "");
         const strLbl = String(label ?? "");
         const lower = strLbl.trim().toLowerCase();
-        if (strVal === '' || lower === '' || lower === 'all' || seen.has(lower)) return null;
+        if (strVal === '' || strVal === 'null' || lower === '' || lower === 'all' || lower === 'null' || lower === 'undefined' || seen.has(lower)) return null;
         seen.add(lower);
         return { value: strVal, label: strLbl, meta: item };
     }).filter(Boolean);

@@ -1689,7 +1689,7 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
       const rawName = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(id));
       const cleanName = typeof rawName === 'object' ? String(rawName?.label || rawName?.name || id) : String(rawName);
       const lower = cleanName.trim().toLowerCase();
-      if (String(id) !== '' && lower !== '' && lower !== 'all' && !seenNames.has(lower)) {
+      if (String(id) !== '' && String(id) !== 'null' && lower !== '' && lower !== 'all' && lower !== 'null' && lower !== 'undefined' && !seenNames.has(lower)) {
         seenNames.add(lower);
         result.push({ id: String(id), name: cleanName });
       }

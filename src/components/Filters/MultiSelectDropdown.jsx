@@ -58,7 +58,7 @@ export default function MultiSelectDropdown({
       const strVal = String(val ?? "");
       const strLbl = typeof lbl === "object" ? String(lbl?.label || lbl?.name || val || "") : String(lbl ?? "");
       const lower = strLbl.trim().toLowerCase();
-      if (strVal !== "" && lower !== "" && lower !== "all" && !seenNames.has(lower)) {
+      if (strVal !== "" && strVal !== "null" && lower !== "" && lower !== "all" && lower !== "null" && lower !== "undefined" && !seenNames.has(lower)) {
         seenNames.add(lower);
         result.push({ id: strVal, name: strLbl, value: val, label: strLbl, ...o });
       }

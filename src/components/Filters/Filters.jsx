@@ -449,7 +449,7 @@ function normalizeOpexFilterOptions(
         return (Array.isArray(list) ? list : []).filter((item) => {
             if (!isActiveFilterItem(item)) return false;
             const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || String(item)).trim().toLowerCase();
-            if (!name || name === 'all') return false;
+            if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
             if (seen.has(name)) return false;
             seen.add(name);
             return true;
@@ -873,7 +873,7 @@ function OpexMultiSelect({
                             : String(id);
             const name = typeof rawName === "object" ? String(rawName?.label || rawName?.name || id) : String(rawName);
             const lower = name.trim().toLowerCase();
-            if (String(id) !== "" && lower !== "" && lower !== "all" && !seen.has(lower)) {
+            if (String(id) !== "" && String(id) !== "null" && lower !== "" && lower !== "all" && lower !== "null" && lower !== "undefined" && !seen.has(lower)) {
                 seen.add(lower);
                 result.push({ id: String(id), name });
             }
