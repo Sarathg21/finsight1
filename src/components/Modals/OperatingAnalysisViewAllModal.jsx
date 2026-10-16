@@ -5856,10 +5856,23 @@ const MultiSelectDropdown = ({
     --------------------------------------------------------- */
 
     const formattedOptions = useMemo(() => {
-        return options.map((option) => ({
-            id: String(getOptionId(option)),
-            name: String(getOptionDisplayName(option)),
-        }));
+        const seen = new Set();
+        const result = [];
+        (options || []).forEach((option) => {
+            if (option == null) return;
+            if (typeof option === 'object') {
+                if (option.active === false || option.is_active === false) return;
+                if (option.status && String(option.status).toLowerCase() === 'inactive') return;
+            }
+            const id = String(getOptionId(option));
+            const name = String(getOptionDisplayName(option));
+            const lower = name.trim().toLowerCase();
+            if (id !== '' && lower !== '' && lower !== 'all' && !seen.has(lower)) {
+                seen.add(lower);
+                result.push({ id, name });
+            }
+        });
+        return result;
     }, [options]);
 
     /* ---------------------------------------------------------

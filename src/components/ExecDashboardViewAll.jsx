@@ -233,11 +233,25 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
     if (!open) setSearchQuery('');
   }, [open]);
 
-  // Normalize options across any object shape from backend
+  // Normalize options across any object shape from backend, showing only active entries and deduplicating names
   const normOptions = useMemo(() => {
-    return (options || []).map(o => {
-      if (o == null) return { id: '', name: '' };
-      if (typeof o === 'string' || typeof o === 'number') return { id: String(o), name: String(o) };
+    const seenNames = new Set();
+    const result = [];
+    (options || []).forEach(o => {
+      if (o == null) return;
+      if (typeof o === 'object') {
+        if (o.active === false || o.is_active === false) return;
+        if (o.status && String(o.status).toLowerCase() === 'inactive') return;
+      }
+      if (typeof o === 'string' || typeof o === 'number') {
+        const str = String(o);
+        const lower = str.trim().toLowerCase();
+        if (lower !== 'all' && lower !== '' && !seenNames.has(lower)) {
+          seenNames.add(lower);
+          result.push({ id: str, name: str });
+        }
+        return;
+      }
       const id = o.value !== undefined ? o.value :
                  o.id !== undefined ? o.id :
                  o.legal_group_id !== undefined ? o.legal_group_id :
@@ -251,8 +265,14 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
                    o.legal_entity_name !== undefined ? o.legal_entity_name :
                    o.parent_division_name !== undefined ? o.parent_division_name :
                    o.subdivision_name !== undefined ? o.subdivision_name : String(id);
-      return { id: String(id), name: typeof name === 'object' ? String(name?.label || name?.name || id) : String(name) };
+      const cleanName = typeof name === 'object' ? String(name?.label || name?.name || id) : String(name);
+      const lower = cleanName.trim().toLowerCase();
+      if (lower !== 'all' && lower !== '' && !seenNames.has(lower)) {
+        seenNames.add(lower);
+        result.push({ id: String(id), name: cleanName });
+      }
     });
+    return result;
   }, [options]);
 
   const q = searchQuery.trim().toLowerCase();
@@ -487,7 +507,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
     subdivision_id: filters.subdivision_id || undefined,
   });
 
-  // Load hierarchy options from backend
+  // Load hierarchy options from backend, strictly retaining only active entries and deduplicating names
   useEffect(() => {
     let cancelled = false;
     Promise.allSettled([
@@ -500,6 +520,27 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
       if (cancelled) return;
       const opexData = opexRes?.status === 'fulfilled' ? opexRes.value : null;
 
+      const isActiveEntry = (item) => {
+        if (!item) return false;
+        if (typeof item === 'object') {
+          if (item.active === false || item.is_active === false) return false;
+          if (item.status && String(item.status).toLowerCase() === 'inactive') return false;
+        }
+        return true;
+      };
+
+      const dedupe = (list = []) => {
+        const seen = new Set();
+        return (list || []).filter(item => {
+          if (!isActiveEntry(item)) return false;
+          const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || '').trim().toLowerCase();
+          if (!name || name === 'all') return false;
+          if (seen.has(name)) return false;
+          seen.add(name);
+          return true;
+        });
+      };
+
       const lg = (lgRes?.status === 'fulfilled' ? (lgRes.value?.data ?? lgRes.value) : null)
         || opexData?.legal_groups || opexData?.legalGroups || [];
       const le = (leRes?.status === 'fulfilled' ? (leRes.value?.data ?? leRes.value) : null)
@@ -509,39 +550,70 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
       const sd = (sdRes?.status === 'fulfilled' ? (sdRes.value?.data ?? sdRes.value) : null)
         || opexData?.subdivisions || opexData?.subDivisions || [];
 
-      setLegalGroups(Array.isArray(lg) ? lg : []);
-      setLegalEntities(Array.isArray(le) ? le : []);
-      setParentDivs(Array.isArray(pd) ? pd : []);
-      setSubDivs(Array.isArray(sd) ? sd : []);
+      setLegalGroups(dedupe(Array.isArray(lg) ? lg : []));
+      setLegalEntities(dedupe(Array.isArray(le) ? le : []));
+      setParentDivs(dedupe(Array.isArray(pd) ? pd : []));
+      setSubDivs(dedupe(Array.isArray(sd) ? sd : []));
     });
     return () => { cancelled = true; };
   }, []);
 
-  // Cascading options based on selection
+  // Cascading options based on selection, ensuring only active and non-duplicate names
   const filteredLegalEntities = useMemo(() => {
-    if (!draftLegalGroup || draftLegalGroup.includes('All')) return legalEntities;
-    const gIds = draftLegalGroup.map(String);
-    return legalEntities.filter(e => {
-      const gId = String(e.legal_group_id ?? e.group_id ?? '');
-      return !gId || gIds.includes(gId);
+    let list = legalEntities;
+    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
+      const gIds = draftLegalGroup.map(String);
+      list = legalEntities.filter(e => {
+        const gId = String(e.legal_group_id ?? e.group_id ?? '');
+        return !gId || gIds.includes(gId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(e => {
+      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
     });
   }, [legalEntities, draftLegalGroup]);
 
   const filteredParentDivs = useMemo(() => {
-    if (!draftLegalEntity || draftLegalEntity.includes('All')) return parentDivs;
-    const eIds = draftLegalEntity.map(String);
-    return parentDivs.filter(p => {
-      const eId = String(p.legal_entity_id ?? '');
-      return !eId || eIds.includes(eId);
+    let list = parentDivs;
+    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
+      const eIds = draftLegalEntity.map(String);
+      list = parentDivs.filter(p => {
+        const eId = String(p.legal_entity_id ?? '');
+        return !eId || eIds.includes(eId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(p => {
+      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
     });
   }, [parentDivs, draftLegalEntity]);
 
   const filteredSubDivs = useMemo(() => {
-    if (!draftParentDiv || draftParentDiv.includes('All')) return subDivs;
-    const pIds = draftParentDiv.map(String);
-    return subDivs.filter(s => {
-      const pId = String(s.parent_division_id ?? '');
-      return !pId || pIds.includes(pId);
+    let source = subDivs;
+    if (draftParentDiv && !draftParentDiv.includes('All')) {
+      const pIds = draftParentDiv.map(String);
+      source = subDivs.filter(s => {
+        const pId = String(s.parent_division_id ?? '');
+        return !pId || pIds.includes(pId);
+      });
+    }
+    // Deduplicate by name so subdivision names are never repeated
+    const seen = new Set();
+    return source.filter(s => {
+      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
     });
   }, [subDivs, draftParentDiv]);
 
@@ -679,7 +751,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
               setDraftParentDiv(['All']);
               setDraftSubDiv(['All']);
             }}
-            placeholder="FJ_GROUP"
+            placeholder="All Legal Group"
             style={{ width: 120, minWidth: 110 }}
           />
 

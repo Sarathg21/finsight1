@@ -1667,13 +1667,35 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     if (!open) setSearchQuery('');
   }, [open]);
 
-  const normOptions = (options || []).map(o => {
-    if (o == null) return { id: '', name: '' };
-    if (typeof o === 'string' || typeof o === 'number') return { id: String(o), name: String(o) };
-    const id = o.value !== undefined ? o.value : (o.id !== undefined ? o.id : '');
-    const name = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(id));
-    return { id: String(id), name: typeof name === 'object' ? String(name?.label || name?.name || id) : String(name) };
-  });
+  const normOptions = useMemo(() => {
+    const seenNames = new Set();
+    const result = [];
+    (options || []).forEach(o => {
+      if (o == null) return;
+      if (typeof o === 'object') {
+        if (o.active === false || o.is_active === false) return;
+        if (o.status && String(o.status).toLowerCase() === 'inactive') return;
+      }
+      if (typeof o === 'string' || typeof o === 'number') {
+        const str = String(o);
+        const lower = str.trim().toLowerCase();
+        if (lower !== '' && lower !== 'all' && !seenNames.has(lower)) {
+          seenNames.add(lower);
+          result.push({ id: str, name: str });
+        }
+        return;
+      }
+      const id = o.value !== undefined ? o.value : (o.id !== undefined ? o.id : '');
+      const rawName = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(id));
+      const cleanName = typeof rawName === 'object' ? String(rawName?.label || rawName?.name || id) : String(rawName);
+      const lower = cleanName.trim().toLowerCase();
+      if (String(id) !== '' && lower !== '' && lower !== 'all' && !seenNames.has(lower)) {
+        seenNames.add(lower);
+        result.push({ id: String(id), name: cleanName });
+      }
+    });
+    return result;
+  }, [options]);
 
   // Filter visible options by search query — selected values are NEVER removed
   const q = searchQuery.trim().toLowerCase();

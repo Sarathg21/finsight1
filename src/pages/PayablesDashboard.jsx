@@ -450,16 +450,31 @@ const apiAgingBasis = (value) =>
 const uiAgingBasis = (value) =>
     apiAgingBasis(value) === "INVOICE_DATE" ? "Invoice Date" : "Due Date";
 
-const normalizeOptions = (items = []) =>
-    (Array.isArray(items) ? items : []).map((item) => {
+const normalizeOptions = (items = []) => {
+    const seen = new Set();
+    return (Array.isArray(items) ? items : []).map((item) => {
         if (item === null || item === undefined) return null;
+        if (typeof item === 'object') {
+            if (item.active === false || item.is_active === false) return null;
+            if (item.status && String(item.status).toLowerCase() === 'inactive') return null;
+        }
         if (typeof item !== "object") {
-            return { value: String(item), label: String(item), meta: item };
+            const str = String(item);
+            const lower = str.trim().toLowerCase();
+            if (lower === '' || lower === 'all' || seen.has(lower)) return null;
+            seen.add(lower);
+            return { value: str, label: str, meta: item };
         }
         const value = item.value ?? item.id ?? item.code ?? item.key ?? item.name;
         const label = item.label ?? item.name ?? item.title ?? item.description ?? value;
-        return { value: String(value ?? ""), label: String(label ?? ""), meta: item };
+        const strVal = String(value ?? "");
+        const strLbl = String(label ?? "");
+        const lower = strLbl.trim().toLowerCase();
+        if (strVal === '' || lower === '' || lower === 'all' || seen.has(lower)) return null;
+        seen.add(lower);
+        return { value: strVal, label: strLbl, meta: item };
     }).filter(Boolean);
+};
 
 const normalizeBackendDate = (value) => {
     if (!value) return "";

@@ -435,34 +435,35 @@ function normalizeOpexFilterOptions(
             ? payload.periods
             : [];
 
+    const isActiveFilterItem = (item) => {
+        if (!item) return false;
+        if (typeof item === 'object') {
+            if (item.active === false || item.is_active === false) return false;
+            if (item.status && String(item.status).toLowerCase() === 'inactive') return false;
+        }
+        return true;
+    };
+
+    const dedupeFilterItems = (list = []) => {
+        const seen = new Set();
+        return (Array.isArray(list) ? list : []).filter((item) => {
+            if (!isActiveFilterItem(item)) return false;
+            const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || String(item)).trim().toLowerCase();
+            if (!name || name === 'all') return false;
+            if (seen.has(name)) return false;
+            seen.add(name);
+            return true;
+        });
+    };
+
     return {
-        legal_groups:
-            Array.isArray(
-                payload?.legal_groups
-            )
-                ? payload.legal_groups
-                : [],
+        legal_groups: dedupeFilterItems(payload?.legal_groups),
 
-        legal_entities:
-            Array.isArray(
-                payload?.legal_entities
-            )
-                ? payload.legal_entities
-                : [],
+        legal_entities: dedupeFilterItems(payload?.legal_entities),
 
-        parent_divisions:
-            Array.isArray(
-                payload?.parent_divisions
-            )
-                ? payload.parent_divisions
-                : [],
+        parent_divisions: dedupeFilterItems(payload?.parent_divisions),
 
-        subdivisions:
-            Array.isArray(
-                payload?.subdivisions
-            )
-                ? payload.subdivisions
-                : [],
+        subdivisions: dedupeFilterItems(payload?.subdivisions),
 
         periods,
 
@@ -836,58 +837,49 @@ function OpexMultiSelect({
        NORMALIZE
     ======================================================= */
 
-    const normalized =
-        (options || [])
-            .map((option) => {
-                if (
-                    option === null ||
-                    option === undefined
-                ) {
-                    return null;
+    const normalized = (() => {
+        const seen = new Set();
+        const result = [];
+        (options || []).forEach((option) => {
+            if (option === null || option === undefined) return;
+            if (typeof option === "object") {
+                if (option.active === false || option.is_active === false) return;
+                if (option.status && String(option.status).toLowerCase() === "inactive") return;
+            }
+            if (typeof option === "string" || typeof option === "number") {
+                const str = String(option);
+                const lower = str.trim().toLowerCase();
+                if (lower !== "" && lower !== "all" && !seen.has(lower)) {
+                    seen.add(lower);
+                    result.push({ id: str, name: str });
                 }
-
-                if (
-                    typeof option === "string" ||
-                    typeof option === "number"
-                ) {
-                    return {
-                        id: String(option),
-                        name: String(option),
-                    };
-                }
-
-                const id =
-                    option.value !== undefined
-                        ? option.value
-                        : option.id !== undefined
-                            ? option.id
-                            : option.code !== undefined
-                                ? option.code
-                                : "";
-
-                const name =
-                    option.label !== undefined
-                        ? option.label
-                        : option.name !== undefined
-                            ? option.name
-                            : option.period_name !== undefined
-                                ? option.period_name
-                                : String(id);
-
-                if (
-                    id === null ||
-                    id === undefined ||
-                    id === ""
-                ) {
-                    return null;
-                }
-
-                return {
-                    id: String(id),
-                    name: String(name),
-                };
-            })
-            .filter(Boolean);
+                return;
+            }
+            const id =
+                option.value !== undefined
+                    ? option.value
+                    : option.id !== undefined
+                        ? option.id
+                        : option.code !== undefined
+                            ? option.code
+                            : "";
+            const rawName =
+                option.label !== undefined
+                    ? option.label
+                    : option.name !== undefined
+                        ? option.name
+                        : option.period_name !== undefined
+                            ? option.period_name
+                            : String(id);
+            const name = typeof rawName === "object" ? String(rawName?.label || rawName?.name || id) : String(rawName);
+            const lower = name.trim().toLowerCase();
+            if (String(id) !== "" && lower !== "" && lower !== "all" && !seen.has(lower)) {
+                seen.add(lower);
+                result.push({ id: String(id), name });
+            }
+        });
+        return result;
+    })();
 
     const currentValues =
         Array.isArray(value)

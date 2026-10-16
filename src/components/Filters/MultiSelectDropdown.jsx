@@ -34,21 +34,36 @@ export default function MultiSelectDropdown({
     if (!open) setSearchTerm("");
   }, [open]);
 
-  // Normalize options into { id, name, value, label }, filtering out redundant "All" option
+  // Normalize options into { id, name, value, label }, filtering out inactive items, duplicates, and redundant "All" option
   const normOptions = useMemo(() => {
-    return (options || [])
-      .map((o) => {
-        if (o == null) return { id: "", name: "" };
-        if (typeof o === "string" || typeof o === "number") {
-          return { id: String(o), name: String(o), value: o, label: String(o) };
+    const seenNames = new Set();
+    const result = [];
+    (options || []).forEach((o) => {
+      if (o == null) return;
+      if (typeof o === "object") {
+        if (o.active === false || o.is_active === false) return;
+        if (o.status && String(o.status).toLowerCase() === "inactive") return;
+      }
+      if (typeof o === "string" || typeof o === "number") {
+        const str = String(o);
+        const lower = str.trim().toLowerCase();
+        if (lower !== "" && lower !== "all" && !seenNames.has(lower)) {
+          seenNames.add(lower);
+          result.push({ id: str, name: str, value: o, label: str });
         }
-        const val = o.value !== undefined ? o.value : (o.id !== undefined ? o.id : "");
-        const lbl = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(val));
-        const strVal = String(val ?? "");
-        const strLbl = typeof lbl === "object" ? String(lbl?.label || lbl?.name || val || "") : String(lbl ?? "");
-        return { id: strVal, name: strLbl, value: val, label: strLbl };
-      })
-      .filter((o) => o.id !== "" && o.name.trim().toLowerCase() !== "all");
+        return;
+      }
+      const val = o.value !== undefined ? o.value : (o.id !== undefined ? o.id : "");
+      const lbl = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(val));
+      const strVal = String(val ?? "");
+      const strLbl = typeof lbl === "object" ? String(lbl?.label || lbl?.name || val || "") : String(lbl ?? "");
+      const lower = strLbl.trim().toLowerCase();
+      if (strVal !== "" && lower !== "" && lower !== "all" && !seenNames.has(lower)) {
+        seenNames.add(lower);
+        result.push({ id: strVal, name: strLbl, value: val, label: strLbl, ...o });
+      }
+    });
+    return result;
   }, [options]);
 
   const allRealIds = useMemo(() => {

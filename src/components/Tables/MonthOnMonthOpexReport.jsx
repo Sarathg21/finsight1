@@ -16756,10 +16756,23 @@ const MultiSelectDropdown = ({
     ===================================================== */
 
     const formattedOptions = useMemo(() => {
-        return options.map((opt) => ({
-            id: String(getFilterOptionId(opt)),
-            name: String(getFilterOptionName(opt)),
-        }));
+        const seen = new Set();
+        const result = [];
+        (options || []).forEach((opt) => {
+            if (opt == null) return;
+            if (typeof opt === 'object') {
+                if (opt.active === false || opt.is_active === false) return;
+                if (opt.status && String(opt.status).toLowerCase() === 'inactive') return;
+            }
+            const id = String(getFilterOptionId(opt));
+            const name = String(getFilterOptionName(opt));
+            const lower = name.trim().toLowerCase();
+            if (id !== '' && lower !== '' && lower !== 'all' && !seen.has(lower)) {
+                seen.add(lower);
+                result.push({ id, name });
+            }
+        });
+        return result;
     }, [options]);
 
     const normalizedSelectedValues = useMemo(() => {
