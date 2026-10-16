@@ -3543,11 +3543,15 @@ export default function BalanceSheet() {
     setDrilldownError(null);
     try {
       const data = await fetchBSDrilldown({
-        period:      appliedFilters.period,
-        currency:    appliedFilters.currency,
-        accountCode: account.account_code,
-        accountName: account.account_name,
-        ledger:      appliedFilters.ledger,
+        period:         appliedFilters.period,
+        currency:       appliedFilters.currency,
+        accountCode:    account.account_code,
+        accountName:    account.account_name,
+        ledger:         appliedFilters.ledger,
+        legalGroup:     appliedFilters.legalGroup,
+        legalEntity:    appliedFilters.legalEntity,
+        parentDivision: appliedFilters.parentDivision,
+        subdivision:    appliedFilters.subdivision,
       });
       setDrilldownData(data);
     } catch (err) {

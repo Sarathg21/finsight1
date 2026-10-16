@@ -564,14 +564,29 @@ export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
  */
 export async function fetchBSDrilldown(filters) {
   const periodVal = filters.period ? (String(filters.period).match(/^(\d{4}-\d{2})/)?.[1] || filters.period) : undefined;
+
+  // Helper: strip 'All' sentinel values the same way buildBSParams does
+  const active = (val) => {
+    if (Array.isArray(val)) {
+      const f = val.filter(v => v !== 'All' && v !== 'all');
+      return f.length > 0 ? f : undefined;
+    }
+    return val && val !== 'All' && val !== 'all' ? val : undefined;
+  };
+
   const params = {
-    period:       periodVal,
-    period_name:  periodVal,
-    currency:     filters.currency,
-    account_code: filters.accountCode,
-    ledger:       filters.ledger || undefined,
-    sort_by:      filters.sortBy  || 'balance_amount',
-    sort_dir:     filters.sortDir || 'desc',
+    period:             periodVal,
+    period_name:        periodVal,
+    currency:           filters.currency,
+    account_code:       filters.accountCode,
+    ledger:             filters.ledger || undefined,
+    sort_by:            filters.sortBy  || 'balance_amount',
+    sort_dir:           filters.sortDir || 'desc',
+    // Pass user-selected entity filters so the drilldown is scoped correctly
+    legal_group_id:     active(filters.legalGroup),
+    legal_entity_id:    active(filters.legalEntity),
+    parent_division_id: active(filters.parentDivision),
+    subdivision_id:     active(filters.subdivision),
   };
   const res = await apiCall('/api/bs/drilldown', params);
   const raw = res?.data ?? res;
