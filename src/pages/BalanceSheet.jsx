@@ -472,43 +472,86 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     if (!open) setSearchQuery('');
   }, [open]);
 
-  const normOptions = options.map(o => {
-    if (typeof o === 'string') return { id: o, name: o };
-    const id = o.value !== undefined ? o.value : o.id;
-    const name = o.label !== undefined ? o.label : o.name;
-    return { id, name };
+  const normOptions = (options || []).map(o => {
+    if (o == null) return { id: '', name: '' };
+    if (typeof o === 'string' || typeof o === 'number') return { id: String(o), name: String(o) };
+    const id = o.value !== undefined ? o.value : (o.id !== undefined ? o.id : '');
+    const name = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(id));
+    return { id: String(id), name: typeof name === 'object' ? String(name?.label || name?.name || id) : String(name) };
   });
 
   // Filter visible options by search query — selected values are NEVER removed
   const q = searchQuery.trim().toLowerCase();
   const visibleOptions = q
-    ? normOptions.filter(o => String(o.id) !== 'All' && o.name.toLowerCase().includes(q))
+    ? normOptions.filter(o => String(o.id).toLowerCase() !== 'all' && o.name.toLowerCase().includes(q))
     : normOptions;
 
-  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
-  const allRealIds = normOptions.filter(o => String(o.id) !== 'All').map(o => String(o.id));
+  const isAll = Boolean(!value || (Array.isArray(value) && value.length === 1 && String(value[0]).toLowerCase() === 'all'));
+  const isNone = Array.isArray(value) && value.length === 0;
+  const allRealIds = normOptions.filter(o => String(o.id).toLowerCase() !== 'all').map(o => String(o.id));
 
   const toggle = (optId) => {
-    if (String(optId) === 'All') { onChange(['All']); return; }
-    const cur = isAll ? allRealIds : (value || []).map(String).filter(v => v !== 'All');
+    if (String(optId).toLowerCase() === 'all') { onChange(['All']); return; }
+    const cur = isAll
+      ? allRealIds
+      : isNone
+        ? []
+        : (value || []).map(String).filter(v => v.toLowerCase() !== 'all');
     const targetId = String(optId);
 
     const next = cur.includes(targetId)
       ? cur.filter(v => v !== targetId)
       : [...cur, targetId];
 
-    // If all items are selected, or the result is empty (last item deselected),
-    // collapse back to ['All'] so the trigger never shows "0 selected".
-    if (next.length === 0 || (allRealIds.length > 0 && next.length === allRealIds.length)) {
+    if (allRealIds.length > 0 && next.length === allRealIds.length) {
       onChange(['All']);
     } else {
       onChange(next);
     }
   };
 
+  const handleSelectAll = (e) => {
+    e.stopPropagation();
+    if (q) {
+      const visibleIds = visibleOptions.filter(o => String(o.id).toLowerCase() !== 'all').map(o => String(o.id));
+      const cur = isAll ? allRealIds : (isNone ? [] : (value || []).map(String).filter(v => v.toLowerCase() !== 'all'));
+      const combined = Array.from(new Set([...cur, ...visibleIds]));
+      if (allRealIds.length > 0 && combined.length === allRealIds.length) {
+        onChange(['All']);
+      } else {
+        onChange(combined);
+      }
+    } else {
+      onChange(['All']);
+    }
+  };
 
-  const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
-  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
+  const handleDeselectAll = (e) => {
+    e.stopPropagation();
+    if (q) {
+      const visibleIds = new Set(visibleOptions.map(o => String(o.id)));
+      const cur = isAll ? allRealIds : (isNone ? [] : (value || []).map(String).filter(v => v.toLowerCase() !== 'all'));
+      const remaining = cur.filter(id => !visibleIds.has(id));
+      onChange(remaining);
+    } else {
+      onChange([]);
+    }
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange([]);
+    setSearchQuery('');
+  };
+
+  const selectedVals = normOptions.filter(o => !isNone && value && value.some(v => String(v) === String(o.id)));
+  const label = isAll
+    ? placeholder
+    : isNone || selectedVals.length === 0
+      ? '0 selected'
+      : selectedVals.length === 1
+        ? selectedVals[0].name
+        : `${selectedVals.length} selected`;
 
   return (
     <div ref={ref} style={{ position: 'relative', ...style }}>
@@ -517,9 +560,9 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
         <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
       </div>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 1000, marginTop: 2, display: 'flex', flexDirection: 'column' }}>
 
-          {/* ── Search input (only addition) ── */}
+          {/* ── Search input ── */}
           <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -544,30 +587,30 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
             </div>
           </div>
 
-          {/* ── Select All / Clear action bar ── */}
-          {!q && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-              <span
-                onClick={() => onChange(['All'])}
-                style={{ fontSize: '0.75rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
-              >Select All</span>
-              <span
-                onClick={() => onChange(['All'])}
-                style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
-              >Clear</span>
-            </div>
-          )}
+          {/* ── Select All / Deselect All / Clear action bar ── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', gap: 8 }}>
+            <span
+              onClick={handleSelectAll}
+              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer', userSelect: 'none' }}
+            >Select All</span>
+            <span
+              onClick={handleDeselectAll}
+              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}
+            >Deselect All</span>
+            <span
+              onClick={handleClear}
+              style={{ fontSize: '0.74rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer', userSelect: 'none' }}
+            >Clear</span>
+          </div>
 
           {/* ── Scrollable options list ── */}
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-            {/* Individual option rows — no "All" item shown anymore */}
-
             {/* Filtered option rows */}
             {visibleOptions.map(opt => {
-              if (opt.id === 'All') return null;
-              const selected = isAll || (value && value.some(v => String(v) === String(opt.id)));
+              if (String(opt.id).toLowerCase() === 'all') return null;
+              const selected = !isNone && (isAll || (value && value.some(v => String(v) === String(opt.id))));
               return (
-                <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+                <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
                   <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
                   </span>

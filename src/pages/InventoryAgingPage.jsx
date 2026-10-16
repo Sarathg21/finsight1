@@ -6525,12 +6525,29 @@ const detailsSource = modalFilteredDetails || [];
                           <table style={{ width: "100%", maxWidth: 1080, tableLayout: "fixed", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "17%", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "15%", verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "22%", verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving Stock (181-365 Days)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "12%", verticalAlign: "bottom", lineHeight: 1.25 }}>% Slow Moving on<br />Total Stock</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "22%", verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock (Above 365 Days)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: "12%", verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "18%", verticalAlign: "middle", lineHeight: 1.25 }}>
+                                  <div style={{ whiteSpace: "nowrap" }}>PARENT DIVISION</div>
+                                </th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: "15%", verticalAlign: "middle", lineHeight: 1.25 }}>
+                                  <div style={{ whiteSpace: "nowrap" }}>TOTAL STOCK VALUE</div>
+                                  <div style={{ whiteSpace: "nowrap" }}>({currencyHeader})</div>
+                                </th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: "20%", verticalAlign: "middle", lineHeight: 1.25 }}>
+                                  <div style={{ whiteSpace: "nowrap" }}>SLOW MOVING STOCK</div>
+                                  <div style={{ whiteSpace: "nowrap" }}>(181-365 DAYS) ({currencyHeader})</div>
+                                </th>
+                                <th style={{ padding: "8px 8px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: "14%", verticalAlign: "middle", lineHeight: 1.25 }}>
+                                  <div style={{ whiteSpace: "nowrap" }}>% SLOW MOVING ON</div>
+                                  <div style={{ whiteSpace: "nowrap" }}>TOTAL STOCK</div>
+                                </th>
+                                <th style={{ padding: "8px 10px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: "20%", verticalAlign: "middle", lineHeight: 1.25 }}>
+                                  <div style={{ whiteSpace: "nowrap" }}>OBSOLETE STOCK</div>
+                                  <div style={{ whiteSpace: "nowrap" }}>(ABOVE 365 DAYS) ({currencyHeader})</div>
+                                </th>
+                                <th style={{ padding: "8px 8px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: "13%", verticalAlign: "middle", lineHeight: 1.25 }}>
+                                  <div style={{ whiteSpace: "nowrap" }}>% OBSOLETE ON</div>
+                                  <div style={{ whiteSpace: "nowrap" }}>TOTAL STOCK</div>
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -6574,9 +6591,9 @@ const detailsSource = modalFilteredDetails || [];
                                       <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e3a8a" }}>{divName}</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(slow / scale).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(slowPct)}%</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(slowPct)}%</td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: obsPct > 50 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(obsPct)}%</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: obsPct > 50 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(obsPct)}%</td>
                                     </tr>
                                   );
                                 })
@@ -6588,9 +6605,9 @@ const detailsSource = modalFilteredDetails || [];
                                   <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalSlowVal / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalSlowPct)}%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "center", color: "#d97706", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalSlowPct)}%</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalObs / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: totalObsPct > 50 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalObsPct)}%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "center", color: totalObsPct > 50 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>{Math.round(totalObsPct)}%</td>
                                 </tr>
                               </tfoot>
                             )}
