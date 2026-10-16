@@ -13,6 +13,7 @@ import {
     exportPayablesExcel,
     exportPayablesPdf,
 } from "../api/payablesApi";
+import { getApiRoot } from "../utils/apiBase";
 
 // Compatibility helpers for the existing dashboard code.
 const getPayableFilters = getPayablesFilterOptions;
@@ -64,8 +65,7 @@ const triggerPayablesBlobDownload = (response, fallbackName) => {
    PARENT DIVISION MONTH-ON-MONTH HELPERS
    ============================================================ */
 const getPayablesApiBaseUrl = () => {
-    const base = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
-    return base.endsWith("/api") ? base : `${base}/api`;
+    return getApiRoot();
 };
 
 const buildPayablesQueryString = (filters = {}) => {

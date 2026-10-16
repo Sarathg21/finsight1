@@ -11602,6 +11602,7 @@ import {
     getOpexFilterOptions,
     getOpexCategoryBreakdown,
 } from "../../api/opexApi";
+import { getApiRoot } from "../../utils/apiBase";
 
 /* =========================================================
    MONTHS
@@ -13299,20 +13300,7 @@ export default function ExpenseCategoryDrillDown({
                BACKEND API
             =================================================== */
 
-            const configuredBaseUrl =
-                import.meta.env
-                    .VITE_API_BASE_URL || "";
-
-            let baseUrl =
-                configuredBaseUrl.replace(
-                    /\/+$/,
-                    ""
-                );
-
-            const apiUrl =
-                baseUrl.endsWith("/api")
-                    ? `${baseUrl}/opex/category-detail`
-                    : `${baseUrl}/api/opex/category-detail`;
+            const apiUrl = `${getApiRoot()}/opex/category-detail`;
 
             const params =
                 new URLSearchParams({

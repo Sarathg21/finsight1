@@ -32,6 +32,7 @@ import {
     exportOpexCategoryComparison,
     exportOpexCategoryBreakdown, getOpexReconciliation,
 } from "../api/opexApi";
+import { getApiRoot } from "../utils/apiBase";
 
 /* =========================================================
    GET OPTION VALUE
@@ -1520,19 +1521,7 @@ export default function OperatingAnalysis() {
              * Match the existing Month-on-Month API URL pattern,
              * including support for VITE_API_BASE_URL.
              */
-            const configuredBaseUrl =
-                (
-                    import.meta.env.VITE_API_BASE_URL ||
-                    ""
-                ).replace(
-                    /\/+$/,
-                    ""
-                );
-
-            const apiUrl =
-                configuredBaseUrl.endsWith("/api")
-                    ? `${configuredBaseUrl}/opex/monthly/export`
-                    : `${configuredBaseUrl}/api/opex/monthly/export`;
+            const apiUrl = `${getApiRoot()}/opex/monthly/export`;
 
             const token =
                 localStorage.getItem(

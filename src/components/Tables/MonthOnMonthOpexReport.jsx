@@ -15873,6 +15873,7 @@ import {
 } from "../../api/opexApi";
 import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 import ExportButtons from "../Common/ExportButtons";
+import { getApiRoot } from "../../utils/apiBase";
 
 /* ========================================================= 
    FORMAT VALUE 
@@ -18074,10 +18075,7 @@ export default function MonthOnMonthOpexReport({
         const currency = cleanArray(sourceFilters?.reporting_currency)[0] || reportingCurrency || "AED";
         if (currency) params.set("reporting_currency", currency);
 
-        const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
-        const apiUrl = configuredBaseUrl.endsWith("/api")
-            ? `${configuredBaseUrl}/opex/monthly/export`
-            : `${configuredBaseUrl}/api/opex/monthly/export`;
+        const apiUrl = `${getApiRoot()}/opex/monthly/export`;
 
         setExporting(format);
         setMainFilterError("");
@@ -18892,14 +18890,7 @@ export default function MonthOnMonthOpexReport({
         }));
 
         try {
-            const configuredBase =
-                import.meta.env.VITE_API_BASE_URL || "";
-
-            const base = configuredBase.replace(/\/+$/, "");
-
-            const apiUrl = base.endsWith("/api")
-                ? `${base}/opex/category-detail-monthly`
-                : `${base}/api/opex/category-detail-monthly`;
+            const apiUrl = `${getApiRoot()}/opex/category-detail-monthly`;
 
             const params = new URLSearchParams();
 
