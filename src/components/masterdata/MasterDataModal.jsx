@@ -1,8 +1,10 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { X, FolderPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+
+const EMPTY_ARRAY = [];
 
 export default function MasterDataModal({
   open,
@@ -23,12 +25,12 @@ export default function MasterDataModal({
   updateApi,
   onCustomSave,
 
-  extraFields = [],
+  extraFields = EMPTY_ARRAY,
 
   compactLayout = false,
 
-  subDivisions = [],
-  parentDivisions = [],
+  subDivisions = EMPTY_ARRAY,
+  parentDivisions = EMPTY_ARRAY,
 }) {
   const isEdit = Boolean(editData);
 
@@ -42,6 +44,7 @@ export default function MasterDataModal({
   });
 
   const [saving, setSaving] = useState(false);
+  const lastEditIdRef = useRef(null);
 
   /* =========================================================
      HELPERS
@@ -188,7 +191,16 @@ export default function MasterDataModal({
   ========================================================= */
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      lastEditIdRef.current = null;
+      return;
+    }
+
+    const currentKey = `${editData ? (editId ?? JSON.stringify(editData)) : 'create'}-${title}`;
+    if (lastEditIdRef.current === currentKey) {
+      return;
+    }
+    lastEditIdRef.current = currentKey;
 
     /*
      * IMPORTANT:
