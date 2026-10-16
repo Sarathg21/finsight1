@@ -128,6 +128,11 @@ function buildBSParams(filters = {}) {
   const periodVal = toPeriod(filters.period);
   const comparePeriodVal = toPeriod(filters.comparePeriod);
 
+  // If legalGroup is 'All' or not specified, pass all known legal group IDs [4, 3] (FJ Group: 4, RKME Group / Raphael Khlat: 3)
+  // so the backend does not default to FJ Group only (which silently excludes Raphael Khlat).
+  const activeLegalGroup = active(filters.legalGroup);
+  const resolvedLegalGroup = activeLegalGroup !== undefined ? activeLegalGroup : [4, 3];
+
   return {
     period:              periodVal,
     period_name:         periodVal,
@@ -135,7 +140,7 @@ function buildBSParams(filters = {}) {
     compare_period_name: comparePeriodVal,
     as_on_date:          active(filters.asOnDate || filters.period),
     currency:            active(filters.currency),
-    legal_group_id:      active(filters.legalGroup),
+    legal_group_id:      resolvedLegalGroup,
     legal_entity_id:     active(filters.legalEntity),
     parent_division_id:  active(filters.parentDivision),
     subdivision_id:      active(filters.subdivision),
@@ -289,10 +294,15 @@ export async function fetchBSFilters(params = {}) {
   let lgList = res.legal_groups || [];
   if (Array.isArray(lgList)) {
     res.legal_groups = lgList.map(g => {
-      if (typeof g === 'string') return { id: g, name: g };
+      if (typeof g === 'string') {
+        const upper = g.toUpperCase();
+        const dName = upper.includes('RKME') ? 'RKME Group (Raphael Khlat)' : (upper.includes('FJ') ? 'FJ Group' : g);
+        return { id: g, name: dName };
+      }
       const rawId = g.id !== undefined ? g.id : g.value;
       const rawName = g.name !== undefined ? g.name : g.label;
-      const displayName = rawName === 'FJ_GROUP' ? 'FJ Group' : (rawName === 'RKME_GROUP' ? 'RKME Group' : rawName);
+      const upper = String(rawName || '').toUpperCase();
+      const displayName = upper.includes('FJ') ? 'FJ Group' : (upper.includes('RKME') ? 'RKME Group (Raphael Khlat)' : rawName);
       return { id: rawId, name: displayName };
     });
   }
@@ -583,7 +593,7 @@ export async function fetchBSDrilldown(filters) {
     sort_by:            filters.sortBy  || 'balance_amount',
     sort_dir:           filters.sortDir || 'desc',
     // Pass user-selected entity filters so the drilldown is scoped correctly
-    legal_group_id:     active(filters.legalGroup),
+    legal_group_id:     active(filters.legalGroup) || [4, 3],
     legal_entity_id:    active(filters.legalEntity),
     parent_division_id: active(filters.parentDivision),
     subdivision_id:     active(filters.subdivision),

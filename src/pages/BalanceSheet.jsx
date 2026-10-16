@@ -3411,14 +3411,7 @@ export default function BalanceSheet() {
         : DEFAULT_CURRENCIES;
 
       const legalGroupsList = data?.legal_groups || [];
-      const fjGroup = legalGroupsList.find(g =>
-        String(g.name || g.label || '').toUpperCase().includes('FJ') ||
-        String(g.id || g.value || '').toUpperCase().includes('FJ')
-      );
-      if (fjGroup) {
-        const fjId = fjGroup.id !== undefined ? fjGroup.id : fjGroup.value;
-        defaultLegalGroupId.current = [fjId];
-      }
+      defaultLegalGroupId.current = ['All'];
 
       setFilterOptions(prev => ({
         ...prev,
@@ -3431,12 +3424,12 @@ export default function BalanceSheet() {
         ledgers:        ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
 
-      // Auto-select first period & default Legal Group on initial load
+      // Auto-select first period on initial load; keep legalGroup as 'All' so both FJ Group and Raphael Khlat / RKME are loaded
       if (isFirstFilterLoad.current) {
         isFirstFilterLoad.current = false;
         const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
         const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
-        const targetLegalGroup = fjGroup ? [fjGroup.id !== undefined ? fjGroup.id : fjGroup.value] : (currentFilters.legalGroup || ['All']);
+        const targetLegalGroup = currentFilters.legalGroup && currentFilters.legalGroup.length > 0 ? currentFilters.legalGroup : ['All'];
 
         // Use period code directly -- no calendar date conversion needed (supports Period 13)
         setFilters(f        => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second, legalGroup: targetLegalGroup }));
@@ -3913,7 +3906,7 @@ export default function BalanceSheet() {
             options={filterOptions.legalGroups}
             value={filters.legalGroup}
             onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] })); }}
-            style={{ width: 110, minWidth: 110 }}
+            style={{ width: 150, minWidth: 150 }}
           />
         </FilterField>
 
@@ -3923,7 +3916,7 @@ export default function BalanceSheet() {
             options={filterOptions.legalEntities}
             value={filters.legalEntity}
             onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
-            style={{ width: 120, minWidth: 120 }}
+            style={{ width: 150, minWidth: 150 }}
           />
         </FilterField>
 
