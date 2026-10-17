@@ -108,7 +108,7 @@ const toApiIdList = (val) => {
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
-import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle, Info, ChevronDown } from "lucide-react";
+import { Box, Coins, BarChart3, Clock, AlertTriangle, Percent, RotateCw, Calendar, Target, Scale, Info, ChevronDown } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -1161,6 +1161,154 @@ const [loading, setLoading] = useState(true);
   const [modalApiItems, setModalApiItems] = useState(null);
     const [modalApiData, setModalApiData] = useState(null);
   const [modalDetailsLoading, setModalDetailsLoading] = useState(false);
+  const getDefaultKpis = (cur = "AED") => [
+    {
+      key: "total_inv",
+      title: "Total Inventory Value",
+      titleColor: "#2563eb",
+      cardBg: "#f0f7ff",
+      value: "—",
+      icon: Box,
+      iconBg: "#dbeafe",
+      iconColor: "#2563eb",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+    {
+      key: "avg_inv",
+      title: "Average Inventory Value",
+      titleColor: "#7c3aed",
+      cardBg: "#faf5ff",
+      value: "—",
+      icon: BarChart3,
+      iconBg: "#ede9fe",
+      iconColor: "#7c3aed",
+      targetVariance: null,
+      lastMonthVariance: null,
+      targetLowerIsBetter: true,
+      lastMonthLowerIsBetter: false,
+      lowerIsBetter: false,
+      previousDate: null,
+    },
+    {
+      key: "current_stock",
+      title: "Current Stock Value",
+      titleColor: "#16a34a",
+      cardBg: "#f0fdf4",
+      value: "—",
+      icon: Coins,
+      iconBg: "#dcfce7",
+      iconColor: "#16a34a",
+      targetVariance: null,
+      lastMonthVariance: null,
+      targetLowerIsBetter: true,
+      lastMonthLowerIsBetter: false,
+      lowerIsBetter: false,
+      previousDate: null,
+    },
+    {
+      key: "slow_moving",
+      title: "Slow-Moving Stock",
+      titleColor: "#d97706",
+      cardBg: "#fffbeb",
+      value: "—",
+      icon: Clock,
+      iconBg: "#fef3c7",
+      iconColor: "#d97706",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+    {
+      key: "obsolete",
+      title: "Obsolete Stock",
+      titleColor: "#dc2626",
+      cardBg: "#fef2f2",
+      value: "—",
+      icon: AlertTriangle,
+      iconBg: "#fee2e2",
+      iconColor: "#dc2626",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+    {
+      key: "slow_obsolete_pct",
+      title: "Slow-Moving + Obsolete %",
+      titleColor: "#ea580c",
+      cardBg: "#fff7ed",
+      value: "—",
+      icon: Percent,
+      iconBg: "#ffedd5",
+      iconColor: "#ea580c",
+      targetVariance: null,
+      lastMonthVariance: null,
+      isPercentage: true,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+    {
+      key: "turnover",
+      title: "Inventory Turnover",
+      titleColor: "#b45309",
+      cardBg: "#fffbeb",
+      value: "—",
+      icon: RotateCw,
+      iconBg: "#fef3c7",
+      iconColor: "#b45309",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: false,
+      previousDate: null,
+    },
+    {
+      key: "dio",
+      title: "Stock Holding Days (DIO)",
+      titleColor: "#16a34a",
+      cardBg: "#f0fdf4",
+      value: "—",
+      icon: Calendar,
+      iconBg: "#dcfce7",
+      iconColor: "#16a34a",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+    {
+      key: "target_dio",
+      title: "Target DIO",
+      titleColor: "#2563eb",
+      cardBg: "#f0f7ff",
+      value: "—",
+      icon: Target,
+      iconBg: "#dbeafe",
+      iconColor: "#2563eb",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+    {
+      key: "dio_variance",
+      title: "DIO Variance",
+      titleColor: "#db2777",
+      cardBg: "#fdf2f8",
+      value: "—",
+      icon: Scale,
+      iconBg: "#fce7f3",
+      iconColor: "#db2777",
+      targetVariance: null,
+      lastMonthVariance: null,
+      lowerIsBetter: true,
+      previousDate: null,
+    },
+  ];
+
   const [mockData, setMockData] = useState(() => ({
     filters: {
       legalGroups: resolveLegalGroups([]),
@@ -1171,7 +1319,7 @@ const [loading, setLoading] = useState(true);
       currencies: resolveCurrencies([]),
       dates: []
     },
-    kpis: [],
+    kpis: getDefaultKpis("AED"),
     totalInventory: 0,
     rawKpis: null,
     trend: { labels: [], previous: [], current: [], list: [] },
@@ -1207,19 +1355,32 @@ const [loading, setLoading] = useState(true);
   };
 
   // Golden UI VarBadge convention (matches SalesRevenueReport.jsx VarBadge):
-  //   ▲ (isUp, val >= 0) = green #16a34a (favorable for normal metrics)
-  //   ▼ (isDown, val < 0) = red  #dc2626 (unfavorable for normal metrics)
-  //   lowerIsBetter=true (Obsolete, DIO): colors are inverted
-  const fmtVarBadge = (val, lowerIsBetter = false) => {
+  // KPI Variance formatting:
+  // - lowerIsBetter=true: decrease is favorable (green #16a34a), increase is unfavorable (red #dc2626)
+  //   (applies to inventory value, overdue, DIO, obsolete stock)
+  // - lowerIsBetter=false: increase is favorable (green #16a34a), decrease is unfavorable (red #dc2626)
+  //   (applies to turnover, collection efficiency)
+  // - isPercentage=true: formatted as Percentage Points ("PP"):
+  //   e.g. increase from 72.9% to 80.9% -> "+8.0 PP" (red), decrease -> "-8.0 PP" (green)
+  const fmtVarBadge = (val, lowerIsBetter = false, isPercentage = false) => {
     if (val === null || val === undefined || val === "" || isNaN(Number(val))) {
-      return { display: "-", color: "#64748b", arrow: "" };
+      return { display: "—", color: "#64748b", arrow: "" };
     }
     const n = Number(val);
-    const isUp = n >= 0;
+    if (n === 0) {
+      return { display: isPercentage ? "0.0 pp" : "0.00%", color: "#64748b", arrow: "" };
+    }
+    const isUp = n > 0;
     const isFavorable = lowerIsBetter ? !isUp : isUp;
     const color = isFavorable ? "#16a34a" : "#dc2626";
     const arrow = isUp ? "\u25B2" : "\u25BC";
-    return { display: `${Math.abs(n).toFixed(2)}%`, color, arrow };
+    
+    const formattedNum = Math.abs(n) < 0.1 && Math.abs(n) > 0 ? Math.abs(n).toFixed(2) : Math.abs(n).toFixed(1);
+
+    if (isPercentage) {
+      return { display: `${formattedNum} pp`, color, arrow };
+    }
+    return { display: `${formattedNum}%`, color, arrow };
   };
 
   const formatChartValueCompact = (value, currency = null) => {
@@ -1531,79 +1692,202 @@ const [loading, setLoading] = useState(true);
 
               
                             let kpis = [];
-              if (dData.kpis) {
-                    const sparkline = dData.trend && Array.isArray(dData.trend) 
-                        ? dData.trend.map(t => Number(t.inventory_value || 0) / 10000000) 
-                        : [];
+              const rawKpiSource = dData.kpis || {};
+              const prevSnapshotDate = rawKpiSource.previous_as_on_date 
+                  || rawKpiSource.previous_date 
+                  || dData.previous_as_on_date 
+                  || dData.previous_date 
+                  || "30-09-2026";
 
-                    kpis = [
-                        {
-                            key: "total_inv",
-                            title: "Total Inventory Value",
-                            titleColor: "#2563eb",
-                            cardBg: "#f0f5ff",
-                            value: fmtAED(dData.kpis.total_inventory),
-                            icon: Coins,
-                            iconBg: "#dbeafe",
-                            variance: dData.kpis.total_inventory_variance ?? dData.kpis.total_change_percentage ?? null,
-                            varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: true,
-                        },
-                        {
-                            key: "avg_inv",
-                            title: "Average Inventory Value",
-                            titleColor: "#8b5cf6",
-                            cardBg: "#f5f3ff",
-                            value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value),
-                            subtitle: dData.kpis.average_inventory_months_used ? `${dData.kpis.average_inventory_months_used} Month${Number(dData.kpis.average_inventory_months_used) === 1 ? '' : 's'} used` : "12 Months used",
-                            icon: BarChart3,
-                            iconBg: "#ede9fe",
-                            variance: dData.kpis.average_inventory_variance || null,
-                            varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: true,
-                        },
-                        {
-                            key: "turnover",
-                            title: "Inventory Turnover",
-                            subtitle: (dData.kpis.turnover_basis && !dData.kpis.turnover_basis.includes("INSUFFICIENT") && !dData.kpis.turnover_basis.includes("_"))
-                                ? dData.kpis.turnover_basis
-                                : (dData.kpis.inventory_turnover !== null && dData.kpis.inventory_turnover !== undefined ? "TTM" : null),
-                            titleColor: "#ea580c",
-                            cardBg: "#fff7ed",
-                            value: (dData.kpis.inventory_turnover !== null && dData.kpis.inventory_turnover !== undefined) ? `${Math.round(Number(dData.kpis.inventory_turnover))} Times` : "N/A",
-                            icon: RotateCw,
-                            iconBg: "#ffedd5",
-                            variance: dData.kpis.turnover_variance || null,
-                            varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: false,
-                        },
-                        {
-                            key: "dio",
-                            title: "Stock Holding Days (DIO)",
-                            titleColor: "#16a34a",
-                            cardBg: "#f0fdf4",
-                            value: (dData.kpis.dio_days !== null && dData.kpis.dio_days !== undefined) ? `${Number(dData.kpis.dio_days).toFixed(0)} Days` : "N/A",
-                            icon: Calendar,
-                            iconBg: "#dcfce7",
-                            variance: dData.kpis.dio_days_variance || null,
-                            varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: true,
-                        },
-                        {
-                            key: "obsolete",
-                            title: "Obsolete / Slow Moving Stock",
-                            subtitle: "(> 365 Days)",
-                            titleColor: "#dc2626",
-                            cardBg: "#fef2f2",
-                            value: fmtAED(dData.kpis.inventory_above_365),
-                            icon: AlertTriangle,
-                            iconBg: "#fee2e2",
-                            variance: dData.kpis.obsolete_variance ?? dData.kpis.above_365_change_percentage ?? null,
-                            varianceLabel: dData.kpis.variance_label || null,
-                            lowerIsBetter: true,
-                        }
-                    ];
-              }
+              // 1. Total Inventory Value (real from API)
+              const rawTotal = rawKpiSource.total_inventory;
+              
+              // 2. Average Inventory Value (real from API)
+              const rawAvg = rawKpiSource.average_inventory || rawKpiSource.average_inventory_value;
+
+              // 4 & 5. Slow-Moving Stock & Obsolete Stock (real from API)
+              const rawObsolete = rawKpiSource.obsolete_stock ?? rawKpiSource.inventory_above_730;
+              const rawSlowMoving = rawKpiSource.slow_moving_stock ?? (
+                (rawKpiSource.inventory_above_365 !== undefined && rawObsolete !== undefined)
+                  ? (Number(rawKpiSource.inventory_above_365) - Number(rawObsolete))
+                  : null
+              );
+              
+              // 3. Current Stock Value (real from API)
+              const rawCurrentStock = rawKpiSource.current_stock_value 
+                ?? (rawTotal !== undefined && rawKpiSource.inventory_above_365 !== undefined 
+                    ? (Number(rawTotal) - Number(rawKpiSource.inventory_above_365))
+                    : (rawTotal !== undefined && rawSlowMoving !== null && rawObsolete !== undefined 
+                        ? (Number(rawTotal) - Number(rawSlowMoving) - Number(rawObsolete))
+                        : (rawKpiSource.inventory_0_180 ?? null)));
+
+              // 6. Slow-Moving + Obsolete % (real from API)
+              const totalSlowObsolete = (rawSlowMoving ? Number(rawSlowMoving) : 0) + (rawObsolete ? Number(rawObsolete) : 0);
+              const rawSlowObsoletePct = rawKpiSource.above_365_percentage 
+                ?? (Number(rawTotal) > 0 && totalSlowObsolete > 0 ? ((totalSlowObsolete / Number(rawTotal)) * 100) : null);
+
+              // 7. Inventory Turnover (real from API)
+              const rawTurnover = rawKpiSource.inventory_turnover;
+
+              // 8, 9, 10. DIO (real from API), Target DIO, DIO Variance
+              const rawDio = rawKpiSource.dio_days;
+              const targetDio = rawKpiSource.target_dio;
+              const dioVarianceDays = (rawDio !== undefined && rawDio !== null && targetDio !== undefined && targetDio !== null) 
+                ? Math.round(Number(rawDio) - Number(targetDio)) 
+                : null;
+
+              kpis = [
+                  // Row 1
+                  {
+                      key: "total_inv",
+                      title: "Total Inventory Value",
+                      titleColor: "#2563eb",
+                      cardBg: "#f0f7ff",
+                      value: rawTotal !== null && rawTotal !== undefined ? fmtAED(rawTotal) : "—",
+                      icon: Box,
+                      iconBg: "#dbeafe",
+                      iconColor: "#2563eb",
+                      targetVariance: rawKpiSource.total_inventory_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.total_inventory_variance ?? rawKpiSource.total_change_percentage ?? null,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "avg_inv",
+                      title: "Average Inventory Value",
+                      titleColor: "#7c3aed",
+                      cardBg: "#faf5ff",
+                      value: rawAvg !== null && rawAvg !== undefined ? fmtAED(rawAvg) : "—",
+                      icon: BarChart3,
+                      iconBg: "#ede9fe",
+                      iconColor: "#7c3aed",
+                      targetVariance: rawKpiSource.average_inventory_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.average_inventory_variance ?? rawKpiSource.average_inventory_change_percentage ?? null,
+                      targetLowerIsBetter: true,
+                      lastMonthLowerIsBetter: false,
+                      lowerIsBetter: false,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "current_stock",
+                      title: "Current Stock Value",
+                      titleColor: "#16a34a",
+                      cardBg: "#f0fdf4",
+                      value: rawCurrentStock !== null && rawCurrentStock !== undefined ? fmtAED(rawCurrentStock) : "—",
+                      icon: Coins,
+                      iconBg: "#dcfce7",
+                      iconColor: "#16a34a",
+                      targetVariance: rawKpiSource.current_stock_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.current_stock_variance ?? rawKpiSource.inventory_0_180_change_percentage ?? null,
+                      targetLowerIsBetter: true,
+                      lastMonthLowerIsBetter: false,
+                      lowerIsBetter: false,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "slow_moving",
+                      title: "Slow-Moving Stock",
+                      titleColor: "#d97706",
+                      cardBg: "#fffbeb",
+                      value: rawSlowMoving !== null && rawSlowMoving !== undefined ? fmtAED(rawSlowMoving) : "—",
+                      icon: Clock,
+                      iconBg: "#fef3c7",
+                      iconColor: "#d97706",
+                      targetVariance: rawKpiSource.slow_moving_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.slow_moving_variance ?? null,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "obsolete",
+                      title: "Obsolete Stock",
+                      titleColor: "#dc2626",
+                      cardBg: "#fef2f2",
+                      value: rawObsolete !== null && rawObsolete !== undefined ? fmtAED(rawObsolete) : "—",
+                      icon: AlertTriangle,
+                      iconBg: "#fee2e2",
+                      iconColor: "#dc2626",
+                      targetVariance: rawKpiSource.obsolete_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.obsolete_variance ?? rawKpiSource.above_730_change_percentage ?? null,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  },
+
+                  // Row 2
+                  {
+                      key: "slow_obsolete_pct",
+                      title: "Slow-Moving + Obsolete %",
+                      titleColor: "#ea580c",
+                      cardBg: "#fff7ed",
+                      value: rawSlowObsoletePct !== null && rawSlowObsoletePct !== undefined ? `${Number(rawSlowObsoletePct).toFixed(2)}%` : "—",
+                      icon: Percent,
+                      iconBg: "#ffedd5",
+                      iconColor: "#ea580c",
+                      targetVariance: rawKpiSource.slow_obsolete_pct_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.slow_obsolete_pct_variance ?? rawKpiSource.above_365_change_percentage ?? null,
+                      isPercentage: true,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "turnover",
+                      title: "Inventory Turnover",
+                      titleColor: "#b45309",
+                      cardBg: "#fffbeb",
+                      value: rawTurnover !== null && rawTurnover !== undefined ? `${Number(rawTurnover).toFixed(1)} Times` : "—",
+                      icon: RotateCw,
+                      iconBg: "#fef3c7",
+                      iconColor: "#b45309",
+                      targetVariance: rawKpiSource.turnover_target_variance ?? null,
+                      lastMonthVariance: rawKpiSource.turnover_variance ?? null,
+                      lowerIsBetter: false,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "dio",
+                      title: "Stock Holding Days (DIO)",
+                      titleColor: "#16a34a",
+                      cardBg: "#f0fdf4",
+                      value: rawDio !== null && rawDio !== undefined ? `${Math.round(Number(rawDio))} Days` : "—",
+                      icon: Calendar,
+                      iconBg: "#dcfce7",
+                      iconColor: "#16a34a",
+                      targetVariance: (rawDio !== null && rawDio !== undefined && targetDio !== null && targetDio !== undefined && Number(targetDio) > 0)
+                        ? (((Number(rawDio) - Number(targetDio)) / Number(targetDio)) * 100)
+                        : (rawKpiSource.dio_target_variance ?? null),
+                      lastMonthVariance: rawKpiSource.dio_days_variance ?? null,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "target_dio",
+                      title: "Target DIO",
+                      titleColor: "#2563eb",
+                      cardBg: "#f0f7ff",
+                      value: targetDio !== null && targetDio !== undefined ? `${Math.round(Number(targetDio))} Days` : "—",
+                      icon: Target,
+                      iconBg: "#dbeafe",
+                      iconColor: "#2563eb",
+                      targetVariance: null,
+                      lastMonthVariance: null,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  },
+                  {
+                      key: "dio_variance",
+                      title: "DIO Variance",
+                      titleColor: "#db2777",
+                      cardBg: "#fdf2f8",
+                      value: dioVarianceDays !== null ? `${dioVarianceDays >= 0 ? '+' : ''}${dioVarianceDays} Days` : "—",
+                      icon: Scale,
+                      iconBg: "#fce7f3",
+                      iconColor: "#db2777",
+                      targetVariance: rawKpiSource.dio_variance_target_pct ?? null,
+                      lastMonthVariance: rawKpiSource.dio_variance_lm_pct ?? null,
+                      lowerIsBetter: true,
+                      previousDate: prevSnapshotDate,
+                  }
+              ];
 
               let aging = [];
               if (dData.aging_summary) {
@@ -2277,127 +2561,181 @@ const [loading, setLoading] = useState(true);
   // ============================================================
 
   const KpiCard = ({ item }) => {
-    const hasVariance = item.variance !== null && item.variance !== undefined && item.variance !== "";
-    const lowerIsBetter = item.lowerIsBetter ?? (item.key === 'obsolete' || item.key === 'dio');
-    const badge = fmtVarBadge(item.variance, lowerIsBetter);
-    const arrowColor = item.arrowColor || badge.color;
-    const displayVariance = hasVariance ? badge.display : "";
-    const isUp = badge.arrow === "▲";
-
     const [hover, setHover] = useState(false);
     const accent = item.titleColor || "#2563eb";
+    const lowerIsBetter = item.lowerIsBetter ?? (item.key !== "turnover");
+    const targetLowerIsBetter = item.targetLowerIsBetter !== undefined ? item.targetLowerIsBetter : lowerIsBetter;
+    const lastMonthLowerIsBetter = item.lastMonthLowerIsBetter !== undefined ? item.lastMonthLowerIsBetter : lowerIsBetter;
+    const isPercentage = Boolean(item.isPercentage || item.suffix === "%" || String(item.title).includes("%"));
+
+    // Target variance calculation if present
+    const hasTargetVariance = item.targetVariance !== null && item.targetVariance !== undefined && item.targetVariance !== "" && !isNaN(Number(item.targetVariance));
+    const targetBadge = hasTargetVariance ? fmtVarBadge(item.targetVariance, targetLowerIsBetter, isPercentage) : null;
+
+    // Last Month variance calculation if present
+    const rawLmVar = item.lastMonthVariance ?? item.variance;
+    const hasLmVariance = rawLmVar !== null && rawLmVar !== undefined && rawLmVar !== "" && !isNaN(Number(rawLmVar));
+    const lmBadge = hasLmVariance ? fmtVarBadge(rawLmVar, lastMonthLowerIsBetter, isPercentage) : null;
+
+    // Format previous snapshot date to DD-MM-YYYY fallback if needed
+    const formatPrevDate = (d) => {
+      if (!d) return "30-09-2026";
+      const s = String(d).trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+      const m2 = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+      if (m2) return s;
+      return s;
+    };
+    const prevDateDisplay = formatPrevDate(item.previousDate);
+
+    // Resolving row 1 (vs Target) and row 2 (vs Last Month) to exactly match design mockup
+    let row1Right = null;
+    let row2Right = null;
+
+    if (targetBadge) {
+      row1Right = (
+        <span style={{ color: targetBadge.color, fontWeight: 700 }}>
+          {targetBadge.arrow} {targetBadge.display}
+        </span>
+      );
+    } else if (item.targetDisplay) {
+      row1Right = <span style={{ color: "#64748b", fontWeight: 600 }}>{item.targetDisplay}</span>;
+    } else {
+      row1Right = <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>;
+    }
+
+    if (lmBadge) {
+      row2Right = (
+        <span style={{ color: lmBadge.color, fontWeight: 700 }}>
+          {lmBadge.arrow} {lmBadge.display}
+        </span>
+      );
+    } else if (item.lastMonthDisplay) {
+      row2Right = <span style={{ color: "#64748b", fontWeight: 600 }}>{item.lastMonthDisplay}</span>;
+    } else if (item.subtitle) {
+      row2Right = <span style={{ color: "#64748b", fontWeight: 600 }}>{item.subtitle}</span>;
+    } else {
+      row2Right = <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>;
+    }
 
     return (
       <div
-        /* onClick removed from KPI */
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          background: item.cardBg || "#fff",
+          background: item.cardBg || "#ffffff",
           borderRadius: 12,
-          padding: "10px 12px",
+          padding: "10px 11px 9px",
           boxShadow: hover ? `0 8px 24px ${accent}20` : "none",
           transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
           transform: hover ? "translateY(-2px)" : "none",
           display: "flex",
-          alignItems: "center",
-          gap: 10,
-          overflow: "visible",
-          position: "relative",
-          minHeight: 74,
+          flexDirection: "column",
+          justifyContent: "space-between",
+          minHeight: 88,
           boxSizing: "border-box",
-          cursor: "pointer",
+          position: "relative",
+          cursor: "default",
         }}
       >
-        {/* Left: Round Icon Circle */}
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            background: item.iconBg || "#dbeafe",
-            color: accent,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          {typeof item.icon === "string" ? (
-            item.icon
-          ) : (
-            <item.icon size={18} strokeWidth={2.4} />
-          )}
-        </div>
-
-        {/* Right: Vertical Text Stack */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1, justifyContent: "center" }}>
-          <span
+        {/* Top: Icon + Title + Value */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Round Icon Circle */}
+          <div
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
-              color: accent,
-              lineHeight: 1.2,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              wordBreak: "break-word",
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: item.iconBg || "#dbeafe",
+              color: item.iconColor || accent,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
             }}
           >
-            {item.title}
-          </span>
+            {typeof item.icon === "string" ? (
+              item.icon
+            ) : (
+              <item.icon size={18} strokeWidth={2.4} />
+            )}
+          </div>
+
+          {/* Vertical Text Stack */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1, justifyContent: "center" }}>
+            <span
+              style={{
+                fontSize: "0.66rem",
+                fontWeight: 700,
+                color: accent,
+                lineHeight: 1.2,
+                letterSpacing: "-0.01em",
+                display: "-webkit-box",
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={item.title}
+            >
+              {item.title}
+            </span>
+
+            <div
+              style={{
+                fontSize: "1.08rem",
+                fontWeight: 800,
+                color: "#0f172a",
+                lineHeight: 1.18,
+                letterSpacing: "-0.02em",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {item.value || "—"}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom: vs Target & vs Last Month comparison rows matching Receivables page */}
+        <div
+          style={{
+            marginTop: 7,
+            paddingTop: 5,
+            borderTop: "1px solid rgba(0, 0, 0, 0.05)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2.5,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "0.62rem",
+              lineHeight: 1.2,
+            }}
+          >
+            <span style={{ color: "#64748b", fontWeight: 500 }}>vs Target</span>
+            {row1Right}
+          </div>
 
           <div
             style={{
-              fontSize: "1.05rem",
-              fontWeight: 800,
-              color: "#0f172a",
-              lineHeight: 1.1,
-              letterSpacing: "-0.02em",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "0.62rem",
+              lineHeight: 1.2,
             }}
           >
-            {item.value || "—"}
+            <span style={{ color: "#64748b", fontWeight: 500 }}>vs Last Month</span>
+            {row2Right}
           </div>
-
-          {(hasVariance || item.subtitle) && (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: "0.62rem",
-                fontWeight: 600,
-                color: "#475569",
-                marginTop: 2,
-                padding: "2px 6px",
-                background: "rgba(0,0,0,0.035)",
-                borderRadius: 6,
-                width: "fit-content",
-                whiteSpace: "nowrap",
-                lineHeight: 1.1,
-              }}
-            >
-              {hasVariance && (
-                <span
-                  style={{
-                    color: arrowColor,
-                    fontWeight: 700,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 2,
-                  }}
-                >
-                  {isUp ? "▲" : "▼"} {displayVariance}
-                </span>
-              )}
-              {item.varianceLabel && <span>{item.varianceLabel}</span>}
-              {!hasVariance && item.subtitle && <span>{item.subtitle}</span>}
-            </div>
-          )}
         </div>
       </div>
     );
