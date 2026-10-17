@@ -1469,7 +1469,7 @@ function StatementCards({
         {isExpanded && (subData?.rows || []).map(row => (
           <tr
             key={row.code}
-            onClick={onDrilldown ? () => onDrilldown({ account_code: row.code, account_name: row.name }) : undefined}
+            onClick={onDrilldown ? () => onDrilldown({ account_code: row.code, account_name: row.name, balance_amount: row.current }) : undefined}
             style={{ cursor: onDrilldown ? 'pointer' : 'default' }}
             onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -1619,7 +1619,7 @@ function StatementCards({
               {isEquityExpanded && (statementData.equity?.rows || []).map(row => (
                 <tr
                   key={row.code}
-                  onClick={onDrilldown ? () => onDrilldown({ account_code: row.code, account_name: row.name }) : undefined}
+                  onClick={onDrilldown ? () => onDrilldown({ account_code: row.code, account_name: row.name, balance_amount: row.current }) : undefined}
                   style={{ cursor: onDrilldown ? 'pointer' : 'default' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -1895,7 +1895,7 @@ function StatementViewAll({
         {isExp && rows.map(r => (
           <tr
             key={r.code}
-            onClick={onDrilldown ? () => onDrilldown({ account_code: r.code, account_name: r.name }) : undefined}
+            onClick={onDrilldown ? () => onDrilldown({ account_code: r.code, account_name: r.name, balance_amount: r.current }) : undefined}
             style={{ cursor: onDrilldown ? 'pointer' : 'default' }}
             onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -3058,13 +3058,17 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
   if (!isOpen) return null;
   const rows = data?.data || [];
   const account = data?.account_name || (rows[0] && rows[0].account_name) || '—';
-  const total   = data?.consolidated_balance ?? rows.reduce((sum, r) => sum + (r.balance_amount || 0), 0);
+  const computedRowSum = rows.reduce((sum, r) => sum + (Number(r.balance_amount) || 0), 0);
+  const total = data?.frontPageBalance !== undefined && data?.frontPageBalance !== null
+    ? Number(data.frontPageBalance)
+    : (data?.consolidated_balance ?? computedRowSum);
 
   // Detect what columns are available in the data
   const hasSubDivision = rows.some(r => r.sub_division_name);
   const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
   const hasDrCr = rows.some(r => r.dr_cr);
   const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '\u2014');
+  const labelColSpan = 2 + (hasLegalEntity ? 1 : 0) + (hasSubDivision ? 1 : 0) + (hasLedger ? 1 : 0) + (hasDrCr ? 1 : 0);
 
   const modalContent = (
     <div
@@ -3125,54 +3129,136 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => (
-                  <tr
-                    key={`${row.account_code || row.sub_division_code || 'row'}-${i}`}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <td style={{ ...MTD_L, minWidth: 0, fontWeight: 600, fontSize: '0.71rem', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
-                      {row.account_name || row.sub_division_name || '\u2014'}
-                    </td>
-                    <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontFamily: 'monospace', fontSize: '0.67rem', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap', padding: '5px 6px' }}>
-                      {row.account_code || row.sub_division_code || '\u2014'}
-                    </td>
-                    {hasLegalEntity && (
-                      <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.71rem', color: '#1e293b', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
-                        {row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '\u2014'}
+                {rows.map((row, i) => {
+                  const amt = Number(row.balance_amount) || 0;
+                  const isOpposing = row.is_opposing !== undefined
+                    ? row.is_opposing
+                    : (total !== 0 ? (total > 0 ? amt < 0 : amt > 0) : amt < 0);
+                  const displayDrCr = isOpposing
+                    ? (total >= 0 ? 'CR' : 'DR')
+                    : (row.dr_cr || (total >= 0 ? 'DR' : 'CR'));
+                  const pctVal = Math.abs(row.abs_pct_of_total ?? (total !== 0 ? Math.round((Math.abs(amt) / Math.abs(total)) * 100 * 10) / 10 : 0));
+
+                  return (
+                    <tr
+                      key={`${row.account_code || row.sub_division_code || 'row'}-${i}`}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <td style={{ ...MTD_L, minWidth: 0, fontWeight: 600, fontSize: '0.71rem', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
+                        {row.account_name || row.sub_division_name || '\u2014'}
                       </td>
-                    )}
-                    {hasSubDivision && (
-                      <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.71rem', color: '#334155', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
-                        {row.sub_division_name || '\u2014'}
+                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontFamily: 'monospace', fontSize: '0.67rem', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap', padding: '5px 6px' }}>
+                        {row.account_code || row.sub_division_code || '\u2014'}
                       </td>
-                    )}
-                    {hasLedger && (
-                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontSize: '0.67rem', color: C.muted, whiteSpace: 'nowrap', padding: '5px 6px' }}>
-                        {row.ledger_code || '\u2014'}
+                      {hasLegalEntity && (
+                        <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.71rem', color: '#1e293b', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
+                          {row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '\u2014'}
+                        </td>
+                      )}
+                      {hasSubDivision && (
+                        <td style={{ ...MTD_L, minWidth: 0, fontSize: '0.71rem', color: '#334155', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25, padding: '5px 8px' }}>
+                          {row.sub_division_name || '\u2014'}
+                        </td>
+                      )}
+                      {hasLedger && (
+                        <td style={{ ...MTD, minWidth: 0, textAlign: 'center', fontSize: '0.67rem', color: C.muted, whiteSpace: 'nowrap', padding: '5px 6px' }}>
+                          {row.ledger_code || '\u2014'}
+                        </td>
+                      )}
+                      {hasDrCr && (
+                        <td style={{
+                          ...MTD,
+                          minWidth: 0,
+                          textAlign: 'center',
+                          color: displayDrCr === 'CR' ? C.rose : C.green,
+                          fontWeight: 700,
+                          fontSize: '0.70rem',
+                          whiteSpace: 'nowrap',
+                          padding: '5px 4px'
+                        }}>
+                          {displayDrCr}
+                        </td>
+                      )}
+                      <td style={{
+                        ...MTD,
+                        minWidth: 0,
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        fontSize: '0.71rem',
+                        whiteSpace: 'nowrap',
+                        padding: '5px 8px',
+                        color: isOpposing ? C.rose : '#1e293b'
+                      }}>
+                        {isOpposing ? `-${fmtNum(Math.abs(amt), currency)}` : fmtNum(Math.abs(amt), currency)}
                       </td>
-                    )}
-                    {hasDrCr && (
-                      <td style={{ ...MTD, minWidth: 0, textAlign: 'center', color: row.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700, fontSize: '0.70rem', whiteSpace: 'nowrap', padding: '5px 4px' }}>
-                        {row.dr_cr}
-                      </td>
-                    )}
-                    <td style={{ ...MTD, minWidth: 0, textAlign: 'right', fontWeight: 700, fontSize: '0.71rem', whiteSpace: 'nowrap', padding: '5px 8px' }}>
-                      {fmtNum(Math.abs(row.balance_amount), currency)}
-                    </td>
-                    <td style={{ ...MTD, minWidth: 0, textAlign: 'right', whiteSpace: 'nowrap', padding: '5px 8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
-                        <div style={{ width: 40, height: 4, background: '#f1f5f9', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
-                          <div style={{ width: `${Math.min(row.abs_pct_of_total || 0, 100)}%`, height: '100%', background: C.primary, borderRadius: 2 }} />
+                      <td style={{ ...MTD, minWidth: 0, textAlign: 'right', whiteSpace: 'nowrap', padding: '5px 8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'flex-end' }}>
+                          <div style={{ width: 40, height: 4, background: '#f1f5f9', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+                            <div style={{ width: `${Math.min(pctVal, 100)}%`, height: '100%', background: isOpposing ? C.rose : C.primary, borderRadius: 2 }} />
+                          </div>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, color: isOpposing ? C.rose : C.navy, minWidth: 32, textAlign: 'right' }}>
+                            {isOpposing ? `-${fmtPct(pctVal)}` : fmtPct(pctVal)}
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: C.navy, minWidth: 32, textAlign: 'right' }}>
-                          {fmtPct(row.abs_pct_of_total)}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 2 }}>
+                <tr style={{
+                  background: '#f8fafc',
+                  borderTop: '2px solid #cbd5e1',
+                  borderBottom: '1px solid #cbd5e1',
+                  boxShadow: '0 -2px 6px rgba(0,0,0,0.03)',
+                }}>
+                  <td
+                    colSpan={labelColSpan}
+                    style={{
+                      ...MTD_L,
+                      background: '#f8fafc',
+                      fontWeight: 800,
+                      color: C.navy,
+                      fontSize: '0.74rem',
+                      letterSpacing: '0.04em',
+                      padding: '8px 8px',
+                    }}
+                  >
+                    TOTAL
+                  </td>
+                  <td
+                    style={{
+                      ...MTD,
+                      background: '#f8fafc',
+                      minWidth: 0,
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      fontSize: '0.74rem',
+                      color: C.navy,
+                      whiteSpace: 'nowrap',
+                      padding: '8px 8px',
+                    }}
+                  >
+                    {fmtNum(Math.abs(total), currency)}
+                  </td>
+                  <td
+                    style={{
+                      ...MTD,
+                      background: '#f8fafc',
+                      minWidth: 0,
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      fontSize: '0.72rem',
+                      color: C.navy,
+                      whiteSpace: 'nowrap',
+                      padding: '8px 8px',
+                    }}
+                  >
+                    100.0%
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           )}
         </div>
@@ -3584,6 +3670,9 @@ export default function BalanceSheet() {
         parentDivision: appliedFilters.parentDivision,
         subdivision:    appliedFilters.subdivision,
       });
+      if (data) {
+        data.frontPageBalance = account.balance_amount ?? account.current ?? account.balance ?? account.amount;
+      }
       setDrilldownData(data);
     } catch (err) {
       setDrilldownError(err?.message || 'Failed to load drilldown data');

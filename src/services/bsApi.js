@@ -690,24 +690,34 @@ export async function fetchBSDrilldown(filters) {
   const sourceRows = isArr ? raw : (raw.data ?? raw.rows ?? []);
   const totalAmt = raw.consolidated_balance ?? raw.total_amount ?? (isArr ? sourceRows.reduce((sum, r) => sum + (r.balance_amount || 0), 0) : 0);
 
-  const normRows = sourceRows.map((row) => ({
-    ...row,
-    // Normalise legal entity variations
-    legal_entity_name: row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '',
-    // Normalise subdivision name variations
-    sub_division_name: row.sub_division_name || row.subdivision_name || row.subdiv_name || row.name || row.subdivision || '',
-    sub_division_code: row.sub_division_code || row.subdivision_code || row.subdiv_code || row.code || '',
-    sub_division_id:   row.sub_division_id   || row.subdivision_id   || row.subdiv_id   || row.id   || '',
-    // DR/CR indicator
-    dr_cr: row.dr_cr || row.debit_credit || row.dc_indicator || (row.balance_amount < 0 ? 'CR' : 'DR'),
-    // Parent division / ledger
-    parent_division: row.parent_division || row.parent_div || row.division || '',
-    ledger_code: row.ledger_code || row.ledger || row.parent_division || row.parent_div || row.business_unit || '\u2014',
-    // Percentage bar
-    abs_pct_of_total: totalAmt !== 0
-      ? Math.round((Math.abs(row.balance_amount) / Math.abs(totalAmt)) * 100 * 10) / 10
-      : 0,
-  }));
+  const normRows = sourceRows.map((row) => {
+    const amt = Number(row.balance_amount) || 0;
+    const isOpposing = totalAmt !== 0 ? (totalAmt > 0 ? amt < 0 : amt > 0) : amt < 0;
+    const resolvedDrCr = isOpposing
+      ? (totalAmt >= 0 ? 'CR' : 'DR')
+      : (row.dr_cr || row.debit_credit || row.dc_indicator || (amt < 0 ? 'CR' : 'DR'));
+
+    return {
+      ...row,
+      balance_amount: amt,
+      // Normalise legal entity variations
+      legal_entity_name: row.legal_entity_name || row.legal_entity || row.entity_name || row.entity || '',
+      // Normalise subdivision name variations
+      sub_division_name: row.sub_division_name || row.subdivision_name || row.subdiv_name || row.name || row.subdivision || '',
+      sub_division_code: row.sub_division_code || row.subdivision_code || row.subdiv_code || row.code || '',
+      sub_division_id:   row.sub_division_id   || row.subdivision_id   || row.subdiv_id   || row.id   || '',
+      // DR/CR indicator
+      dr_cr: resolvedDrCr,
+      is_opposing: isOpposing,
+      // Parent division / ledger
+      parent_division: row.parent_division || row.parent_div || row.division || '',
+      ledger_code: row.ledger_code || row.ledger || row.parent_division || row.parent_div || row.business_unit || '\u2014',
+      // Percentage bar
+      abs_pct_of_total: totalAmt !== 0
+        ? Math.round((Math.abs(amt) / Math.abs(totalAmt)) * 100 * 10) / 10
+        : 0,
+    };
+  });
 
   return {
     ...(isArr ? {} : raw),
