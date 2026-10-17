@@ -27,7 +27,46 @@ import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
 const API_BASE = getApiBaseUrl();
 
-/* ── Auth headers ─────────────────────────────────────────────────── */
+/* ── Auth headers & Allowed Scope tracking ────────────────────────── */
+
+let _cachedAllowedLegalGroups = null;
+
+export function setCachedAllowedLegalGroups(groups) {
+  _cachedAllowedLegalGroups = groups;
+}
+
+export function getCachedAllowedLegalGroups() {
+  return _cachedAllowedLegalGroups;
+}
+
+function getUserAllowedLegalGroups() {
+  if (_cachedAllowedLegalGroups && _cachedAllowedLegalGroups.length > 0) {
+    return _cachedAllowedLegalGroups;
+  }
+  try {
+    const raw = typeof localStorage !== 'undefined'
+      ? (localStorage.getItem('finsight_user') || sessionStorage.getItem('finsight_user'))
+      : null;
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (Array.isArray(u.access_scopes) && u.access_scopes.length > 0) {
+        const scopeGroupIds = Array.from(new Set(
+          u.access_scopes
+            .map(s => s.legal_group_id)
+            .filter(id => id !== undefined && id !== null && !isNaN(Number(id)))
+            .map(Number)
+        ));
+        if (scopeGroupIds.length > 0) return scopeGroupIds;
+      }
+      const role = String(u.role_code || u.role || '').toUpperCase();
+      if (['CFO', 'CEO', 'ADMIN', 'BOARD'].includes(role)) {
+        return [4, 3];
+      }
+      return [4];
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
 
 const apiCache = new Map();
 
@@ -71,6 +110,7 @@ async function apiCall(path, params = {}) {
     }
 
     if (!res.ok) {
+      apiCache.delete(url);
       if (res.status === 401) {
         throw { status: 401, message: 'Unauthorized', isAuthError: true };
       }
@@ -82,6 +122,16 @@ async function apiCall(path, params = {}) {
       let message = body?.error?.message || body?.message || body?.detail;
       if (Array.isArray(message)) message = message.map(m => typeof m === 'object' ? m.msg : m).join(', ');
       if (!message) message = rawBody.slice(0, 120) || res.statusText || 'Error occurred';
+
+      // 403 Graceful Recovery: If "Legal Group access denied" and legal_group_id was sent,
+      // update cached allowed groups and retry without unauthorized legal_group_id
+      if (res.status === 403 && String(message).toLowerCase().includes('legal group access denied') && params.legal_group_id !== undefined) {
+        console.warn('[bsApi] 403 Legal Group access denied for legal_group_id:', params.legal_group_id, '- retrying without unauthorized legal group');
+        _cachedAllowedLegalGroups = [4];
+        const fallbackParams = { ...params };
+        delete fallbackParams.legal_group_id;
+        return apiCall(path, fallbackParams);
+      }
 
       throw { status: res.status, message: String(message), rawBody: rawBody.slice(0, 300) };
     }
@@ -128,10 +178,18 @@ function buildBSParams(filters = {}) {
   const periodVal = toPeriod(filters.period);
   const comparePeriodVal = toPeriod(filters.comparePeriod);
 
-  // If legalGroup is 'All' or not specified, pass all known legal group IDs [4, 3] (FJ Group: 4, RKME Group / Raphael Khlat: 3)
-  // so the backend does not default to FJ Group only (which silently excludes Raphael Khlat).
+  // If legalGroup is 'All' or not specified:
+  // - For users with access to both FJ Group and RKME Group (e.g. CFO, CEO, Admin), pass their allowed groups [4, 3]
+  //   so Raphael Khlat is included in the backend aggregation.
+  // - For scoped users (e.g. BU Accountant Dileep, GM, FM), pass ONLY their authorized group(s) [4] so 403 errors are prevented.
   const activeLegalGroup = active(filters.legalGroup);
-  const resolvedLegalGroup = activeLegalGroup !== undefined ? activeLegalGroup : [4, 3];
+  let resolvedLegalGroup = activeLegalGroup;
+  if (resolvedLegalGroup === undefined) {
+    const allowed = filters.allowedLegalGroups || getUserAllowedLegalGroups();
+    if (allowed && allowed.length > 0) {
+      resolvedLegalGroup = allowed;
+    }
+  }
 
   return {
     period:              periodVal,
@@ -222,6 +280,11 @@ export async function fetchBSFilters(params = {}) {
   const apiParams = {
     ...buildBSParams(params),
   };
+  // When discovering filter options (not cascading on a specific legal group selection),
+  // NEVER send legal_group_id so the backend returns all legal groups authorized for the user
+  if (!params.isCascade || !params.legalGroup || params.legalGroup.includes('All')) {
+    delete apiParams.legal_group_id;
+  }
   if (params.analysisCode) apiParams.analysis_code = params.analysisCode;
 
   let raw;
@@ -293,6 +356,14 @@ export async function fetchBSFilters(params = {}) {
 
   let lgList = res.legal_groups || [];
   if (Array.isArray(lgList)) {
+    const extractedIds = lgList
+      .map(g => (typeof g === 'object' && g !== null ? (g.id !== undefined ? g.id : g.value) : g))
+      .filter(id => id !== undefined && id !== null && id !== 'All' && !isNaN(Number(id)))
+      .map(Number);
+    if (extractedIds.length > 0) {
+      _cachedAllowedLegalGroups = extractedIds;
+    }
+
     res.legal_groups = lgList.map(g => {
       if (typeof g === 'string') {
         const upper = g.toUpperCase();
@@ -584,6 +655,9 @@ export async function fetchBSDrilldown(filters) {
     return val && val !== 'All' && val !== 'all' ? val : undefined;
   };
 
+  const activeLG = active(filters.legalGroup);
+  const resolvedLG = activeLG !== undefined ? activeLG : (filters.allowedLegalGroups || getUserAllowedLegalGroups());
+
   const params = {
     period:             periodVal,
     period_name:        periodVal,
@@ -593,7 +667,7 @@ export async function fetchBSDrilldown(filters) {
     sort_by:            filters.sortBy  || 'balance_amount',
     sort_dir:           filters.sortDir || 'desc',
     // Pass user-selected entity filters so the drilldown is scoped correctly
-    legal_group_id:     active(filters.legalGroup) || [4, 3],
+    legal_group_id:     resolvedLG,
     legal_entity_id:    active(filters.legalEntity),
     parent_division_id: active(filters.parentDivision),
     subdivision_id:     active(filters.subdivision),

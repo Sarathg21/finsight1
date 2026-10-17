@@ -3515,18 +3515,28 @@ export default function BalanceSheet() {
         .catch(err => { setErrors(prev => ({ ...prev, [key]: err?.message || 'Failed to load data' })); return null; })
         .finally(() => setLoading(prev => ({ ...prev, [key]: false })));
 
-    guard('summary', fetchBSSummary(f)).then(d => { if (d) { setSummaryData(d); setLastFetchedAt(new Date()); } });
+    const allowedGroupIds = (filterOptions.legalGroups || [])
+      .map(g => (typeof g === 'object' && g !== null ? (g.id !== undefined ? g.id : g.value) : g))
+      .filter(id => id !== undefined && id !== null && id !== 'All' && !isNaN(Number(id)))
+      .map(Number);
+
+    const filtersWithAllowed = {
+      ...f,
+      allowedLegalGroups: allowedGroupIds.length > 0 ? allowedGroupIds : undefined,
+    };
+
+    guard('summary', fetchBSSummary(filtersWithAllowed)).then(d => { if (d) { setSummaryData(d); setLastFetchedAt(new Date()); } });
 
     if (hasCompare) {
-      guard('compareSummary', fetchBSSummary({ ...f, period: f.comparePeriod })).then(d => {
+      guard('compareSummary', fetchBSSummary({ ...filtersWithAllowed, period: f.comparePeriod })).then(d => {
         setCompareSummaryData(d || null);
       });
     } else {
       setCompareSummaryData(null);
     }
 
-    guard('subdivision', fetchBSSubDivision(f)).then(d => { if (d) setSubdivisionData(d); });
-    guard('trend', fetchBS6MonthTrend(f, filterOptions.periods)).then(d => {
+    guard('subdivision', fetchBSSubDivision(filtersWithAllowed)).then(d => { if (d) setSubdivisionData(d); });
+    guard('trend', fetchBS6MonthTrend(filtersWithAllowed, filterOptions.periods)).then(d => {
       if (d) {
         setTrend6MonthData(d);
         setTrendData(d.series);
@@ -3535,7 +3545,7 @@ export default function BalanceSheet() {
     guard('reconciliation', fetchBSReconciliation({ currency: f.currency })).then(d => {
       if (d) setReconciliationRows(Array.isArray(d) ? d : []);
     });
-  }, [filterOptions.periods]);
+  }, [filterOptions.periods, filterOptions.legalGroups]);
 
   /* ── Trigger fetch when applied filters change ─────────────────── */
   // FIX M2/C3: depend on a stable serialised key of the full applied filter set so
@@ -3557,6 +3567,11 @@ export default function BalanceSheet() {
     setDrilldownLoading(true);
     setDrilldownError(null);
     try {
+      const allowedGroupIds = (filterOptions.legalGroups || [])
+        .map(g => (typeof g === 'object' && g !== null ? (g.id !== undefined ? g.id : g.value) : g))
+        .filter(id => id !== undefined && id !== null && id !== 'All' && !isNaN(Number(id)))
+        .map(Number);
+
       const data = await fetchBSDrilldown({
         period:         appliedFilters.period,
         currency:       appliedFilters.currency,
@@ -3564,6 +3579,7 @@ export default function BalanceSheet() {
         accountName:    account.account_name,
         ledger:         appliedFilters.ledger,
         legalGroup:     appliedFilters.legalGroup,
+        allowedLegalGroups: allowedGroupIds.length > 0 ? allowedGroupIds : undefined,
         legalEntity:    appliedFilters.legalEntity,
         parentDivision: appliedFilters.parentDivision,
         subdivision:    appliedFilters.subdivision,
