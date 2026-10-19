@@ -1210,7 +1210,7 @@ const [loading, setLoading] = useState(true);
     },
     {
       key: "slow_moving",
-      title: "Slow-Moving Stock",
+      title: "Slow Moving Stock (181–365 Days)",
       titleColor: "#d97706",
       cardBg: "#fffbeb",
       value: "—",
@@ -1706,20 +1706,21 @@ const [loading, setLoading] = useState(true);
               const rawAvg = rawKpiSource.average_inventory || rawKpiSource.average_inventory_value;
 
               // 4 & 5. Slow-Moving Stock & Obsolete Stock (real from API)
-              const rawObsolete = rawKpiSource.obsolete_stock ?? rawKpiSource.inventory_above_730;
-              const rawSlowMoving = rawKpiSource.slow_moving_stock ?? (
-                (rawKpiSource.inventory_above_365 !== undefined && rawObsolete !== undefined)
-                  ? (Number(rawKpiSource.inventory_above_365) - Number(rawObsolete))
-                  : null
-              );
+              const rawObsolete = rawKpiSource.obsolete_stock ?? rawKpiSource.inventory_above_365 ?? rawKpiSource.inventory_above_730;
+              // Map to new backend field slow_moving_stock (181–365 Days).
+              // Note: inventory_above_180 represents combined slow-moving + obsolete stock, so it is strictly not used for Slow Moving Stock.
+              const rawSlowMoving = rawKpiSource.slow_moving_stock !== undefined && rawKpiSource.slow_moving_stock !== null
+                ? rawKpiSource.slow_moving_stock
+                : null;
               
               // 3. Current Stock Value (real from API)
               const rawCurrentStock = rawKpiSource.current_stock_value 
-                ?? (rawTotal !== undefined && rawKpiSource.inventory_above_365 !== undefined 
-                    ? (Number(rawTotal) - Number(rawKpiSource.inventory_above_365))
-                    : (rawTotal !== undefined && rawSlowMoving !== null && rawObsolete !== undefined 
-                        ? (Number(rawTotal) - Number(rawSlowMoving) - Number(rawObsolete))
-                        : (rawKpiSource.inventory_0_180 ?? null)));
+                ?? rawKpiSource.inventory_0_180
+                ?? (rawTotal !== undefined && rawSlowMoving !== null && rawObsolete !== undefined 
+                    ? (Number(rawTotal) - Number(rawSlowMoving) - Number(rawObsolete))
+                    : (rawTotal !== undefined && rawKpiSource.inventory_above_180 !== undefined 
+                        ? (Number(rawTotal) - Number(rawKpiSource.inventory_above_180))
+                        : null));
 
               // 6. Slow-Moving + Obsolete % (real from API)
               const totalSlowObsolete = (rawSlowMoving ? Number(rawSlowMoving) : 0) + (rawObsolete ? Number(rawObsolete) : 0);
@@ -1786,7 +1787,7 @@ const [loading, setLoading] = useState(true);
                   },
                   {
                       key: "slow_moving",
-                      title: "Slow-Moving Stock",
+                      title: "Slow Moving Stock (181–365 Days)",
                       titleColor: "#d97706",
                       cardBg: "#fffbeb",
                       value: rawSlowMoving !== null && rawSlowMoving !== undefined ? fmtAED(rawSlowMoving) : "—",
@@ -1794,7 +1795,7 @@ const [loading, setLoading] = useState(true);
                       iconBg: "#fef3c7",
                       iconColor: "#d97706",
                       targetVariance: rawKpiSource.slow_moving_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.slow_moving_variance ?? null,
+                      lastMonthVariance: rawKpiSource.slow_moving_variance ?? rawKpiSource.slow_moving_change_percentage ?? null,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
                   },
@@ -5352,7 +5353,9 @@ const detailsSource = modalFilteredDetails || [];
                     });
                 }
                 currentStockVal = currentTotal;
-                slowMovingStockVal = slowMovingTotal;
+                slowMovingStockVal = (modalApiData.dashKpis.slow_moving_stock !== undefined && modalApiData.dashKpis.slow_moving_stock !== null)
+                    ? Number(modalApiData.dashKpis.slow_moving_stock)
+                    : slowMovingTotal;
             } else if (hasDrilldown) {
                 // Fallback to summing frontend items if dashKpis is missing
                 totalInventoryVal = detailsSource.reduce((s, r) => s + Number(r.total_stock_value || 0), 0);
@@ -5374,7 +5377,9 @@ const detailsSource = modalFilteredDetails || [];
                     }
                 });
                 currentStockVal = cTotal;
-                slowMovingStockVal = sTotal;
+                slowMovingStockVal = (mockData.rawKpis?.slow_moving_stock !== undefined && mockData.rawKpis.slow_moving_stock !== null)
+                    ? Number(mockData.rawKpis.slow_moving_stock)
+                    : sTotal;
                 obsoleteStockVal = mockData.rawKpis?.inventory_above_365 ? Number(mockData.rawKpis.inventory_above_365) : 0;
             }
 
@@ -6102,7 +6107,7 @@ const detailsSource = modalFilteredDetails || [];
 
                     <SummaryCard
                       icon="⌛"
-                      title="Slow Moving Stock (181 to 365 Days)"
+                      title="Slow Moving Stock (181–365 Days)"
                       value={formatKPICompact(slowMovingStockVal)}
                       iconBackground="#fff2df"
                       iconColor="#ed8a17"

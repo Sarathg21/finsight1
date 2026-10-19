@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import ExecDashboardViewAll from '../components/ExecDashboardViewAll';
 import PLComparisonCard from '../components/Charts/PLComparisonCard';
+import KeyFinancialParameters from '../components/KeyFinancialParameters';
 import Filters from '../components/Filters/Filters';
 import { getOpexFilterOptions } from '../api/opexApi';
 import { fetchPLStatement, fetchPLComparison, fetchPLTrend } from '../services/plApi';
@@ -609,7 +610,6 @@ export default function ExecutiveDashboard() {
     const [hoveredTwcIndex, setHoveredTwcIndex] = useState(null);
     const [hoveredRevIndex, setHoveredRevIndex] = useState(null);
     const [viewAll, setViewAll] = useState({ open: false, section: 'twc_viewall' });
-    const [paramTableMode, setParamTableMode] = useState('all'); // 'all' | 'values' | 'ratios'
 
     // ── Filter state ──
     const [filters, setFilters] = useState({
@@ -638,7 +638,7 @@ export default function ExecutiveDashboard() {
     }, []);
 
     const handleApplyFilters = (applied) => {
-        let dateVal = '2026-09-25';
+        let dateVal = '2026-09-30';
         if (applied && applied.period) {
             const pStr = Array.isArray(applied.period) ? applied.period[applied.period.length - 1] : applied.period;
             if (pStr) {
@@ -650,21 +650,32 @@ export default function ExecutiveDashboard() {
                     if (mIdx !== -1) {
                         const yr = parts[1] || applied.year || '2026';
                         const moStr = String(mIdx + 1).padStart(2, '0');
-                        dateVal = `${yr}-${moStr}-25`;
+                        const lastDay = new Date(parseInt(yr, 10), mIdx + 1, 0).getDate();
+                        dateVal = `${yr}-${moStr}-${String(lastDay).padStart(2, '0')}`;
                     }
                 }
             }
         }
+
+        const extractIds = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) {
+                const ids = val.map(x => (typeof x === 'object' && x !== null) ? (x.id ?? x.value ?? x.name) : x).filter(Boolean);
+                return ids.length ? ids : null;
+            }
+            if (typeof val === 'object') return [val.id ?? val.value ?? val.name];
+            return [val];
+        };
 
         const newFilterState = {
             as_of_date: dateVal,
             as_on_date: dateVal,
             period_type: 'PTD',
             reporting_currency: applied?.reporting_currency || 'AED',
-            legal_group_id: Array.isArray(applied?.legal_group) && applied.legal_group.length ? applied.legal_group : null,
-            legal_entity_id: Array.isArray(applied?.legal_entity) && applied.legal_entity.length ? applied.legal_entity : null,
-            parent_division_id: Array.isArray(applied?.parent_division) && applied.parent_division.length ? applied.parent_division : null,
-            subdivision_id: Array.isArray(applied?.subdivision) && applied.subdivision.length ? applied.subdivision : null,
+            legal_group_id: extractIds(applied?.legal_group),
+            legal_entity_id: extractIds(applied?.legal_entity),
+            parent_division_id: extractIds(applied?.parent_division),
+            subdivision_id: extractIds(applied?.subdivision),
         };
 
         setFilters(newFilterState);
@@ -673,8 +684,8 @@ export default function ExecutiveDashboard() {
 
     const handleResetFilters = () => {
         const defaultState = {
-            as_of_date: '2026-09-25',
-            as_on_date: '2026-09-25',
+            as_of_date: '2026-09-30',
+            as_on_date: '2026-09-30',
             period_type: 'PTD',
             reporting_currency: 'AED',
             legal_group_id: null,
@@ -685,26 +696,6 @@ export default function ExecutiveDashboard() {
         setFilters(defaultState);
         setAppliedFilters(defaultState);
     };
-
-    // ── Dynamic Table Period Headers ──
-    const dynamicHeaders = React.useMemo(() => {
-        const dStr = appliedFilters.as_of_date || '2026-09-25';
-        const parts = dStr.split('-');
-        if (parts.length === 3) {
-            const y = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10) - 1;
-            const currentStr = `${MONTHS_SHORT[m]} ${y}`;
-
-            let pmMonth = m - 1;
-            let pmYear = y;
-            if (pmMonth < 0) { pmMonth = 11; pmYear = y - 1; }
-            const prevMonthStr = `${MONTHS_SHORT[pmMonth]} ${pmYear}`;
-
-            const prevYearStr = `${MONTHS_SHORT[m]} ${y - 1}`;
-            return { current: currentStr, prevMonth: prevMonthStr, prevYear: prevYearStr };
-        }
-        return { current: 'Sep 2026', prevMonth: 'Aug 2026', prevYear: 'Sep 2025' };
-    }, [appliedFilters.as_of_date]);
 
     // ── KPI state ──
     const [kpiData, setKpiData] = useState(DEFAULT_KPI_DATA);
@@ -720,11 +711,9 @@ export default function ExecutiveDashboard() {
     const [profitTrend, setProfitTrend] = useState([]);
     const [profitTrendLoading, setProfitTrendLoading] = useState(false);
 
-    // ── Regional & Parameters state ──
+    // ── Regional state ──
     const [revRegionData, setRevRegionData] = useState([]);
     const [profitRegionDataState, setProfitRegionDataState] = useState([]);
-    const [paramParentDiv, setParamParentDiv] = useState('All');
-    const [paramPeriod, setParamPeriod] = useState('Current Period');
 
     // ── Fetch KPIs & Target Comparison on filter apply ──
     useEffect(() => {
@@ -1275,70 +1264,6 @@ export default function ExecutiveDashboard() {
             target_net_profit: targetNetProfitM,
         }));
     }, [profitTrend, targetNetProfitM]);
-
-    // ── Build Key Financial Parameters table directly from Executive KPI payload ──
-    const displayParamTableData = React.useMemo(() => {
-        const PARAM_DEFS = [
-            { key: 'total_revenue',              name: 'Total Revenue',             isCurr: true },
-            { key: 'gross_profit',               name: 'Gross Profit',              isCurr: true },
-            { key: 'ebitda',                     name: 'EBITDA',                    isCurr: true },
-            { key: 'net_profit',                 name: 'Net Profit',                isCurr: true },
-            { key: 'trade_working_capital',      name: 'Trade Working Capital',     isCurr: true },
-            { key: 'net_working_capital',        name: 'Net Working Capital',       isCurr: true },
-            { key: 'dso_days',                   name: 'DSO (Days)',                isDays: true, altKey: 'dso' },
-            { key: 'dio_days',                   name: 'DIO (Days)',                isDays: true, altKey: 'dio' },
-            { key: 'dpo_days',                   name: 'DPO (Days)',                isDays: true, altKey: 'dpo' },
-            { key: 'cash_conversion_cycle_days', name: 'CCC (Days)',                isDays: true, altKey: 'ccc' },
-            { key: 'current_ratio',              name: 'Current Ratio',             isRatio: true },
-            { key: 'tangible_net_worth_ratio',   name: 'Tangible Net Worth Ratio',  isRatio: true, altKey: 'tnw_ratio' },
-            { key: 'roi',                        name: 'ROI %',                     isPct: true },
-        ];
-
-        return PARAM_DEFS.map(def => {
-            const rawVal = getValueFromKpiPayload(kpiData, def.key) ?? (def.altKey ? getValueFromKpiPayload(kpiData, def.altKey) : undefined);
-            const momVal = getChangeFromKpiPayload(kpiData, def.key);
-            const yoyVal = undefined;
-            const prevVal = undefined;
-            const prevYrVal = undefined;
-
-            const formatVal = (v) => {
-                if (v === null || v === undefined) return '–';
-                const n = Number(v);
-                if (isNaN(n)) return '–';
-                if (def.isPct) return `${n.toFixed(2)}%`;
-                if (def.isDays || def.isRatio) return n.toFixed(2);
-                if (Math.abs(n) >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(1)}M`;
-                if (Math.abs(n) >= 1_000) return `${currency} ${(n / 1_000).toFixed(0)}K`;
-                return `${currency} ${n.toFixed(2)}`;
-            };
-
-            return {
-                param: def.name,
-                isCurr: def.isCurr,
-                isDays: def.isDays,
-                isRatio: def.isRatio,
-                isPct: def.isPct,
-                m1: formatVal(rawVal),
-                m2: formatVal(prevVal),
-                mom: momVal !== null && momVal !== undefined && !isNaN(Number(momVal)) ? `${Number(momVal) >= 0 ? '+' : ''}${Number(momVal).toFixed(1)}%` : '–',
-                m3: formatVal(prevYrVal),
-                yoy: yoyVal !== null && yoyVal !== undefined && !isNaN(Number(yoyVal)) ? `${Number(yoyVal) >= 0 ? '+' : ''}${Number(yoyVal).toFixed(1)}%` : '–',
-                momPos: momVal !== null && momVal !== undefined && Number(momVal) >= 0,
-                yoyPos: yoyVal !== null && yoyVal !== undefined && Number(yoyVal) >= 0,
-                comment: ''
-            };
-        });
-    }, [kpiData, currency]);
-
-    const filteredParamRows = React.useMemo(() => {
-        if (paramTableMode === 'values') {
-            return displayParamTableData.filter(r => r.isCurr);
-        }
-        if (paramTableMode === 'ratios') {
-            return displayParamTableData.filter(r => r.isDays || r.isRatio || r.isPct);
-        }
-        return displayParamTableData;
-    }, [displayParamTableData, paramTableMode]);
 
     return (
         <div style={{ background: 'var(--clr-bg)', paddingBottom: 24 }}>
@@ -1980,111 +1905,14 @@ export default function ExecutiveDashboard() {
                 </div>
             </div>
 
-            {/* 4. TABLE */}
-            <div className="card" style={{ padding: 18 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <FileText size={18} color="var(--clr-primary)" /> Key Financial Parameters
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>Parent Div:</span>
-                            <select
-                                value={paramParentDiv}
-                                onChange={e => setParamParentDiv(e.target.value)}
-                                style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--clr-border)', fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)', background: 'var(--clr-surface)', cursor: 'pointer' }}
-                            >
-                                <option value="All">All Parent Divisions</option>
-                                {(filterOptions.parentDivisions || filterOptions.parent_divisions || []).map(pd => {
-                                    const val = typeof pd === 'object' ? (pd.id || pd.value || pd.name) : pd;
-                                    const label = typeof pd === 'object' ? (pd.name || pd.label || val) : pd;
-                                    return <option key={val} value={val}>{label}</option>;
-                                })}
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--clr-text-muted)' }}>Period:</span>
-                            <select
-                                value={paramPeriod}
-                                onChange={e => setParamPeriod(e.target.value)}
-                                style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--clr-border)', fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)', background: 'var(--clr-surface)', cursor: 'pointer' }}
-                            >
-                                <option value="Current Period">Current Period (PTD)</option>
-                                <option value="YTD">YTD</option>
-                                <option value="QTD">QTD</option>
-                                <option value="Full Year">Full Year</option>
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', background: 'var(--clr-surface-2)', borderRadius: 6, padding: 3, border: '1px solid var(--clr-border)' }}>
-                            <button
-                                onClick={() => setParamTableMode('values')}
-                                style={{
-                                    background: paramTableMode === 'values' ? 'var(--clr-primary)' : 'transparent',
-                                    color: paramTableMode === 'values' ? '#fff' : 'var(--clr-text-muted)',
-                                    border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                                    transition: 'all 0.15s'
-                                }}
-                            >
-                                Values
-                            </button>
-                            <button
-                                onClick={() => setParamTableMode('ratios')}
-                                style={{
-                                    background: paramTableMode === 'ratios' ? 'var(--clr-primary)' : 'transparent',
-                                    color: paramTableMode === 'ratios' ? '#fff' : 'var(--clr-text-muted)',
-                                    border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                                    transition: 'all 0.15s'
-                                }}
-                            >
-                                Ratios / Days
-                            </button>
-                            <button
-                                onClick={() => setParamTableMode('all')}
-                                style={{
-                                    background: paramTableMode === 'all' ? 'var(--clr-primary)' : 'transparent',
-                                    color: paramTableMode === 'all' ? '#fff' : 'var(--clr-text-muted)',
-                                    border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                                    transition: 'all 0.15s'
-                                }}
-                            >
-                                All
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-sans)' }}>
-                        <thead>
-                            <tr>
-                                <th className="th-cell">Parameter</th>
-                                <th className="th-cell">{dynamicHeaders.current}</th>
-                                <th className="th-cell">{dynamicHeaders.prevMonth}</th>
-                                <th className="th-cell">MoM Change</th>
-                                <th className="th-cell">{dynamicHeaders.prevYear}</th>
-                                <th className="th-cell">YoY Change</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredParamRows.map((row, idx) => (
-                                <tr key={idx} style={{ transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='var(--clr-surface-2)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                                    <td className="td-cell" style={{ color: 'var(--clr-text)', fontWeight: 700 }}>{row.param}</td>
-                                    <td className="td-cell">{row.m1}</td>
-                                    <td className="td-cell">{row.m2}</td>
-                                    <td className="td-cell" style={{ color: row.mom === '–' ? 'var(--clr-text-muted)' : (row.momPos ? 'var(--clr-success)' : 'var(--clr-danger)') }}>
-                                        {row.mom !== '–' && <span style={{ fontSize: '0.65rem', marginRight: 4 }}>{row.momPos ? '▲' : '▼'}</span>}
-                                        {row.mom}
-                                    </td>
-                                    <td className="td-cell">{row.m3}</td>
-                                    <td className="td-cell" style={{ color: row.yoy === '–' ? 'var(--clr-text-muted)' : (row.yoyPos ? 'var(--clr-success)' : 'var(--clr-danger)') }}>
-                                        {row.yoy !== '–' && <span style={{ fontSize: '0.65rem', marginRight: 4 }}>{row.yoyPos ? '▲' : '▼'}</span>}
-                                        {row.yoy}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            {/* 4. KEY FINANCIAL PARAMETERS (ENHANCED SECTION) */}
+            <KeyFinancialParameters
+                filterOptions={filterOptions}
+                initialFilters={appliedFilters}
+                currency={currency}
+                parentTwcTrend={twcTrend}
+                parentKpis={kpiData}
+            />
 
             {/* View All Modal */}
             <ExecDashboardViewAll
