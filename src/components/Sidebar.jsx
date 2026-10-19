@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
-  Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
+  Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet, Factory,
   FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase, WalletCards,
   UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign,
 } from 'lucide-react';
@@ -25,6 +25,8 @@ const ROUTE_ICON = {
   '/inventory': Package,
   '/WorkingCapital': LayoutGrid,
   '/FinancialPosition': Wallet,
+
+  '/manufacturing-cost': Factory,
   '/cash-collection': Wallet,
   '/excel-consolidator': FileSpreadsheet,
   '/admin': Shield,
@@ -71,6 +73,11 @@ const NAV_BY_ROLE = {
     { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
     { to: '/WorkingCapital', label: 'Working Capital', group: 'Reports' },
     { to: '/FinancialPosition', label: 'Financial Position ', group: 'Reports' },
+    {
+      to: '/manufacturing-cost',
+      label: 'Manufacturing Cost & Production Performance',
+      group: 'Reports',
+    },
 
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },

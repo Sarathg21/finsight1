@@ -695,6 +695,9 @@ const PAGE_TO_MODULE = {
 
   opex: 'OPERATING_EXPENSES',
 
+  'manufacturing-cost': 'MANUFACTURING_COST',
+  'manufacturingcostdashboard': 'MANUFACTURING_COST',
+
   payables: 'PAYABLES',
 
   ap: 'PAYABLES',
