@@ -1,4 +1,14309 @@
 
+// import React, { useEffect, useMemo, useState, useRef } from "react";
+// import { createPortal } from "react-dom";
+// import { Search } from "lucide-react";
+// import { useAuth } from "../context/AuthContext";
+// import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
+// import {
+//     getReceivablesFilterOptions,
+//     getReceivablesDashboard,
+//     getReceivablesMonthOnMonth,
+//     getReceivablesParentDivisionMonthOnMonth,
+//     exportReceivablesParentDivisionMonthOnMonthExcel,
+//     exportReceivablesParentDivisionMonthOnMonthPDF,
+//     getReceivablesViewAll,
+//     exportReceivablesExcel,
+//     exportReceivablesPDF,
+// } from "../api/recevablesApi";
+
+// // Compatibility helpers for the existing dashboard code.
+// const getReceivableFilters = getReceivablesFilterOptions;
+// const getReceivableDashboard = getReceivablesDashboard;
+// const getReceivableMonthOnMonth = getReceivablesMonthOnMonth;
+// const getReceivableDetails = getReceivablesViewAll;
+// const getReceivableExport = async (filters = {}, format = "xlsx") => {
+//     if (String(format).toLowerCase() === "pdf") {
+//         return exportReceivablesPDF(filters);
+//     }
+//     return exportReceivablesExcel(filters);
+// };
+
+// /* ------------------------------------------------------------
+//    EXPORT DOWNLOAD HELPER
+//    Supports Axios responses, Blob responses and fetch-style data.
+//    ------------------------------------------------------------ */
+// const triggerReceivablesBlobDownload = (response, fallbackName, forceFallbackName = false) => {
+//     const source = response?.data ?? response;
+//     const blob =
+//         source instanceof Blob
+//             ? source
+//             : new Blob([source], {
+//                 type: response?.headers?.["content-type"] || "application/octet-stream",
+//             });
+
+//     const disposition =
+//         response?.headers?.["content-disposition"] ||
+//         response?.headers?.["Content-Disposition"] ||
+//         "";
+
+//     const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^;\"]+)/i);
+//     const filename = forceFallbackName
+//         ? fallbackName
+//         : match?.[1]?.trim() || fallbackName;
+
+//     const url = window.URL.createObjectURL(blob);
+//     const anchor = document.createElement("a");
+//     anchor.href = url;
+//     anchor.download = filename;
+//     document.body.appendChild(anchor);
+//     anchor.click();
+//     anchor.remove();
+//     window.URL.revokeObjectURL(url);
+// };
+
+// /* ============================================================
+//    RECEIVABLES DASHBOARD
+//    ------------------------------------------------------------
+//    Receivables-specific filters:
+//    - Legal Group
+//    - Legal Entity
+//    - Parent Division
+//    - Sub-Division
+//    - Reporting Currency
+//    - As-On Date
+//    - Aging Basis
+
+//    No Business Unit filter.
+//    ============================================================ */
+
+
+// const RECEIVABLE_AGING_BUCKETS = [
+//     "Current",
+//     "0–30 Days",
+//     "31–60 Days",
+//     "61–90 Days",
+//     "91–120 Days",
+//     "121–180 Days",
+//     "181–365 Days",
+//     "Above 365 Days",
+// ];
+
+// const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// const defaultReceivableFilters = {
+//     legal_group: [],
+//     legal_entities: [],
+//     parent_divisions: [],
+//     sub_divisions: [],
+//     customer_type: "ALL",
+//     gl_codes: [],
+//     reporting_currency: "AED",
+//     as_on_date: "",
+//     aging_basis: "Due Date",
+//     year: new Date().getFullYear(),
+// };
+
+// const currencyConfig = {
+//     AED: { code: "AED", locale: "en-AE" },
+//     INR: { code: "INR", locale: "en-IN" },
+//     OMR: { code: "OMR", locale: "en-OM" },
+//     QAR: { code: "QAR", locale: "en-QA" },
+//     SAR: { code: "SAR", locale: "en-SA" },
+//     USD: { code: "USD", locale: "en-US" },
+//     EUR: { code: "EUR", locale: "en-IE" },
+// };
+// const apiAgingBasis = (value) =>
+//     String(value || "").toUpperCase().includes("INVOICE") ? "INVOICE_DATE" : "DUE_DATE";
+
+// const uiAgingBasis = (value) =>
+//     apiAgingBasis(value) === "INVOICE_DATE" ? "Invoice Date" : "Due Date";
+
+// const getLatestReceivablesDate = (values = []) => {
+//     const list = Array.isArray(values) ? values : [];
+//     const normalized = list
+//         .map((item) => item && typeof item === "object" ? (item.value ?? item.date ?? item.as_on_date ?? item.asOnDate ?? item.label ?? "") : item)
+//         .filter((value) => value !== null && value !== undefined && String(value).trim() !== "");
+//     if (!normalized.length) return "";
+//     const toTime = (value) => {
+//         const text = String(value).trim();
+//         const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+//         if (iso) return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+//         const dmy = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+//         if (dmy) return Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+//         const time = new Date(text).getTime();
+//         return Number.isFinite(time) ? time : -Infinity;
+//     };
+//     return normalized.sort((a, b) => toTime(b) - toTime(a))[0] ?? "";
+// };
+
+// const normalizeReceivablesDate = (value) => {
+//     if (!value) return "";
+//     const text = String(value).trim();
+//     const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+//     if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+//     const dmy = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+//     if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+//     const d = new Date(text);
+//     if (Number.isNaN(d.getTime())) return "";
+//     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// };
+
+// const formatReceivablesDate = (value) => {
+//     const iso = normalizeReceivablesDate(value);
+//     return iso ? iso.split("-").reverse().join("-") : "";
+// };
+
+// const normalizeOptions = (items = []) =>
+//     (Array.isArray(items) ? items : []).map((item) => {
+//         if (item === null || item === undefined) return null;
+//         if (typeof item !== "object") {
+//             return { value: String(item), label: String(item), meta: item };
+//         }
+//         const value = item.value ?? item.id ?? item.code ?? item.key ?? item.name;
+//         const label = item.label ?? item.name ?? item.title ?? item.description ?? value;
+//         return { value: String(value ?? ""), label: String(label ?? ""), meta: item };
+//     }).filter(Boolean);
+
+
+// const resolveCustomerTypeApiValue = (value, options = []) => {
+//     const selected = Array.isArray(value) ? value[0] : value;
+
+//     if (
+//         !selected ||
+//         String(selected).trim() === "" ||
+//         String(selected).trim().toUpperCase() === "ALL"
+//     ) {
+//         return undefined;
+//     }
+
+//     const selectedText = String(selected).trim();
+
+//     const matched = (Array.isArray(options) ? options : []).find((option) => {
+//         const optionValue = String(option?.value ?? option ?? "").trim();
+//         const optionLabel = String(
+//             option?.label ?? option?.value ?? option ?? ""
+//         ).trim();
+
+//         return (
+//             optionValue.toUpperCase() === selectedText.toUpperCase() ||
+//             optionLabel.toUpperCase() === selectedText.toUpperCase()
+//         );
+//     });
+
+//     return String(matched?.value ?? selectedText).trim().toUpperCase();
+// };
+
+// const selectedFilterValues = (value) => {
+//     const values = Array.isArray(value) ? value : [value];
+//     return values
+//         .filter((v) => v !== undefined && v !== null && String(v) !== "")
+//         .map((v) => String(v))
+//         .filter((v) => v !== "All");
+// };
+
+// // Convert selected Legal Group labels/values to backend IDs without assuming
+// // any particular entity IDs. Preserve support for options with nested metadata.
+// const resolveLegalGroupRequestIds = (selectedGroups, groupOptions = []) => {
+//     const selected = selectedFilterValues(selectedGroups);
+//     const resolved = selected.map((value) => {
+//         const match = normalizeOptions(groupOptions).find((option) =>
+//             String(option.label ?? "").trim().toLowerCase() === String(value).trim().toLowerCase() ||
+//             String(option.value ?? "").trim().toLowerCase() === String(value).trim().toLowerCase()
+//         );
+//         if (!match) return value;
+//         const meta = match?.meta?.meta || match?.meta || match || {};
+//         return meta.legal_group_id ?? meta.legalGroupId ?? meta.group_id ??
+//             meta.groupId ?? meta.id ?? match.value ?? value;
+//     });
+//     return [...new Set(resolved.map((value) => String(value).trim()).filter(Boolean))];
+// };
+
+// const extractLegalEntityOptions = (response) => {
+//     let current = response?.data ?? response ?? {};
+//     // Axios responses and several API wrappers may nest the payload more than once.
+//     for (let depth = 0; depth < 4; depth += 1) {
+//         if (!current || typeof current !== "object" || Array.isArray(current)) break;
+//         const entities =
+//             current.legal_entities ??
+//             current.legalEntities ??
+//             current.entities ??
+//             current.legal_entity_options ??
+//             current.legalEntityOptions;
+//         if (Array.isArray(entities)) return normalizeOptions(entities);
+//         if (current.data && typeof current.data === "object") {
+//             current = current.data;
+//             continue;
+//         }
+//         if (current.result && typeof current.result === "object") {
+//             current = current.result;
+//             continue;
+//         }
+//         if (current.filters && typeof current.filters === "object") {
+//             current = current.filters;
+//             continue;
+//         }
+//         break;
+//     }
+//     return [];
+// };
+
+// const extractHierarchyOptions = (response, keys = []) => {
+//     let current = response?.data ?? response ?? {};
+//     for (let depth = 0; depth < 5; depth += 1) {
+//         if (!current || typeof current !== "object" || Array.isArray(current)) break;
+//         for (const key of keys) {
+//             if (Array.isArray(current[key])) return normalizeOptions(current[key]);
+//         }
+//         if (current.data && typeof current.data === "object") { current = current.data; continue; }
+//         if (current.result && typeof current.result === "object") { current = current.result; continue; }
+//         if (current.filters && typeof current.filters === "object") { current = current.filters; continue; }
+//         break;
+//     }
+//     return [];
+// };
+
+// const getMetaValue = (option, keys = []) => {
+//     const meta = option?.meta?.meta || option?.meta || option || {};
+//     for (const key of keys) {
+//         const value = meta?.[key];
+//         if (value !== undefined && value !== null && value !== "") return value;
+//     }
+//     return null;
+// };
+
+// const cascadeFilterOptions = (options = [], parentValue, relationKeys = []) => {
+//     const parents = selectedFilterValues(parentValue).map((value) => String(value).trim().toLowerCase());
+//     if (!parents.length || !Array.isArray(options) || !options.length) return options || [];
+
+//     // Match only the relationship fields for the hierarchy level being filtered.
+//     // This mirrors Working Capital's matchesRelation/getRelationValues behavior:
+//     // an option without that relationship field remains available, while an
+//     // option with the field must match a selected parent ID/code/name.
+//     const normalizeRelation = (value) => {
+//         if (value === null || value === undefined || value === "") return [];
+//         if (Array.isArray(value)) return value.flatMap(normalizeRelation);
+//         if (typeof value === "object") {
+//             return [value.value, value.id, value.code, value.name, value.label]
+//                 .filter((item) => item !== null && item !== undefined && String(item).trim() !== "")
+//                 .flatMap(normalizeRelation);
+//         }
+//         return [String(value).trim().toLowerCase()];
+//     };
+//     const getSources = (option) => {
+//         const meta = option?.meta;
+//         return [
+//             option,
+//             meta,
+//             meta?.meta,
+//             meta?.data,
+//             meta?.access_scope,
+//             option?.data,
+//             option?.access_scope,
+//         ].filter((item) => item && typeof item === "object" && !Array.isArray(item));
+//     };
+
+//     return options.filter((option) => {
+//         const relations = [];
+//         getSources(option).forEach((source) => {
+//             relationKeys.forEach((key) => {
+//                 if (Object.prototype.hasOwnProperty.call(source, key)) {
+//                     relations.push(...normalizeRelation(source[key]));
+//                 }
+//             });
+//         });
+//         // Same as Working Capital: no relation metadata means this option
+//         // cannot safely be excluded by this hierarchy level.
+//         if (!relations.length) return true;
+//         return relations.some((relation) => parents.includes(relation));
+//     });
+// };
+
+// const cascadeLegalEntities = (options, legalGroup, legalGroupOptions = []) => {
+//     const entities = Array.isArray(options) ? options : [];
+//     return cascadeFilterOptions(entities, legalGroup, [
+//         "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId",
+//         "legal_group_name", "legalGroupName", "group_name", "groupName", "legal_group_code", "legalGroupCode",
+//         "parent_legal_group_name", "parentLegalGroupName", "legal_group_label", "legalGroupLabel"
+//     ]);
+// };
+
+// const cascadeParentDivisions = (options, legalEntities, legalGroup) => {
+//     let result = cascadeFilterOptions(options, legalGroup, [
+//         "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId",
+//         "legal_group_name", "legalGroupName", "group_name", "groupName", "legal_group_code", "legalGroupCode", "parent_legal_group_name", "parentLegalGroupName", "legal_group_label", "legalGroupLabel"
+//     ]);
+//     result = cascadeFilterOptions(result, legalEntities, [
+//         "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId",
+//         "legal_entity_name", "legalEntityName", "entity_name", "entityName", "legal_entity_code", "legalEntityCode"
+//     ]);
+//     return result;
+// };
+
+// const cascadeSubDivisions = (options, parentDivisions, legalEntities, legalGroup) => {
+//     let result = cascadeFilterOptions(options, legalGroup, [
+//         "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId",
+//         "legal_group_name", "legalGroupName", "group_name", "groupName", "legal_group_code", "legalGroupCode", "parent_legal_group_name", "parentLegalGroupName", "legal_group_label", "legalGroupLabel"
+//     ]);
+//     result = cascadeFilterOptions(result, legalEntities, [
+//         "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId",
+//         "legal_entity_name", "legalEntityName", "entity_name", "entityName", "legal_entity_code", "legalEntityCode"
+//     ]);
+//     result = cascadeFilterOptions(result, parentDivisions, [
+//         "parent_division_id", "parentDivisionId", "parent_division", "parentDivision", "division_id", "divisionId",
+//         "parent_division_name", "parentDivisionName", "division_name", "divisionName"
+//     ]);
+//     return result;
+// };
+
+// const normalizeDashboard = (raw = {}, filters = {}) => {
+//     const payload = raw?.data && !Array.isArray(raw.data) ? raw.data : raw || {};
+//     const k = payload.kpis || {};
+//     const aging = Array.isArray(payload.aging_summary) ? payload.aging_summary : [];
+//     const trend = Array.isArray(payload.trend) ? payload.trend : [];
+//     const parent = Array.isArray(payload.by_parent_division) ? payload.by_parent_division : [];
+//     const customers = Array.isArray(payload.top_customers) ? payload.top_customers : [];
+//     const subdivision = Array.isArray(payload.by_subdivision) ? payload.by_subdivision : [];
+//     const mom = payload.month_on_month || payload.monthOnMonth || {};
+
+//     const mapAmount = (row) => ({
+//         bucket: row.bucket_name ?? row.bucket ?? "",
+//         amount: Number(row.amount ?? 0),
+//         percentage: Number(row.percentage_of_total ?? row.percentage ?? 0),
+//         bucket_code: row.bucket_code,
+//     });
+
+//     return {
+//         kpis: {
+//             total_receivables: k.total_receivables,
+//             current_receivables: k.current_receivables,
+//             overdue_receivables: k.overdue_receivables,
+//             overdue_gt_90: k.overdue_above_90,
+//             dso: k.dso_days,
+//             target_dso:
+//                 k.target_dso ??
+//                 k.target_dso_days ??
+//                 k.dso_target ??
+//                 k.targetDso ??
+//                 k.targetDsoDays ??
+//                 null,
+//             collection_efficiency: k.collection_efficiency ?? k.collection_efficiency_percentage ?? k.collection_efficiency_percent ?? k.collection_efficiency_rate ?? k.collection_efficiency_pct ?? null,
+//             collection_efficiency_variance: k.collection_efficiency_change_percentage ?? k.collection_efficiency_change_percent ?? k.collection_efficiency_variance ?? null,
+//             overdue_percentage: k.overdue_percentage ?? k.overdue_percent ?? k.overdue_receivables_percentage ?? k.overdue_ratio_percentage ?? null,
+//             overdue_percentage_variance: k.overdue_percentage_change ?? k.overdue_percent_change ?? k.overdue_percentage_change_percentage ?? null,
+//             collections_mtd: k.collections_mtd ?? k.collection_mtd ?? k.collections_month_to_date ?? k.collection_amount_mtd ?? null,
+//             collections_mtd_variance: k.collections_mtd_change_percentage ?? k.collection_mtd_change_percentage ?? k.collections_mtd_variance ?? null,
+//             // Target comparisons must come from target-variance fields, never from
+//             // month-over-month change fields. Support the aliases used by API versions.
+//             total_receivables_target_variance: k.total_receivables_target_variance ?? k.total_receivables_vs_target_percentage ?? k.total_receivables_target_variance_percentage ?? k.total_receivables_variance_vs_target ?? null,
+//             current_receivables_target_variance: k.current_receivables_target_variance ?? k.current_receivables_vs_target_percentage ?? k.current_receivables_target_variance_percentage ?? k.current_receivables_variance_vs_target ?? null,
+//             overdue_receivables_target_variance: k.overdue_receivables_target_variance ?? k.overdue_receivables_vs_target_percentage ?? k.overdue_receivables_target_variance_percentage ?? k.overdue_receivables_variance_vs_target ?? null,
+//             overdue_gt_90_target_variance: k.overdue_gt_90_target_variance ?? k.overdue_above_90_target_variance ?? k.overdue_above_90_vs_target_percentage ?? k.overdue_gt_90_vs_target_percentage ?? null,
+//             overdue_percentage_target_variance: k.overdue_percentage_target_variance ?? k.overdue_percentage_vs_target ?? k.overdue_percentage_vs_target_percentage ?? k.overdue_percent_target_variance ?? null,
+//             dso_target_variance: k.dso_target_variance ?? k.dso_vs_target_percentage ?? k.dso_variance_percentage ?? null,
+//             collections_mtd_target_variance: k.collections_mtd_target_variance ?? k.collections_mtd_vs_target_percentage ?? k.collection_mtd_target_variance ?? null,
+//             collection_efficiency_target_variance: k.collection_efficiency_target_variance ?? k.collection_efficiency_vs_target_percentage ?? k.collection_efficiency_target_variance_percentage ?? null,
+//             total_receivables_variance: k.total_change_percentage ?? k.total_receivables_change_percentage ?? null,
+//             current_receivables_variance: k.current_change_percentage ?? k.current_receivables_change_percentage ?? null,
+//             overdue_receivables_variance: k.overdue_change_percentage ?? k.overdue_receivables_change_percentage ?? null,
+//             overdue_gt_90_variance: k.overdue_above_90_change_percentage ?? k.overdue_gt_90_change_percentage ?? null,
+//             dso_variance: k.dso_change_days ?? k.dso_change_percentage ?? null,
+//             previous_date: k.previous_date ?? k.previous_as_on_date ?? k.previous_as_of_date ?? k.previous_period_date ?? k.last_month_date ?? k.previous_month_date ?? payload.previous_date ?? payload.previous_as_on_date ?? null,
+//         },
+
+//         agingSummary: aging.map(mapAmount),
+//         trend: trend.map((row) => {
+//             const d = row.as_on_date ? new Date(`${row.as_on_date}T00:00:00`) : null;
+//             const month = d && !Number.isNaN(d.getTime())
+//                 ? d.toLocaleString("en-US", { month: "short", year: "numeric" })
+//                 : row.as_on_date;
+//             return {
+//                 ...row,
+//                 month,
+//                 /*
+//                  * Trend endpoint contract:
+//                  * use the monthly `total_receivables` balance.
+//                  * Do not use generic amount/value fields here.
+//                  */
+//                 total_receivables:
+//                     row.total_receivables ??
+//                     row.total_ar ??
+//                     row.total_receivable ??
+//                     0,
+//                 dso:
+//                     row.dso_days ??
+//                     row.dso ??
+//                     row.average_dso ??
+//                     row.average_dso_days ??
+//                     null,
+//             };
+//         }),
+//         parentDivision: parent.map((row) => ({
+//             name: row.label,
+//             value: row.value,
+//             amount: row.total_receivables,
+//             percentage: row.percentage_of_total,
+//         })),
+//         topSuppliers: customers.map((row, index) => ({
+//             rank: index + 1,
+//             supplier_name: row.customer_name ?? row.customerName ?? row.name ?? row.customer ?? "",
+//             supplier_code: row.customer_code ?? row.customerCode ?? row.code,
+//             customer_id: row.customer_id ?? row.customerId,
+//             customer_type: row.customer_type ?? row.customerType ?? row.customer_type_name ?? row.customer_type_code ?? row.customer_category ?? row.customerCategory ?? row.customer_classification ?? row.customerClassification ?? (row.is_internal === true || row.isInternal === true ? "INTERNAL" : row.is_internal === false || row.isInternal === false ? "EXTERNAL" : ""),
+//             receivable_amount: row.total_receivables ?? row.receivable_amount ?? row.totalReceivables ?? row.amount,
+//             percentage: row.percentage_of_total ?? row.percentage,
+//             country: row.customer_country ?? row.country,
+//         })),
+//         overdueSummary: aging
+//             .filter((row) => row.bucket_code !== "CURRENT")
+//             .map(mapAmount),
+//         subDivision: subdivision.map((row) => ({
+//             name: row.label,
+//             value: row.value,
+//             amount: row.total_receivables,
+//             percentage: row.percentage_of_total,
+//         })),
+//         monthOnMonth: (mom.rows || []).map((row) => {
+//             const values = row.monthly_values || {};
+//             const mapped = {};
+//             MONTHS.forEach((month) => {
+//                 mapped[month] = values[month.toUpperCase()] ?? null;
+//             });
+//             return {
+//                 legal_entity: row.legal_entity_name,
+//                 legal_entity_id: row.legal_entity_id,
+//                 parent_division: row.parent_division_name,
+//                 parent_division_id: row.parent_division_id,
+//                 sub_division: row.subdivision_name,
+//                 subdivision_id: row.subdivision_id,
+//                 ...mapped,
+//                 latest: row.latest,
+//                 _snapshot_dates: mom.snapshot_dates || {},
+//             };
+//         }),
+//         snapshotDates: mom.snapshot_dates || {},
+//         viewAll: [],
+//         filterOptions: raw?.filterOptions || {},
+//     };
+// };
+
+// const normalizeViewAllRows = (rows = []) =>
+//     (Array.isArray(rows) ? rows : []).map((row) => ({
+//         id: row.receivables_fact_id,
+//         receivables_fact_id: row.receivables_fact_id,
+//         supplier_name: row.customer_name,
+//         supplier_code: row.customer_code,
+//         legal_entity: row.legal_entity_name,
+//         parent_division: row.parent_division_name,
+//         sub_division: row.subdivision_name,
+//         country: row.customer_country,
+//         row_currency: row.reporting_currency || row.source_currency,
+//         total_receivable: row.total_receivables,
+//         current: row.current_receivables,
+//         "0_30": row.amount_0_30,
+//         "31_60": row.amount_31_60,
+//         "61_90": row.amount_61_90,
+//         "91_120": row.amount_91_120,
+//         "121_180": row.amount_121_180,
+//         "181_365": row.amount_181_365,
+//         above_365: row.amount_above_365,
+//         overdue_receivables: row.overdue_receivables,
+//         as_on_date: row.as_on_date ?? row.asOnDate,
+//         customer_id: row.customer_id,
+//         legal_entity_id: row.legal_entity_id,
+//         parent_division_id: row.parent_division_id,
+//         subdivision_id: row.subdivision_id,
+//         gl_code: row.gl_code,
+//     }));
+
+// const formatReceivablesCompact = (value, currency = "AED") => {
+//     if (value === null || value === undefined) return "—";
+//     const config = currencyConfig[currency] || currencyConfig.AED;
+//     const number = Number(value);
+//     if (Math.abs(number) >= 1000000) return `${config.code} ${(number / 1000000).toFixed(2)}M`;
+//     if (Math.abs(number) >= 1000) return `${config.code} ${(number / 1000).toFixed(2)}K`;
+//     return `${config.code} ${number.toFixed(2)}`;
+// };
+
+// const formatMoMValue = (value, displayUnit = "AED") => {
+//     if (value === null || value === undefined || value === "") return "—";
+//     const number = Number(value);
+//     if (!Number.isFinite(number)) return "—";
+
+//     if (displayUnit === "Millions") {
+//         return `${(number / 1000000).toFixed(2)}M`;
+//     }
+
+//     return new Intl.NumberFormat("en-AE", {
+//         minimumFractionDigits: 0,
+//         maximumFractionDigits: 0,
+//     }).format(number);
+// };
+// const formatPercentage = (value) => value === null || value === undefined ? "—" : `${Number(value).toFixed(1)}%`;
+// const formatVariance = (value) => value === null || value === undefined ? "—" : `${Number(value) >= 0 ? "▲" : "▼"} ${Math.abs(Number(value)).toFixed(1)}%`;
+// const formatAxisMillions = (value) => value === null || value === undefined ? "—" : `${(Number(value) / 1000000).toFixed(0)}M`;
+
+// // Capitalize dashboard table labels consistently without changing underlying API values.
+// const capitalizeTableText = (value) => {
+//     if (value === null || value === undefined) return value;
+//     const text = String(value).trim();
+//     if (!text) return text;
+//     return text
+//         .toLowerCase()
+//         .replace(/\b([a-z])([a-z0-9]*)/g, (_, first, rest) => first.toUpperCase() + rest);
+// };
+
+// const BLUE = "#132a78";
+// const BLUE_2 = "#1d4ed8";
+// const BORDER = "#e3e8f2";
+// const TEXT = "#172554";
+// const MUTED = "#64748b";
+// const BG = "#f7f9fd";
+
+// const cardStyle = {
+//     background: "#fff",
+//     border: `1px solid ${BORDER}`,
+//     borderRadius: 10,
+//     boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+// };
+
+
+// /* ============================================================
+//    SMALL UI COMPONENTS
+//    ============================================================ */
+
+// function InfoIcon({ title }) {
+//     return (
+//         <span
+//             title={title}
+//             style={{
+//                 display: "inline-flex",
+//                 width: 15,
+//                 height: 15,
+//                 borderRadius: "50%",
+//                 border: "1px solid #94a3b8",
+//                 alignItems: "center",
+//                 justifyContent: "center",
+//                 fontSize: 9,
+//                 color: "#64748b",
+//                 marginLeft: 5,
+//                 cursor: "help",
+//             }}
+//         >
+//             i
+//         </span>
+//     );
+// }
+
+// function SectionTitle({ children, info, subtitle, inlineSubtitle = false }) {
+//     const titleText = String(children ?? "");
+
+//     const defaultSubtitles = {
+//         "Receivables Aging Summary": "Outstanding receivables grouped by aging bucket",
+//         "Receivables Trend": "Historical movement of total receivables and DSO",
+//         "Receivables by Parent Division": "Receivable exposure across parent divisions",
+//         "Top 10 Customers by Receivables": "Customers contributing the highest receivable balances",
+//         "Overdue Summary": "Distribution of overdue receivable exposure",
+//         "Receivables by Sub-Division": "Receivable exposure across sub-divisions",
+//         "Month-on-Month Receivables": "Monthly receivable balance movement",
+//     };
+
+//     const matchedSubtitle = Object.entries(defaultSubtitles).find(([key]) =>
+//         titleText.startsWith(key)
+//     )?.[1];
+
+//     return (
+//         <div style={{ marginBottom: 10, minWidth: 0 }}>
+//             <div
+//                 style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     gap: 2,
+//                     fontSize: "0.88rem",
+//                     fontWeight: 800,
+//                     color: "#0f172a",
+//                     lineHeight: 1.2,
+//                     minWidth: 0,
+//                 }}
+//             >
+//                 {children}
+//                 {info && <InfoIcon title={info} />}
+//                 {inlineSubtitle && (subtitle || matchedSubtitle) && (
+//                     <span
+//                         style={{
+//                             marginLeft: 6,
+//                             fontSize: "0.68rem",
+//                             fontWeight: 500,
+//                             color: "#64748b",
+//                             lineHeight: 1.35,
+//                             whiteSpace: "nowrap",
+//                             overflow: "hidden",
+//                             textOverflow: "ellipsis",
+//                             minWidth: 0,
+//                         }}
+//                     >
+//                         {subtitle || matchedSubtitle}
+//                     </span>
+//                 )}
+//             </div>
+//             {!inlineSubtitle && (subtitle || matchedSubtitle) && (
+//                 <div
+//                     style={{
+//                         marginTop: 3,
+//                         fontSize: "0.68rem",
+//                         fontWeight: 500,
+//                         color: "#64748b",
+//                         lineHeight: 1.35,
+//                     }}
+//                 >
+//                     {subtitle || matchedSubtitle}
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+
+
+// function SectionActions({
+//     onViewAll,
+//     onExportExcel,
+//     onExportPdf,
+//     rightContent = null,
+// }) {
+//     const [open, setOpen] = useState(false);
+//     const menuRef = useRef(null);
+
+//     useEffect(() => {
+//         const handleOutside = (event) => {
+//             if (menuRef.current && !menuRef.current.contains(event.target)) {
+//                 setOpen(false);
+//             }
+//         };
+
+//         document.addEventListener("mousedown", handleOutside);
+//         return () => document.removeEventListener("mousedown", handleOutside);
+//     }, []);
+
+//     const runAction = (callback) => {
+//         setOpen(false);
+//         if (typeof callback === "function") callback();
+//     };
+
+//     const itemStyle = {
+//         width: "100%",
+//         height: 34,
+//         border: "none",
+//         background: "transparent",
+//         borderRadius: 6,
+//         display: "flex",
+//         alignItems: "center",
+//         gap: 9,
+//         padding: "0 10px",
+//         color: "#334155",
+//         fontSize: 12,
+//         fontWeight: 800,
+//         cursor: "pointer",
+//         textAlign: "left",
+//     };
+
+//     return (
+//         <div
+//             ref={menuRef}
+//             style={{
+//                 position: "absolute",
+//                 top: 9,
+//                 right: 9,
+//                 zIndex: 50,
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: 7,
+//             }}
+//         >
+//             {rightContent}
+
+//             <button
+//                 type="button"
+//                 onClick={() => setOpen((value) => !value)}
+//                 aria-label="More options"
+//                 style={{
+//                     width: 28,
+//                     height: 28,
+//                     border: "none",
+//                     background: "transparent",
+//                     color: "#64748b",
+//                     borderRadius: 6,
+//                     fontSize: 20,
+//                     lineHeight: 1,
+//                     cursor: "pointer",
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+//                     padding: 0,
+//                 }}
+//             >
+//                 ⋮
+//             </button>
+
+//             {open && (
+//                 <div
+//                     style={{
+//                         position: "absolute",
+//                         top: 31,
+//                         right: 0,
+//                         width: 165,
+//                         padding: 5,
+//                         background: "#ffffff",
+//                         border: "1px solid #e2e8f0",
+//                         borderRadius: 9,
+//                         boxShadow: "0 8px 24px rgba(15, 23, 42, 0.14)",
+//                         zIndex: 9999,
+//                     }}
+//                 >
+//                     <button
+//                         type="button"
+//                         onClick={() => runAction(onViewAll)}
+//                         style={itemStyle}
+//                         onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5ff"; }}
+//                         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+//                     >
+
+//                         <span>🔎 View All</span>
+//                     </button>
+
+//                     {typeof onExportExcel === "function" && (
+//                         <button
+//                             type="button"
+//                             onClick={() => runAction(onExportExcel)}
+//                             style={itemStyle}
+//                             onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5ff"; }}
+//                             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+//                         >
+//                             <span>📊 Export Excel</span>
+//                         </button>
+//                     )}
+
+//                     {typeof onExportPdf === "function" && (
+//                         <button
+//                             type="button"
+//                             onClick={() => runAction(onExportPdf)}
+//                             style={itemStyle}
+//                             onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5ff"; }}
+//                             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+//                         >
+//                             <span>📄 Export PDF</span>
+//                         </button>
+//                     )}
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+// function FilterSelect({
+//     label,
+//     value,
+//     options = [],
+//     onChange,
+//     multiple = false,
+//     flex = "0 1 100px",
+//     includeAllOption = false,
+// }) {
+//     const [open, setOpen] = useState(false);
+//     const [search, setSearch] = useState("");
+//     const dropdownRef = useRef(null);
+
+//     /* ----------------------------------------------------------
+//        NORMALIZE SELECTED VALUES
+//     ---------------------------------------------------------- */
+//     const selectedValues = multiple
+//         ? Array.isArray(value)
+//             ? value
+//             : value !== undefined && value !== null && value !== ""
+//                 ? [value]
+//                 : []
+//         : [];
+
+//     /* ----------------------------------------------------------
+//        CLOSE WHEN CLICKING OUTSIDE
+//     ---------------------------------------------------------- */
+//     useEffect(() => {
+//         const handleOutsideClick = (event) => {
+//             if (
+//                 dropdownRef.current &&
+//                 !dropdownRef.current.contains(event.target)
+//             ) {
+//                 setOpen(false);
+//                 setSearch("");
+//             }
+//         };
+
+//         document.addEventListener("mousedown", handleOutsideClick);
+
+//         return () => {
+//             document.removeEventListener("mousedown", handleOutsideClick);
+//         };
+//     }, []);
+
+//     /* ----------------------------------------------------------
+//        NORMALIZE OPTIONS
+//        KEEP "All" INSIDE DROPDOWN
+//     ---------------------------------------------------------- */
+//     const normalizedOptions = Array.from(
+//         new Set(
+//             (options || [])
+//                 .filter(
+//                     (option) =>
+//                         option !== null &&
+//                         option !== undefined &&
+//                         String(option).trim() !== ""
+//                 )
+//                 .map((option) => String(option))
+//         )
+//     );
+
+//     /*
+//        Always keep "All" as the first dropdown option.
+//        If backend options already contain All, remove duplicate.
+//     */
+//     const finalOptions = includeAllOption
+//         ? ["All", ...normalizedOptions.filter((option) => option.toLowerCase() !== "all")]
+//         : normalizedOptions.filter((option) => option !== "All");
+
+//     /* ----------------------------------------------------------
+//        SEARCH
+//     ---------------------------------------------------------- */
+//     const filteredOptions = finalOptions.filter((option) =>
+//         option.toLowerCase().includes(search.toLowerCase())
+//     );
+
+//     /* ----------------------------------------------------------
+//        SELECT ALL
+//     ---------------------------------------------------------- */
+//     const handleSelectAll = () => {
+//         if (!multiple) return;
+
+//         onChange(
+//             finalOptions.filter((option) => option !== "All")
+//         );
+//     };
+
+//     /* ----------------------------------------------------------
+//        CLEAR
+//     ---------------------------------------------------------- */
+//     const handleClear = () => {
+//         if (!multiple) {
+//             onChange("");
+//         } else {
+//             onChange([]);
+//         }
+//     };
+
+//     /* ----------------------------------------------------------
+//        INDIVIDUAL OPTION
+//     ---------------------------------------------------------- */
+//     const handleOptionClick = (option) => {
+//         /* SINGLE SELECT */
+//         if (!multiple) {
+//             if (option === "All") {
+//                 onChange("");
+//             } else {
+//                 onChange(option);
+//             }
+
+//             setOpen(false);
+//             setSearch("");
+//             return;
+//         }
+
+//         /* MULTI SELECT */
+//         if (option === "All") {
+//             onChange([]);
+//             return;
+//         }
+
+//         let nextValues = selectedValues.filter(
+//             (item) => String(item) !== "All"
+//         );
+
+//         if (nextValues.includes(option)) {
+//             nextValues = nextValues.filter(
+//                 (item) => item !== option
+//             );
+//         } else {
+//             nextValues = [...nextValues, option];
+//         }
+
+//         onChange(nextValues);
+//     };
+
+//     /* ----------------------------------------------------------
+//        DISPLAY VALUE
+//        DEFAULT = ALL
+//     ---------------------------------------------------------- */
+//     const getDisplayValue = () => {
+//         if (!multiple) {
+//             return value !== undefined && value !== null && String(value) !== "" && String(value).trim().toUpperCase() !== "ALL"
+//                 ? String(value)
+//                 : "All";
+//         }
+
+//         if (selectedValues.length === 0) {
+//             return "All";
+//         }
+
+//         if (selectedValues.length === 1) {
+//             return String(selectedValues[0]);
+//         }
+
+//         return `${selectedValues.length} selected`;
+//     };
+
+//     /* ----------------------------------------------------------
+//        ALL SELECTED
+//     ---------------------------------------------------------- */
+//     const selectableOptions = finalOptions.filter(
+//         (option) => option !== "All"
+//     );
+
+//     const allSelected =
+//         multiple &&
+//         selectableOptions.length > 0 &&
+//         selectableOptions.every((item) =>
+//             selectedValues.includes(item)
+//         );
+
+//     return (
+//         <div
+//             ref={dropdownRef}
+//             style={{
+//                 flex,
+//                 minWidth: 0,
+//                 position: "relative",
+//             }}
+//         >
+//             {/* =====================================================
+//                 LABEL
+//             ===================================================== */}
+//             <label
+//                 style={{
+//                     display: "block",
+//                     fontSize: 10.5,
+//                     fontWeight: 700,
+//                     color: "#334155",
+//                     marginBottom: 4,
+//                     lineHeight: "12px",
+//                     whiteSpace: "nowrap",
+//                 }}
+//             >
+//                 {label}
+//             </label>
+
+//             {/* =====================================================
+//                 FIELD
+//             ===================================================== */}
+//             <button
+//                 type="button"
+//                 onClick={() => {
+//                     setOpen((prev) => !prev);
+
+//                     if (open) {
+//                         setSearch("");
+//                     }
+//                 }}
+//                 style={{
+//                     width: "100%",
+//                     height: 32,
+//                     boxSizing: "border-box",
+//                     border: open
+//                         ? "1px solid #5b5bea"
+//                         : "1px solid #dce3ee",
+//                     borderRadius: 7,
+//                     padding: "0 25px 0 9px",
+//                     background: "#ffffff",
+//                     color: "#243b63",
+//                     fontSize: 11.5,
+//                     fontWeight: 500,
+//                     outline: "none",
+//                     cursor: "pointer",
+//                     textAlign: "left",
+//                     position: "relative",
+//                     overflow: "hidden",
+//                     whiteSpace: "nowrap",
+//                     textOverflow: "ellipsis",
+//                 }}
+//             >
+//                 {getDisplayValue()}
+
+//                 <span
+//                     style={{
+//                         position: "absolute",
+//                         right: 10,
+//                         top: "50%",
+//                         transform: `translateY(-50%) ${open
+//                             ? "rotate(180deg)"
+//                             : "rotate(0deg)"
+//                             }`,
+//                         fontSize: 9,
+//                         color: "#52638a",
+//                         transition: "transform 0.15s ease",
+//                         pointerEvents: "none",
+//                     }}
+//                 >
+//                     ▼
+//                 </span>
+//             </button>
+
+//             {/* =====================================================
+//                 DROPDOWN
+//             ===================================================== */}
+//             {open && (
+//                 <div
+//                     style={{
+//                         position: "absolute",
+//                         top: "calc(100% + 5px)",
+//                         left: 0,
+//                         width: "max-content",
+//                         minWidth: 220,
+//                         maxWidth: "min(420px, 80vw)",
+//                         background: "#ffffff",
+//                         border: "1px solid #dce3ee",
+//                         borderRadius: 9,
+//                         boxShadow:
+//                             "0 8px 24px rgba(24, 45, 80, 0.14)",
+//                         zIndex: 9999,
+//                         overflow: "visible",
+//                     }}
+//                 >
+//                     {/* =================================================
+//                         SEARCH
+//                     ================================================= */}
+//                     <div
+//                         style={{
+//                             padding: "8px 8px 6px",
+//                             borderBottom: "1px solid #edf1f7",
+//                         }}
+//                     >
+//                         <div
+//                             style={{
+//                                 position: "relative",
+//                             }}
+//                         >
+//                             <input
+//                                 type="text"
+//                                 value={search}
+//                                 onChange={(e) =>
+//                                     setSearch(e.target.value)
+//                                 }
+//                                 onClick={(e) =>
+//                                     e.stopPropagation()
+//                                 }
+//                                 placeholder={`Search ${label}`}
+//                                 autoFocus
+//                                 style={{
+//                                     width: "100%",
+//                                     height: 30,
+//                                     boxSizing: "border-box",
+//                                     border: "1px solid #dce3ee",
+//                                     borderRadius: 7,
+//                                     padding: "0 9px 0 28px",
+//                                     background: "#f8fafc",
+//                                     color: "#24366b",
+//                                     fontSize: 10.5,
+//                                     outline: "none",
+//                                 }}
+//                             />
+
+//                             <span
+//                                 style={{
+//                                     position: "absolute",
+//                                     left: 9,
+//                                     top: "50%",
+//                                     transform:
+//                                         "translateY(-50%)",
+//                                     color: "#64748b",
+//                                     fontSize: 12,
+//                                     pointerEvents: "none",
+//                                 }}
+//                             >
+//                                 🔍
+//                             </span>
+//                         </div>
+//                     </div>
+
+//                     {/* =================================================
+//                         SELECT ALL / CLEAR
+//                     ================================================= */}
+//                     {multiple && (
+//                         <div
+//                             style={{
+//                                 display: "flex",
+//                                 alignItems: "center",
+//                                 justifyContent: "space-between",
+//                                 padding: "7px 9px",
+//                                 borderBottom:
+//                                     "1px solid #edf1f7",
+//                                 background: "#fafbfe",
+//                             }}
+//                         >
+//                             <button
+//                                 type="button"
+//                                 onClick={handleSelectAll}
+//                                 style={{
+//                                     border: "none",
+//                                     background: "transparent",
+//                                     padding: 0,
+//                                     color: "#4f46e5",
+//                                     fontSize: 10,
+//                                     fontWeight: 700,
+//                                     cursor: "pointer",
+//                                 }}
+//                             >
+//                                 {allSelected
+//                                     ? "Unselect All"
+//                                     : "Select All"}
+//                             </button>
+
+//                             <button
+//                                 type="button"
+//                                 onClick={handleClear}
+//                                 style={{
+//                                     border: "none",
+//                                     background: "transparent",
+//                                     padding: 0,
+//                                     color: "#64748b",
+//                                     fontSize: 10,
+//                                     fontWeight: 600,
+//                                     cursor: "pointer",
+//                                 }}
+//                             >
+//                                 Clear
+//                             </button>
+//                         </div>
+//                     )}
+
+//                     {/* =================================================
+//                         OPTIONS
+//                     ================================================= */}
+//                     <div
+//                         style={{
+//                             maxHeight: 320,
+//                             overflowY: "auto",
+//                             overflowX: "visible",
+//                             padding: "4px 0",
+//                         }}
+//                     >
+//                         {filteredOptions.length === 0 ? (
+//                             <div
+//                                 style={{
+//                                     padding: "14px 10px",
+//                                     textAlign: "center",
+//                                     color: "#94a3b8",
+//                                     fontSize: 10.5,
+//                                 }}
+//                             >
+//                                 No options found
+//                             </div>
+//                         ) : (
+//                             filteredOptions.map((option) => {
+//                                 const selected = multiple
+//                                     ? option === "All"
+//                                         ? selectedValues.length === 0
+//                                         : selectedValues.includes(option)
+//                                     : option === "All"
+//                                         ? (!value || String(value).trim().toUpperCase() === "ALL")
+//                                         : String(value || "") === option;
+
+//                                 return (
+//                                     <button
+//                                         key={option}
+//                                         type="button"
+//                                         onClick={() =>
+//                                             handleOptionClick(option)
+//                                         }
+//                                         style={{
+//                                             width: "100%",
+//                                             minHeight: 31,
+//                                             display: "flex",
+//                                             alignItems: "center",
+//                                             gap: 8,
+//                                             padding: "5px 10px",
+//                                             border: "none",
+//                                             background: selected
+//                                                 ? "#eef2ff"
+//                                                 : "#ffffff",
+//                                             color: selected
+//                                                 ? "#243b8f"
+//                                                 : "#334155",
+//                                             fontSize: 10.5,
+//                                             fontWeight: selected
+//                                                 ? 700
+//                                                 : 500,
+//                                             cursor: "pointer",
+//                                             textAlign: "left",
+//                                             whiteSpace: "normal",
+//                                             overflowWrap: "anywhere",
+//                                         }}
+//                                     >
+//                                         {multiple && (
+//                                             <span
+//                                                 style={{
+//                                                     width: 14,
+//                                                     height: 14,
+//                                                     minWidth: 14,
+//                                                     borderRadius: 3,
+//                                                     border: selected
+//                                                         ? "1px solid #5b5bea"
+//                                                         : "1px solid #cbd5e1",
+//                                                     background: selected
+//                                                         ? "#5b5bea"
+//                                                         : "#ffffff",
+//                                                     display: "flex",
+//                                                     alignItems: "center",
+//                                                     justifyContent:
+//                                                         "center",
+//                                                     color: "#ffffff",
+//                                                     fontSize: 9,
+//                                                     fontWeight: 800,
+//                                                     boxSizing:
+//                                                         "border-box",
+//                                                 }}
+//                                             >
+//                                                 {selected ? "✓" : ""}
+//                                             </span>
+//                                         )}
+
+//                                         <span
+//                                             style={{
+//                                                 overflow: "visible",
+//                                                 textOverflow: "clip",
+//                                                 whiteSpace: "normal",
+//                                                 overflowWrap: "anywhere",
+//                                                 flex: 1,
+//                                                 minWidth: 0,
+//                                             }}
+//                                         >
+//                                             {option}
+//                                         </span>
+//                                     </button>
+//                                 );
+//                             })
+//                         )}
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+
+// /* ================================================================
+//    DATE FILTER
+//    Initial display = All
+//    All remains available inside dropdown
+//    ================================================================ */
+// function DateFilter({
+//     value,
+//     onChange,
+// }) {
+//     const dateInputRef = useRef(null);
+
+//     const openCalendar = () => {
+//         if (dateInputRef.current) {
+//             if (
+//                 typeof dateInputRef.current.showPicker === "function"
+//             ) {
+//                 dateInputRef.current.showPicker();
+//             } else {
+//                 dateInputRef.current.click();
+//             }
+//         }
+//     };
+
+//     const handleDateChange = (event) => {
+//         const selectedDate = event.target.value;
+
+//         if (!selectedDate) return;
+
+//         // Immediately send YYYY-MM-DD to parent
+//         onChange(selectedDate);
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 flex: "0.92 1 0",
+//                 minWidth: 0,
+//                 position: "relative",
+//             }}
+//         >
+//             <label
+//                 style={{
+//                     display: "block",
+//                     fontSize: 10.5,
+//                     fontWeight: 700,
+//                     color: "#334155",
+//                     marginBottom: 4,
+//                     lineHeight: "12px",
+//                     whiteSpace: "nowrap",
+//                 }}
+//             >
+//                 As On Date
+//             </label>
+
+//             {/* Hidden native calendar */}
+//             <input
+//                 ref={dateInputRef}
+//                 type="date"
+//                 value={value || ""}
+//                 onChange={handleDateChange}
+//                 style={{
+//                     position: "absolute",
+//                     width: 1,
+//                     height: 1,
+//                     opacity: 0,
+//                     pointerEvents: "none",
+//                 }}
+//             />
+
+//             {/* Visible field */}
+//             <button
+//                 type="button"
+//                 onClick={openCalendar}
+//                 style={{
+//                     width: "100%",
+//                     height: 34,
+//                     boxSizing: "border-box",
+//                     border: "1px solid #dce3ee",
+//                     borderRadius: 9,
+//                     padding: "0 38px 0 11px",
+//                     background: "#f4f7fb",
+//                     color: "#24366b",
+//                     fontSize: 11,
+//                     fontWeight: 600,
+//                     outline: "none",
+//                     cursor: "pointer",
+//                     textAlign: "left",
+//                     position: "relative",
+//                 }}
+//             >
+//                 {value
+//                     ? String(value).split("-").reverse().join("-")
+//                     : "Select Date"}
+
+//                 <span
+//                     style={{
+//                         position: "absolute",
+//                         right: 10,
+//                         top: "50%",
+//                         transform: "translateY(-50%)",
+//                         fontSize: 15,
+//                         pointerEvents: "none",
+//                     }}
+//                 >
+//                     📅
+//                 </span>
+//             </button>
+//         </div>
+//     );
+// }
+// /* ============================================================
+//    COMMON EMPTY STATE / KPI ANIMATION
+//    ============================================================ */
+
+// function NoDataAvailable({ minHeight = 180 }) {
+//     return (
+//         <div
+//             style={{
+//                 width: "100%",
+//                 minHeight,
+//                 display: "flex",
+//                 alignItems: "center",
+//                 justifyContent: "center",
+//                 color: "#94a3b8",
+//                 fontSize: 12,
+//                 fontWeight: 700,
+//                 textAlign: "center",
+//             }}
+//         >
+//             No Data Available
+//         </div>
+//     );
+// }
+
+// function ReceivablesApiError({ message = "Unable to load receivables data.", onRetry, minHeight = 180 }) {
+//     return (
+//         <div
+//             role="alert"
+//             style={{
+//                 width: "100%",
+//                 minHeight,
+//                 boxSizing: "border-box",
+//                 display: "flex",
+//                 flexDirection: "column",
+//                 alignItems: "center",
+//                 justifyContent: "center",
+//                 gap: 9,
+//                 padding: 20,
+//                 color: "#b91c1c",
+//                 background: "#fff7f7",
+//                 border: "1px solid #fecaca",
+//                 borderRadius: 10,
+//                 textAlign: "center",
+//             }}
+//         >
+//             <div style={{ fontSize: 13, fontWeight: 800 }}>
+//                 Unable to load data
+//             </div>
+//             <div style={{ fontSize: 11, fontWeight: 600, color: "#7f1d1d", maxWidth: 620 }}>
+//                 {message}
+//             </div>
+//             {typeof onRetry === "function" && (
+//                 <button
+//                     type="button"
+//                     onClick={onRetry}
+//                     style={{
+//                         height: 31,
+//                         padding: "0 14px",
+//                         border: "1px solid #fca5a5",
+//                         borderRadius: 7,
+//                         background: "#ffffff",
+//                         color: "#b91c1c",
+//                         fontSize: 11,
+//                         fontWeight: 800,
+//                         cursor: "pointer",
+//                     }}
+//                 >
+//                     Retry
+//                 </button>
+//             )}
+//         </div>
+//     );
+// }
+
+// function AnimatedNumber({ value, formatter, duration = 700, animationKey = 0 }) {
+//     const numericValue = Number(value);
+//     const target = Number.isFinite(numericValue) ? numericValue : 0;
+//     const [displayValue, setDisplayValue] = useState(target);
+
+//     useEffect(() => {
+//         let frameId;
+//         const start = performance.now();
+//         const from = 0;
+
+//         const animate = (now) => {
+//             const progress = Math.min((now - start) / duration, 1);
+//             const eased = 1 - Math.pow(1 - progress, 3);
+//             setDisplayValue(from + (target - from) * eased);
+//             if (progress < 1) {
+//                 frameId = requestAnimationFrame(animate);
+//             } else {
+//                 setDisplayValue(target);
+//             }
+//         };
+
+//         setDisplayValue(0);
+//         frameId = requestAnimationFrame(animate);
+
+//         return () => cancelAnimationFrame(frameId);
+//     }, [animationKey, duration]);
+
+//     return <>{formatter(displayValue)}</>;
+// }
+
+// /* ============================================================
+//    KPI CARD
+//    ============================================================ */
+
+// function KpiCard({
+//     title,
+//     value,
+//     variance,
+//     previousDate,
+//     icon,
+//     iconBg,
+//     iconColor,
+//     titleColor,
+//     cardBg,
+//     currency,
+//     suffix,
+//     onClick,
+//     targetVariance,
+//     lastMonthVariance,
+//     comparisonUnit = "%",
+// }) {
+//     const formatValue = (value) => {
+//         if (value === null || value === undefined) return "—";
+
+//         // DSO
+//         if (suffix === "Days") {
+//             return `${Number(value).toFixed(0)} Days`;
+//         }
+
+//         // Percentage values
+//         if (suffix === "%") {
+//             return `${Number(value).toFixed(1)}%`;
+//         }
+//         if (suffix === "pp") {
+//             return `${Number(value) > 0 ? "+" : ""}${Number(value).toFixed(1)} pp`;
+//         }
+
+//         // Currency values
+//         const numeric = Number(value);
+//         if (!Number.isFinite(numeric)) return "—";
+//         if (Math.abs(numeric) >= 1000000) {
+//             return `${currency} ${(numeric / 1000000).toFixed(2)}M`;
+//         }
+
+//         if (Math.abs(numeric) >= 1000) {
+//             return `${currency} ${(numeric / 1000).toFixed(2)}K`;
+//         }
+
+//         return `${currency} ${Number(value).toFixed(2)}`;
+//     };
+
+//     const numericValue = Number(value);
+//     const isNegativeValue =
+//         Number.isFinite(numericValue) && numericValue < 0;
+//     const isPositive = Number(variance) >= 0;
+
+//     return (
+//         <div
+//             className="sales-style-kpi"
+//             onClick={typeof onClick === "function" ? onClick : undefined}
+//             style={{
+//                 background: cardBg || "#ffffff",
+//                 borderRadius: 12,
+//                 padding: "15px 14px 10px",
+//                 boxShadow: "0 2px 8px rgba(15,23,42,0.025)",
+//                 border: "1px solid rgba(255,255,255,0.85)",
+//                 transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+//                 cursor: typeof onClick === "function" ? "pointer" : "default",
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: 11,
+//                 overflow: "visible",
+//                 position: "relative",
+//                 minHeight: 132,
+//                 alignItems: "flex-start",
+//             }}
+//             onMouseEnter={(e) => {
+//                 e.currentTarget.style.transform = "translateY(-2px)";
+//                 e.currentTarget.style.boxShadow = `0 8px 24px ${iconColor || "#2563eb"}20`;
+//             }}
+//             onMouseLeave={(e) => {
+//                 e.currentTarget.style.transform = "translateY(0)";
+//                 e.currentTarget.style.boxShadow = "none";
+//             }}
+//         >
+//             <div
+//                 style={{
+//                     width: 42,
+//                     height: 42,
+//                     borderRadius: "50%",
+//                     background: iconBg || "#f1f5f9",
+//                     color: iconColor || "#2563eb",
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+//                     flexShrink: 0,
+//                 }}
+//             >
+//                 {icon}
+//             </div>
+
+//             <div
+//                 style={{
+//                     display: "flex",
+//                     flexDirection: "column",
+//                     gap: 2,
+//                     minWidth: 0,
+//                     flex: 1,
+//                     justifyContent: "center",
+//                 }}
+//             >
+//                 <span
+//                     style={{
+//                         fontSize: "0.68rem",
+//                         fontWeight: 700,
+//                         color: titleColor || iconColor || "#2563eb",
+//                         lineHeight: 1.2,
+//                         display: "-webkit-box",
+//                         WebkitLineClamp: 2,
+//                         WebkitBoxOrient: "vertical",
+//                         overflow: "hidden",
+//                         wordBreak: "break-word",
+//                     }}
+//                 >
+//                     {title}
+//                 </span>
+
+//                 <div
+//                     style={{
+//                         fontSize: "1.28rem",
+//                         fontWeight: 850,
+//                         color: "#0f172a",
+//                         lineHeight: 1.1,
+//                         letterSpacing: "-0.02em",
+//                         display: "-webkit-box",
+//                         WebkitLineClamp: 2,
+//                         WebkitBoxOrient: "vertical",
+//                         overflow: "hidden",
+//                         wordBreak: "break-word",
+//                     }}
+//                 >
+//                     {value === null || value === undefined || value === "" ? "—" : <AnimatedNumber value={value} formatter={formatValue} />}
+//                 </div>
+
+//             </div>
+//             {(targetVariance !== undefined || lastMonthVariance !== undefined) && (
+//                 <div style={{
+//                     position: "absolute", left: 9, right: 9, bottom: 7,
+//                     borderRadius: 9, background: "rgba(255,255,255,0.76)",
+//                     padding: "6px 9px", display: "flex", flexDirection: "column", gap: 4,
+//                     fontSize: 10, color: "#526078", boxSizing: "border-box",
+//                     lineHeight: 1.15
+//                 }}>
+//                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+//                         <span>vs Target</span>
+//                         <strong style={{ color: targetVariance == null ? "#64748b" : Number(targetVariance) >= 0 ? "#159447" : "#e11d48", whiteSpace: "nowrap", fontWeight: 750 }}>
+//                             {targetVariance == null ? "—" : `${Number(targetVariance) >= 0 ? "▲" : "▼"} ${Math.abs(Number(targetVariance)).toFixed(1)}${comparisonUnit === "pp" ? " pp" : "%"}`}
+//                         </strong>
+//                     </div>
+//                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+//                         <span>vs Last Month</span>
+//                         <strong style={{ color: "#64748b", whiteSpace: "nowrap", fontWeight: 650 }}>
+//                             {previousDate ? (formatReceivablesDate(previousDate) || previousDate) : "—"}
+//                         </strong>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     )
+// }
+
+
+// /* ============================================================
+//    DONUT CHART
+//    ============================================================ */
+
+// function DonutChart({
+//     data,
+//     total,
+//     currency,
+//     centerLabel,
+//     legendBelow = false,
+//     onSegmentClick,
+
+//     // ============================================================
+//     // Enable only for Overdue Summary
+//     // ============================================================
+//     largeOverdueChart = false,
+
+//     // ============================================================
+//     // Optional reset signal
+//     // Existing parent code does not have to change.
+//     // ============================================================
+//     resetSignal = false,
+
+//     // ============================================================
+//     // Enable only for Aging Summary
+//     // Keeps other donut legend spacing unchanged.
+//     // ============================================================
+//     compactAgingLegend = false,
+// }) {
+//     const [selectedIndex, setSelectedIndex] = useState(null);
+//     const [hoveredIndex, setHoveredIndex] = useState(null);
+//     const [agingTooltipPoint, setAgingTooltipPoint] = useState(null);
+
+//     // ============================================================
+//     // RESET DONUT STATE
+//     // ============================================================
+//     // This also protects the component when the parent changes
+//     // the reset signal while returning from View All.
+//     // ============================================================
+//     useEffect(() => {
+//         setSelectedIndex(null);
+//         setHoveredIndex(null);
+//         setAgingTooltipPoint(null);
+//     }, [resetSignal]);
+
+//     const colors = [
+//         "#1665e8",
+//         "#0e9f75",
+//         "#f59e0b",
+//         "#7c3aed",
+//         "#ef6b82",
+//         "#f59ab5",
+//         "#c026d3",
+//         "#be185d",
+//     ];
+
+//     // ============================================================
+//     // DONUT SIZE
+//     // ============================================================
+//     const donutSize = largeOverdueChart ? 225 : 225;
+//     const donutCenter = donutSize / 2;
+
+//     // ============================================================
+//     // DONUT RADIUS / THICKNESS
+//     // ============================================================
+//     const radius = largeOverdueChart ? 84 : 84;
+
+//     const strokeWidth = largeOverdueChart ? 38 : 38;
+
+//     const circumference = 2 * Math.PI * radius;
+
+//     const hasData =
+//         Array.isArray(data) && data.length > 0;
+
+//     if (!hasData) {
+//         return (
+//             <div
+//                 style={{
+//                     minHeight: legendBelow ? 250 : 185,
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+//                     textAlign: "center",
+//                     color: MUTED,
+//                     fontSize: 11,
+//                     fontWeight: 700,
+//                 }}
+//             >
+//                 No data available
+//             </div>
+//         );
+//     }
+
+//     /*
+//      * The Receivables aging API can return negative percentages.
+//      * Use absolute values only for donut geometry so every
+//      * bucket remains visible.
+//      */
+//     const normalizedData = Array.isArray(data)
+//         ? data
+//         : [];
+
+//     const segmentWeights = normalizedData.map(
+//         (item) =>
+//             Math.abs(
+//                 Number(
+//                     item.percentage ??
+//                     item.percentage_of_total ??
+//                     0
+//                 )
+//             )
+//     );
+
+//     const totalSegmentWeight =
+//         segmentWeights.reduce(
+//             (sum, value) => sum + value,
+//             0
+//         );
+
+//     let accumulated = 0;
+
+//     /* ==========================================================
+//        CLICK SEGMENT / DRILL DOWN
+//     ========================================================== */
+//     const handleSegmentClick = (index) => {
+//         /*
+//          * IMPORTANT:
+//          *
+//          * The bucket click opens View All.
+//          * Reset the donut BEFORE calling the existing drill-down
+//          * callback so that when the user comes back to the main
+//          * page, the donut is already in its normal state.
+//          *
+//          * This does not change the existing drill-down behavior.
+//          */
+//         setSelectedIndex(null);
+//         setHoveredIndex(null);
+
+//         if (
+//             typeof onSegmentClick === "function"
+//         ) {
+//             onSegmentClick(
+//                 normalizedData[index],
+//                 index
+//             );
+//         }
+//     };
+
+//     /* ==========================================================
+//        GET SEGMENT POSITION
+//     ========================================================== */
+//     const getSegmentTransform = (
+//         startLength,
+//         segmentLength,
+//         active
+//     ) => {
+//         if (!active) {
+//             return `rotate(-90 ${donutCenter} ${donutCenter})`;
+//         }
+
+//         const startAngle =
+//             (startLength / circumference) *
+//             360 -
+//             90;
+
+//         const segmentAngle =
+//             (segmentLength / circumference) *
+//             360;
+
+//         const middleAngle =
+//             startAngle +
+//             segmentAngle / 2;
+
+//         const angleInRadians =
+//             (middleAngle * Math.PI) / 180;
+
+//         const offset = 8;
+
+//         const translateX =
+//             Math.cos(angleInRadians) *
+//             offset;
+
+//         const translateY =
+//             Math.sin(angleInRadians) *
+//             offset;
+
+//         return `
+//             translate(${translateX} ${translateY})
+//             rotate(-90 ${donutCenter} ${donutCenter})
+//         `;
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 display: "flex",
+
+//                 flexDirection: legendBelow
+//                     ? "column"
+//                     : "row",
+
+//                 gap: legendBelow
+//                     ? largeOverdueChart
+//                         ? 42
+//                         : 20
+//                     : largeOverdueChart
+//                         ? 28
+//                         : 16,
+
+//                 minHeight: legendBelow
+//                     ? largeOverdueChart
+//                         ? 300
+//                         : 265
+//                     : largeOverdueChart
+//                         ? 245
+//                         : 205,
+
+//                 position: "relative",
+
+//                 padding:
+//                     largeOverdueChart &&
+//                         !legendBelow
+//                         ? "4px 4px 4px 8px"
+//                         : 0,
+
+//                 boxSizing: "border-box",
+//             }}
+//         >
+//             {/* =====================================================
+//                 DONUT
+//             ===================================================== */}
+//             <div
+//                 style={{
+//                     width: donutSize,
+//                     minWidth: donutSize,
+//                     height: compactAgingLegend ? "auto" : donutSize,
+//                     minHeight: compactAgingLegend ? donutSize : undefined,
+//                     position: "relative",
+
+//                     marginBottom:
+//                         largeOverdueChart &&
+//                             legendBelow
+//                             ? 8
+//                             : 0,
+
+//                     overflow: "visible",
+//                 }}
+//             >
+//                 <svg
+//                     width={donutSize}
+//                     height={donutSize}
+//                     viewBox={`0 0 ${donutSize} ${donutSize}`}
+//                     style={{
+//                         overflow: "visible",
+//                     }}
+//                 >
+//                     {/* =================================================
+//                         BACKGROUND RING
+//                     ================================================= */}
+//                     <circle
+//                         cx={donutCenter}
+//                         cy={donutCenter}
+//                         r={radius}
+//                         fill="none"
+//                         stroke="#eef2f7"
+//                         strokeWidth={strokeWidth}
+//                     />
+
+//                     {/* =================================================
+//                         DONUT SEGMENTS
+//                     ================================================= */}
+//                     {normalizedData.map(
+//                         (item, index) => {
+//                             const weight =
+//                                 segmentWeights[
+//                                 index
+//                                 ] || 0;
+
+//                             const percent =
+//                                 totalSegmentWeight >
+//                                     0
+//                                     ? weight /
+//                                     totalSegmentWeight
+//                                     : 0;
+
+//                             const length =
+//                                 circumference *
+//                                 percent;
+
+//                             const offset =
+//                                 -accumulated;
+
+//                             const segmentStart =
+//                                 accumulated;
+
+//                             accumulated += length;
+
+//                             const isSelected =
+//                                 selectedIndex ===
+//                                 index;
+
+//                             const isHovered =
+//                                 hoveredIndex ===
+//                                 index;
+
+//                             const hasHover =
+//                                 hoveredIndex !==
+//                                 null;
+
+//                             const isHoverTarget =
+//                                 hoveredIndex ===
+//                                 index;
+
+//                             const isDisabledByHover =
+//                                 hasHover &&
+//                                 !isHoverTarget;
+
+//                             const isActive =
+//                                 isSelected;
+
+//                             return (
+//                                 <circle
+//                                     key={`donut-segment-${index}-${item.bucket_code ?? item.bucket_name ?? item.bucket ?? "segment"}`}
+//                                     cx={
+//                                         donutCenter
+//                                     }
+//                                     cy={
+//                                         donutCenter
+//                                     }
+//                                     r={radius}
+//                                     fill="none"
+//                                     stroke={
+//                                         colors[
+//                                         index %
+//                                         colors.length
+//                                         ]
+//                                     }
+//                                     strokeWidth={
+//                                         isActive ||
+//                                             isHoverTarget
+//                                             ? largeOverdueChart
+//                                                 ? 42
+//                                                 : 38
+//                                             : strokeWidth
+//                                     }
+//                                     strokeDasharray={`${length} ${circumference -
+//                                         length
+//                                         }`}
+//                                     strokeDashoffset={
+//                                         offset
+//                                     }
+//                                     transform={getSegmentTransform(
+//                                         segmentStart,
+//                                         length,
+//                                         isActive
+//                                     )}
+//                                     strokeLinecap="butt"
+//                                     style={{
+//                                         cursor:
+//                                             "pointer",
+
+//                                         opacity:
+//                                             isDisabledByHover
+//                                                 ? 0.16
+//                                                 : selectedIndex !==
+//                                                     null &&
+//                                                     !isSelected
+//                                                     ? isHovered
+//                                                         ? 0.82
+//                                                         : 0.55
+//                                                     : 1,
+
+//                                         filter: isHoverTarget
+//                                             ? `drop-shadow(0 0 7px ${colors[
+//                                             index %
+//                                             colors.length
+//                                             ]
+//                                             }88)`
+//                                             : isSelected
+//                                                 ? "drop-shadow(0 4px 7px rgba(0,0,0,0.20))"
+//                                                 : "none",
+
+//                                         transition:
+//                                             "opacity 0.25s ease, filter 0.25s ease, stroke-width 0.2s ease",
+//                                     }}
+//                                     onMouseEnter={(event) => {
+//                                         setHoveredIndex(index);
+//                                         if (compactAgingLegend) {
+//                                             setAgingTooltipPoint({
+//                                                 x: event.clientX,
+//                                                 y: event.clientY,
+//                                             });
+//                                         }
+//                                     }}
+//                                     onMouseMove={(event) => {
+//                                         if (compactAgingLegend) {
+//                                             setAgingTooltipPoint({
+//                                                 x: event.clientX,
+//                                                 y: event.clientY,
+//                                             });
+//                                         }
+//                                     }}
+//                                     onMouseLeave={() => {
+//                                         setHoveredIndex(null);
+//                                         if (compactAgingLegend) setAgingTooltipPoint(null);
+//                                     }}
+//                                     onClick={() =>
+//                                         handleSegmentClick(
+//                                             index
+//                                         )
+//                                     }
+//                                 />
+//                             );
+//                         }
+//                     )}
+//                 </svg>
+
+//                 {/* ===================================================
+//                     CENTER VALUE
+
+//                     VALUE = MILLIONS
+//                     CURRENCY = UNDER VALUE
+//                 =================================================== */}
+//                 {selectedIndex === null && (
+//                     <div
+//                         style={{
+//                             /*
+//                              * IMPORTANT: compactAgingLegend renders its tooltip
+//                              * as a normal-flow element below the donut.  Using
+//                              * inset: 0 here made this overlay inherit the expanded
+//                              * parent height while hovering, so the center value
+//                              * visibly moved.  Lock the overlay to the actual SVG
+//                              * dimensions so hover/tooltip layout can never move it.
+//                              */
+//                             position: "absolute",
+//                             top: 0,
+//                             left: 0,
+//                             width: donutSize,
+//                             height: donutSize,
+//                             display: "flex",
+//                             flexDirection: "column",
+//                             alignItems: "center",
+//                             justifyContent: "center",
+//                             color: "#000000",
+//                             pointerEvents: "none",
+//                             transition: "opacity 0.2s ease",
+//                             boxSizing: "border-box",
+//                         }}
+//                     >
+//                         {/* VALUE IN MILLIONS */}
+//                         <div
+//                             style={{
+//                                 fontSize:
+//                                     largeOverdueChart
+//                                         ? 19
+//                                         : 18,
+//                                 fontWeight: 800,
+//                                 lineHeight:
+//                                     "22px",
+//                             }}
+//                         >
+//                             {(
+//                                 Number(
+//                                     total || 0
+//                                 ) / 1000000
+//                             ).toFixed(2)}{" "}
+//                             M
+//                         </div>
+
+//                         {/* CURRENCY UNDER VALUE */}
+//                         <div
+//                             style={{
+//                                 fontSize: 11,
+//                                 fontWeight: 700,
+//                                 color: "#64748b",
+//                                 marginTop: 2,
+//                                 lineHeight:
+//                                     "16px",
+//                             }}
+//                         >
+//                             {currency}
+//                         </div>
+//                     </div>
+//                 )}
+
+//                 {/* ===================================================
+//                     TOOLTIP
+//                 =================================================== */}
+//                 {hoveredIndex !== null &&
+//                     normalizedData[
+//                     hoveredIndex
+//                     ] && (
+//                         <div
+//                             style={{
+//                                 position:
+//                                     compactAgingLegend ? "relative" : "absolute",
+
+//                                 /*
+//                                  * Aging Summary only:
+//                                  * Keep the tooltip completely inside the viewport.
+//                                  * It is deliberately positioned either below OR above
+//                                  * the hovered donut segment instead of using a transform
+//                                  * that can push the tooltip outside the viewport.
+//                                  */
+//                                 left:
+//                                     compactAgingLegend
+//                                         ? "auto"
+//                                         : largeOverdueChart
+//                                             ? `calc(100% + 12px)`
+//                                             : "50%",
+
+//                                 top:
+//                                     compactAgingLegend
+//                                         ? "auto"
+//                                         : largeOverdueChart
+//                                             ? "50%"
+//                                             : `calc(100% + 8px)`,
+
+//                                 transform:
+//                                     compactAgingLegend
+//                                         ? "none"
+//                                         : largeOverdueChart
+//                                             ? "translateY(-50%)"
+//                                             : "translateX(-50%)",
+
+//                                 margin:
+//                                     compactAgingLegend ? "8px auto 0" : 0,
+//                                 minWidth: compactAgingLegend ? 310 : 230,
+//                                 width: compactAgingLegend ? "min(310px, 100%)" : undefined,
+//                                 maxWidth: compactAgingLegend ? "310px" : 280,
+
+//                                 background:
+//                                     "#ffffff",
+
+//                                 border:
+//                                     "1px solid #e5eaf2",
+
+//                                 borderRadius: 12,
+
+//                                 padding:
+//                                     "14px 16px",
+
+//                                 boxShadow:
+//                                     "0 12px 30px rgba(24,45,80,0.16)",
+
+//                                 zIndex: 1000,
+
+//                                 pointerEvents:
+//                                     "none",
+
+//                                 whiteSpace: "normal",
+//                                 overflow: "visible",
+//                                 overflowWrap: "anywhere",
+//                                 wordBreak: "break-word",
+
+//                                 boxSizing:
+//                                     "border-box",
+//                             }}
+//                         >
+//                             {/* TOOLTIP TITLE */}
+//                             <div
+//                                 style={{
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     gap: 8,
+//                                     fontSize: 13,
+//                                     fontWeight: 800,
+//                                     color: "#17213c",
+//                                     marginBottom: 12,
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         width: 10,
+//                                         height: 10,
+//                                         borderRadius: 2,
+//                                         background:
+//                                             colors[
+//                                             hoveredIndex %
+//                                             colors.length
+//                                             ],
+//                                         display:
+//                                             "inline-block",
+//                                         flexShrink: 0,
+//                                     }}
+//                                 />
+
+//                                 {normalizedData[
+//                                     hoveredIndex
+//                                 ]
+//                                     .bucket_name ??
+//                                     normalizedData[
+//                                         hoveredIndex
+//                                     ].bucket ??
+//                                     normalizedData[
+//                                         hoveredIndex
+//                                     ].bucket_code}
+//                             </div>
+
+//                             {/* AMOUNT */}
+//                             <div
+//                                 style={{
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     justifyContent:
+//                                         "space-between",
+//                                     gap: 24,
+//                                     marginBottom: 9,
+//                                     fontSize: 11,
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         color:
+//                                             "#334155",
+//                                         fontWeight: 600,
+//                                     }}
+//                                 >
+//                                     Amount
+//                                 </span>
+
+//                                 <strong
+//                                     style={{
+//                                         color:
+//                                             colors[
+//                                             hoveredIndex %
+//                                             colors.length
+//                                             ],
+//                                         fontSize: 13,
+//                                         whiteSpace: "normal",
+//                                         overflowWrap: "anywhere",
+//                                         textAlign: "right",
+//                                     }}
+//                                 >
+//                                     {currency}{" "}
+//                                     {Number(
+//                                         normalizedData[
+//                                             hoveredIndex
+//                                         ].amount || 0
+//                                     ).toLocaleString(
+//                                         "en-US",
+//                                         {
+//                                             maximumFractionDigits: 0,
+//                                         }
+//                                     )}
+//                                 </strong>
+//                             </div>
+
+//                             {/* SHARE / PERCENTAGE */}
+//                             <div
+//                                 style={{
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     justifyContent:
+//                                         "space-between",
+//                                     gap: 24,
+//                                     fontSize: 11,
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         color:
+//                                             "#334155",
+//                                         fontWeight: 600,
+//                                     }}
+//                                 >
+//                                     Share
+//                                 </span>
+
+//                                 <strong
+//                                     style={{
+//                                         color:
+//                                             colors[
+//                                             hoveredIndex %
+//                                             colors.length
+//                                             ],
+//                                         fontSize: 13,
+//                                     }}
+//                                 >
+//                                     {formatPercentage(
+//                                         normalizedData[
+//                                             hoveredIndex
+//                                         ]
+//                                             .percentage ??
+//                                         normalizedData[
+//                                             hoveredIndex
+//                                         ]
+//                                             .percentage_of_total
+//                                     )}
+//                                 </strong>
+//                             </div>
+//                         </div>
+//                     )}
+//             </div>
+
+//             {/* =====================================================
+//                 LEGEND
+//             ===================================================== */}
+//             <div
+//                 style={{
+//                     flex: legendBelow
+//                         ? "none"
+//                         : 1,
+
+//                     width: legendBelow
+//                         ? "100%"
+//                         : "auto",
+
+//                     minWidth: 0,
+
+//                     marginLeft:
+//                         !legendBelow &&
+//                             largeOverdueChart
+//                             ? 6
+//                             : 0,
+
+//                     marginTop:
+//                         legendBelow
+//                             ? largeOverdueChart
+//                                 ? 8
+//                                 : 0
+//                             : 0,
+//                 }}
+//             >
+//                 {normalizedData.map(
+//                     (item, index) => {
+//                         const isSelected =
+//                             selectedIndex ===
+//                             index;
+
+//                         const isHovered =
+//                             hoveredIndex ===
+//                             index;
+
+//                         const isActive =
+//                             isSelected ||
+//                             isHovered;
+
+//                         return (
+//                             <div
+//                                 key={`donut-legend-${index}-${item.bucket_code ?? item.bucket_name ?? item.bucket ?? "bucket"}`}
+//                                 onClick={() =>
+//                                     handleSegmentClick(
+//                                         index
+//                                     )
+//                                 }
+//                                 onMouseEnter={() =>
+//                                     setHoveredIndex(
+//                                         index
+//                                     )
+//                                 }
+//                                 onMouseLeave={() =>
+//                                     setHoveredIndex(
+//                                         null
+//                                     )
+//                                 }
+//                                 style={{
+//                                     display:
+//                                         "flex",
+
+//                                     alignItems:
+//                                         "flex-start",
+
+//                                     gap:
+//                                         largeOverdueChart
+//                                             ? 10
+//                                             : 4,
+
+//                                     marginBottom:
+//                                         compactAgingLegend
+//                                             ? 5
+//                                             : largeOverdueChart
+//                                                 ? 8
+//                                                 : 16,
+
+//                                     fontSize: compactAgingLegend ? 10 : 12,
+//                                     color: "#334155",
+//                                     cursor:
+//                                         "pointer",
+
+//                                     padding:
+//                                         "5px 5px",
+
+//                                     borderRadius: 7,
+
+//                                     background:
+//                                         isSelected
+//                                             ? "#f1f5ff"
+//                                             : isHovered
+//                                                 ? "#f8fafc"
+//                                                 : "transparent",
+
+//                                     borderLeft:
+//                                         isActive
+//                                             ? `3px solid ${colors[
+//                                             index %
+//                                             colors.length
+//                                             ]
+//                                             }`
+//                                             : "3px solid transparent",
+
+//                                     transform:
+//                                         isHovered
+//                                             ? "translateX(3px)"
+//                                             : "translateX(0)",
+
+//                                     transition:
+//                                         "background 0.2s ease, transform 0.2s ease, border-left 0.2s ease",
+
+//                                     minHeight:
+//                                         largeOverdueChart
+//                                             ? 34
+//                                             : "auto",
+
+//                                     boxSizing:
+//                                         "border-box",
+//                                 }}
+//                             >
+//                                 {/* =================================================
+//                                     SQUARE COLOR INDICATOR
+//                                 ================================================= */}
+//                                 <span
+//                                     style={{
+//                                         width: 10,
+//                                         height: 10,
+//                                         borderRadius: 2,
+//                                         background:
+//                                             colors[
+//                                             index %
+//                                             colors.length
+//                                             ],
+//                                         display:
+//                                             "inline-block",
+//                                         flexShrink: 0,
+
+//                                         boxShadow:
+//                                             isActive
+//                                                 ? `0 0 0 3px ${colors[
+//                                                 index %
+//                                                 colors.length
+//                                                 ]
+//                                                 }22`
+//                                                 : "none",
+
+//                                         transition:
+//                                             "box-shadow 0.2s ease",
+
+//                                         marginTop: 3,
+//                                     }}
+//                                 />
+
+//                                 {/* =================================================
+//                                     BUCKET NAME
+//                                 ================================================= */}
+//                                 <span
+//                                     style={{
+//                                         flex: 1,
+
+//                                         whiteSpace:
+//                                             "normal",
+
+//                                         overflow:
+//                                             "hidden",
+
+//                                         display:
+//                                             "-webkit-box",
+
+//                                         WebkitBoxOrient:
+//                                             "vertical",
+
+//                                         WebkitLineClamp:
+//                                             2,
+
+//                                         lineHeight:
+//                                             "16px",
+
+//                                         minWidth: 0,
+
+//                                         wordBreak:
+//                                             "break-word",
+
+//                                         fontWeight:
+//                                             isActive
+//                                                 ? 800
+//                                                 : 700,
+//                                     }}
+//                                 >
+//                                     {item.bucket_name ??
+//                                         item.bucket ??
+//                                         item.bucket_code}
+//                                 </span>
+
+//                                 {/* =================================================
+//                                     AMOUNT
+//                                 ================================================= */}
+//                                 <strong
+//                                     style={{
+//                                         color:
+//                                             colors[
+//                                             index %
+//                                             colors.length
+//                                             ],
+
+//                                         whiteSpace:
+//                                             "nowrap",
+
+//                                         flexShrink: 0,
+
+//                                         fontWeight:
+//                                             isActive
+//                                                 ? 800
+//                                                 : 700,
+
+//                                         lineHeight:
+//                                             "16px",
+
+//                                         marginLeft:
+//                                             largeOverdueChart
+//                                                 ? 8
+//                                                 : 2,
+
+//                                         marginRight:
+//                                             largeOverdueChart
+//                                                 ? 2
+//                                                 : 0,
+//                                     }}
+//                                 >
+//                                     {(
+//                                         Number(
+//                                             item.amount ||
+//                                             0
+//                                         ) / 1000000
+//                                     ).toFixed(2)}
+//                                     M
+//                                 </strong>
+
+//                                 {/* =================================================
+//                                     PERCENTAGE
+//                                 ================================================= */}
+//                                 <span
+//                                     style={{
+//                                         color:
+//                                             isActive
+//                                                 ? colors[
+//                                                 index %
+//                                                 colors.length
+//                                                 ]
+//                                                 : "#64748b",
+
+//                                         minWidth: 34,
+
+//                                         whiteSpace:
+//                                             "nowrap",
+
+//                                         flexShrink: 0,
+
+//                                         fontWeight:
+//                                             isActive
+//                                                 ? 700
+//                                                 : 500,
+
+//                                         lineHeight:
+//                                             "16px",
+
+//                                         transition:
+//                                             "color 0.2s ease",
+
+//                                         marginLeft: 0,
+//                                     }}
+//                                 >
+//                                     (
+//                                     {formatPercentage(
+//                                         item.percentage ??
+//                                         item.percentage_of_total
+//                                     )}
+//                                     )
+//                                 </span>
+//                             </div>
+//                         );
+//                     }
+//                 )}
+//             </div>
+//         </div>
+//     );
+// }
+
+
+
+// /* ============================================================
+//    TREND CHART
+//    ============================================================ */
+
+// function TrendChart({ data: rawData, currency, onPointClick }) {
+
+//     const parseNumber = (value) => {
+
+//         if (value === null || value === undefined || value === "") return null;
+
+
+
+//         const normalized = String(value).replace(/,/g, "").trim();
+
+//         const number = Number(normalized);
+
+
+
+//         return Number.isFinite(number) ? number : null;
+
+//     };
+
+
+
+//     const getTrendDate = (item) => {
+
+//         const raw =
+
+//             item?.as_on_date ??
+
+//             item?.asOnDate ??
+
+//             item?.snapshot_date ??
+
+//             item?.date ??
+
+//             item?.month_date ??
+
+//             item?.period_end ??
+
+//             "";
+
+
+
+//         const text = String(raw).slice(0, 10);
+
+//         const parsed = text
+
+//             ? new Date(`${text}T00:00:00`).getTime()
+
+//             : NaN;
+
+
+
+//         return Number.isFinite(parsed) ? parsed : 0;
+
+//     };
+
+
+
+//     const getTrendReceivablesValue = (item) =>
+
+//         parseNumber(
+
+//             item?.total_receivables ??
+
+//             item?.total_ar ??
+
+//             item?.total_receivable
+
+//         );
+
+
+
+//     const getTrendDsoValue = (item) =>
+
+//         parseNumber(
+
+//             item?.dso_days ??
+
+//             item?.dso ??
+
+//             item?.average_dso ??
+
+//             item?.average_dso_days
+
+//         );
+
+
+
+//     /*
+
+//      * =========================================================
+
+//      * PREPARE EXACTLY 6 UNIQUE MONTHLY SNAPSHOTS
+
+//      * =========================================================
+
+//      * The previous implementation used the last six records.
+
+//      * If the API returned duplicate rows for a month, that could
+
+//      * produce duplicate month labels and an incorrect x-axis.
+
+//      *
+
+//      * Here we:
+
+//      * 1. normalize valid trend rows;
+
+//      * 2. group by calendar month;
+
+//      * 3. keep the latest snapshot inside each month;
+
+//      * 4. sort oldest -> newest;
+
+//      * 5. take only the latest six unique months.
+
+//      */
+
+//     const data = useMemo(() => {
+
+//         const source = Array.isArray(rawData) ? rawData : [];
+
+
+
+//         const normalized = source
+
+//             .map((item) => {
+
+//                 const date = getTrendDate(item);
+
+//                 const receivables = getTrendReceivablesValue(item);
+
+//                 const dso = getTrendDsoValue(item);
+
+
+
+//                 if (!date || receivables === null) return null;
+
+
+
+//                 const dateObject = new Date(date);
+
+//                 if (Number.isNaN(dateObject.getTime())) return null;
+
+
+
+//                 const monthKey = `${dateObject.getFullYear()}-${String(
+
+//                     dateObject.getMonth() + 1
+
+//                 ).padStart(2, "0")}`;
+
+
+
+//                 return {
+
+//                     ...item,
+
+//                     __trendDate: date,
+
+//                     __receivables: receivables,
+
+//                     __dso: dso,
+
+//                     __monthKey: monthKey,
+
+//                     month: dateObject.toLocaleString("en-US", {
+
+//                         month: "short",
+
+//                         year: "numeric",
+
+//                     }),
+
+//                 };
+
+//             })
+
+//             .filter(Boolean)
+
+//             .sort((a, b) => a.__trendDate - b.__trendDate);
+
+
+
+//         const monthMap = new Map();
+
+
+
+//         normalized.forEach((item) => {
+
+//             const existing = monthMap.get(item.__monthKey);
+
+
+
+//             /* Keep the latest snapshot for that calendar month. */
+
+//             if (!existing || item.__trendDate >= existing.__trendDate) {
+
+//                 monthMap.set(item.__monthKey, item);
+
+//             }
+
+//         });
+
+
+
+//         return Array.from(monthMap.values())
+
+//             .sort((a, b) => a.__trendDate - b.__trendDate)
+
+//             .slice(-5);
+
+//     }, [rawData]);
+
+
+
+//     const [hoveredIndex, setHoveredIndex] = useState(null);
+
+//     const [chartLoaded, setChartLoaded] = useState(false);
+
+//     const [tooltipPosition, setTooltipPosition] = useState(null);
+
+//     const [hiddenSeries, setHiddenSeries] = useState(() => new Set());
+
+//     const [hoveredSeries, setHoveredSeries] = useState(null);
+
+//     const [isFullscreen, setIsFullscreen] = useState(false);
+
+
+
+//     const chartWrapperRef = useRef(null);
+
+
+
+//     useEffect(() => {
+
+//         const frame = requestAnimationFrame(() => setChartLoaded(true));
+
+//         return () => cancelAnimationFrame(frame);
+
+//     }, []);
+
+
+
+//     useEffect(() => {
+
+//         const handleKeyDown = (event) => {
+
+//             if (event.key === "Escape") setIsFullscreen(false);
+
+//         };
+
+
+
+//         document.addEventListener("keydown", handleKeyDown);
+
+//         return () => document.removeEventListener("keydown", handleKeyDown);
+
+//     }, []);
+
+
+
+//     const hasData = data.length > 0;
+
+
+
+//     /*
+
+//      * =========================================================
+
+//      * CORRECT RECEIVABLES Y-AXIS
+
+//      * =========================================================
+
+//      * Use a clean, rounded million scale rather than using the
+
+//      * largest data value itself as the axis ceiling.
+
+//      */
+
+//     const receivablesValues = data
+
+//         .map((item) => Number(item.__receivables))
+
+//         .filter((value) => Number.isFinite(value) && value >= 0);
+
+
+
+//     const maxReceivables = Math.max(...receivablesValues, 0);
+
+//     const maxReceivablesMillions = maxReceivables / 1000000;
+
+
+
+//     const niceAxisMax = (value) => {
+
+//         if (!Number.isFinite(value) || value <= 0) return 100;
+
+
+
+//         const targetTicks = 4;
+
+//         const roughStep = value / targetTicks;
+
+//         const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+
+//         const normalized = roughStep / magnitude;
+
+
+
+//         let niceStep;
+
+//         if (normalized <= 1) niceStep = 1;
+
+//         else if (normalized <= 2) niceStep = 2;
+
+//         else if (normalized <= 5) niceStep = 5;
+
+//         else niceStep = 10;
+
+
+
+//         const step = niceStep * magnitude;
+
+//         return Math.max(step * targetTicks, Math.ceil(value / step) * step);
+
+//     };
+
+
+
+//     const receivablesAxisMaxMillions = niceAxisMax(maxReceivablesMillions);
+
+//     const receivablesAxisStepMillions =
+
+//         receivablesAxisMaxMillions / 4;
+
+
+
+//     const receivablesAxisValues = [
+
+//         receivablesAxisMaxMillions,
+
+//         receivablesAxisStepMillions * 3,
+
+//         receivablesAxisStepMillions * 2,
+
+//         receivablesAxisStepMillions,
+
+//         0,
+
+//     ];
+
+
+
+//     const maxValue = Math.max(
+
+//         receivablesAxisMaxMillions * 1000000,
+
+//         1
+
+//     );
+
+
+
+//     /*
+
+//      * =========================================================
+
+//      * DSO Y-AXIS
+
+//      * =========================================================
+
+//      * The DSO scale is independent from receivables, but the line
+
+//      * uses the exact same plot height so its right-side values line
+
+//      * up correctly with the DSO points.
+
+//      */
+
+//     const dsoValues = data
+
+//         .map((item) => Number(item.__dso))
+
+//         .filter((value) => Number.isFinite(value) && value >= 0);
+
+
+
+//     const rawMaxDso = Math.max(...dsoValues, 0);
+
+
+
+//     // Keep the requested clean DSO scale fixed at 0-6,000.
+
+//     // This also keeps 5,000 and 6,000 visible even when the latest
+
+//     // DSO value is below 6,000.
+
+//     const dsoAxisMax = 6000;
+
+//     const dsoScaleValues = [6000, 3000, 900, 500, 200, 100, 0];
+
+//     const maxDso = dsoAxisMax;
+
+
+
+//     /* Five months = five stable x-axis slots, all visible in one chart. */
+
+//     const monthSlotWidth = 84;
+
+
+
+//     const plot = {
+
+//         width: 420,
+
+//         height: 168,
+
+//         left: 52,
+
+//         right: 62,
+
+//         top: 28,
+
+//         bottom: 52,
+
+//     };
+
+
+
+//     const chartHeight = 255;
+
+//     const chartViewWidth = plot.left + plot.width + plot.right;
+
+
+
+//     const getX = (index) => {
+
+//         if (data.length <= 1) return plot.width / 2;
+
+//         return (index + 0.5) * (plot.width / data.length);
+
+//     };
+
+
+
+//     const getBarHeight = (value) => {
+
+//         if (!Number.isFinite(value) || value <= 0 || maxValue <= 0) {
+
+//             return 0;
+
+//         }
+
+
+
+//         return (value / maxValue) * plot.height;
+
+//     };
+
+
+
+//     // const getDsoY = (value) => {
+
+//     //     if (!Number.isFinite(value) || maxDso <= 0) return null;
+
+
+
+//     //     /*
+
+//     //      * Use the exact same evenly-spaced tick positions as the visible
+
+//     //      * DSO axis.  This keeps the plotted DSO values aligned with their
+
+//     //      * displayed labels instead of using a separate linear scale.
+
+//     //      *
+
+//     //      * Bottom -> top: 0, 200, 600, 900, 2000, 5000, 6000
+
+//     //      */
+
+//     //     const dsoTicksAscending = [0, 200, 600, 900, 2000, 5000, 6000];
+
+//     //     const safeValue = Math.max(
+
+//     //         dsoTicksAscending[0],
+
+//     //         Math.min(dsoTicksAscending[dsoTicksAscending.length - 1], value)
+
+//     //     );
+
+
+
+//     //     if (safeValue <= dsoTicksAscending[0]) {
+
+//     //         return plot.height;
+
+//     //     }
+
+
+
+//     //     if (safeValue >= dsoTicksAscending[dsoTicksAscending.length - 1]) {
+
+//     //         return 0;
+
+//     //     }
+
+
+
+//     //     for (let i = 0; i < dsoTicksAscending.length - 1; i += 1) {
+
+//     //         const lower = dsoTicksAscending[i];
+
+//     //         const upper = dsoTicksAscending[i + 1];
+
+
+
+//     //         if (safeValue >= lower && safeValue <= upper) {
+
+//     //             const fraction = (safeValue - lower) / (upper - lower);
+
+//     //             const segment = i + fraction;
+
+//     //             const normalizedPosition =
+
+//     //                 segment / (dsoTicksAscending.length - 1);
+
+
+
+//     //             return plot.height * (1 - normalizedPosition);
+
+//     //         }
+
+//     //     }
+
+
+
+//     //     return plot.height;
+
+//     // };
+
+
+
+
+
+//     const getDsoY = (value) => {
+//         if (!Number.isFinite(value) || maxDso <= 0) return null;
+
+//         /*
+//          * DSO uses a non-linear visual scale. The plotted points must use
+//          * the same tick positions as the visible right-side DSO axis.
+//          *
+//          * Bottom -> top:
+//          * 0, 100, 200, 500, 900, 3000, 6000
+//          */
+//         const dsoTicksAscending = [
+//             0,
+//             100,
+//             200,
+//             500,
+//             900,
+//             3000,
+//             6000,
+//         ];
+
+//         const safeValue = Math.max(
+//             dsoTicksAscending[0],
+//             Math.min(
+//                 dsoTicksAscending[dsoTicksAscending.length - 1],
+//                 value
+//             )
+//         );
+
+//         if (safeValue <= dsoTicksAscending[0]) {
+//             return plot.height;
+//         }
+
+//         if (
+//             safeValue >=
+//             dsoTicksAscending[dsoTicksAscending.length - 1]
+//         ) {
+//             return 0;
+//         }
+
+//         for (let i = 0; i < dsoTicksAscending.length - 1; i += 1) {
+//             const lower = dsoTicksAscending[i];
+//             const upper = dsoTicksAscending[i + 1];
+
+//             if (safeValue >= lower && safeValue <= upper) {
+//                 const fraction =
+//                     (safeValue - lower) / (upper - lower);
+
+//                 // Equal visual spacing between the displayed DSO ticks.
+//                 const segmentPosition = i + fraction;
+//                 const normalizedPosition =
+//                     segmentPosition / (dsoTicksAscending.length - 1);
+
+//                 return plot.height * (1 - normalizedPosition);
+//             }
+//         }
+
+//         return plot.height;
+//     };
+
+
+//     const toggleSeries = (key) => {
+
+//         setHiddenSeries((previous) => {
+
+//             const next = new Set(previous);
+
+//             if (next.has(key)) next.delete(key);
+
+//             else next.add(key);
+
+//             return next;
+
+//         });
+
+//     };
+
+
+
+//     const isolateSeries = (key) => {
+
+//         setHiddenSeries(
+
+//             new Set(
+
+//                 ["receivables", "dso"].filter((series) => series !== key)
+
+//             )
+
+//         );
+
+//     };
+
+
+
+//     const seriesOpacity = (key) => {
+
+//         if (hiddenSeries.has(key)) return 0;
+
+//         if (!hoveredSeries) return 1;
+
+//         return hoveredSeries === key ? 1 : 0.35;
+
+//     };
+
+
+
+//     const positionTooltip = (index) => {
+
+//         const wrapper = chartWrapperRef.current;
+
+//         if (!wrapper) return;
+
+
+
+//         const wrapperRect = wrapper.getBoundingClientRect();
+
+//         const centerX = plot.left + getX(index);
+
+//         const tooltipWidth = 220;
+
+//         const tooltipHeight = 112;
+
+
+
+//         let left = centerX - tooltipWidth / 2;
+
+//         left = Math.max(
+
+//             4,
+
+//             Math.min(left, wrapperRect.width - tooltipWidth - 4)
+
+//         );
+
+
+
+//         const bar = data[index];
+
+//         const barHeight = getBarHeight(Number(bar?.__receivables) || 0);
+
+//         const barTop = plot.top + plot.height - barHeight;
+
+
+
+//         // Prefer above the selected bar. If there is not enough room,
+
+//         // place the tooltip at the top of the chart instead of below
+
+//         // the plot where the DSO row can be clipped by the card.
+
+//         let top = barTop - tooltipHeight - 10;
+
+//         if (top < 6) top = 6;
+
+
+
+//         setTooltipPosition({ left, top });
+
+//     };
+
+
+
+//     const handlePointEnter = (index) => {
+
+//         setHoveredIndex(index);
+
+//         requestAnimationFrame(() => positionTooltip(index));
+
+//     };
+
+
+
+//     const handlePointLeave = () => {
+
+//         setHoveredIndex(null);
+
+//         setTooltipPosition(null);
+
+//     };
+
+
+
+//     if (!hasData) {
+
+//         return (
+
+//             <div
+
+//                 style={{
+
+//                     width: "100%",
+
+//                     minHeight: 250,
+
+//                     display: "flex",
+
+//                     alignItems: "center",
+
+//                     justifyContent: "center",
+
+//                     color: "#64748b",
+
+//                     fontSize: 14,
+
+//                 }}
+
+//             >
+
+//                 No data available
+
+//             </div>
+
+//         );
+
+//     }
+
+
+
+//     const dsoSegments = [];
+
+//     let currentSegment = [];
+
+
+
+//     data.forEach((item, index) => {
+
+//         const dso = item.__dso;
+
+
+
+//         if (Number.isFinite(Number(dso))) {
+
+//             currentSegment.push({ index, value: Number(dso) });
+
+//         } else if (currentSegment.length) {
+
+//             dsoSegments.push(currentSegment);
+
+//             currentSegment = [];
+
+//         }
+
+//     });
+
+
+
+//     if (currentSegment.length) dsoSegments.push(currentSegment);
+
+
+
+//     return (
+
+//         <div
+
+//             ref={chartWrapperRef}
+
+//             style={{
+
+//                 width: "100%",
+
+//                 position: "relative",
+
+//                 paddingBottom: 14,
+
+//                 overflow: "visible",
+
+//                 boxSizing: "border-box",
+
+//                 ...(isFullscreen
+
+//                     ? {
+
+//                         position: "fixed",
+
+//                         inset: 16,
+
+//                         width: "calc(100vw - 32px)",
+
+//                         height: "calc(100vh - 32px)",
+
+//                         padding: "18px 20px 22px",
+
+//                         background: "#ffffff",
+
+//                         border: "1px solid #e2e8f0",
+
+//                         borderRadius: 14,
+
+//                         boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
+
+//                         zIndex: 999998,
+
+//                         overflow: "auto",
+
+//                     }
+
+//                     : {}),
+
+//             }}
+
+//         >
+
+//             <div
+
+//                 style={{
+
+//                     width: "100%",
+
+//                     overflowX: "hidden",
+
+//                     overflowY: "visible",
+
+//                     scrollbarWidth: "thin",
+
+//                     scrollbarColor: "#cbd5e1 transparent",
+
+//                 }}
+
+//             >
+
+//                 <div
+
+//                     style={{
+
+//                         position: "relative",
+
+//                         width: "100%",
+
+//                         minWidth: 0,
+
+//                         height: chartHeight,
+
+//                     }}
+
+//                 >
+
+//                     <svg
+
+//                         viewBox={`0 0 ${chartViewWidth} ${chartHeight}`}
+
+//                         preserveAspectRatio="none"
+
+//                         style={{
+
+//                             position: "absolute",
+
+//                             inset: 0,
+
+//                             width: "100%",
+
+//                             height: "100%",
+
+//                             overflow: "visible",
+
+//                         }}
+
+//                     >
+
+//                         <defs>
+
+//                             <linearGradient
+
+//                                 id="receivablesTrendBars"
+
+//                                 x1="0"
+
+//                                 y1="0"
+
+//                                 x2="0"
+
+//                                 y2="1"
+
+//                             >
+
+//                                 <stop offset="0%" stopColor="#5A5BE0" />
+
+//                                 <stop offset="100%" stopColor="#4145B8" />
+
+//                             </linearGradient>
+
+//                         </defs>
+
+
+
+//                         {/* RECEIVABLES GRID + LEFT AXIS */}
+
+//                         {receivablesAxisValues.map((value, index) => {
+
+//                             const y =
+
+//                                 plot.top +
+
+//                                 (index / 4) * plot.height;
+
+
+
+//                             return (
+
+//                                 <g key={`left-axis-${value}`}>
+
+//                                     <line
+
+//                                         x1={plot.left}
+
+//                                         x2={plot.left + plot.width}
+
+//                                         y1={y}
+
+//                                         y2={y}
+
+//                                         stroke="#e5eaf1"
+
+//                                         strokeDasharray="3 4"
+
+//                                     />
+
+//                                     <text
+
+//                                         x={plot.left - 8}
+
+//                                         y={y + 3}
+
+//                                         textAnchor="end"
+
+//                                         fontSize="11"
+
+//                                         fill="#64748b"
+
+//                                     >
+
+//                                         {value === 0
+
+//                                             ? "0"
+
+//                                             : `${value.toFixed(0)}M`}
+
+//                                     </text>
+
+//                                 </g>
+
+//                             );
+
+//                         })}
+
+
+
+//                         <text
+
+//                             x={plot.left - 8}
+
+//                             y={plot.top - 10}
+
+//                             textAnchor="end"
+
+//                             fontSize="11"
+
+//                             fill="#64748b"
+
+//                         >
+
+//                             {currency || "AED"} M
+
+//                         </text>
+
+
+
+//                         {/* DSO RIGHT AXIS */}
+
+//                         {dsoScaleValues.map((value, index) => {
+
+//                             // Keep the requested DSO labels in this exact
+
+//                             // top-to-bottom order with equal visual spacing.
+
+//                             const y =
+
+//                                 plot.top +
+
+//                                 (index / (dsoScaleValues.length - 1)) *
+
+//                                 plot.height;
+
+
+
+//                             return (
+
+//                                 <g key={`dso-axis-${value}`}>
+
+//                                     <text
+
+//                                         x={plot.left + plot.width + 10}
+
+//                                         y={y + 3}
+
+//                                         textAnchor="start"
+
+//                                         fontSize="11"
+
+//                                         fill="#0e9f75"
+
+//                                     >
+
+//                                         {value}
+
+//                                     </text>
+
+//                                 </g>
+
+//                             );
+
+//                         })}
+
+
+
+//                         <text
+
+//                             x={plot.left + plot.width + 10}
+
+//                             y={plot.top - 10}
+
+//                             textAnchor="start"
+
+//                             fontSize="11"
+
+//                             fontWeight="600"
+
+//                             fill="#0e9f75"
+
+//                         >
+
+//                             Days
+
+//                         </text>
+
+
+
+//                         {/* RECEIVABLES BARS */}
+
+//                         {data.map((item, index) => {
+
+//                             const value = Number(item.__receivables) || 0;
+
+//                             const barHeight = getBarHeight(value);
+
+//                             const xCenter = plot.left + getX(index);
+
+//                             const slotWidth = plot.width / data.length;
+
+//                             const barWidth = Math.min(50, Math.max(40, slotWidth * 0.68));
+
+//                             const y =
+
+//                                 plot.top + plot.height - barHeight;
+
+//                             const isHovered = hoveredIndex === index;
+
+
+
+//                             return (
+
+//                                 <g
+
+//                                     key={`trend-bar-${index}-${item.as_on_date || item.month || index}`}
+
+//                                     style={{ pointerEvents: "none" }}
+
+//                                 >
+
+//                                     <rect
+
+//                                         x={xCenter - barWidth / 2}
+
+//                                         y={y}
+
+//                                         width={barWidth}
+
+//                                         height={Math.max(0, barHeight)}
+
+//                                         rx="5"
+
+//                                         fill="url(#receivablesTrendBars)"
+
+//                                         opacity={seriesOpacity("receivables")}
+
+//                                         style={{
+
+//                                             transition: "opacity 0.2s ease",
+
+//                                             filter: isHovered
+
+//                                                 ? "drop-shadow(0 5px 10px rgba(23,59,143,0.20))"
+
+//                                                 : "none",
+
+//                                         }}
+
+//                                     />
+
+
+
+//                                     <text
+
+//                                         x={xCenter}
+
+//                                         y={Math.max(plot.top + 10, y - 6)}
+
+//                                         textAnchor="middle"
+
+//                                         fontSize="11"
+
+//                                         fontWeight="600"
+
+//                                         fill="#173b8f"
+
+//                                     >
+
+//                                         {(value / 1000000).toFixed(2)}
+
+//                                     </text>
+
+
+
+//                                     <text
+
+//                                         x={xCenter}
+
+//                                         y={plot.top + plot.height + 20}
+
+//                                         textAnchor="middle"
+
+//                                         fontSize="11"
+
+//                                         fill="#475569"
+
+//                                     >
+
+//                                         {item.month}
+
+//                                     </text>
+
+//                                 </g>
+
+//                             );
+
+//                         })}
+
+
+
+//                         {/* DSO LINE */}
+
+//                         <g
+
+//                             opacity={seriesOpacity("dso")}
+
+//                             style={{ pointerEvents: "none" }}
+
+//                         >
+
+//                             {dsoSegments.map((segment, segmentIndex) => (
+
+//                                 <polyline
+
+//                                     key={`dso-segment-${segmentIndex}`}
+
+//                                     fill="none"
+
+//                                     stroke="#0e9f75"
+
+//                                     strokeWidth="2.5"
+
+//                                     strokeLinecap="round"
+
+//                                     strokeLinejoin="round"
+
+//                                     points={segment
+
+//                                         .map(({ index, value }) => {
+
+//                                             const x = plot.left + getX(index);
+
+//                                             const y = plot.top + getDsoY(value);
+
+//                                             return `${x},${y}`;
+
+//                                         })
+
+//                                         .join(" ")}
+
+//                                 />
+
+//                             ))}
+
+
+
+//                             {data.map((item, index) => {
+
+//                                 const dso = Number(item.__dso);
+
+//                                 if (!Number.isFinite(dso)) return null;
+
+
+
+//                                 const x = plot.left + getX(index);
+
+//                                 const y = plot.top + getDsoY(dso);
+
+//                                 const isHovered = hoveredIndex === index;
+
+
+
+//                                 return (
+
+//                                     <circle
+
+//                                         key={`dso-point-${index}`}
+
+//                                         cx={x}
+
+//                                         cy={y}
+
+//                                         r={isHovered ? 5 : 3.5}
+
+//                                         fill="#ffffff"
+
+//                                         stroke="#0e9f75"
+
+//                                         strokeWidth={isHovered ? 2.5 : 2}
+
+//                                     />
+
+//                                 );
+
+//                             })}
+
+//                         </g>
+
+
+
+//                         {/* MONTH HIT AREAS */}
+
+//                         {data.map((item, index) => {
+
+//                             const slotWidth = plot.width / data.length;
+
+//                             const x = plot.left + index * slotWidth;
+
+
+
+//                             return (
+
+//                                 <rect
+
+//                                     key={`trend-hit-area-${index}`}
+
+//                                     x={x}
+
+//                                     y={plot.top}
+
+//                                     width={slotWidth}
+
+//                                     height={plot.height + 32}
+
+//                                     fill="transparent"
+
+//                                     style={{ cursor: "pointer" }}
+
+//                                     onMouseEnter={() => handlePointEnter(index)}
+
+//                                     onMouseLeave={handlePointLeave}
+
+//                                     onClick={() => onPointClick?.(item)}
+
+//                                 />
+
+//                             );
+
+//                         })}
+
+
+
+//                         <line
+
+//                             x1={plot.left}
+
+//                             x2={plot.left + plot.width}
+
+//                             y1={plot.top + plot.height}
+
+//                             y2={plot.top + plot.height}
+
+//                             stroke="#cbd5e1"
+
+//                         />
+
+//                     </svg>
+
+
+
+//                     {/* TOOLTIP: SHOW BOTH RECEIVABLES + DSO */}
+
+//                     {hoveredIndex !== null &&
+
+//                         tooltipPosition &&
+
+//                         data[hoveredIndex] && (
+
+//                             <div
+
+//                                 style={{
+
+//                                     position: "absolute",
+
+//                                     left: tooltipPosition.left,
+
+//                                     top: tooltipPosition.top,
+
+//                                     width: 220,
+
+//                                     boxSizing: "border-box",
+
+//                                     background: "#ffffff",
+
+//                                     border: "1px solid #e5eaf2",
+
+//                                     borderRadius: 10,
+
+//                                     padding: "10px 12px",
+
+//                                     minHeight: 92,
+
+//                                     boxShadow: "0 12px 28px rgba(24,45,80,0.16)",
+
+//                                     zIndex: 50,
+
+//                                     pointerEvents: "none",
+
+//                                     fontSize: 11,
+
+//                                 }}
+
+//                             >
+
+//                                 <div
+
+//                                     style={{
+
+//                                         fontWeight: 800,
+
+//                                         color: "#173b8f",
+
+//                                         marginBottom: 8,
+
+//                                     }}
+
+//                                 >
+
+//                                     {data[hoveredIndex].month}
+
+//                                 </div>
+
+
+
+//                                 <div
+
+//                                     style={{
+
+//                                         display: "flex",
+
+//                                         justifyContent: "space-between",
+
+//                                         alignItems: "center",
+
+//                                         gap: 12,
+
+//                                         marginBottom: 7,
+
+//                                     }}
+
+//                                 >
+
+//                                     <span>Total Receivables</span>
+
+//                                     <strong style={{ color: "#173b8f" }}>
+
+//                                         {currency || "AED"} {(Number(data[hoveredIndex].__receivables) / 1000000).toFixed(2)}M
+
+//                                     </strong>
+
+//                                 </div>
+
+
+
+//                                 <div
+
+//                                     style={{
+
+//                                         display: "flex",
+
+//                                         justifyContent: "space-between",
+
+//                                         alignItems: "center",
+
+//                                         gap: 12,
+
+//                                     }}
+
+//                                 >
+
+//                                     <span style={{ color: "#0e9f75", fontWeight: 700 }}>DSO (Days)</span>
+
+//                                     <strong style={{ color: "#0e9f75", fontWeight: 800 }}>
+
+//                                         {Number.isFinite(Number(data[hoveredIndex].__dso))
+
+//                                             ? `${Number(data[hoveredIndex].__dso).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Days`
+
+//                                             : "—"}
+
+//                                     </strong>
+
+//                                 </div>
+
+//                             </div>
+
+//                         )}
+
+//                 </div>
+
+//             </div>
+
+
+
+//             {/* LEGEND */}
+
+//             <div
+
+//                 style={{
+
+//                     display: "flex",
+
+//                     justifyContent: "center",
+
+//                     alignItems: "center",
+
+//                     gap: 18,
+
+//                     marginTop: 2,
+
+//                     fontSize: 11,
+
+//                     color: "#475569",
+
+//                 }}
+
+//             >
+
+//                 <button
+
+//                     type="button"
+
+//                     onClick={() => toggleSeries("receivables")}
+
+//                     onDoubleClick={() => isolateSeries("receivables")}
+
+//                     onMouseEnter={() => setHoveredSeries("receivables")}
+
+//                     onMouseLeave={() => setHoveredSeries(null)}
+
+//                     style={{
+
+//                         border: 0,
+
+//                         background: "transparent",
+
+//                         padding: 0,
+
+//                         display: "inline-flex",
+
+//                         alignItems: "center",
+
+//                         gap: 5,
+
+//                         cursor: "pointer",
+
+//                         color: "inherit",
+
+//                         fontSize: 11,
+
+//                     }}
+
+//                 >
+
+//                     <span
+
+//                         style={{
+
+//                             width: 9,
+
+//                             height: 9,
+
+//                             borderRadius: 2,
+
+//                             background: "#173b8f",
+
+//                             display: "inline-block",
+
+//                             opacity: seriesOpacity("receivables"),
+
+//                         }}
+
+//                     />
+
+//                     Total Receivables
+
+//                 </button>
+
+
+
+//                 <button
+
+//                     type="button"
+
+//                     onClick={() => toggleSeries("dso")}
+
+//                     onDoubleClick={() => isolateSeries("dso")}
+
+//                     onMouseEnter={() => setHoveredSeries("dso")}
+
+//                     onMouseLeave={() => setHoveredSeries(null)}
+
+//                     style={{
+
+//                         border: 0,
+
+//                         background: "transparent",
+
+//                         padding: 0,
+
+//                         display: "inline-flex",
+
+//                         alignItems: "center",
+
+//                         gap: 5,
+
+//                         cursor: "pointer",
+
+//                         color: "inherit",
+
+//                         fontSize: 11,
+
+//                     }}
+
+//                 >
+
+//                     <span
+
+//                         style={{
+
+//                             width: 16,
+
+//                             height: 2,
+
+//                             background: "#0e9f75",
+
+//                             display: "inline-block",
+
+//                             opacity: seriesOpacity("dso"),
+
+//                         }}
+
+//                     />
+
+//                     DSO (Days)
+
+//                 </button>
+
+
+
+
+
+//             </div>
+
+//         </div>
+
+//     );
+
+// }
+
+
+
+// // function TrendChart({ data: rawData, currency, onPointClick }) {
+// //     const parseNumber = (value) => {
+// //         if (value === null || value === undefined || value === "") return null;
+
+// //         const normalized = String(value).replace(/,/g, "").trim();
+// //         const number = Number(normalized);
+
+// //         return Number.isFinite(number) ? number : null;
+// //     };
+
+// //     const getTrendDate = (item) => {
+// //         const raw =
+// //             item?.as_on_date ??
+// //             item?.asOnDate ??
+// //             item?.snapshot_date ??
+// //             item?.date ??
+// //             item?.month_date ??
+// //             item?.period_end ??
+// //             "";
+
+// //         const text = String(raw).slice(0, 10);
+// //         const parsed = text
+// //             ? new Date(`${text}T00:00:00`).getTime()
+// //             : NaN;
+
+// //         return Number.isFinite(parsed) ? parsed : 0;
+// //     };
+
+// //     const getTrendReceivablesValue = (item) =>
+// //         parseNumber(
+// //             item?.total_receivables ??
+// //             item?.total_ar ??
+// //             item?.total_receivable
+// //         );
+
+// //     const getTrendDsoValue = (item) =>
+// //         parseNumber(
+// //             item?.dso_days ??
+// //             item?.dso ??
+// //             item?.average_dso ??
+// //             item?.average_dso_days
+// //         );
+
+// //     /*
+// //      * =========================================================
+// //      * PREPARE EXACTLY 6 UNIQUE MONTHLY SNAPSHOTS
+// //      * =========================================================
+// //      * The previous implementation used the last six records.
+// //      * If the API returned duplicate rows for a month, that could
+// //      * produce duplicate month labels and an incorrect x-axis.
+// //      *
+// //      * Here we:
+// //      * 1. normalize valid trend rows;
+// //      * 2. group by calendar month;
+// //      * 3. keep the latest snapshot inside each month;
+// //      * 4. sort oldest -> newest;
+// //      * 5. take only the latest six unique months.
+// //      */
+// //     const data = useMemo(() => {
+// //         const source = Array.isArray(rawData) ? rawData : [];
+
+// //         const normalized = source
+// //             .map((item) => {
+// //                 const date = getTrendDate(item);
+// //                 const receivables = getTrendReceivablesValue(item);
+// //                 const dso = getTrendDsoValue(item);
+
+// //                 if (!date || receivables === null) return null;
+
+// //                 const dateObject = new Date(date);
+// //                 if (Number.isNaN(dateObject.getTime())) return null;
+
+// //                 const monthKey = `${dateObject.getFullYear()}-${String(
+// //                     dateObject.getMonth() + 1
+// //                 ).padStart(2, "0")}`;
+
+// //                 return {
+// //                     ...item,
+// //                     __trendDate: date,
+// //                     __receivables: receivables,
+// //                     __dso: dso,
+// //                     __monthKey: monthKey,
+// //                     month: dateObject.toLocaleString("en-US", {
+// //                         month: "short",
+// //                         year: "numeric",
+// //                     }),
+// //                 };
+// //             })
+// //             .filter(Boolean)
+// //             .sort((a, b) => a.__trendDate - b.__trendDate);
+
+// //         const monthMap = new Map();
+
+// //         normalized.forEach((item) => {
+// //             const existing = monthMap.get(item.__monthKey);
+
+// //             /* Keep the latest snapshot for that calendar month. */
+// //             if (!existing || item.__trendDate >= existing.__trendDate) {
+// //                 monthMap.set(item.__monthKey, item);
+// //             }
+// //         });
+
+// //         return Array.from(monthMap.values())
+// //             .sort((a, b) => a.__trendDate - b.__trendDate)
+// //             .slice(-5);
+// //     }, [rawData]);
+
+// //     const [hoveredIndex, setHoveredIndex] = useState(null);
+// //     const [chartLoaded, setChartLoaded] = useState(false);
+// //     const [tooltipPosition, setTooltipPosition] = useState(null);
+// //     const [hiddenSeries, setHiddenSeries] = useState(() => new Set());
+// //     const [hoveredSeries, setHoveredSeries] = useState(null);
+// //     const [isFullscreen, setIsFullscreen] = useState(false);
+
+// //     const chartWrapperRef = useRef(null);
+
+// //     useEffect(() => {
+// //         const frame = requestAnimationFrame(() => setChartLoaded(true));
+// //         return () => cancelAnimationFrame(frame);
+// //     }, []);
+
+// //     useEffect(() => {
+// //         const handleKeyDown = (event) => {
+// //             if (event.key === "Escape") setIsFullscreen(false);
+// //         };
+
+// //         document.addEventListener("keydown", handleKeyDown);
+// //         return () => document.removeEventListener("keydown", handleKeyDown);
+// //     }, []);
+
+// //     const hasData = data.length > 0;
+
+// //     /*
+// //      * =========================================================
+// //      * CORRECT RECEIVABLES Y-AXIS
+// //      * =========================================================
+// //      * Use a clean, rounded million scale rather than using the
+// //      * largest data value itself as the axis ceiling.
+// //      */
+// //     const receivablesValues = data
+// //         .map((item) => Number(item.__receivables))
+// //         .filter((value) => Number.isFinite(value) && value >= 0);
+
+// //     const maxReceivables = Math.max(...receivablesValues, 0);
+// //     const maxReceivablesMillions = maxReceivables / 1000000;
+
+// //     const niceAxisMax = (value) => {
+// //         if (!Number.isFinite(value) || value <= 0) return 100;
+
+// //         const targetTicks = 4;
+// //         const roughStep = value / targetTicks;
+// //         const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+// //         const normalized = roughStep / magnitude;
+
+// //         let niceStep;
+// //         if (normalized <= 1) niceStep = 1;
+// //         else if (normalized <= 2) niceStep = 2;
+// //         else if (normalized <= 5) niceStep = 5;
+// //         else niceStep = 10;
+
+// //         const step = niceStep * magnitude;
+// //         return Math.max(step * targetTicks, Math.ceil(value / step) * step);
+// //     };
+
+// //     const receivablesAxisMaxMillions = niceAxisMax(maxReceivablesMillions);
+// //     const receivablesAxisStepMillions =
+// //         receivablesAxisMaxMillions / 4;
+
+// //     const receivablesAxisValues = [
+// //         receivablesAxisMaxMillions,
+// //         receivablesAxisStepMillions * 3,
+// //         receivablesAxisStepMillions * 2,
+// //         receivablesAxisStepMillions,
+// //         0,
+// //     ];
+
+// //     const maxValue = Math.max(
+// //         receivablesAxisMaxMillions * 1000000,
+// //         1
+// //     );
+
+// //     /*
+// //      * =========================================================
+// //      * DSO Y-AXIS
+// //      * =========================================================
+// //      * The DSO scale is independent from receivables, but the line
+// //      * uses the exact same plot height so its right-side values line
+// //      * up correctly with the DSO points.
+// //      */
+// //     const dsoValues = data
+// //         .map((item) => Number(item.__dso))
+// //         .filter((value) => Number.isFinite(value) && value >= 0);
+
+// //     const rawMaxDso = Math.max(...dsoValues, 0);
+
+// //     // Keep the requested clean DSO scale fixed at 0-6,000.
+// //     // This also keeps 5,000 and 6,000 visible even when the latest
+// //     // DSO value is below 6,000.
+// //     const dsoAxisMax = 6000;
+// //     const dsoScaleValues = [6000, 5000, 2000, 900, 600, 200, 0];
+// //     const maxDso = dsoAxisMax;
+
+// //     /* Five months = five stable x-axis slots, all visible in one chart. */
+// //     const monthSlotWidth = 84;
+
+// //     const plot = {
+// //         width: 420,
+// //         height: 168,
+// //         left: 52,
+// //         right: 62,
+// //         top: 28,
+// //         bottom: 52,
+// //     };
+
+// //     const chartHeight = 255;
+// //     const chartViewWidth = plot.left + plot.width + plot.right;
+
+// //     const getX = (index) => {
+// //         if (data.length <= 1) return plot.width / 2;
+// //         return (index + 0.5) * (plot.width / data.length);
+// //     };
+
+// //     const getBarHeight = (value) => {
+// //         if (!Number.isFinite(value) || value <= 0 || maxValue <= 0) {
+// //             return 0;
+// //         }
+
+// //         return (value / maxValue) * plot.height;
+// //     };
+
+// //     // const getDsoY = (value) => {
+// //     //     if (!Number.isFinite(value) || maxDso <= 0) return null;
+
+// //     //     /*
+// //     //      * Use the exact same evenly-spaced tick positions as the visible
+// //     //      * DSO axis.  This keeps the plotted DSO values aligned with their
+// //     //      * displayed labels instead of using a separate linear scale.
+// //     //      *
+// //     //      * Bottom -> top: 0, 200, 600, 900, 2000, 5000, 6000
+// //     //      */
+// //     //     const dsoTicksAscending = [0, 200, 600, 900, 2000, 5000, 6000];
+// //     //     const safeValue = Math.max(
+// //     //         dsoTicksAscending[0],
+// //     //         Math.min(dsoTicksAscending[dsoTicksAscending.length - 1], value)
+// //     //     );
+
+// //     //     if (safeValue <= dsoTicksAscending[0]) {
+// //     //         return plot.height;
+// //     //     }
+
+// //     //     if (safeValue >= dsoTicksAscending[dsoTicksAscending.length - 1]) {
+// //     //         return 0;
+// //     //     }
+
+// //     //     for (let i = 0; i < dsoTicksAscending.length - 1; i += 1) {
+// //     //         const lower = dsoTicksAscending[i];
+// //     //         const upper = dsoTicksAscending[i + 1];
+
+// //     //         if (safeValue >= lower && safeValue <= upper) {
+// //     //             const fraction = (safeValue - lower) / (upper - lower);
+// //     //             const segment = i + fraction;
+// //     //             const normalizedPosition =
+// //     //                 segment / (dsoTicksAscending.length - 1);
+
+// //     //             return plot.height * (1 - normalizedPosition);
+// //     //         }
+// //     //     }
+
+// //     //     return plot.height;
+// //     // };
+
+
+// //     const getDsoY = (value) => {
+// //         if (!Number.isFinite(value) || maxDso <= 0) return null;
+
+// //         const dsoTicksAscending = [
+// //             0,
+// //             100,
+// //             200,
+// //             500,
+// //             900,
+// //             3000,
+// //             6000,
+// //         ];
+
+// //         const safeValue = Math.max(
+// //             dsoTicksAscending[0],
+// //             Math.min(
+// //                 dsoTicksAscending[dsoTicksAscending.length - 1],
+// //                 value
+// //             )
+// //         );
+
+// //         if (safeValue <= dsoTicksAscending[0]) {
+// //             return plot.height;
+// //         }
+
+// //         if (
+// //             safeValue >=
+// //             dsoTicksAscending[dsoTicksAscending.length - 1]
+// //         ) {
+// //             return 0;
+// //         }
+
+// //         for (let i = 0; i < dsoTicksAscending.length - 1; i += 1) {
+// //             const lower = dsoTicksAscending[i];
+// //             const upper = dsoTicksAscending[i + 1];
+
+// //             if (safeValue >= lower && safeValue <= upper) {
+// //                 const fraction =
+// //                     (safeValue - lower) / (upper - lower);
+
+// //                 const segment = i + fraction;
+
+// //                 const normalizedPosition =
+// //                     segment / (dsoTicksAscending.length - 1);
+
+// //                 return plot.height * (1 - normalizedPosition);
+// //             }
+// //         }
+
+// //         return plot.height;
+// //     };
+
+// //     const toggleSeries = (key) => {
+// //         setHiddenSeries((previous) => {
+// //             const next = new Set(previous);
+// //             if (next.has(key)) next.delete(key);
+// //             else next.add(key);
+// //             return next;
+// //         });
+// //     };
+
+// //     const isolateSeries = (key) => {
+// //         setHiddenSeries(
+// //             new Set(
+// //                 ["receivables", "dso"].filter((series) => series !== key)
+// //             )
+// //         );
+// //     };
+
+// //     const seriesOpacity = (key) => {
+// //         if (hiddenSeries.has(key)) return 0;
+// //         if (!hoveredSeries) return 1;
+// //         return hoveredSeries === key ? 1 : 0.35;
+// //     };
+
+// //     const positionTooltip = (index) => {
+// //         const wrapper = chartWrapperRef.current;
+// //         if (!wrapper) return;
+
+// //         const wrapperRect = wrapper.getBoundingClientRect();
+// //         const centerX = plot.left + getX(index);
+// //         const tooltipWidth = 220;
+// //         const tooltipHeight = 112;
+
+// //         let left = centerX - tooltipWidth / 2;
+// //         left = Math.max(
+// //             4,
+// //             Math.min(left, wrapperRect.width - tooltipWidth - 4)
+// //         );
+
+// //         const bar = data[index];
+// //         const barHeight = getBarHeight(Number(bar?.__receivables) || 0);
+// //         const barTop = plot.top + plot.height - barHeight;
+
+// //         // Prefer above the selected bar. If there is not enough room,
+// //         // place the tooltip at the top of the chart instead of below
+// //         // the plot where the DSO row can be clipped by the card.
+// //         let top = barTop - tooltipHeight - 10;
+// //         if (top < 6) top = 6;
+
+// //         setTooltipPosition({ left, top });
+// //     };
+
+// //     const handlePointEnter = (index) => {
+// //         setHoveredIndex(index);
+// //         requestAnimationFrame(() => positionTooltip(index));
+// //     };
+
+// //     const handlePointLeave = () => {
+// //         setHoveredIndex(null);
+// //         setTooltipPosition(null);
+// //     };
+
+// //     if (!hasData) {
+// //         return (
+// //             <div
+// //                 style={{
+// //                     width: "100%",
+// //                     minHeight: 250,
+// //                     display: "flex",
+// //                     alignItems: "center",
+// //                     justifyContent: "center",
+// //                     color: "#64748b",
+// //                     fontSize: 14,
+// //                 }}
+// //             >
+// //                 No data available
+// //             </div>
+// //         );
+// //     }
+
+// //     const dsoSegments = [];
+// //     let currentSegment = [];
+
+// //     data.forEach((item, index) => {
+// //         const dso = item.__dso;
+
+// //         if (Number.isFinite(Number(dso))) {
+// //             currentSegment.push({ index, value: Number(dso) });
+// //         } else if (currentSegment.length) {
+// //             dsoSegments.push(currentSegment);
+// //             currentSegment = [];
+// //         }
+// //     });
+
+// //     if (currentSegment.length) dsoSegments.push(currentSegment);
+
+// //     return (
+// //         <div
+// //             ref={chartWrapperRef}
+// //             style={{
+// //                 width: "100%",
+// //                 position: "relative",
+// //                 paddingBottom: 14,
+// //                 overflow: "visible",
+// //                 boxSizing: "border-box",
+// //                 ...(isFullscreen
+// //                     ? {
+// //                         position: "fixed",
+// //                         inset: 16,
+// //                         width: "calc(100vw - 32px)",
+// //                         height: "calc(100vh - 32px)",
+// //                         padding: "18px 20px 22px",
+// //                         background: "#ffffff",
+// //                         border: "1px solid #e2e8f0",
+// //                         borderRadius: 14,
+// //                         boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
+// //                         zIndex: 999998,
+// //                         overflow: "auto",
+// //                     }
+// //                     : {}),
+// //             }}
+// //         >
+// //             <div
+// //                 style={{
+// //                     width: "100%",
+// //                     overflowX: "hidden",
+// //                     overflowY: "visible",
+// //                     scrollbarWidth: "thin",
+// //                     scrollbarColor: "#cbd5e1 transparent",
+// //                 }}
+// //             >
+// //                 <div
+// //                     style={{
+// //                         position: "relative",
+// //                         width: "100%",
+// //                         minWidth: 0,
+// //                         height: chartHeight,
+// //                     }}
+// //                 >
+// //                     <svg
+// //                         viewBox={`0 0 ${chartViewWidth} ${chartHeight}`}
+// //                         preserveAspectRatio="none"
+// //                         style={{
+// //                             position: "absolute",
+// //                             inset: 0,
+// //                             width: "100%",
+// //                             height: "100%",
+// //                             overflow: "visible",
+// //                         }}
+// //                     >
+// //                         <defs>
+// //                             <linearGradient
+// //                                 id="receivablesTrendBars"
+// //                                 x1="0"
+// //                                 y1="0"
+// //                                 x2="0"
+// //                                 y2="1"
+// //                             >
+// //                                 <stop offset="0%" stopColor="#5A5BE0" />
+// //                                 <stop offset="100%" stopColor="#4145B8" />
+// //                             </linearGradient>
+// //                         </defs>
+
+// //                         {/* RECEIVABLES GRID + LEFT AXIS */}
+// //                         {receivablesAxisValues.map((value, index) => {
+// //                             const y =
+// //                                 plot.top +
+// //                                 (index / 4) * plot.height;
+
+// //                             return (
+// //                                 <g key={`left-axis-${value}`}>
+// //                                     <line
+// //                                         x1={plot.left}
+// //                                         x2={plot.left + plot.width}
+// //                                         y1={y}
+// //                                         y2={y}
+// //                                         stroke="#e5eaf1"
+// //                                         strokeDasharray="3 4"
+// //                                     />
+// //                                     <text
+// //                                         x={plot.left - 8}
+// //                                         y={y + 3}
+// //                                         textAnchor="end"
+// //                                         fontSize="9"
+// //                                         fill="#64748b"
+// //                                     >
+// //                                         {value === 0
+// //                                             ? "0"
+// //                                             : `${value.toFixed(0)}M`}
+// //                                     </text>
+// //                                 </g>
+// //                             );
+// //                         })}
+
+// //                         <text
+// //                             x={plot.left - 8}
+// //                             y={plot.top - 10}
+// //                             textAnchor="end"
+// //                             fontSize="9"
+// //                             fill="#64748b"
+// //                         >
+// //                             {currency || "AED"} M
+// //                         </text>
+
+// //                         {/* DSO RIGHT AXIS */}
+// //                         {dsoScaleValues.map((value, index) => {
+// //                             // Keep the requested DSO labels in this exact
+// //                             // top-to-bottom order with equal visual spacing.
+// //                             const y =
+// //                                 plot.top +
+// //                                 (index / (dsoScaleValues.length - 1)) *
+// //                                 plot.height;
+
+// //                             return (
+// //                                 <g key={`dso-axis-${value}`}>
+// //                                     <text
+// //                                         x={plot.left + plot.width + 10}
+// //                                         y={y + 3}
+// //                                         textAnchor="start"
+// //                                         fontSize="9"
+// //                                         fill="#0e9f75"
+// //                                     >
+// //                                         {value}
+// //                                     </text>
+// //                                 </g>
+// //                             );
+// //                         })}
+
+// //                         <text
+// //                             x={plot.left + plot.width + 10}
+// //                             y={plot.top - 10}
+// //                             textAnchor="start"
+// //                             fontSize="9"
+// //                             fontWeight="600"
+// //                             fill="#0e9f75"
+// //                         >
+// //                             Days
+// //                         </text>
+
+// //                         {/* RECEIVABLES BARS */}
+// //                         {data.map((item, index) => {
+// //                             const value = Number(item.__receivables) || 0;
+// //                             const barHeight = getBarHeight(value);
+// //                             const xCenter = plot.left + getX(index);
+// //                             const slotWidth = plot.width / data.length;
+// //                             const barWidth = Math.min(50, Math.max(40, slotWidth * 0.68));
+// //                             const y =
+// //                                 plot.top + plot.height - barHeight;
+// //                             const isHovered = hoveredIndex === index;
+
+// //                             return (
+// //                                 <g
+// //                                     key={`trend-bar-${index}-${item.as_on_date || item.month || index}`}
+// //                                     style={{ pointerEvents: "none" }}
+// //                                 >
+// //                                     <rect
+// //                                         x={xCenter - barWidth / 2}
+// //                                         y={y}
+// //                                         width={barWidth}
+// //                                         height={Math.max(0, barHeight)}
+// //                                         rx="5"
+// //                                         fill="url(#receivablesTrendBars)"
+// //                                         opacity={seriesOpacity("receivables")}
+// //                                         style={{
+// //                                             transition: "opacity 0.2s ease",
+// //                                             filter: isHovered
+// //                                                 ? "drop-shadow(0 5px 10px rgba(23,59,143,0.20))"
+// //                                                 : "none",
+// //                                         }}
+// //                                     />
+
+// //                                     <text
+// //                                         x={xCenter}
+// //                                         y={Math.max(plot.top + 10, y - 6)}
+// //                                         textAnchor="middle"
+// //                                         fontSize="9"
+// //                                         fontWeight="600"
+// //                                         fill="#173b8f"
+// //                                     >
+// //                                         {(value / 1000000).toFixed(2)}
+// //                                     </text>
+
+// //                                     <text
+// //                                         x={xCenter}
+// //                                         y={plot.top + plot.height + 20}
+// //                                         textAnchor="middle"
+// //                                         fontSize="9"
+// //                                         fill="#475569"
+// //                                     >
+// //                                         {item.month}
+// //                                     </text>
+// //                                 </g>
+// //                             );
+// //                         })}
+
+// //                         {/* DSO LINE */}
+// //                         <g
+// //                             opacity={seriesOpacity("dso")}
+// //                             style={{ pointerEvents: "none" }}
+// //                         >
+// //                             {dsoSegments.map((segment, segmentIndex) => (
+// //                                 <polyline
+// //                                     key={`dso-segment-${segmentIndex}`}
+// //                                     fill="none"
+// //                                     stroke="#0e9f75"
+// //                                     strokeWidth="2.5"
+// //                                     strokeLinecap="round"
+// //                                     strokeLinejoin="round"
+// //                                     points={segment
+// //                                         .map(({ index, value }) => {
+// //                                             const x = plot.left + getX(index);
+// //                                             const y = plot.top + getDsoY(value);
+// //                                             return `${x},${y}`;
+// //                                         })
+// //                                         .join(" ")}
+// //                                 />
+// //                             ))}
+
+// //                             {data.map((item, index) => {
+// //                                 const dso = Number(item.__dso);
+// //                                 if (!Number.isFinite(dso)) return null;
+
+// //                                 const x = plot.left + getX(index);
+// //                                 const y = plot.top + getDsoY(dso);
+// //                                 const isHovered = hoveredIndex === index;
+
+// //                                 return (
+// //                                     <circle
+// //                                         key={`dso-point-${index}`}
+// //                                         cx={x}
+// //                                         cy={y}
+// //                                         r={isHovered ? 5 : 3.5}
+// //                                         fill="#ffffff"
+// //                                         stroke="#0e9f75"
+// //                                         strokeWidth={isHovered ? 2.5 : 2}
+// //                                     />
+// //                                 );
+// //                             })}
+// //                         </g>
+
+// //                         {/* MONTH HIT AREAS */}
+// //                         {data.map((item, index) => {
+// //                             const slotWidth = plot.width / data.length;
+// //                             const x = plot.left + index * slotWidth;
+
+// //                             return (
+// //                                 <rect
+// //                                     key={`trend-hit-area-${index}`}
+// //                                     x={x}
+// //                                     y={plot.top}
+// //                                     width={slotWidth}
+// //                                     height={plot.height + 32}
+// //                                     fill="transparent"
+// //                                     style={{ cursor: "pointer" }}
+// //                                     onMouseEnter={() => handlePointEnter(index)}
+// //                                     onMouseLeave={handlePointLeave}
+// //                                     onClick={() => onPointClick?.(item)}
+// //                                 />
+// //                             );
+// //                         })}
+
+// //                         <line
+// //                             x1={plot.left}
+// //                             x2={plot.left + plot.width}
+// //                             y1={plot.top + plot.height}
+// //                             y2={plot.top + plot.height}
+// //                             stroke="#cbd5e1"
+// //                         />
+// //                     </svg>
+
+// //                     {/* TOOLTIP: SHOW BOTH RECEIVABLES + DSO */}
+// //                     {hoveredIndex !== null &&
+// //                         tooltipPosition &&
+// //                         data[hoveredIndex] && (
+// //                             <div
+// //                                 style={{
+// //                                     position: "absolute",
+// //                                     left: tooltipPosition.left,
+// //                                     top: tooltipPosition.top,
+// //                                     width: 220,
+// //                                     boxSizing: "border-box",
+// //                                     background: "#ffffff",
+// //                                     border: "1px solid #e5eaf2",
+// //                                     borderRadius: 10,
+// //                                     padding: "10px 12px",
+// //                                     minHeight: 92,
+// //                                     boxShadow: "0 12px 28px rgba(24,45,80,0.16)",
+// //                                     zIndex: 50,
+// //                                     pointerEvents: "none",
+// //                                     fontSize: 10,
+// //                                 }}
+// //                             >
+// //                                 <div
+// //                                     style={{
+// //                                         fontWeight: 800,
+// //                                         color: "#173b8f",
+// //                                         marginBottom: 8,
+// //                                     }}
+// //                                 >
+// //                                     {data[hoveredIndex].month}
+// //                                 </div>
+
+// //                                 <div
+// //                                     style={{
+// //                                         display: "flex",
+// //                                         justifyContent: "space-between",
+// //                                         alignItems: "center",
+// //                                         gap: 12,
+// //                                         marginBottom: 7,
+// //                                     }}
+// //                                 >
+// //                                     <span>Total Receivables</span>
+// //                                     <strong style={{ color: "#173b8f" }}>
+// //                                         {currency || "AED"} {(Number(data[hoveredIndex].__receivables) / 1000000).toFixed(2)}M
+// //                                     </strong>
+// //                                 </div>
+
+// //                                 <div
+// //                                     style={{
+// //                                         display: "flex",
+// //                                         justifyContent: "space-between",
+// //                                         alignItems: "center",
+// //                                         gap: 12,
+// //                                     }}
+// //                                 >
+// //                                     <span style={{ color: "#0e9f75", fontWeight: 700 }}>DSO (Days)</span>
+// //                                     <strong style={{ color: "#0e9f75", fontWeight: 800 }}>
+// //                                         {Number.isFinite(Number(data[hoveredIndex].__dso))
+// //                                             ? `${Number(data[hoveredIndex].__dso).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Days`
+// //                                             : "—"}
+// //                                     </strong>
+// //                                 </div>
+// //                             </div>
+// //                         )}
+// //                 </div>
+// //             </div>
+
+// //             {/* LEGEND */}
+// //             <div
+// //                 style={{
+// //                     display: "flex",
+// //                     justifyContent: "center",
+// //                     alignItems: "center",
+// //                     gap: 18,
+// //                     marginTop: 2,
+// //                     fontSize: 10,
+// //                     color: "#475569",
+// //                 }}
+// //             >
+// //                 <button
+// //                     type="button"
+// //                     onClick={() => toggleSeries("receivables")}
+// //                     onDoubleClick={() => isolateSeries("receivables")}
+// //                     onMouseEnter={() => setHoveredSeries("receivables")}
+// //                     onMouseLeave={() => setHoveredSeries(null)}
+// //                     style={{
+// //                         border: 0,
+// //                         background: "transparent",
+// //                         padding: 0,
+// //                         display: "inline-flex",
+// //                         alignItems: "center",
+// //                         gap: 5,
+// //                         cursor: "pointer",
+// //                         color: "inherit",
+// //                         fontSize: 10,
+// //                     }}
+// //                 >
+// //                     <span
+// //                         style={{
+// //                             width: 9,
+// //                             height: 9,
+// //                             borderRadius: 2,
+// //                             background: "#173b8f",
+// //                             display: "inline-block",
+// //                             opacity: seriesOpacity("receivables"),
+// //                         }}
+// //                     />
+// //                     Total Receivables
+// //                 </button>
+
+// //                 <button
+// //                     type="button"
+// //                     onClick={() => toggleSeries("dso")}
+// //                     onDoubleClick={() => isolateSeries("dso")}
+// //                     onMouseEnter={() => setHoveredSeries("dso")}
+// //                     onMouseLeave={() => setHoveredSeries(null)}
+// //                     style={{
+// //                         border: 0,
+// //                         background: "transparent",
+// //                         padding: 0,
+// //                         display: "inline-flex",
+// //                         alignItems: "center",
+// //                         gap: 5,
+// //                         cursor: "pointer",
+// //                         color: "inherit",
+// //                         fontSize: 10,
+// //                     }}
+// //                 >
+// //                     <span
+// //                         style={{
+// //                             width: 16,
+// //                             height: 2,
+// //                             background: "#0e9f75",
+// //                             display: "inline-block",
+// //                             opacity: seriesOpacity("dso"),
+// //                         }}
+// //                     />
+// //                     DSO (Days)
+// //                 </button>
+
+
+// //             </div>
+// //         </div>
+// //     );
+// // }
+
+
+
+// /******************************************************** */
+// function ParentDivisionChart({ data, currency, onItemClick }) {
+//     const [hoveredIndex, setHoveredIndex] = useState(null);
+//     const [chartLoaded, setChartLoaded] = useState(false);
+
+//     // Tooltip mouse position
+//     const [tooltipPosition, setTooltipPosition] = useState({
+//         x: 0,
+//         y: 0,
+//     });
+
+//     // Sales Revenue Parent Division colors
+//     const BAR_COLORS = [
+//         "#f43f5e", // Pink / Red
+//         "#ff6b00", // Orange
+//         "#13b5d1", // Cyan
+//         "#7acb16", // Green
+//         "#e83e91", // Pink
+//         "#94a3b8", // Slate / Others
+//     ];
+
+//     useEffect(() => {
+//         setHoveredIndex(null);
+//         setChartLoaded(false);
+
+//         const frame = requestAnimationFrame(() => {
+//             setChartLoaded(true);
+//         });
+
+//         return () => cancelAnimationFrame(frame);
+//     }, [data]);
+
+//     // ============================================================
+//     // Normalize backend data
+//     // ============================================================
+//     const chartData = Array.isArray(data)
+//         ? data.map((item, index) => ({
+//             name:
+//                 item?.name ??
+//                 item?.label ??
+//                 `Division ${index + 1}`,
+
+//             amount: Number(
+//                 item?.amount ??
+//                 item?.total_receivables ??
+//                 0
+//             ),
+
+//             percentage: Number(
+//                 item?.percentage ??
+//                 item?.percentage_of_total ??
+//                 0
+//             ),
+//         }))
+//         : [];
+
+//     // ============================================================
+//     // SHOW ONLY TOP 6 PARENT DIVISIONS
+//     // ============================================================
+//     const visibleChartData = chartData.slice(0, 6);
+
+//     // ============================================================
+//     // Maximum amount used for bar width
+//     // ============================================================
+//     const max = Math.max(
+//         ...visibleChartData.map((item) =>
+//             Math.abs(item.amount)
+//         ),
+//         1
+//     );
+
+//     // ============================================================
+//     // Range midpoint
+//     // ============================================================
+//     const midpoint = max / 2;
+
+//     // ============================================================
+//     // Empty state
+//     // ============================================================
+//     if (!chartData.length) {
+//         return (
+//             <div
+//                 style={{
+//                     minHeight: 260,
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+
+//                     color: "#94a3b8",
+
+//                     fontSize: 13,
+//                     fontWeight: 600,
+//                 }}
+//             >
+//                 No data available
+//             </div>
+//         );
+//     }
+
+//     // ============================================================
+//     // Amount formatter
+//     // ============================================================
+//     const formatAmount = (amount) => {
+//         const formatted = formatReceivablesCompact(
+//             amount,
+//             ""
+//         );
+
+//         return formatted.replace(
+//             /^[A-Z]{3}\s*/,
+//             ""
+//         );
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 width: "100%",
+//                 overflow: "visible",
+//             }}
+//         >
+//             {/* =====================================================
+//                 Parent Division Rows
+//             ===================================================== */}
+//             <div
+//                 style={{
+//                     width: "100%",
+//                     overflow: "visible",
+//                 }}
+//             >
+//                 {visibleChartData.map((item, index) => {
+//                     const isHovered =
+//                         hoveredIndex === index;
+
+//                     const width =
+//                         (Math.abs(item.amount) / max) * 100;
+
+//                     const isNegative =
+//                         item.amount < 0;
+
+//                     // =================================================
+//                     // EACH DIVISION HAS ITS OWN COLOR
+//                     // =================================================
+//                     const barColor = isNegative
+//                         ? "#ef4444"
+//                         : BAR_COLORS[
+//                         index % BAR_COLORS.length
+//                         ];
+
+//                     return (
+//                         <div
+//                             key={`${item.name}-${index}`}
+//                             onMouseEnter={(e) => {
+//                                 setHoveredIndex(index);
+
+//                                 setTooltipPosition({
+//                                     x: e.clientX,
+//                                     y: e.clientY,
+//                                 });
+//                             }}
+//                             onMouseMove={(e) => {
+//                                 if (
+//                                     hoveredIndex ===
+//                                     index
+//                                 ) {
+//                                     setTooltipPosition({
+//                                         x: e.clientX,
+//                                         y: e.clientY,
+//                                     });
+//                                 }
+//                             }}
+//                             onMouseLeave={() =>
+//                                 setHoveredIndex(null)
+//                             }
+//                             onClick={() =>
+//                                 onItemClick?.(item)
+//                             }
+//                             style={{
+//                                 width: "100%",
+
+//                                 // Gap between divisions
+//                                 marginBottom:
+//                                     index ===
+//                                         visibleChartData.length - 1
+//                                         ? 0
+//                                         : 24,
+
+//                                 cursor: onItemClick
+//                                     ? "pointer"
+//                                     : "default",
+
+//                                 position: "relative",
+
+//                                 zIndex: isHovered
+//                                     ? 100
+//                                     : 1,
+//                             }}
+//                         >
+//                             {/* =================================================
+//                                 Parent Division Name + Amount
+//                             ================================================= */}
+//                             <div
+//                                 style={{
+//                                     display: "flex",
+//                                     alignItems: "center",
+//                                     justifyContent:
+//                                         "space-between",
+
+//                                     gap: 12,
+
+//                                     width: "100%",
+
+//                                     marginBottom: 8,
+//                                 }}
+//                             >
+//                                 {/* =================================================
+//                                     Parent Division Name
+
+//                                     IMPORTANT:
+//                                     On hover, this uses the SAME
+//                                     color as its own bar.
+//                                 ================================================= */}
+//                                 <div
+//                                     style={{
+//                                         minWidth: 0,
+//                                         flex: 1,
+
+//                                         fontSize: 13,
+//                                         lineHeight: "16px",
+//                                         fontWeight: 700,
+
+//                                         color: isHovered
+//                                             ? barColor
+//                                             : "#26364a",
+
+//                                         whiteSpace:
+//                                             "nowrap",
+
+//                                         overflow:
+//                                             "hidden",
+
+//                                         textOverflow:
+//                                             "ellipsis",
+
+//                                         transition:
+//                                             "color 0.18s ease",
+
+//                                         cursor: onItemClick
+//                                             ? "pointer"
+//                                             : "default",
+//                                     }}
+//                                     title={item.name}
+//                                 >
+//                                     {item.name}
+//                                 </div>
+
+//                                 {/* =================================================
+//                                     Amount
+
+//                                     IMPORTANT:
+//                                     On hover, amount also uses
+//                                     the SAME bar color.
+//                                 ================================================= */}
+//                                 <div
+//                                     style={{
+//                                         flexShrink: 0,
+
+//                                         fontSize: 13,
+//                                         lineHeight: "16px",
+//                                         fontWeight: 800,
+
+//                                         color: isHovered
+//                                             ? barColor
+//                                             : "#26364a",
+
+//                                         whiteSpace:
+//                                             "nowrap",
+
+//                                         transition:
+//                                             "color 0.18s ease",
+//                                     }}
+//                                 >
+//                                     {formatAmount(
+//                                         item.amount
+//                                     )}
+//                                 </div>
+//                             </div>
+
+//                             {/* =================================================
+//                                 Progress Bar Container
+//                             ================================================= */}
+//                             <div
+//                                 style={{
+//                                     position: "relative",
+
+//                                     width: "100%",
+
+//                                     height: 10,
+
+//                                     background:
+//                                         "#edf2f7",
+
+//                                     borderRadius: 999,
+
+//                                     overflow: "visible",
+
+//                                     transition:
+//                                         "box-shadow 0.18s ease",
+
+//                                     boxShadow: isHovered
+//                                         ? `0 2px 7px ${barColor}25`
+//                                         : "none",
+//                                 }}
+//                             >
+//                                 {/* =================================================
+//                                     Actual Bar
+//                                 ================================================= */}
+//                                 <div
+//                                     onMouseEnter={(e) => {
+//                                         setHoveredIndex(index);
+
+//                                         setTooltipPosition({
+//                                             x: e.clientX,
+//                                             y: e.clientY,
+//                                         });
+//                                     }}
+//                                     style={{
+//                                         position:
+//                                             "absolute",
+
+//                                         left: 0,
+//                                         top: 0,
+
+//                                         height: "100%",
+
+//                                         width: chartLoaded
+//                                             ? `${Math.max(
+//                                                 width,
+//                                                 2
+//                                             )}%`
+//                                             : "0%",
+
+//                                         minWidth: 8,
+
+//                                         borderRadius: 999,
+
+//                                         // SAME individual color
+//                                         background:
+//                                             barColor,
+
+//                                         // Hover effect
+//                                         transform:
+//                                             isHovered
+//                                                 ? "scaleY(1.18)"
+//                                                 : "scaleY(1)",
+
+//                                         transformOrigin:
+//                                             "center",
+
+//                                         // Shadow uses same color
+//                                         boxShadow: isHovered
+//                                             ? `0 3px 8px ${barColor}66`
+//                                             : "none",
+
+//                                         // Slightly brighter
+//                                         filter: isHovered
+//                                             ? "brightness(1.12) saturate(1.08)"
+//                                             : "none",
+
+//                                         opacity: chartLoaded
+//                                             ? 1
+//                                             : 0,
+
+//                                         transition:
+//                                             "width 0.7s ease, transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease, opacity 0.35s ease",
+
+//                                         zIndex: isHovered
+//                                             ? 5
+//                                             : 1,
+
+//                                         cursor: onItemClick
+//                                             ? "pointer"
+//                                             : "default",
+//                                     }}
+//                                 >
+//                                     {/* =================================================
+//                                         Subtle White Highlight
+//                                     ================================================= */}
+//                                     <div
+//                                         style={{
+//                                             position:
+//                                                 "absolute",
+
+//                                             left: 0,
+//                                             right: 0,
+//                                             top: 0,
+
+//                                             height: "45%",
+
+//                                             borderRadius:
+//                                                 "999px 999px 0 0",
+
+//                                             background:
+//                                                 "rgba(255,255,255,0.22)",
+
+//                                             opacity:
+//                                                 isHovered
+//                                                     ? 1
+//                                                     : 0,
+
+//                                             transition:
+//                                                 "opacity 0.18s ease",
+
+//                                             pointerEvents:
+//                                                 "none",
+//                                         }}
+//                                     />
+//                                 </div>
+//                             </div>
+//                         </div>
+//                     );
+//                 })}
+//             </div>
+
+//             {/* =========================================================
+//                 RANGE SCALE
+//             ========================================================= */}
+//             <div
+//                 style={{
+//                     width: "100%",
+
+//                     marginTop: 14,
+
+//                     paddingTop: 8,
+
+//                     borderTop:
+//                         "1px solid #dbe3ec",
+//                 }}
+//             >
+//                 <div
+//                     style={{
+//                         display: "flex",
+
+//                         alignItems: "center",
+
+//                         justifyContent:
+//                             "space-between",
+
+//                         width: "100%",
+
+//                         color: "#94a3b8",
+
+//                         fontSize: 10.5,
+
+//                         fontWeight: 600,
+
+//                         lineHeight: 1,
+//                     }}
+//                 >
+//                     <span>
+//                         0
+//                     </span>
+
+//                     <span>
+//                         {formatAmount(midpoint)}
+//                     </span>
+
+//                     <span>
+//                         {formatAmount(max)}
+//                     </span>
+//                 </div>
+//             </div>
+
+//             {/* =========================================================
+//                 SALES REVENUE STYLE TOOLTIP
+//             ========================================================= */}
+//             {hoveredIndex !== null &&
+//                 visibleChartData[hoveredIndex] &&
+//                 createPortal(
+//                     <div
+//                         style={{
+//                             position: "fixed",
+
+//                             left: Math.max(
+//                                 8,
+//                                 Math.min(
+//                                     tooltipPosition.x + 14,
+//                                     window.innerWidth -
+//                                     278
+//                                 )
+//                             ),
+
+//                             top:
+//                                 tooltipPosition.y < 92
+//                                     ? Math.min(
+//                                         window.innerHeight -
+//                                         8,
+//                                         tooltipPosition.y +
+//                                         16
+//                                     )
+//                                     : Math.max(
+//                                         8,
+//                                         Math.min(
+//                                             tooltipPosition.y -
+//                                             10,
+//                                             window.innerHeight -
+//                                             8
+//                                         )
+//                                     ),
+
+//                             transform:
+//                                 tooltipPosition.y < 92
+//                                     ? "translateY(0)"
+//                                     : "translateY(-100%)",
+
+//                             minWidth: 215,
+
+//                             maxWidth:
+//                                 "min(270px, calc(100vw - 16px))",
+
+//                             padding:
+//                                 "14px 16px",
+
+//                             borderRadius: 10,
+
+//                             background:
+//                                 "#ffffff",
+
+//                             color:
+//                                 "#26364a",
+
+//                             border:
+//                                 "1px solid #e4e9f0",
+
+//                             boxShadow:
+//                                 "0 8px 24px rgba(15, 23, 42, 0.12)",
+
+//                             pointerEvents:
+//                                 "none",
+
+//                             zIndex: 999999,
+
+//                             animation:
+//                                 "parentDivisionTooltipIn 0.16s ease-out",
+
+//                             whiteSpace:
+//                                 "normal",
+
+//                             overflowWrap:
+//                                 "anywhere",
+
+//                             wordBreak:
+//                                 "break-word",
+
+//                             width:
+//                                 "max-content",
+//                         }}
+//                     >
+//                         {/* =================================================
+//                             Tooltip Parent Division
+//                         ================================================= */}
+//                         <div
+//                             style={{
+//                                 fontSize: 14,
+
+//                                 fontWeight: 800,
+
+//                                 lineHeight: 1.3,
+
+//                                 color:
+//                                     "#26364a",
+
+//                                 marginBottom:
+//                                     12,
+//                             }}
+//                         >
+//                             {
+//                                 visibleChartData[
+//                                     hoveredIndex
+//                                 ].name
+//                             }
+//                         </div>
+
+//                         {/* =================================================
+//                             Receivables
+//                         ================================================= */}
+//                         <div
+//                             style={{
+//                                 display: "flex",
+
+//                                 justifyContent:
+//                                     "space-between",
+
+//                                 alignItems:
+//                                     "center",
+
+//                                 gap: 18,
+
+//                                 fontSize: 12,
+
+//                                 lineHeight: 1.4,
+
+//                                 marginBottom: 6,
+//                             }}
+//                         >
+//                             <span
+//                                 style={{
+//                                     color:
+//                                         "#718096",
+
+//                                     fontWeight:
+//                                         500,
+//                                 }}
+//                             >
+//                                 Receivables
+//                             </span>
+
+//                             <span
+//                                 style={{
+//                                     color:
+//                                         "#26364a",
+
+//                                     fontSize:
+//                                         13,
+
+//                                     fontWeight:
+//                                         800,
+
+//                                     whiteSpace:
+//                                         "nowrap",
+//                                 }}
+//                             >
+//                                 {currency
+//                                     ? `${currency} `
+//                                     : ""}
+//                                 {Number(
+//                                     visibleChartData[
+//                                         hoveredIndex
+//                                     ].amount
+//                                 ).toLocaleString(
+//                                     "en-US",
+//                                     {
+//                                         minimumFractionDigits:
+//                                             2,
+
+//                                         maximumFractionDigits:
+//                                             2,
+//                                     }
+//                                 )}
+//                             </span>
+//                         </div>
+
+//                         {/* =================================================
+//                             Share / Percentage
+//                         ================================================= */}
+//                         <div
+//                             style={{
+//                                 display: "flex",
+
+//                                 justifyContent:
+//                                     "space-between",
+
+//                                 alignItems:
+//                                     "center",
+
+//                                 gap: 18,
+
+//                                 fontSize: 12,
+
+//                                 lineHeight: 1.4,
+//                             }}
+//                         >
+//                             <span
+//                                 style={{
+//                                     color:
+//                                         "#718096",
+
+//                                     fontWeight:
+//                                         500,
+//                                 }}
+//                             >
+//                                 Share
+//                             </span>
+
+//                             <span
+//                                 style={{
+//                                     color:
+//                                         "#5b5ce2",
+
+//                                     fontSize:
+//                                         13,
+
+//                                     fontWeight:
+//                                         800,
+
+//                                     whiteSpace:
+//                                         "nowrap",
+//                                 }}
+//                             >
+//                                 {visibleChartData[
+//                                     hoveredIndex
+//                                 ].percentage.toFixed(
+//                                     1
+//                                 )}
+//                                 %
+//                             </span>
+//                         </div>
+//                     </div>,
+//                     document.body
+//                 )}
+
+//             {/* =========================================================
+//                 Tooltip Animation
+//             ========================================================= */}
+//             <style>
+//                 {`
+//                     @keyframes parentDivisionTooltipIn {
+//                         from {
+//                             opacity: 0;
+//                             transform: translateY(4px);
+//                         }
+
+//                         to {
+//                             opacity: 1;
+//                             transform: translateY(0);
+//                         }
+//                     }
+//                 `}
+//             </style>
+//         </div>
+//     );
+// }
+
+// /* ============================================================
+//    DATA TABLE
+// ============================================================ */
+
+// function DataTable({
+//     columns,
+//     rows,
+//     compact = false,
+//     fitColumns = false,
+//     compactRows = false,
+//     rowGap = false,
+
+//     // Pagination is opt-in so other tables are not affected
+//     pageSize = null,
+
+//     // When true, the LAST row is kept fixed as the Total row
+//     keepFirstRow = false,
+
+//     // Optional numbered pagination; disabled by default so other tables
+//     // keep their existing pagination behavior.
+//     showPageNumbers = false,
+
+//     // Optional compact pagination matching the dashboard screenshot.
+//     paginationStyle = "default",
+
+//     // Optional cell-level click handler; disabled by default so existing
+//     // tables keep their current behavior.
+//     onCellClick = null,
+
+//     // Optional Month-on-Month-only visual controls.
+//     cellBorders = false,
+//     rowFontWeight = 700,
+//     wrapCells = false,
+//     tableWidth = "100%",
+//     tableMinWidth,
+//     tableFontSize = 10,
+//     stickyFirstColumns = false,
+//     fixedRowTextColor,
+//     fixedRowBackground,
+// }) {
+//     const [currentPage, setCurrentPage] = useState(1);
+
+//     /*
+//      * If keepFirstRow is true:
+//      * - Last row is always displayed as the Total row
+//      * - Remaining rows are paginated
+//      *
+//      * If false:
+//      * - Existing behavior remains unchanged
+//      */
+//     const fixedTotalRow =
+//         keepFirstRow && rows.length > 0
+//             ? rows[rows.length - 1]
+//             : null;
+
+//     const paginatedRows =
+//         keepFirstRow && rows.length > 0
+//             ? rows.slice(0, -1)
+//             : rows;
+
+//     // Enable pagination only when pageSize is provided
+//     const paginationEnabled =
+//         pageSize !== null &&
+//         Number(pageSize) > 0 &&
+//         paginatedRows.length > Number(pageSize);
+
+//     const totalPages = paginationEnabled
+//         ? Math.ceil(
+//             paginatedRows.length / Number(pageSize)
+//         )
+//         : 1;
+
+//     // Keep current page valid if rows change
+//     useEffect(() => {
+//         setCurrentPage(1);
+//     }, [rows]);
+
+//     useEffect(() => {
+//         if (currentPage > totalPages) {
+//             setCurrentPage(totalPages);
+//         }
+
+//         if (currentPage < 1) {
+//             setCurrentPage(1);
+//         }
+//     }, [currentPage, totalPages]);
+
+//     const pageNumbers = useMemo(() => {
+//         if (!showPageNumbers || totalPages <= 1) return [];
+//         if (totalPages <= 7) {
+//             return Array.from({ length: totalPages }, (_, index) => index + 1);
+//         }
+
+//         const pages = [1];
+//         const start = Math.max(2, currentPage - 1);
+//         const end = Math.min(totalPages - 1, currentPage + 1);
+
+//         if (start > 2) pages.push("ellipsis-left");
+//         for (let page = start; page <= end; page += 1) pages.push(page);
+//         if (end < totalPages - 1) pages.push("ellipsis-right");
+//         pages.push(totalPages);
+
+//         return pages;
+//     }, [showPageNumbers, totalPages, currentPage]);
+
+//     const startIndex = paginationEnabled
+//         ? (currentPage - 1) * Number(pageSize)
+//         : 0;
+
+//     const displayedRows = paginationEnabled
+//         ? paginatedRows.slice(
+//             startIndex,
+//             startIndex + Number(pageSize)
+//         )
+//         : paginatedRows;
+
+//     // Check whether a value is negative
+//     const getStickyOffset = (columnIndex) =>
+//         columns
+//             .slice(0, columnIndex)
+//             .reduce(
+//                 (sum, column) =>
+//                     sum + (Number(column?.width) || 0),
+//                 0
+//             );
+
+//     const isNegativeValue = (value) => {
+//         if (value === null || value === undefined) {
+//             return false;
+//         }
+
+//         if (typeof value === "number") {
+//             return value < 0;
+//         }
+
+//         if (typeof value === "string") {
+//             const cleaned = value
+//                 .replace(/,/g, "")
+//                 .replace(/\s/g, "");
+
+//             // Handles:
+//             // -123
+//             // -123.45
+//             // -5%
+//             // AED -123.45
+//             // -AED 123.45
+//             return /^-/.test(cleaned) || /-\d/.test(cleaned);
+//         }
+
+//         return false;
+//     };
+
+//     // Render one table row
+//     const renderRow = (
+//         row,
+//         rowIndex,
+//         isFixedRow = false
+//     ) => {
+//         return (
+//             <tr
+//                 key={
+//                     row.id ||
+//                     (isFixedRow
+//                         ? "fixed-total-row"
+//                         : `${startIndex}-${rowIndex}`)
+//                 }
+//             >
+//                 {columns.map((column, columnIndex) => {
+//                     const value = column.render
+//                         ? column.render(row)
+//                         : row[column.key];
+
+//                     return (
+//                         <td
+//                             key={column.key}
+//                             className={
+//                                 isNegativeValue(value)
+//                                     ? "receivables-negative-cell"
+//                                     : undefined
+//                             }
+//                             onClick={() => {
+//                                 if (typeof onCellClick === "function") {
+//                                     onCellClick(row, column, value);
+//                                 }
+//                             }}
+//                             style={{
+//                                 position:
+//                                     stickyFirstColumns && columnIndex < 3
+//                                         ? "sticky"
+//                                         : "static",
+//                                 left:
+//                                     stickyFirstColumns && columnIndex < 3
+//                                         ? getStickyOffset(columnIndex)
+//                                         : undefined,
+//                                 zIndex:
+//                                     stickyFirstColumns && columnIndex < 3
+//                                         ? 3
+//                                         : 1,
+//                                 background:
+//                                     stickyFirstColumns && columnIndex < 3
+//                                         ? (isFixedRow ? "#f8fafc" : "#ffffff")
+//                                         : undefined,
+//                                 boxShadow:
+//                                     stickyFirstColumns && columnIndex === 2
+//                                         ? "7px 0 10px -7px rgba(15,23,42,0.45)"
+//                                         : undefined,
+//                                 borderRight:
+//                                     stickyFirstColumns && columnIndex === 2
+//                                         ? "4px solid #ffffff"
+//                                         : cellBorders
+//                                             ? "1px solid #e5eaf2"
+//                                             : undefined,
+//                                 cursor:
+//                                     typeof onCellClick === "function"
+//                                         ? "pointer"
+//                                         : "default",
+//                                 padding: rowGap
+//                                     ? "13px 4px"
+//                                     : compactRows
+//                                         ? "3px 4px"
+//                                         : "6px 4px",
+
+//                                 lineHeight: rowGap
+//                                     ? "17px"
+//                                     : compactRows
+//                                         ? "14px"
+//                                         : "normal",
+
+//                                 borderBottom:
+//                                     "1px solid #edf1f6",
+
+//                                 color: isNegativeValue(value)
+//                                     ? "#dc2626"
+//                                     : "#334155",
+
+//                                 fontWeight: isFixedRow ? 900 : rowFontWeight,
+
+//                                 textAlign:
+//                                     column.align || "left",
+
+//                                 width:
+//                                     column.width ||
+//                                     (stickyFirstColumns
+//                                         ? 94
+//                                         : undefined),
+
+//                                 whiteSpace:
+//                                     column.key === "rank" || column.align === "right"
+//                                         ? "nowrap"
+//                                         : wrapCells || fitColumns
+//                                             ? "normal"
+//                                             : "nowrap",
+
+//                                 overflow:
+//                                     column.key === "rank"
+//                                         ? "visible"
+//                                         : wrapCells || fitColumns
+//                                             ? "visible"
+//                                             : "hidden",
+
+//                                 textOverflow:
+//                                     column.key === "rank"
+//                                         ? "clip"
+//                                         : wrapCells || fitColumns
+//                                             ? "clip"
+//                                             : "ellipsis",
+
+//                                 wordBreak: wrapCells ? "break-word" : undefined,
+
+//                                 // Slight emphasis for fixed Total row
+//                                 ...(isFixedRow
+//                                     ? {
+//                                         fontWeight: 900,
+//                                         background: fixedRowBackground || "#f8fafc",
+//                                         color: fixedRowTextColor || (column.key === "name" ? "#172554" : "#1E293B"),
+//                                     }
+//                                     : {}),
+//                             }}
+//                         >
+//                             {(() => {
+//                                 if (
+//                                     typeof value ===
+//                                     "string"
+//                                 ) {
+//                                     return value
+//                                         .replace(
+//                                             /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
+//                                             ""
+//                                         )
+//                                         .replace(
+//                                             /^#\s*/,
+//                                             ""
+//                                         );
+//                                 }
+
+//                                 return value;
+//                             })()}
+//                         </td>
+//                     );
+//                 })}
+//             </tr>
+//         );
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 width: "100%",
+//                 overflowX: fitColumns
+//                     ? "hidden"
+//                     : "auto",
+//                 border: "1px solid #e5eaf2",
+//                 borderRadius: 5,
+//             }}
+//         >
+//             <table
+//                 style={{
+//                     width: tableWidth,
+//                     minWidth: tableMinWidth !== undefined
+//                         ? tableMinWidth
+//                         : fitColumns
+//                             ? 0
+//                             : compact
+//                                 ? 520
+//                                 : 650,
+//                     tableLayout:
+//                         fitColumns || stickyFirstColumns
+//                             ? "fixed"
+//                             : "auto",
+//                     borderCollapse: "collapse",
+//                     fontSize: tableFontSize,
+//                     fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+//                 }}
+//             >
+//                 <thead>
+//                     <tr>
+//                         {columns.map((column, columnIndex) => (
+//                             <th
+//                                 key={column.key}
+//                                 style={{
+//                                     position:
+//                                         stickyFirstColumns && columnIndex < 3
+//                                             ? "sticky"
+//                                             : "static",
+//                                     left:
+//                                         stickyFirstColumns && columnIndex < 3
+//                                             ? getStickyOffset(columnIndex)
+//                                             : undefined,
+//                                     zIndex:
+//                                         stickyFirstColumns && columnIndex < 3
+//                                             ? 5
+//                                             : 2,
+//                                     background:
+//                                         "#eef4ff",
+//                                     color: BLUE,
+//                                     fontWeight: 700,
+//                                     padding: compactRows
+//                                         ? "5px 4px"
+//                                         : "7px 4px",
+//                                     borderBottom:
+//                                         "1px solid #dce5f4",
+//                                     borderRight:
+//                                         stickyFirstColumns && columnIndex === 2
+//                                             ? "4px solid #ffffff"
+//                                             : cellBorders
+//                                                 ? "1px solid #e5eaf2"
+//                                                 : undefined,
+//                                     textAlign:
+//                                         column.align ||
+//                                         "left",
+//                                     width:
+//                                         column.width ||
+//                                         (stickyFirstColumns
+//                                             ? 94
+//                                             : undefined),
+//                                     whiteSpace: fitColumns
+//                                         ? "normal"
+//                                         : "nowrap",
+//                                 }}
+//                             >
+//                                 {column.label}
+//                             </th>
+//                         ))}
+//                     </tr>
+//                 </thead>
+
+//                 <tbody>
+//                     {/* PAGINATED SUB-DIVISION ROWS */}
+//                     {displayedRows.map(
+//                         (row, rowIndex) =>
+//                             renderRow(
+//                                 row,
+//                                 rowIndex,
+//                                 false
+//                             )
+//                     )}
+
+//                     {/* FIXED TOTAL ROW AT BOTTOM */}
+//                     {fixedTotalRow &&
+//                         renderRow(
+//                             fixedTotalRow,
+//                             0,
+//                             true
+//                         )}
+//                 </tbody>
+//             </table>
+
+//             {/* Pagination AFTER Total row */}
+//             {paginationEnabled && paginationStyle === "compact" && (
+//                 <div
+//                     style={{
+//                         display: "flex",
+//                         alignItems: "center",
+//                         justifyContent: "space-between",
+//                         gap: 8,
+//                         padding: "9px 8px",
+//                         borderTop: "1px solid #edf1f6",
+//                         background: "#ffffff",
+//                     }}
+//                 >
+//                     <span
+//                         style={{
+//                             fontSize: 9.5,
+//                             color: "#64748b",
+//                             fontWeight: 600,
+//                             whiteSpace: "nowrap",
+//                         }}
+//                     >
+//                         Showing {startIndex + 1}–{Math.min(startIndex + Number(pageSize), paginatedRows.length)} of {paginatedRows.length}
+//                     </span>
+
+//                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+//                         {[
+//                             { label: "‹‹", action: () => setCurrentPage(1), disabled: currentPage === 1 },
+//                             { label: "‹", action: () => setCurrentPage((p) => Math.max(1, p - 1)), disabled: currentPage === 1 },
+//                             { label: String(currentPage), active: true, action: () => { }, disabled: false },
+//                             { label: "›", action: () => setCurrentPage((p) => Math.min(totalPages, p + 1)), disabled: currentPage === totalPages },
+//                             { label: "››", action: () => setCurrentPage(totalPages), disabled: currentPage === totalPages },
+//                         ].map((item) => (
+//                             <button
+//                                 key={item.label}
+//                                 type="button"
+//                                 onClick={item.action}
+//                                 disabled={item.disabled}
+//                                 style={{
+//                                     width: 28,
+//                                     height: 25,
+//                                     padding: 0,
+//                                     border: "1px solid #dbe3ef",
+//                                     borderRadius: 5,
+//                                     background: item.active ? "#172f80" : item.disabled ? "#f8fafc" : "#ffffff",
+//                                     color: item.active ? "#ffffff" : item.disabled ? "#cbd5e1" : "#27438b",
+//                                     fontSize: item.label.length > 1 ? 12 : 14,
+//                                     fontWeight: 800,
+//                                     cursor: item.disabled ? "not-allowed" : "pointer",
+//                                 }}
+//                             >
+//                                 {item.label}
+//                             </button>
+//                         ))}
+//                     </div>
+//                 </div>
+//             )}
+
+//             {paginationEnabled && paginationStyle !== "compact" && (
+//                 <div
+//                     style={{
+//                         display: "flex",
+//                         justifyContent: "center",
+//                         alignItems: "center",
+//                         gap: 6,
+//                         padding: "10px 8px",
+//                         borderTop:
+//                             "1px solid #edf1f6",
+//                         background: "#ffffff",
+//                     }}
+//                 >
+//                     {/* First */}
+//                     <button
+//                         type="button"
+//                         onClick={() =>
+//                             setCurrentPage(1)
+//                         }
+//                         disabled={currentPage === 1}
+//                         style={{
+//                             padding: "4px 8px",
+//                             border:
+//                                 "1px solid #dbe3ef",
+//                             borderRadius: 5,
+//                             background:
+//                                 currentPage === 1
+//                                     ? "#f1f5f9"
+//                                     : "#ffffff",
+//                             color:
+//                                 currentPage === 1
+//                                     ? "#94a3b8"
+//                                     : "#27438b",
+//                             fontSize: 10,
+//                             fontWeight: 700,
+//                             cursor:
+//                                 currentPage === 1
+//                                     ? "not-allowed"
+//                                     : "pointer",
+//                         }}
+//                     >
+//                         &lt;&lt; First
+//                     </button>
+
+//                     {/* Previous */}
+//                     <button
+//                         type="button"
+//                         onClick={() =>
+//                             setCurrentPage((prev) =>
+//                                 Math.max(
+//                                     1,
+//                                     prev - 1
+//                                 )
+//                             )
+//                         }
+//                         disabled={currentPage === 1}
+//                         style={{
+//                             padding: "4px 9px",
+//                             border:
+//                                 "1px solid #dbe3ef",
+//                             borderRadius: 5,
+//                             background:
+//                                 currentPage === 1
+//                                     ? "#f1f5f9"
+//                                     : "#ffffff",
+//                             color:
+//                                 currentPage === 1
+//                                     ? "#94a3b8"
+//                                     : "#27438b",
+//                             fontSize: 10,
+//                             fontWeight: 700,
+//                             cursor:
+//                                 currentPage === 1
+//                                     ? "not-allowed"
+//                                     : "pointer",
+//                         }}
+//                     >
+//                         Previous
+//                     </button>
+
+//                     {showPageNumbers ? (
+//                         pageNumbers.map((pageNumber) =>
+//                             typeof pageNumber === "string" ? (
+//                                 <span
+//                                     key={pageNumber}
+//                                     style={{
+//                                         minWidth: 20,
+//                                         textAlign: "center",
+//                                         fontSize: 10,
+//                                         color: "#94a3b8",
+//                                         fontWeight: 700,
+//                                     }}
+//                                 >
+//                                     …
+//                                 </span>
+//                             ) : (
+//                                 <button
+//                                     key={pageNumber}
+//                                     type="button"
+//                                     onClick={() => setCurrentPage(pageNumber)}
+//                                     style={{
+//                                         minWidth: 27,
+//                                         height: 25,
+//                                         padding: "0 6px",
+//                                         border: pageNumber === currentPage
+//                                             ? "1px solid #5b5bea"
+//                                             : "1px solid #dbe3ef",
+//                                         borderRadius: 5,
+//                                         background: pageNumber === currentPage
+//                                             ? "#5b5bea"
+//                                             : "#ffffff",
+//                                         color: pageNumber === currentPage
+//                                             ? "#ffffff"
+//                                             : "#27438b",
+//                                         fontSize: 10,
+//                                         fontWeight: 700,
+//                                         cursor: "pointer",
+//                                     }}
+//                                 >
+//                                     {pageNumber}
+//                                 </button>
+//                             )
+//                         )
+//                     ) : (
+//                         <span
+//                             style={{
+//                                 minWidth: 45,
+//                                 textAlign: "center",
+//                                 fontSize: 10,
+//                                 fontWeight: 700,
+//                                 color: "#64748b",
+//                             }}
+//                         >
+//                             {currentPage} / {totalPages}
+//                         </span>
+//                     )}
+
+//                     {/* Next */}
+//                     <button
+//                         type="button"
+//                         onClick={() =>
+//                             setCurrentPage((prev) =>
+//                                 Math.min(
+//                                     totalPages,
+//                                     prev + 1
+//                                 )
+//                             )
+//                         }
+//                         disabled={
+//                             currentPage === totalPages
+//                         }
+//                         style={{
+//                             padding: "4px 9px",
+//                             border:
+//                                 "1px solid #dbe3ef",
+//                             borderRadius: 5,
+//                             background:
+//                                 currentPage ===
+//                                     totalPages
+//                                     ? "#f1f5f9"
+//                                     : "#ffffff",
+//                             color:
+//                                 currentPage ===
+//                                     totalPages
+//                                     ? "#94a3b8"
+//                                     : "#27438b",
+//                             fontSize: 10,
+//                             fontWeight: 700,
+//                             cursor:
+//                                 currentPage ===
+//                                     totalPages
+//                                     ? "not-allowed"
+//                                     : "pointer",
+//                         }}
+//                     >
+//                         Next
+//                     </button>
+
+//                     {/* Last */}
+//                     <button
+//                         type="button"
+//                         onClick={() =>
+//                             setCurrentPage(totalPages)
+//                         }
+//                         disabled={
+//                             currentPage === totalPages
+//                         }
+//                         style={{
+//                             padding: "4px 8px",
+//                             border:
+//                                 "1px solid #dbe3ef",
+//                             borderRadius: 5,
+//                             background:
+//                                 currentPage ===
+//                                     totalPages
+//                                     ? "#f1f5f9"
+//                                     : "#ffffff",
+//                             color:
+//                                 currentPage ===
+//                                     totalPages
+//                                     ? "#94a3b8"
+//                                     : "#27438b",
+//                             fontSize: 10,
+//                             fontWeight: 700,
+//                             cursor:
+//                                 currentPage ===
+//                                     totalPages
+//                                     ? "not-allowed"
+//                                     : "pointer",
+//                         }}
+//                     >
+//                         Last &gt;&gt;
+//                     </button>
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+// /* ============================================================
+//    RECEIVABLES-STYLE PAGE SKELETON FOR RECEIVABLES
+//    ============================================================ */
+// function ReceivablesPageSkeleton() {
+//     return (
+//         <div className="receivables-page-skeleton" aria-hidden="true">
+//             <div className="receivables-skeleton-kpis">
+//                 {Array.from({ length: 6 }).map((_, index) => (
+//                     <div className="receivables-skeleton-card" key={index}>
+//                         <div className="receivables-skeleton-icon" />
+//                         <div className="receivables-skeleton-copy">
+//                             <div className="receivables-skeleton-line short" />
+//                             <div className="receivables-skeleton-line value" />
+//                             <div className="receivables-skeleton-line tiny" />
+//                         </div>
+//                     </div>
+//                 ))}
+//             </div>
+//             <div className="receivables-skeleton-grid three">
+//                 {Array.from({ length: 3 }).map((_, index) => (
+//                     <div className="receivables-skeleton-panel" key={index}>
+//                         <div className="receivables-skeleton-line title" />
+//                         <div className="receivables-skeleton-chart" />
+//                     </div>
+//                 ))}
+//             </div>
+//             <div className="receivables-skeleton-grid three">
+//                 {Array.from({ length: 3 }).map((_, index) => (
+//                     <div className="receivables-skeleton-panel compact" key={index}>
+//                         <div className="receivables-skeleton-line title" />
+//                         <div className="receivables-skeleton-table-line" />
+//                         <div className="receivables-skeleton-table-line" />
+//                         <div className="receivables-skeleton-table-line" />
+//                         <div className="receivables-skeleton-table-line" />
+//                     </div>
+//                 ))}
+//             </div>
+//         </div>
+//     );
+// }
+
+// /* ============================================================
+//    RECEIVABLES ACCESS / RBAC
+//    ------------------------------------------------------------
+//    Follow the same access pattern used by Sales Revenue.
+//    - /api/access/me is loaded for the logged-in user.
+//    - /api/admin/roles/{roleCode}/permissions is loaded when available.
+//    - Export visibility comes from AuthContext.hasExportRight().
+//    - Filter/dashboard/view-all APIs remain the source of scoped data.
+
+//    IMPORTANT: Do not translate profile display strings such as
+//    "All Entities" or "Region: All Countries" into client-side IDs.
+//    The Receivables backend/API already returns the permitted filter
+//    options and applies the authenticated user's access scope.
+//    ============================================================ */
+
+// const RECEIVABLES_ACCESS_MODULE = "RECEIVABLES";
+
+// /* ============================================================
+//    MAIN PAGE
+//    ============================================================ */
+
+// export default function ReceivablesDashboard() {
+//     const [filters, setFilters] = useState({ ...defaultReceivableFilters });
+//     const [appliedFilters, setAppliedFilters] = useState({ ...defaultReceivableFilters });
+//     const [filterOptions, setFilterOptions] = useState({
+//         legal_groups: [], legal_entities: [], parent_divisions: [], sub_divisions: [],
+//         customer_types: [], gl_codes: [],
+//         reporting_currencies: [], as_on_dates: [], aging_bases: [], years: [],
+//     });
+//     // Group-specific entity lists are cached by selected backend group IDs.
+//     // This keeps the main page and View All from reusing another group's entities.
+//     const [groupSpecificLegalEntities, setGroupSpecificLegalEntities] = useState({});
+//     const [mainParentDivisionCache, setMainParentDivisionCache] = useState({});
+//     const [mainSubDivisionCache, setMainSubDivisionCache] = useState({});
+//     const [dashboardResponse, setDashboardResponse] = useState(null);
+//     const [loading, setLoading] = useState(true);
+//     const [dashboardError, setDashboardError] = useState(null);
+//     const [dashboardRetryKey, setDashboardRetryKey] = useState(0);
+//     const [showFilters, setShowFilters] = useState(true);
+//     const showAnyMainFilter = showFilters;
+//     const [showViewAll, setShowViewAll] = useState(false);
+//     const [viewAllContext, setViewAllContext] = useState({});
+
+//     // Same access/permission loading pattern as Sales Revenue.
+//     const [userAccess, setUserAccess] = useState(null);
+//     const [permissions, setPermissions] = useState([]);
+
+//     // Read hierarchy availability from /api/access/me. Scope values can be
+//     // direct properties or rows inside access_scopes/accessScopes/scopes.
+//     // Empty convenience properties must not hide a populated scope row.
+//     const accessScopeRoot = userAccess ?? {};
+
+//     const receivablesScopeHasValue = (value) => {
+//         if (value === null || value === undefined) return false;
+//         if (Array.isArray(value)) return value.some(receivablesScopeHasValue);
+//         if (typeof value === "object") {
+//             return receivablesScopeHasValue(
+//                 value.value ?? value.code ?? value.name ?? value.label ??
+//                 value.scope_value ?? value.scopeValue ?? value.values ?? value.ids
+//             );
+//         }
+//         const text = String(value).trim();
+//         return text !== "" && text.toLowerCase() !== "null" && text.toLowerCase() !== "undefined";
+//     };
+
+//     const findAccessScopeValue = (source, aliases) => {
+//         const visited = new Set();
+//         const queue = [source];
+//         while (queue.length) {
+//             const current = queue.shift();
+//             if (!current || typeof current !== "object" || visited.has(current)) continue;
+//             visited.add(current);
+
+//             if (Array.isArray(current)) {
+//                 current.forEach((item) => queue.push(item));
+//                 continue;
+//             }
+
+//             for (const alias of aliases) {
+//                 if (Object.prototype.hasOwnProperty.call(current, alias) &&
+//                     receivablesScopeHasValue(current[alias])) {
+//                     return current[alias];
+//                 }
+//             }
+
+//             Object.values(current).forEach((value) => {
+//                 if (value && typeof value === "object") queue.push(value);
+//             });
+//         }
+//         return null;
+//     };
+
+//     const getAccessScopeRows = (source) => {
+//         const visited = new Set();
+//         const queue = [source];
+//         const rows = [];
+//         while (queue.length) {
+//             const current = queue.shift();
+//             if (!current || typeof current !== "object" || visited.has(current)) continue;
+//             visited.add(current);
+//             if (Array.isArray(current)) {
+//                 current.forEach((item) => queue.push(item));
+//                 continue;
+//             }
+
+//             for (const key of ["access_scopes", "accessScopes", "scopes", "scope_assignments", "scopeAssignments"]) {
+//                 const collection = current[key];
+//                 if (Array.isArray(collection)) rows.push(...collection.filter((row) => row && typeof row === "object"));
+//                 else if (collection && typeof collection === "object") {
+//                     rows.push(...Object.values(collection).filter((row) => row && typeof row === "object"));
+//                 }
+//             }
+
+//             Object.values(current).forEach((value) => {
+//                 if (value && typeof value === "object") queue.push(value);
+//             });
+//         }
+//         return rows;
+//     };
+
+//     const getScopedLegalEntityOptions = (source) => {
+//         const rows = getAccessScopeRows(source);
+//         const result = [];
+//         const add = (value, label, meta = {}) => {
+//             if (value === null || value === undefined || label === null || label === undefined) return;
+//             const cleanValue = String(value).trim();
+//             const cleanLabel = String(label).trim();
+//             if (!cleanValue || !cleanLabel || /^(null|undefined)$/i.test(cleanValue) ||
+//                 /^(null|undefined)$/i.test(cleanLabel) ||
+//                 /^(all|all entities|all legal entities|region:\s*all countries)$/i.test(cleanLabel)) return;
+//             if (!result.some((option) =>
+//                 String(option.value).toLowerCase() === cleanValue.toLowerCase() ||
+//                 String(option.label).toLowerCase() === cleanLabel.toLowerCase()
+//             )) {
+//                 result.push({ value: cleanValue, label: cleanLabel, meta });
+//             }
+//         };
+
+//         const addScopeValue = (candidate, row = {}) => {
+//             if (Array.isArray(candidate)) {
+//                 candidate.forEach((item) => addScopeValue(item, row));
+//                 return;
+//             }
+//             if (candidate && typeof candidate === "object") {
+//                 const id = candidate.legal_entity_id ?? candidate.legalEntityId ??
+//                     candidate.entity_id ?? candidate.entityId ?? candidate.id ??
+//                     candidate.value ?? candidate.code ?? candidate.legal_entity_code ??
+//                     candidate.legalEntityCode ?? candidate.legal_entity_name ??
+//                     candidate.legalEntityName ?? candidate.name ?? candidate.label;
+//                 const label = candidate.legal_entity_name ?? candidate.legalEntityName ??
+//                     candidate.entity_name ?? candidate.entityName ?? candidate.name ??
+//                     candidate.label ?? candidate.description ?? id;
+//                 // Preserve enclosing RBAC scope metadata (notably legal-group
+//                 // code/ID) when entities are nested under a scope row.
+//                 add(id, label, { ...row, ...candidate });
+//                 return;
+//             }
+//             add(
+//                 row.legal_entity_id ?? row.legalEntityId ?? row.entity_id ?? row.entityId ??
+//                 row.legal_entity_code ?? row.legalEntityCode ?? candidate,
+//                 row.legal_entity_name ?? row.legalEntityName ?? row.entity_name ??
+//                 row.entityName ?? row.label ?? candidate,
+//                 row
+//             );
+//         };
+
+//         // Direct /access/me hierarchy properties.
+//         const direct = findAccessScopeValue(source, [
+//             "legal_entity_name", "legal_entity_code", "legal_entity_id", "legal_entity_ids",
+//             "legal_entities", "legal_entity", "legalEntityName", "legalEntityCode",
+//             "legalEntityId", "legalEntityIds", "legalEntities",
+//         ]);
+//         if (receivablesScopeHasValue(direct)) addScopeValue(direct);
+
+//         // Row-based centralized RBAC scopes, e.g. { scope_type: "LEGAL_ENTITY",
+//         // scope_value: [...], legal_entity_name: "..." }.
+//         rows.forEach((row) => {
+//             const kind = String(
+//                 row.scope_type ?? row.scopeType ?? row.scope_level ?? row.scopeLevel ??
+//                 row.resource_type ?? row.resourceType ?? row.entity_type ?? row.entityType ??
+//                 row.type ?? row.key ?? row.name ?? ""
+//             ).toLowerCase().replace(/[\\s-]+/g, "_");
+//             const isEntityScope = kind.includes("legal_entity") || kind.includes("legalentity");
+//             const hasEntityFields = [
+//                 "legal_entity_name", "legalEntityName", "legal_entity_code", "legalEntityCode",
+//                 "legal_entity_id", "legalEntityId", "legal_entities", "legalEntities",
+//             ].some((key) => Object.prototype.hasOwnProperty.call(row, key));
+//             if (!isEntityScope && !hasEntityFields) return;
+
+//             const candidate = row.scope_value ?? row.scopeValue ?? row.values ?? row.value ??
+//                 row.ids ?? row.names ?? row.legal_entities ?? row.legalEntities ??
+//                 row.legal_entity_name ?? row.legalEntityName ?? row.legal_entity_code ??
+//                 row.legalEntityCode ?? row.legal_entity_id ?? row.legalEntityId;
+//             if (receivablesScopeHasValue(candidate)) addScopeValue(candidate, row);
+//         });
+
+//         return result;
+//     };
+
+//     const legalGroupScopeValue = findAccessScopeValue(accessScopeRoot, [
+//         "legal_group_code", "legal_group_name", "legal_group", "legalGroupCode", "legalGroupName", "legalGroup",
+//     ]);
+//     const legalEntityScopeValue = findAccessScopeValue(accessScopeRoot, [
+//         "legal_entity_name", "legal_entity_code", "legal_entity_id", "legal_entity_ids",
+//         "legal_entities", "legal_entity", "legalEntityName", "legalEntityCode",
+//         "legalEntityId", "legalEntityIds", "legalEntities",
+//     ]);
+//     const scopedLegalEntityOptions = getScopedLegalEntityOptions(accessScopeRoot);
+//     const hasLegalGroupScope = receivablesScopeHasValue(legalGroupScopeValue);
+//     const hasLegalEntityScope = receivablesScopeHasValue(legalEntityScopeValue) ||
+//         scopedLegalEntityOptions.length > 0;
+
+//     const normalizePermissions = (response) => {
+//         if (Array.isArray(response)) return response;
+//         if (response && Array.isArray(response.data)) return response.data;
+//         if (response && Array.isArray(response.permissions)) return response.permissions;
+//         if (response && typeof response === "object") return [response];
+//         return [];
+//     };
+
+//     const { hasExportRight } = useAuth();
+//     const canExportReceivables = hasExportRight(RECEIVABLES_ACCESS_MODULE);
+
+//     // Local table searches only; existing API/data/pagination logic is unchanged.
+//     const [topCustomersSearch, setTopCustomersSearch] = useState("");
+//     const [topCustomersType, setTopCustomersType] = useState("INTERNAL");
+//     const [topCustomersApiRows, setTopCustomersApiRows] = useState(null);
+//     const [topCustomersLoading, setTopCustomersLoading] = useState(false);
+//     const [subDivisionSearch, setSubDivisionSearch] = useState("");
+//     const [monthOnMonthSearch, setMonthOnMonthSearch] = useState("");
+
+//     const topCustomersSearchRef = useRef(null);
+//     const subDivisionSearchRef = useRef(null);
+//     const monthOnMonthSearchRef = useRef(null);
+
+//     /* ------------------------------------------------------------
+//        Load access exactly like Sales Revenue.
+//        Access itself does not become a second client-side filter model.
+//        ------------------------------------------------------------ */
+//     useEffect(() => {
+//         let cancelled = false;
+
+//         fetchAccessMe()
+//             .then((data) => {
+//                 if (cancelled) return;
+//                 setUserAccess(data || {});
+
+//                 if (data && data.role_code) {
+//                     return fetchRolePermissions(data.role_code)
+//                         .then((perms) => {
+//                             if (!cancelled) setPermissions(normalizePermissions(perms));
+//                         })
+//                         .catch(() => {
+//                             if (!cancelled) setPermissions([]);
+//                         });
+//                 }
+
+//                 return null;
+//             })
+//             .catch((err) => {
+//                 if (!cancelled) {
+//                     console.warn("Failed to fetch user access:", err);
+//                     setUserAccess({});
+//                 }
+//             });
+
+//         return () => {
+//             cancelled = true;
+//         };
+//     }, []);
+
+//     // Build entity options for a specific selected group set. The applied
+//     // filters and the editable main-page filters intentionally use separate
+//     // option lists so changing a draft filter cannot alter dashboard requests.
+//     const getEffectiveLegalEntityOptionsForGroups = (selectedGroups) => {
+//         const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups);
+//         const groupKey = groupIds.slice().sort().join("|");
+//         if (groupKey && Object.prototype.hasOwnProperty.call(groupSpecificLegalEntities, groupKey)) {
+//             return normalizeOptions(groupSpecificLegalEntities[groupKey] || []);
+//         }
+
+//         const apiOptions = normalizeOptions(filterOptions.legal_entities || []);
+//         const merged = [...apiOptions];
+//         scopedLegalEntityOptions.forEach((scoped) => {
+//             const existing = merged.find((option) =>
+//                 String(option.value).toLowerCase() === String(scoped.value).toLowerCase() ||
+//                 String(option.label).toLowerCase() === String(scoped.label).toLowerCase()
+//             );
+//             if (!existing) merged.push(scoped);
+//         });
+//         return merged;
+//     };
+
+//     const effectiveLegalEntityOptions = useMemo(
+//         () => getEffectiveLegalEntityOptionsForGroups(appliedFilters.legal_group),
+//         [filterOptions.legal_groups, filterOptions.legal_entities, userAccess, appliedFilters.legal_group, groupSpecificLegalEntities]
+//     );
+//     const draftLegalEntityOptions = useMemo(
+//         () => getEffectiveLegalEntityOptionsForGroups(filters.legal_group),
+//         [filterOptions.legal_groups, filterOptions.legal_entities, userAccess, filters.legal_group, groupSpecificLegalEntities]
+//     );
+
+//     const effectiveFilterOptions = useMemo(() => ({
+//         ...filterOptions,
+//         legal_entities: effectiveLegalEntityOptions,
+//     }), [filterOptions, effectiveLegalEntityOptions]);
+
+//     const buildApiFilters = (source = appliedFilters) => {
+//         const ids = (values, options) =>
+//             (Array.isArray(values) ? values : values ? [values] : [])
+//                 .map((label) =>
+//                     options.find(
+//                         (o) =>
+//                             String(o.label) === String(label) ||
+//                             String(o.value) === String(label)
+//                     )?.value ?? label
+//                 )
+//                 .filter((value) => value !== "All" && value !== "all" && value !== "");
+
+//         const customerType = resolveCustomerTypeApiValue(
+//             source.customer_type,
+//             filterOptions.customer_types
+//         );
+
+//         return {
+//             legal_group_id: ids(source.legal_group, filterOptions.legal_groups),
+//             legal_entity_id: ids(source.legal_entities, effectiveFilterOptions.legal_entities),
+//             parent_division_id: ids(source.parent_divisions, filterOptions.parent_divisions),
+//             subdivision_id: ids(source.sub_divisions, filterOptions.sub_divisions),
+//             aging_basis: apiAgingBasis(source.aging_basis),
+//             as_on_date: source.as_on_date || undefined,
+//             reporting_currency: source.reporting_currency || "AED",
+//             customer_type: customerType,
+//             gl_code: ids(source.gl_codes, filterOptions.gl_codes),
+//             year: source.year,
+//         };
+//     };
+
+//     const data = useMemo(
+//         () => normalizeDashboard(dashboardResponse || {}, appliedFilters),
+//         [dashboardResponse, appliedFilters]
+//     );
+//     const kpis = data.kpis;
+//     const currency = appliedFilters.reporting_currency || "AED";
+//     const [momDisplayUnit, setMomDisplayUnit] = useState("AED");
+//     const baseApiFilters = useMemo(
+//         () => buildApiFilters(),
+//         [appliedFilters, effectiveFilterOptions]
+//     );
+
+//     const resolveSelectedHierarchyIds = (selected, options = []) => {
+//         const selectedValues = Array.isArray(selected) ? selected : selected ? [selected] : [];
+//         return selectedValues.flatMap((selectedValue) => {
+//             const match = (options || []).find((option) =>
+//                 String(option?.label ?? "") === String(selectedValue) ||
+//                 String(option?.value ?? "") === String(selectedValue)
+//             );
+//             if (!match) return [String(selectedValue)];
+//             // Include backend hierarchy aliases (IDs, codes and names). APIs
+//             // commonly relate RKME entities by group code while the UI selects
+//             // the group's display label, so comparing only value/label drops them.
+//             const meta = match?.meta?.meta || match?.meta || match || {};
+//             const aliases = [match.value, match.label];
+//             Object.entries(meta).forEach(([key, value]) => {
+//                 if (/(legal.?group|legal.?entity|parent.?division|sub.?division|group.?id|group.?code|group.?name|entity.?id|entity.?code|entity.?name|division.?id|division.?name)/i.test(key)) {
+//                     const values = Array.isArray(value) ? value : [value];
+//                     values.forEach((item) => {
+//                         if (item !== null && item !== undefined && typeof item !== "object" && String(item).trim()) aliases.push(String(item));
+//                         else if (item && typeof item === "object") aliases.push(item.id, item.code, item.value, item.name, item.label);
+//                     });
+//                 }
+//             });
+//             return [...new Set(aliases.filter((value) => value !== null && value !== undefined && String(value).trim()).map(String))];
+//         });
+//     };
+//     // Resolve the actual option values used by the API/cache keys. Keep this
+//     // helper in the main dashboard scope (the similarly named View All helper
+//     // is local to that component and cannot be called from here).
+//     const mainSelectedValuesToIds = (selectedValues, options = []) => {
+//         const values = Array.isArray(selectedValues)
+//             ? selectedValues
+//             : selectedValues ? [selectedValues] : [];
+//         return values.map((selected) => {
+//             const match = normalizeOptions(options).find((option) =>
+//                 String(option?.label ?? "") === String(selected) ||
+//                 String(option?.value ?? "") === String(selected)
+//             );
+//             return match?.value ?? selected;
+//         }).filter((value) => value !== null && value !== undefined && String(value).trim() !== "");
+//     };
+
+//     const handleMainLegalGroupChange = async (selectedGroups) => {
+//         setFilters((prev) => ({
+//             ...prev,
+//             legal_group: selectedGroups,
+//             legal_entities: [],
+//             parent_divisions: [],
+//             sub_divisions: [],
+//         }));
+
+//         // Parent changes invalidate every child cache, so options from a prior
+//         // group cannot leak into the new cascade.
+//         setMainParentDivisionCache({});
+//         setMainSubDivisionCache({});
+//         const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups);
+//         if (!groupIds.length) {
+//             setGroupSpecificLegalEntities({});
+//             return;
+//         }
+//         const cacheKey = groupIds.slice().sort().join("|");
+//         setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: [] }));
+
+//         try {
+//             const response = await getReceivableFilters({ legal_group_id: groupIds });
+//             const entities = extractLegalEntityOptions(response);
+//             setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: entities }));
+//         } catch (error) {
+//             console.error("Failed to load Legal Entities for selected Legal Group", error);
+//             setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: [] }));
+//         }
+//     };
+
+//     const handleMainLegalEntityChange = async (selectedEntities) => {
+//         const nextFilters = { ...filters, legal_entities: selectedEntities, parent_divisions: [], sub_divisions: [] };
+//         setFilters((prev) => ({ ...prev, legal_entities: selectedEntities, parent_divisions: [], sub_divisions: [] }));
+//         const requestFilters = {
+//             legal_group_id: resolveLegalGroupRequestIds(nextFilters.legal_group, filterOptions.legal_groups),
+//             legal_entity_id: mainSelectedValuesToIds(selectedEntities, mainLegalEntities),
+//         };
+//         const cacheKey = [...requestFilters.legal_group_id, "::", ...requestFilters.legal_entity_id].join("|");
+//         if (!requestFilters.legal_entity_id.length) return;
+//         setMainParentDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+//         try {
+//             const response = await getReceivableFilters(requestFilters);
+//             const responseOptions = extractHierarchyOptions(response, ["parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions"]);
+//             const options = responseOptions.length
+//                 ? cascadeParentDivisions(responseOptions, requestFilters.legal_entity_id, requestFilters.legal_group_id)
+//                 : cascadeParentDivisions(filterOptions.parent_divisions, requestFilters.legal_entity_id, requestFilters.legal_group_id);
+//             setMainParentDivisionCache((previous) => ({ ...previous, [cacheKey]: options }));
+//         } catch (error) {
+//             console.error("Failed to load Parent Divisions for selected Legal Entity", error);
+//             const fallbackOptions = cascadeParentDivisions(
+//                 filterOptions.parent_divisions,
+//                 requestFilters.legal_entity_id,
+//                 requestFilters.legal_group_id
+//             );
+//             setMainParentDivisionCache((previous) => ({ ...previous, [cacheKey]: fallbackOptions }));
+//         }
+//     };
+
+//     const handleMainParentDivisionChange = async (selectedDivisions) => {
+//         const nextFilters = { ...filters, parent_divisions: selectedDivisions, sub_divisions: [] };
+//         setFilters((prev) => ({ ...prev, parent_divisions: selectedDivisions, sub_divisions: [] }));
+//         const groupIds = resolveLegalGroupRequestIds(nextFilters.legal_group, filterOptions.legal_groups);
+//         const entityIds = mainSelectedValuesToIds(nextFilters.legal_entities, mainLegalEntities);
+//         const divisionIds = mainSelectedValuesToIds(selectedDivisions, mainParentDivisions);
+//         const cacheKey = [...groupIds, "::", ...entityIds, "::", ...divisionIds].join("|");
+//         if (!divisionIds.length) return;
+//         setMainSubDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+//         try {
+//             const response = await getReceivableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds, parent_division_id: divisionIds });
+//             const responseOptions = extractHierarchyOptions(response, ["sub_divisions", "subdivisions", "subDivisions", "sub_division_options", "subDivisionOptions"]);
+//             const options = responseOptions.length
+//                 ? cascadeSubDivisions(responseOptions, divisionIds, entityIds, groupIds)
+//                 : cascadeSubDivisions(filterOptions.sub_divisions, divisionIds, entityIds, groupIds);
+//             setMainSubDivisionCache((previous) => ({ ...previous, [cacheKey]: options }));
+//         } catch (error) {
+//             console.error("Failed to load Sub-Divisions for selected Parent Division", error);
+//             const fallbackOptions = cascadeSubDivisions(filterOptions.sub_divisions, divisionIds, entityIds, groupIds);
+//             setMainSubDivisionCache((previous) => ({ ...previous, [cacheKey]: fallbackOptions }));
+//         }
+//     };
+
+//     const handleMainSubDivisionChange = (selectedSubDivisions) => {
+//         setFilters((prev) => ({ ...prev, sub_divisions: selectedSubDivisions }));
+//     };
+
+//     const selectedMainLegalGroupIds = resolveSelectedHierarchyIds(filters.legal_group, filterOptions.legal_groups);
+
+//     const mainLegalGroupCacheKey = resolveLegalGroupRequestIds(
+//         filters.legal_group,
+//         filterOptions.legal_groups
+//     ).sort().join("|");
+//     const hasMainGroupEntityResponse = Boolean(mainLegalGroupCacheKey) &&
+//         Object.prototype.hasOwnProperty.call(groupSpecificLegalEntities, mainLegalGroupCacheKey);
+//     // When the backend has returned options for the selected group, trust that
+//     // scoped response directly. Re-filtering it by frontend metadata can hide
+//     // valid RKME entities when the API relates the group by code/name rather
+//     // than the selected option's display value.
+//     const mainLegalEntities = hasMainGroupEntityResponse
+//         ? normalizeOptions(groupSpecificLegalEntities[mainLegalGroupCacheKey] || [])
+//         : cascadeLegalEntities(
+//             draftLegalEntityOptions,
+//             selectedMainLegalGroupIds,
+//             filterOptions.legal_groups
+//         );
+//     // Resolve selected entity IDs only after mainLegalEntities is initialized.
+//     // This avoids the temporal-dead-zone ReferenceError and ensures the
+//     // selected values are resolved against the same options shown to users.
+//     const selectedMainLegalEntityIds = resolveSelectedHierarchyIds(
+//         filters.legal_entities,
+//         mainLegalEntities
+//     );
+//     // Cache keys must use the same backend option IDs as the request handlers.
+//     // The alias-expanded IDs below are only for metadata-based fallback matching.
+//     const selectedMainLegalEntityOptionIds = mainSelectedValuesToIds(filters.legal_entities, mainLegalEntities);
+//     const mainParentCacheKey = [
+//         ...resolveLegalGroupRequestIds(filters.legal_group, filterOptions.legal_groups),
+//         "::",
+//         ...selectedMainLegalEntityOptionIds,
+//     ].join("|");
+//     const mainParentDivisions = Object.prototype.hasOwnProperty.call(mainParentDivisionCache, mainParentCacheKey)
+//         ? normalizeOptions(mainParentDivisionCache[mainParentCacheKey] || [])
+//         : cascadeParentDivisions(filterOptions.parent_divisions, selectedMainLegalEntityIds, selectedMainLegalGroupIds);
+//     const selectedMainParentDivisionIds = resolveSelectedHierarchyIds(filters.parent_divisions, mainParentDivisions);
+//     const selectedMainParentDivisionOptionIds = mainSelectedValuesToIds(filters.parent_divisions, mainParentDivisions);
+//     const mainSubCacheKey = [
+//         ...resolveLegalGroupRequestIds(filters.legal_group, filterOptions.legal_groups),
+//         "::",
+//         ...selectedMainLegalEntityOptionIds,
+//         "::",
+//         ...selectedMainParentDivisionOptionIds,
+//     ].join("|");
+//     const mainSubDivisions = Object.prototype.hasOwnProperty.call(mainSubDivisionCache, mainSubCacheKey)
+//         ? normalizeOptions(mainSubDivisionCache[mainSubCacheKey] || [])
+//         : cascadeSubDivisions(filterOptions.sub_divisions, selectedMainParentDivisionIds, selectedMainLegalEntityIds, selectedMainLegalGroupIds);
+
+//     // Hydrate the currently selected group's entities when the filter options
+//     // first arrive (for example, the default FJ group). User changes continue
+//     // to use handleMainLegalGroupChange, so this does not alter dashboard APIs.
+//     useEffect(() => {
+//         if (!mainLegalGroupCacheKey || hasMainGroupEntityResponse) return;
+//         let cancelled = false;
+//         const cacheKey = mainLegalGroupCacheKey;
+//         (async () => {
+//             try {
+//                 const groupIds = resolveLegalGroupRequestIds(filters.legal_group, filterOptions.legal_groups);
+//                 if (!groupIds.length) return;
+//                 const response = await getReceivableFilters({ legal_group_id: groupIds });
+//                 const entities = extractLegalEntityOptions(response);
+//                 if (!cancelled) {
+//                     setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: entities }));
+//                 }
+//             } catch (error) {
+//                 if (!cancelled) {
+//                     console.error("Failed to initialize Legal Entities for selected Legal Group", error);
+//                     setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: [] }));
+//                 }
+//             }
+//         })();
+//         return () => { cancelled = true; };
+//     }, [mainLegalGroupCacheKey, hasMainGroupEntityResponse, filterOptions.legal_groups]);
+
+//     /* ------------------------------------------------------------
+//        Resolve permitted legal groups from the authenticated /access/me
+//        profile before requesting filter options. HQ roles follow the
+//        explicitly configured FJ/RKME group access; scoped users only send
+//        group IDs present in their own access profile. If the access profile
+//        cannot be read, retain the existing FJ default rather than widening
+//        the request.
+//        ------------------------------------------------------------ */
+//     const permittedLegalGroupIds = useMemo(() => {
+//         const root = userAccess && typeof userAccess === "object" ? userAccess : {};
+//         const profile = root.data && typeof root.data === "object" ? root.data : root;
+//         const role = String(
+//             profile.role_code ?? profile.roleCode ?? profile.role?.code ??
+//             profile.role?.name ?? profile.role ?? ""
+//         ).trim().toUpperCase();
+
+//         if (["CFO", "CEO", "BOARD", "ADMIN", "GROUP_TREASURER"].includes(role)) {
+//             return ["4", "3"];
+//         }
+
+//         const values = [];
+//         const visited = new Set();
+//         const queue = [root];
+//         const groupKey = /(legal.?group.?id|legal.?group.?ids|group.?id|group.?ids|legal.?group.?code|legal.?group.?name|legal.?group|legalGroup)/i;
+//         while (queue.length) {
+//             const current = queue.shift();
+//             if (!current || typeof current !== "object" || visited.has(current)) continue;
+//             visited.add(current);
+//             if (Array.isArray(current)) {
+//                 current.forEach((item) => queue.push(item));
+//                 continue;
+//             }
+//             Object.entries(current).forEach(([key, value]) => {
+//                 if (groupKey.test(key) && value !== null && value !== undefined) {
+//                     const candidates = Array.isArray(value) ? value : [value];
+//                     candidates.forEach((candidate) => {
+//                         if (candidate && typeof candidate === "object") {
+//                             values.push(
+//                                 candidate.legal_group_id, candidate.legalGroupId,
+//                                 candidate.group_id, candidate.id, candidate.value,
+//                                 candidate.legal_group_code, candidate.code,
+//                                 candidate.legal_group_name, candidate.name, candidate.label
+//                             );
+//                         } else {
+//                             values.push(candidate);
+//                         }
+//                     });
+//                 }
+//                 if (value && typeof value === "object") queue.push(value);
+//             });
+//         }
+
+//         const ids = new Set();
+//         values.filter((value) => value !== null && value !== undefined).forEach((value) => {
+//             const token = String(value).trim().toLowerCase();
+//             if (token === "3" || /\brkme\b|raphael khlat/i.test(token)) ids.add("3");
+//             if (token === "4" || /\bfj\b|faisal jassem/i.test(token)) ids.add("4");
+//         });
+
+//         // Preserve the established FJ default only when the profile exposes
+//         // no interpretable group scope; never add RKME to a scoped user.
+//         return [...ids].length ? [...ids] : ["4"];
+//     }, [userAccess]);
+
+//     /* ------------------------------------------------------------
+//        Load filter options only after /access/me has resolved, so the API
+//        request can include permitted legal_group_id parameters.
+//        ------------------------------------------------------------ */
+//     useEffect(() => {
+//         if (userAccess === null) return;
+//         let cancelled = false;
+
+//         (async () => {
+//             try {
+//                 const response = await getReceivableFilters({
+//                     legal_group_id: permittedLegalGroupIds,
+//                 });
+//                 const raw = response?.data ?? response ?? {};
+//                 const normalized = {
+//                     legal_groups: normalizeOptions(raw.legal_groups),
+//                     legal_entities: normalizeOptions(raw.legal_entities),
+//                     parent_divisions: normalizeOptions(raw.parent_divisions),
+//                     sub_divisions: normalizeOptions(raw.subdivisions || raw.sub_divisions),
+//                     reporting_currencies: normalizeOptions(raw.reporting_currencies),
+//                     as_on_dates: raw.as_on_dates || [],
+//                     aging_bases: normalizeOptions(raw.aging_bases),
+//                     customer_types: normalizeOptions(
+//                         raw.customer_types || raw.customerTypes || raw.customer_type
+//                     ),
+//                     gl_codes: normalizeOptions(raw.gl_codes || raw.glCodes || raw.gl_code),
+//                     years: Array.from(
+//                         new Set(
+//                             (raw.as_on_dates || [])
+//                                 .map((d) => Number(String(d).slice(0, 4)))
+//                                 .filter(Boolean)
+//                         )
+//                     ),
+//                 };
+
+//                 const latestDate = getLatestReceivablesDate(normalized.as_on_dates);
+//                 const fjGroupOption = normalized.legal_groups.find((option) =>
+//                     /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+//                 );
+//                 const currencyOption =
+//                     normalized.reporting_currencies.find(
+//                         (x) =>
+//                             String(x.value).toUpperCase() === "AED" ||
+//                             String(x.label).toUpperCase() === "AED"
+//                     ) || normalized.reporting_currencies[0];
+//                 const dueOption = normalized.aging_bases.find(
+//                     (x) =>
+//                         String(x.value).toUpperCase() === "DUE_DATE" ||
+//                         String(x.label).toLowerCase().includes("due")
+//                 );
+
+//                 if (!cancelled) {
+//                     setFilterOptions(normalized);
+//                     setFilters((prev) => ({
+//                         ...prev,
+//                         legal_group: prev.legal_group?.length ? prev.legal_group : (fjGroupOption ? [fjGroupOption.label] : []),
+//                         legal_entities: prev.legal_entities || [],
+//                         as_on_date: latestDate,
+//                         reporting_currency:
+//                             currencyOption?.value || currencyOption?.label || "AED",
+//                         aging_basis: dueOption?.label || "Due Date",
+//                         customer_type: prev.customer_type || "ALL",
+//                         gl_codes: [],
+//                         year:
+//                             Number(String(latestDate).slice(0, 4)) ||
+//                             new Date().getFullYear(),
+//                     }));
+//                     setAppliedFilters((prev) => ({
+//                         ...prev,
+//                         legal_group: prev.legal_group?.length ? prev.legal_group : (fjGroupOption ? [fjGroupOption.label] : []),
+//                         legal_entities: prev.legal_entities || [],
+//                         as_on_date: latestDate,
+//                         reporting_currency:
+//                             currencyOption?.value || currencyOption?.label || "AED",
+//                         aging_basis: dueOption?.label || "Due Date",
+//                         customer_type: prev.customer_type || "ALL",
+//                         gl_codes: [],
+//                         year:
+//                             Number(String(latestDate).slice(0, 4)) ||
+//                             new Date().getFullYear(),
+//                     }));
+//                 }
+//             } catch (error) {
+//                 console.error("Receivables filter options failed", error);
+//             }
+//         })();
+
+//         return () => {
+//             cancelled = true;
+//         };
+//     }, [userAccess, permittedLegalGroupIds]);
+
+//     /* ------------------------------------------------------------
+//        Fetch dashboard data. No client-side scope translation is used;
+//        the authenticated Receivables endpoints receive the selected
+//        filters and enforce the user's permitted data scope.
+//        ------------------------------------------------------------ */
+//     useEffect(() => {
+//         let cancelled = false;
+//         setLoading(true);
+//         setDashboardError(null);
+
+//         (async () => {
+//             try {
+//                 const [dashboardResponseValue, momResponse] = await Promise.all([
+//                     getReceivableDashboard(baseApiFilters),
+//                     getReceivableMonthOnMonth(baseApiFilters),
+//                 ]);
+
+//                 if (cancelled) return;
+
+//                 const dashboardPayload =
+//                     dashboardResponseValue?.data &&
+//                         !Array.isArray(dashboardResponseValue.data)
+//                         ? dashboardResponseValue.data
+//                         : dashboardResponseValue?.data ??
+//                         dashboardResponseValue ??
+//                         {};
+
+//                 const momPayload =
+//                     momResponse?.data?.data ??
+//                     momResponse?.data ??
+//                     momResponse ??
+//                     {};
+
+//                 const normalizedMom =
+//                     momPayload?.month_on_month ??
+//                     momPayload?.monthOnMonth ??
+//                     momPayload;
+
+//                 setDashboardResponse({
+//                     ...dashboardResponseValue,
+//                     data: {
+//                         ...dashboardPayload,
+//                         month_on_month: normalizedMom || {},
+//                     },
+//                 });
+//             } catch (error) {
+//                 console.error("Receivables dashboard / month-on-month failed", error);
+//                 if (!cancelled) {
+//                     setDashboardResponse(null);
+//                     setDashboardError(
+//                         error?.response?.data?.message ||
+//                         error?.response?.data?.detail ||
+//                         error?.message ||
+//                         "The Receivables dashboard data could not be loaded. Please retry."
+//                     );
+//                 }
+//             } finally {
+//                 if (!cancelled) setLoading(false);
+//             }
+//         })();
+
+//         return () => {
+//             cancelled = true;
+//         };
+//     }, [baseApiFilters, dashboardRetryKey]);
+
+//     // Load the Top 10 list independently for the selected customer type.
+//     // This avoids filtering away every row when the dashboard's top_customers
+//     // payload does not include a customer_type field, and does not change the
+//     // filters or data used by the other dashboard charts.
+//     useEffect(() => {
+//         let cancelled = false;
+//         setTopCustomersLoading(true);
+//         setTopCustomersApiRows(null);
+//         (async () => {
+//             try {
+//                 const typeOption = (filterOptions.customer_types || []).find((option) => {
+//                     const text = `${option?.label ?? ""} ${option?.value ?? ""}`.toUpperCase();
+//                     return text.includes(topCustomersType);
+//                 });
+//                 const customerTypeApiValue = typeOption?.value ?? typeOption?.label ?? topCustomersType;
+//                 const response = await getReceivableDashboard({
+//                     ...baseApiFilters,
+//                     customer_type: customerTypeApiValue,
+//                 });
+//                 if (cancelled) return;
+//                 const payload = response?.data && !Array.isArray(response.data)
+//                     ? response.data
+//                     : response?.data ?? response ?? {};
+//                 const rows = Array.isArray(payload?.top_customers)
+//                     ? payload.top_customers
+//                     : Array.isArray(payload?.data?.top_customers)
+//                         ? payload.data.top_customers
+//                         : null;
+//                 setTopCustomersApiRows(rows ? normalizeDashboard({ top_customers: rows }).topSuppliers : []);
+//             } catch (error) {
+//                 // Fall back to local type filtering when the row payload itself
+//                 // includes customer type; do not disrupt the rest of the page.
+//                 if (!cancelled) setTopCustomersApiRows(null);
+//                 console.warn("Unable to load customer-type-specific Top 10 list", error);
+//             } finally {
+//                 if (!cancelled) setTopCustomersLoading(false);
+//             }
+//         })();
+//         return () => { cancelled = true; };
+//     }, [baseApiFilters, topCustomersType, filterOptions.customer_types]);
+
+//     const setFilter = (key, value) => setFilters((previous) => ({ ...previous, [key]: value }));
+
+//     const handleApply = () => setAppliedFilters({ ...filters, aging_basis: uiAgingBasis(filters.aging_basis) });
+
+//     const handleReset = () => {
+//         const fjGroupOption = (filterOptions.legal_groups || []).find((option) =>
+//             /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+//         );
+//         const reset = {
+//             ...defaultReceivableFilters,
+//             legal_group: fjGroupOption ? [fjGroupOption.label || fjGroupOption.value] : [],
+//             as_on_date: getLatestReceivablesDate(filterOptions.as_on_dates),
+//         };
+//         setFilters(reset);
+//         setAppliedFilters(reset);
+//     };
+
+//     const handleExport = async (format, extra = {}, sectionName = "Dashboard") => {
+//         if (!canExportReceivables) return;
+//         try {
+//             const apiFilters = {
+//                 ...buildApiFilters(),
+//                 ...(extra || {}),
+//             };
+
+//             const normalizedSectionName = String(sectionName || "Dashboard")
+//                 .trim()
+//                 .replace(/[^a-z0-9]+/gi, "_")
+//                 .replace(/^_+|_+$/g, "");
+
+//             const response =
+//                 String(format).toLowerCase() === "pdf"
+//                     ? await exportReceivablesPDF(apiFilters)
+//                     : await exportReceivablesExcel(apiFilters);
+
+//             triggerReceivablesBlobDownload(
+//                 response,
+//                 String(format).toLowerCase() === "pdf"
+//                     ? `Receivables_${normalizedSectionName}.pdf`
+//                     : `Receivables_${normalizedSectionName}.xlsx`,
+//                 true
+//             );
+//         } catch (error) {
+//             console.error("Receivables export failed", error);
+//         }
+//     };
+
+//     const openReceivablesViewAll = (extra = {}) => {
+//         // Keep the Sales Revenue pattern: the current applied filters are
+//         // passed through to View All, while the authenticated backend remains
+//         // responsible for enforcing the user's permitted data scope.
+//         setViewAllContext({ ...(extra || {}) });
+//         setShowViewAll(true);
+//     };
+
+//     /*
+//      * Drill-down helpers
+//      * ------------------------------------------------------------
+//      * Aggregate "View All" continues to open the unfiltered
+//      * view-all. Chart/table/KPI interactions add only the backend
+//      * drill-down parameter required for that specific record.
+//      *
+//      * All current page filters are still supplied by ReceivablesViewAll
+//      * through baseFilters/appliedViewFilters.
+//      */
+//     const openAgingDrilldown = (item) => {
+//         const bucket = item?.bucket_code;
+//         if (bucket) openReceivablesViewAll({ aging_bucket: bucket, component: "Aging Summary" });
+//     };
+
+//     const openTrendDrilldown = (point) => {
+//         if (point?.as_on_date) {
+//             openReceivablesViewAll({ as_on_date: point.as_on_date, component: "Monthly Trend" });
+//         }
+//     };
+
+//     const openParentDivisionDrilldown = (item) => {
+//         const value = item?.value;
+//         if (value !== undefined && value !== null && value !== "") {
+//             openReceivablesViewAll({ parent_division_id: value, component: "Parent Division" });
+//         }
+//     };
+
+//     const openCustomerDrilldown = (row) => {
+//         const customerId = row?.customer_id;
+//         if (customerId !== undefined && customerId !== null && customerId !== "") {
+//             openReceivablesViewAll({ customer_id: customerId, component: "Top 10 Customers" });
+//         }
+//     };
+
+//     const openOverdueDrilldown = () => {
+//         openReceivablesViewAll({ balance_status: "OVERDUE" });
+//     };
+
+//     const openOverdueAbove90Drilldown = () => {
+//         openReceivablesViewAll({ balance_status: "OVERDUE_ABOVE_90", component: "Overdue > 90 Days" });
+//     };
+
+//     const openSubdivisionDrilldown = (row) => {
+//         const subdivisionId = row?.value;
+//         if (
+//             subdivisionId !== undefined &&
+//             subdivisionId !== null &&
+//             subdivisionId !== ""
+//         ) {
+//             openReceivablesViewAll({ subdivision_id: subdivisionId, component: "Sub-Division" });
+//         }
+//     };
+
+//     const openMomDrilldown = (row, column) => {
+//         const month = column?.key;
+//         if (!month || !MONTHS.includes(month)) return;
+
+//         const snapshotDates = row?._snapshot_dates || data?.snapshotDates || {};
+//         const snapshotDate = snapshotDates[String(month).toUpperCase()];
+
+//         if (!snapshotDate) return;
+
+//         openReceivablesViewAll({
+//             legal_entity_id: row?.legal_entity_id,
+//             parent_division_id: row?.parent_division_id,
+//             subdivision_id: row?.subdivision_id,
+//             as_on_date: snapshotDate,
+//             component: "Month-on-Month Receivables",
+//         });
+//     };
+
+//     const supplierRows = data.topSuppliers;
+
+//     const subDivisionTableRows = useMemo(
+//         () => [
+//             ...data.subDivision,
+//             {
+//                 id: "subdivision-total",
+//                 name: "Total",
+//                 amount: data.subDivision.reduce(
+//                     (sum, item) => sum + Number(item.amount || 0),
+//                     0
+//                 ),
+//                 percentage: 100,
+//             },
+//         ],
+//         [data.subDivision]
+//     );
+
+//     const supplierColumns = [
+//         {
+//             key: "rank",
+//             label: "#",
+//             align: "center",
+//             width: "8%",
+//         },
+//         {
+//             key: "supplier_name",
+//             label: "Customer Name",
+//             width: "47%",
+//             render: (row) => row.supplier_name,
+//         },
+//         {
+//             key: "receivable_amount",
+//             label: `Receivables (${currency})`,
+//             align: "right",
+//             width: "24%",
+//             render: (row) =>
+//                 formatReceivablesCompact(row.receivable_amount, currency),
+//         },
+//         {
+//             key: "percentage",
+//             label: "% of Total",
+//             align: "right",
+//             width: "21%",
+//             render: (row) => formatPercentage(row.percentage),
+//         },
+//     ];
+
+//     const subDivisionColumns = [
+//         {
+//             key: "name",
+//             label: "Sub-Division",
+//             width: "50%",
+//             render: (row) =>
+//                 row.id === "subdivision-total" ? "Total:" : row.name,
+//         },
+
+//         {
+//             key: "amount",
+//             label: `Receivables (${currency})`,
+//             align: "right",
+//             width: "28%",
+//             render: (row) =>
+//                 formatReceivablesCompact(row.amount, currency),
+//         },
+//         {
+//             key: "percentage",
+//             label: "% of Total",
+//             align: "right",
+//             width: "22%",
+//             render: (row) => formatPercentage(row.percentage),
+//         },
+//     ];
+
+//     const getVisibleTableValue = (row, column) => {
+//         const value =
+//             typeof column?.render === "function"
+//                 ? column.render(row)
+//                 : row?.[column?.key];
+
+//         if (value === null || value === undefined) return "";
+//         if (React.isValidElement(value)) return "";
+//         return String(value);
+//     };
+
+//     const matchesTableSearch = (row, columns, searchValue) => {
+//         const query = String(searchValue || "").trim().toLowerCase();
+//         if (!query) return true;
+
+//         return columns.some((column) =>
+//             getVisibleTableValue(row, column)
+//                 .toLowerCase()
+//                 .includes(query)
+//         );
+//     };
+
+//     const monthColumns = [
+//         {
+//             key: "legal_entity",
+//             label: "Legal Entity",
+//             width: 165,
+//         },
+//         {
+//             key: "parent_division",
+//             label: "Parent Division",
+//             width: 165,
+//         },
+//         {
+//             key: "sub_division",
+//             label: "Sub-Division",
+//             width: 160,
+//         },
+//         ...MONTHS.map((month) => ({
+//             key: month,
+//             label: month,
+//             align: "right",
+//             width: 96,
+//             render: (row) => formatMoMValue(row[month], momDisplayUnit),
+//         })),
+//         {
+//             key: "latest",
+//             label: "Latest",
+//             align: "right",
+//             width: 102,
+//             render: (row) => formatMoMValue(row.latest, momDisplayUnit),
+//         },
+//     ];
+
+//     const filteredTopCustomersRows = useMemo(() => {
+//         const sourceRows = Array.isArray(topCustomersApiRows) ? topCustomersApiRows : (data.topSuppliers || []);
+//         return sourceRows.filter((row) => {
+//             const type = String(
+//                 row.customer_type ?? row.customerType ?? row.customer_type_name ?? row.customer_type_code ?? row.customer_category ?? row.customerClassification ?? ""
+//             ).trim().toUpperCase();
+//             const isInternal = type.includes("INTERNAL") || type === "INT" || type === "INTRA_GROUP" || type === "INTERCOMPANY" || type === "INTER_COMPANY";
+//             const isExternal = type.includes("EXTERNAL") || type === "EXT" || type === "THIRD_PARTY" || type === "THIRD PARTY";
+//             // A customer-type-specific API response is already filtered, so rows
+//             // without an explicit type can still be displayed from that response.
+//             const typeMatches = Array.isArray(topCustomersApiRows)
+//                 ? (!type || (topCustomersType === "INTERNAL" ? isInternal : isExternal))
+//                 : (topCustomersType === "INTERNAL" ? isInternal : isExternal);
+//             return typeMatches && matchesTableSearch(row, supplierColumns, topCustomersSearch);
+//         });
+//     }, [data.topSuppliers, topCustomersApiRows, topCustomersSearch, topCustomersType]);
+
+//     const filteredSubDivisionRows = useMemo(
+//         () =>
+//             (data.subDivision || []).filter((row) =>
+//                 matchesTableSearch(row, subDivisionColumns, subDivisionSearch)
+//             ),
+//         [data.subDivision, subDivisionSearch]
+//     );
+
+//     const filteredSubDivisionTableRows = useMemo(
+//         () => [
+//             ...filteredSubDivisionRows,
+//             {
+//                 id: "subdivision-total",
+//                 name: "Total",
+//                 amount: data.subDivision.reduce(
+//                     (sum, item) => sum + Number(item.amount || 0),
+//                     0
+//                 ),
+//                 percentage: 100,
+//             },
+//         ],
+//         [filteredSubDivisionRows, data.subDivision]
+//     );
+
+//     const filteredMonthOnMonthRows = useMemo(
+//         () =>
+//             (data.monthOnMonth || []).filter((row) =>
+//                 matchesTableSearch(row, monthColumns, monthOnMonthSearch)
+//             ),
+//         [data.monthOnMonth, monthOnMonthSearch]
+//     );
+
+
+//     return (
+//         <div
+//             className="receivables-sales-ui"
+//             style={{
+//                 minHeight: "100vh",
+//                 background: BG,
+//                 fontFamily:
+//                     "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+//                 color: TEXT,
+//             }}
+//         >
+//             <style>{`
+//         .receivables-sales-ui {
+//           --sales-navy: #0f172a;
+//           --sales-slate: #64748b;
+//           --sales-blue: #4f46e5;
+//           --sales-border: rgba(0,0,0,0.04);
+//           --sales-bg: #f8fafc;
+//           --sales-surface: #ffffff;
+//           --sales-border-strong: #e2e8f0;
+//         }
+//         .receivables-sales-ui, .receivables-sales-ui * { box-sizing: border-box; }
+//         /* Sub-Division table only: add breathing room between data rows. */
+//         .receivables-sales-ui .receivables-subdivision-table-gap tbody td { padding-top: 13px !important; padding-bottom: 13px !important; }
+//         /* Only the Overdue Summary donut: increase space between chart and its legend. */
+//         .receivables-sales-ui .receivables-overdue-summary-chart { gap: 42px !important; }
+//         .receivables-sales-ui .receivables-overdue-summary-chart > div { row-gap: 42px; }
+//         .receivables-sales-ui .receivables-overdue-summary-chart [aria-label*="legend"],
+//         .receivables-sales-ui .receivables-overdue-summary-chart .donut-legend { gap: 24px !important; row-gap: 24px !important; }
+
+//         /* ============================================================
+//            GLOBAL RECEIVABLES SCROLLBAR
+//            Matches the compact dark scrollbar style shown in the
+//            reference image. Scoped only to this Receivables page so
+//            no other application pages/components are affected.
+//         ============================================================ */
+//         .receivables-sales-ui *::-webkit-scrollbar {
+//           width: 11px;
+//           height: 11px;
+//         }
+//         .receivables-sales-ui *::-webkit-scrollbar-track {
+//           background: #e8edf3;
+//           border-radius: 8px;
+//         }
+//         .receivables-sales-ui *::-webkit-scrollbar-thumb {
+//           background: #64748b;
+//           border: 2px solid #e8edf3;
+//           border-radius: 8px;
+//         }
+//         .receivables-sales-ui *::-webkit-scrollbar-thumb:hover {
+//           background: #475569;
+//         }
+//         .receivables-sales-ui * {
+//           scrollbar-width: auto;
+//           scrollbar-color: #64748b #e8edf3;
+//         }
+//         .receivables-sales-ui .receivables-trend-scroll::-webkit-scrollbar {
+//           width: 11px;
+//           height: 11px;
+//         }
+//         .receivables-sales-ui .receivables-trend-scroll::-webkit-scrollbar-track {
+//           background: #e8edf3;
+//           border-radius: 8px;
+//         }
+//         .receivables-sales-ui .receivables-trend-scroll::-webkit-scrollbar-thumb {
+//           background: #64748b;
+//           border: 2px solid #e8edf3;
+//           border-radius: 8px;
+//         }
+//         .receivables-sales-ui .receivables-trend-scroll::-webkit-scrollbar-thumb:hover {
+//           background: #475569;
+//         }
+//         .receivables-sales-ui .receivables-trend-scroll {
+//           scrollbar-width: auto;
+//           scrollbar-color: #64748b #e8edf3;
+//         }
+
+//         .receivables-sales-ui {
+//           background: var(--sales-bg) !important;
+//           color: var(--sales-navy);
+//           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//         }
+//         .receivables-sales-ui main {
+//           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//           color: var(--sales-navy);
+//           animation: fadeInUp 0.35s ease forwards;
+//         }
+//         .receivables-sales-ui h1 {
+//           color: var(--sales-navy) !important;
+//           font-size: 1.45rem !important;
+//           font-weight: 800 !important;
+//           line-height: 1.15 !important;
+//           letter-spacing: -0.02em !important;
+//         }
+//         .receivables-sales-ui .sales-style-subtitle {
+//           color: var(--sales-slate) !important;
+//           font-size: 0.78rem !important;
+//           line-height: 1.45 !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar {
+//           padding: 8px 12px !important;
+//           margin-top: 0 !important;
+//           margin-bottom: 12px !important;
+//           gap: 6px !important;
+//           border: 1px solid #edf1f7 !important;
+//           border-radius: 14px !important;
+//           box-shadow: 0 2px 10px rgba(30, 55, 90, 0.05) !important;
+//           background: #ffffff !important;
+//           min-height: 0 !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar {
+//           display: grid !important;
+//           grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)) auto auto !important;
+//           align-items: end !important;
+//           gap: 6px !important;
+//           width: 100% !important;
+//           box-sizing: border-box !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar > div {
+//           min-width: 0 !important;
+//           width: 100% !important;
+//           max-width: none !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar > div > button {
+//           min-width: 0 !important;
+//           overflow: hidden !important;
+//           text-overflow: ellipsis !important;
+//           white-space: nowrap !important;
+//           font-size: 0.70rem !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar input {
+//           font-size: 0.72rem !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar > button {
+//           width: auto !important;
+//           min-width: 58px !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar label {
+//           color: #1e3a8a !important;
+//           font-size: 0.62rem !important;
+//           font-weight: 700 !important;
+//           line-height: 1.15 !important;
+//           margin-bottom: 3px !important;
+//           white-space: nowrap !important;
+//           overflow: hidden !important;
+//           text-overflow: ellipsis !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar input,
+//         .receivables-sales-ui .sales-style-filter-bar select,
+//         .receivables-sales-ui .sales-style-filter-bar > div > button {
+//           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar > div > button {
+//           height: 32px !important;
+//           min-height: 32px !important;
+//           border: 1px solid #dfe5ee !important;
+//           border-radius: 7px !important;
+//           background: #ffffff !important;
+//           color: #334155 !important;
+//           font-size: 0.70rem !important;
+//           font-weight: 600 !important;
+//           padding: 0 9px !important;
+//           box-shadow: none !important;
+//           transition: all 0.15s !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar > div > button:hover {
+//           border-color: #c7d2fe !important;
+//           background: #f8fafc !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar input,
+//         .receivables-sales-ui .sales-style-filter-bar select {
+//           min-height: 32px !important;
+//           height: 32px !important;
+//           border: 1px solid #dfe5ee !important;
+//           border-radius: 7px !important;
+//           background: #ffffff !important;
+//           color: #334155 !important;
+//           font-size: 0.70rem !important;
+//           font-weight: 600 !important;
+//           outline: none !important;
+//           box-shadow: none !important;
+//           padding-top: 0 !important;
+//           padding-bottom: 0 !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar input[type="date"] {
+//           width: 100% !important;
+//           min-width: 0 !important;
+//           padding-left: 26px !important;
+//           padding-right: 6px !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar input:focus,
+//         .receivables-sales-ui .sales-style-filter-bar select:focus,
+//         .receivables-sales-ui .sales-style-filter-bar > div > button:focus-visible {
+//           border-color: #818cf8 !important;
+//           box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important;
+//           outline: none !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar button {
+//           transition: all 0.15s ease !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar button#btn-apply-filter {
+//           background: #4f46e5 !important;
+//           color: #fff !important;
+//           border: 1px solid #4f46e5 !important;
+//           border-radius: 7px !important;
+//           font-size: 0.70rem !important;
+//           font-weight: 700 !important;
+//           min-width: 58px !important;
+//           height: 32px !important;
+//           padding: 0 10px !important;
+//           box-shadow: none !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar button#btn-apply-filter:hover {
+//           background: #4338ca !important;
+//           border-color: #4338ca !important;
+//           transform: translateY(-1px);
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar button#btn-reset-filter {
+//           background: #fff !important;
+//           color: #64748b !important;
+//           border: 0 !important;
+//           border-radius: 7px !important;
+//           font-size: 0.70rem !important;
+//           font-weight: 600 !important;
+//           min-width: 48px !important;
+//           height: 32px !important;
+//           padding: 0 6px !important;
+//           box-shadow: none !important;
+//         }
+//         .receivables-sales-ui .sales-style-filter-bar button#btn-reset-filter:hover {
+//           background: #f8fafc !important;
+//           color: #334155 !important;
+//           border-color: #cbd5e1 !important;
+//         }
+//         .receivables-sales-ui .receivables-row-2 {
+//          align-items: stretch !important;
+//           grid-auto-rows: auto !important;
+//         }
+//         .receivables-sales-ui .receivables-row-2 > section {
+//           height: 100% !important;
+//           min-height: 0 !important;
+//           align-self: stretch !important;
+//         }
+//         .receivables-sales-ui .receivables-row-2 > section > :last-child {
+//           min-height: 0 !important;
+//         }
+//         .receivables-sales-ui .receivables-kpi-grid {
+//           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+//           gap: 10px !important;
+//           margin-top: 0 !important;
+//           margin-bottom: 16px !important;
+//         }
+//         .receivables-sales-ui .sales-style-kpi {
+//           border: none !important;
+//           border-radius: 16px !important;
+//           box-shadow: none !important;
+//           transition: transform 0.22s ease, box-shadow 0.22s ease !important;
+//         }
+//         /* Main dashboard KPI cards: reserve a dedicated bottom area for both
+//            comparison rows so they never overlap the title/value/date. */
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi {
+//           box-sizing: border-box !important;
+//           min-height: 124px !important;
+//           height: 124px !important;
+//           padding: 12px 12px 48px !important;
+//           align-items: flex-start !important;
+//           gap: 9px !important;
+//           overflow: hidden !important;
+//           border: 1px solid rgba(255,255,255,0.9) !important;
+//           border-radius: 16px !important;
+//           position: relative !important;
+//         }
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi > div:first-child {
+//           width: 42px !important;
+//           height: 42px !important;
+//           min-width: 42px !important;
+//           margin-top: 1px !important;
+//           font-size: 24px !important;
+//         }
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi > div:nth-child(2) {
+//           padding-top: 2px !important;
+//           gap: 3px !important;
+//         }
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi > div:nth-child(2) > span {
+//           font-size: 0.76rem !important;
+//           line-height: 1.18 !important;
+//           font-weight: 750 !important;
+//         }
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi > div:nth-child(2) > div:nth-child(2) {
+//           font-size: 1.24rem !important;
+//           line-height: 1.08 !important;
+//           letter-spacing: -0.025em !important;
+//           overflow: visible !important;
+//           display: block !important;
+//           white-space: nowrap !important;
+//         }
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi > div:nth-child(2) > div:nth-child(3) {
+//           font-size: 0.66rem !important;
+//           line-height: 1.15 !important;
+//           margin-top: 0 !important;
+//         }
+//         .receivables-sales-ui .receivables-main-kpi-grid .sales-style-kpi > div:last-child {
+//           left: 10px !important;
+//           right: 10px !important;
+//           bottom: 6px !important;
+//           padding: 6px 9px !important;
+//           gap: 4px !important;
+//           border-radius: 9px !important;
+//           background: rgba(255,255,255,0.72) !important;
+//           font-size: 0.65rem !important;
+//           line-height: 1.12 !important;
+//         }
+//         .receivables-sales-ui .sales-style-kpi:hover {
+//           box-shadow: 0 8px 24px rgba(37,99,235,0.10) !important;
+//           transform: translateY(-2px) !important;
+//         }
+//         .receivables-sales-ui section {
+//           background: #fff !important;
+//           border: 1px solid rgba(0,0,0,0.04) !important;
+//           border-radius: 16px !important;
+//           box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03) !important;
+//           transition: box-shadow 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+//         }
+//         .receivables-sales-ui section:hover {
+//           box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+//         }
+//         .receivables-sales-ui table th {
+//           padding: 10px 16px !important;
+//           font-size: 0.74rem !important;
+//           font-weight: 700 !important;
+//           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//           color: #1e3a8a !important;
+//           background: #f8fafc !important;
+//           border-bottom: 2px solid #e2e8f0 !important;
+//           line-height: 1.25 !important;
+//           letter-spacing: 0 !important;
+//           white-space: nowrap;
+//           vertical-align: middle !important;
+//         }
+//         .receivables-sales-ui table td {
+//           padding: 8px 16px !important;
+//           font-size: 0.74rem !important;
+//           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//           color: #334155 !important;
+//           border-bottom-color: #f1f5f9 !important;
+//           font-weight: 600 !important;
+//           line-height: 1.35 !important;
+//           font-variant-numeric: tabular-nums !important;
+//         }
+//         .receivables-sales-ui .receivables-negative-cell,
+//         .receivables-sales-ui table td.receivables-negative-cell,
+//         .receivables-sales-ui table tbody td.receivables-negative-cell {
+//           color: #dc2626 !important;
+//         }
+//         .receivables-sales-ui table tbody tr { transition: background 0.12s ease !important; }
+//         .receivables-sales-ui table tbody tr:hover td { background: #f8fafc !important; }
+//         .receivables-sales-ui table tbody tr:hover td.receivables-negative-cell {
+//           color: #dc2626 !important;
+//         }
+//         .receivables-sales-ui .receivables-page-skeleton { display: block; width: 100%; margin-top: 4px; }
+//         .receivables-sales-ui .receivables-skeleton-kpis,
+//         .receivables-sales-ui .receivables-skeleton-grid { display: grid; gap: 10px; width: 100%; margin-bottom: 10px; }
+//         .receivables-sales-ui .receivables-skeleton-kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+//         .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+//         .receivables-sales-ui .receivables-skeleton-card,
+//         .receivables-sales-ui .receivables-skeleton-panel {
+//           background: #fff; border: 1px solid rgba(0,0,0,0.04); border-radius: 16px;
+//           box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03);
+//         }
+//         .receivables-sales-ui .receivables-skeleton-card { min-height: 74px; padding: 10px; display: flex; align-items: center; gap: 8px; }
+//         .receivables-sales-ui .receivables-skeleton-panel { min-height: 280px; padding: 14px 16px; }
+//         .receivables-sales-ui .receivables-skeleton-panel.compact { min-height: 250px; }
+//         .receivables-sales-ui .receivables-skeleton-icon { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+//         .receivables-sales-ui .receivables-skeleton-copy { flex: 1; min-width: 0; }
+//         .receivables-sales-ui .receivables-skeleton-line,
+//         .receivables-sales-ui .receivables-skeleton-chart,
+//         .receivables-sales-ui .receivables-skeleton-table-line { background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+//         .receivables-sales-ui .receivables-skeleton-line { height: 9px; border-radius: 5px; }
+//         .receivables-sales-ui .receivables-skeleton-line.short { width: 55%; margin-bottom: 8px; }
+//         .receivables-sales-ui .receivables-skeleton-line.value { width: 78%; height: 15px; margin-bottom: 7px; }
+//         .receivables-sales-ui .receivables-skeleton-line.tiny { width: 42%; height: 7px; }
+//         .receivables-sales-ui .receivables-skeleton-line.title { width: 42%; margin-bottom: 18px; }
+//         .receivables-sales-ui .receivables-skeleton-chart { width: 100%; height: 205px; border-radius: 9px; }
+//         .receivables-sales-ui .receivables-skeleton-table-line { width: 100%; height: 10px; border-radius: 5px; margin: 14px 0; }
+//         .receivables-sales-ui .receivables-action-menu button { border-radius: 6px; }
+//         .receivables-sales-ui .receivables-action-menu > button:hover { background: #f1f5f9 !important; }
+//         .receivables-sales-ui .receivables-action-menu > div {
+//           animation: scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal {
+//           position: fixed !important;
+//           top: 0 !important;
+//           left: 50% !important;
+//           right: auto !important;
+//           margin-left: 0 !important;
+//           margin-right: 0 !important;
+//           width: 96vw !important;
+//           max-width: 1540px !important;
+//           height: 100vh !important;
+//           max-height: 100vh !important;
+//           transform: translateX(-50%) !important;
+//           border: 1px solid #e2e8f0 !important;
+//           border-radius: 16px !important;
+//           box-shadow: 0 0 0 100vmax rgba(15,23,42,0.35), 0 20px 60px rgba(0,0,0,0.18) !important;
+//           background: #fff !important;
+//           animation: receivablesViewAllModalIn 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal input,
+//         .receivables-sales-ui .sales-style-view-all-modal select {
+//           border-radius: 8px !important; font-size: 0.74rem !important;
+//           border-color: #e2e8f0 !important; color: #334155 !important;
+//           background: #fff !important;
+//         }
+//         .receivables-sales-ui button { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+//         @keyframes receivablesViewAllModalIn {
+//           from { transform: translateX(-50%) scale(0.97); opacity: 0; }
+//           to { transform: translateX(-50%) scale(1); opacity: 1; }
+//         }
+//         @keyframes scaleUp {
+//           from { transform: scale(0.95); opacity: 0; }
+//           to { transform: scale(1); opacity: 1; }
+//         }
+//         .receivables-sales-ui .receivables-sales-main { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+//         .receivables-sales-ui .sales-style-filter-bar { min-height: 0 !important; }
+//         .receivables-sales-ui .sales-style-filter-bar > div { min-width: 0 !important; }
+//         .receivables-sales-ui .sales-style-view-all-modal { overflow-y: hidden !important; overflow-x: hidden !important; }
+//         .receivables-sales-ui .sales-style-view-all-modal > div:not([aria-hidden]) { box-sizing: border-box; }
+//         /* Keep both View All table headers anchored to the modal's main scrolling viewport. */
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-main-scroll {
+//           overflow-y: auto !important;
+//           overflow-x: auto !important;
+//           position: relative !important;
+//           isolation: isolate;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap {
+//           overflow: visible !important;
+//           position: relative !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap table {
+//           overflow: visible !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead {
+//           position: sticky !important;
+//           top: 0 !important;
+//           z-index: 20 !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th {
+//           position: sticky !important;
+//           background-clip: padding-box;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap tbody tr:last-child td {
+//           color: #000000 !important;
+//           font-weight: 900 !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-scroll table tbody tr:last-child td { color: #000000; font-weight: 900; }
+//         .receivables-sales-ui .sales-style-view-all-modal button:hover { transform: translateY(-1px); }
+//         /*
+//          * Sticky table headers for BOTH Receivables View All tabs.
+//          * The modal's main content element is the sole vertical scroll viewport;
+//          * table wrappers must not create a competing scroll container.
+//          */
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-main-scroll {
+//           min-height: 0 !important;
+//           overscroll-behavior: contain;
+//           scrollbar-gutter: stable;
+//           overflow-y: auto !important;
+//           overflow-x: auto !important;
+//           align-self: stretch;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap {
+//           overflow: visible !important;
+//           contain: none !important;
+//           transform: none !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap table {
+//           border-collapse: separate !important;
+//           border-spacing: 0 !important;
+//           overflow: visible !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th {
+//           position: sticky !important;
+//           background-clip: padding-box !important;
+//           background-color: #edf4ff;
+//           z-index: 10;
+//         }
+//         /* Detailed tab: every column header sticks to the main scroll viewport. */
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead tr:first-child th {
+//           top: 0 !important;
+//           z-index: 20 !important;
+//         }
+//         /* Keep sticky header cells above sticky body columns at intersections. */
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th[style*="left"] {
+//           z-index: 30 !important;
+//         }
+//         /* Month-on-Month: preserve both header levels while scrolling vertically. */
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead tr:nth-child(2) th {
+//           top: 33px !important;
+//           z-index: 19 !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead tr:nth-child(2) th[style*="left"] {
+//           z-index: 29 !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th[style*="top: 0"] {
+//           top: 0 !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th[style*="top: 33"] {
+//           top: 33px !important;
+//         }
+//         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th[style*="left"] {
+//           z-index: 15 !important;
+//         }
+
+//         .receivables-sales-ui .sales-style-view-all-modal input:focus,
+//         .receivables-sales-ui .sales-style-view-all-modal select:focus { border-color: #818cf8 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important; outline: none; }
+
+//         /* Final scoped override: preserve red negatives after Sales-style !important rules. */
+//         .receivables-sales-ui table {
+//           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//         }
+//         .receivables-sales-ui table td.receivables-negative-cell,
+//         .receivables-sales-ui table tbody td.receivables-negative-cell {
+//           color: #dc2626 !important;
+//         }
+
+//         @media (max-width: 1200px) {
+//           .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+//           .receivables-sales-ui .sales-style-filter-bar { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; }
+//         }
+//         @media (max-width: 800px) {
+//           .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: 1fr; }
+//           .receivables-sales-ui .sales-style-filter-bar { align-items: stretch !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+//           .receivables-sales-ui .sales-style-filter-bar > div { flex: 1 1 120px !important; }
+//         }
+//         @media (max-width: 480px) {
+//           .receivables-sales-ui .sales-style-filter-bar { grid-template-columns: minmax(0, 1fr) !important; }
+//         }
+//       `}</style>
+//             {/* ======================================================
+//           PAGE CONTENT
+//           ====================================================== */}
+
+//             <main
+//                 className="receivables-sales-main animate-in"
+//                 style={{
+//                     width: "100%",
+//                     boxSizing: "border-box",
+//                     padding: "20px 0 32px",
+//                     background: "#f8fafc",
+//                     minHeight: "100%",
+//                 }}
+//             >
+//                 {/* HEADER */}
+
+//                 <div
+//                     style={{
+//                         display: "flex",
+//                         alignItems: "center",
+//                         justifyContent: "space-between",
+//                         gap: 15,
+//                         marginBottom: 12,
+//                     }}
+//                 >
+//                     <div>
+//                         <h1
+//                             style={{
+//                                 margin: 0,
+//                                 color: "#0f172a",
+//                                 fontSize: "1.45rem",
+//                                 lineHeight: 1.1,
+//                                 fontWeight: 800,
+//                                 letterSpacing: "-0.02em",
+//                                 display: "flex",
+//                                 alignItems: "center",
+//                                 gap: 4,
+//                             }}
+//                         >
+//                             <span style={{ fontSize: "1.3rem" }}>💰</span> Receivables Dashboard
+//                         </h1>
+
+//                         <div
+//                             className="sales-style-subtitle"
+//                             style={{
+//                                 marginTop: 3,
+//                                 color: "#64748b",
+//                                 fontSize: "0.78rem",
+//                             }}
+//                         >
+//                             Track receivables, aging, overdue exposure and payment performance
+//                             <br />
+//                             <span style={{ background: "#f1f5f9", padding: "2px 8px", borderRadius: 4, display: "inline-block", marginTop: 4, fontWeight: 600 }}>
+//                                 As On Date:{" "}
+//                                 {(filters.as_on_date || appliedFilters.as_on_date)
+//                                     ? (filters.as_on_date || appliedFilters.as_on_date)
+//                                         .split("-")
+//                                         .reverse()
+//                                         .join("-")
+//                                     : "—"}
+//                             </span>
+//                             &nbsp;|&nbsp;
+//                             <span style={{ color: "#16a34a", fontWeight: 700 }}>Currency: {currency}</span>
+//                         </div>
+//                     </div>
+
+//                     <div
+//                         style={{
+//                             display: "flex",
+//                             alignItems: "center",
+//                             gap: 9,
+//                         }}
+//                     >
+
+//                         {canExportReceivables && (
+//                             <>
+//                                 {/* Excel */}
+//                                 <button
+//                                     type="button"
+//                                     onClick={() => handleExport("excel")}
+//                                     style={{
+//                                         height: 34,
+//                                         minWidth: 80,
+//                                         padding: "0 13px",
+//                                         display: "inline-flex",
+//                                         alignItems: "center",
+//                                         justifyContent: "center",
+//                                         gap: 6,
+//                                         border: "1px solid #86efac",
+//                                         borderRadius: 8,
+//                                         background: "#f7fffa",
+//                                         color: "#16a34a",
+//                                         fontSize: 11,
+//                                         fontWeight: 800,
+//                                         cursor: "pointer",
+//                                         transition: "all 0.2s ease",
+//                                     }}
+//                                     onMouseEnter={(e) => {
+//                                         e.currentTarget.style.background = "#ecfdf5";
+//                                         e.currentTarget.style.borderColor = "#4ade80";
+//                                     }}
+//                                     onMouseLeave={(e) => {
+//                                         e.currentTarget.style.background = "#f7fffa";
+//                                         e.currentTarget.style.borderColor = "#86efac";
+//                                     }}
+//                                 >
+//                                     <span style={{ fontSize: 13 }}>📊</span>
+//                                     Excel
+//                                 </button>
+
+//                                 {/* PDF */}
+//                                 <button
+//                                     type="button"
+//                                     onClick={() => handleExport("pdf")}
+//                                     style={{
+//                                         height: 34,
+//                                         minWidth: 72,
+//                                         padding: "0 13px",
+//                                         display: "inline-flex",
+//                                         alignItems: "center",
+//                                         justifyContent: "center",
+//                                         gap: 6,
+//                                         border: "1px solid #fda4af",
+//                                         borderRadius: 8,
+//                                         background: "#fff8f8",
+//                                         color: "#ef4444",
+//                                         fontSize: 11,
+//                                         fontWeight: 800,
+//                                         cursor: "pointer",
+//                                         transition: "all 0.2s ease",
+//                                     }}
+//                                     onMouseEnter={(e) => {
+//                                         e.currentTarget.style.background = "#fff1f2";
+//                                         e.currentTarget.style.borderColor = "#fb7185";
+//                                     }}
+//                                     onMouseLeave={(e) => {
+//                                         e.currentTarget.style.background = "#fff8f8";
+//                                         e.currentTarget.style.borderColor = "#fda4af";
+//                                     }}
+//                                 >
+//                                     <span style={{ fontSize: 13 }}>📄</span>
+//                                     PDF
+//                                 </button>
+//                             </>
+//                         )}
+
+
+//                     </div>
+//                 </div>
+
+//                 {/* ==================================================
+//             PAYABLE-SPECIFIC FILTER BAR
+//             ================================================== */}
+
+//                 {showAnyMainFilter && (
+//                     <div
+//                         className="sales-style-filter-bar"
+//                         style={{
+//                             width: "100%",
+//                             boxSizing: "border-box",
+//                             background: "#ffffff",
+//                             border: "1px solid #edf1f7",
+//                             borderRadius: 12,
+//                             padding: "8px 12px",
+//                             display: "grid",
+//                             gridTemplateColumns: `repeat(${7 + (hasLegalGroupScope ? 1 : 0) + (hasLegalEntityScope ? 1 : 0)}, minmax(82px, 1fr)) auto auto`,
+//                             alignItems: "end",
+//                             gap: 6,
+//                             boxShadow: "0 2px 8px rgba(30, 55, 90, 0.04)",
+//                             overflow: "visible",
+//                         }}
+//                     >
+//                         {hasLegalGroupScope && (
+//                             <FilterSelect
+//                                 label="Legal Group"
+//                                 value={filters.legal_group}
+//                                 options={filterOptions.legal_groups.map((x) => x.label)}
+//                                 multiple
+//                                 onChange={handleMainLegalGroupChange}
+//                             />
+//                         )}
+
+//                         {hasLegalEntityScope && (
+//                             <FilterSelect
+//                                 label="Legal Entity"
+//                                 value={filters.legal_entities}
+//                                 options={mainLegalEntities.map((x) => x.label)}
+//                                 multiple
+//                                 onChange={handleMainLegalEntityChange}
+//                             />
+//                         )}
+
+//                         {(
+//                             <FilterSelect
+//                                 label="Parent Division"
+//                                 value={filters.parent_divisions}
+//                                 options={mainParentDivisions.map((x) => x.label)}
+//                                 multiple
+//                                 onChange={handleMainParentDivisionChange}
+//                             />
+//                         )}
+
+//                         {(
+//                             <FilterSelect
+//                                 label="Sub-Division"
+//                                 value={filters.sub_divisions}
+//                                 options={mainSubDivisions.map((x) => x.label)}
+//                                 multiple
+//                                 onChange={handleMainSubDivisionChange}
+//                             />
+//                         )}
+
+//                         {(
+//                             <FilterSelect
+//                                 label="Customer Type"
+//                                 value={filters.customer_type}
+//                                 options={filterOptions.customer_types.map((x) => x.label ?? x.value ?? x)}
+//                                 includeAllOption
+//                                 onChange={(value) =>
+//                                     setFilters((prev) => {
+//                                         const matched = (filterOptions.customer_types || []).find(
+//                                             (option) =>
+//                                                 String(option?.label ?? option?.value ?? option ?? "") === String(value)
+//                                         );
+//                                         return {
+//                                             ...prev,
+//                                             customer_type: matched?.value ?? value,
+//                                         };
+//                                     })
+//                                 }
+//                             />
+//                         )}
+
+//                         {(
+//                             <FilterSelect
+//                                 label="GL Code"
+//                                 value={filters.gl_codes}
+//                                 options={filterOptions.gl_codes.map((x) => x.label)}
+//                                 multiple
+//                                 onChange={(value) =>
+//                                     setFilters((prev) => ({ ...prev, gl_codes: value }))
+//                                 }
+//                             />
+//                         )}
+
+//                         {(
+//                             <FilterSelect
+//                                 label="Reporting Currency"
+//                                 value={filters.reporting_currency}
+//                                 options={filterOptions.reporting_currencies.map((x) => x.label)}
+//                                 flex="0 0 64px"
+//                                 onChange={(value) =>
+//                                     setFilters((prev) => ({
+//                                         ...prev,
+//                                         reporting_currency: value,
+//                                     }))
+//                                 }
+//                             />
+//                         )}
+
+//                         {(
+//                             <FilterSelect
+//                                 label="Aging Basis"
+//                                 value={filters.aging_basis}
+//                                 options={filterOptions.aging_bases.map((x) => x.label)}
+//                                 onChange={(value) =>
+//                                     setFilters((prev) => ({
+//                                         ...prev,
+//                                         aging_basis: value,
+//                                     }))
+//                                 }
+//                             />
+//                         )}
+
+//                         {(
+//                             <DateFilter
+//                                 value={filters.as_on_date}
+//                                 options={filterOptions?.as_on_dates || []}
+//                                 onChange={(value) => {
+//                                     setFilters((prev) => ({
+//                                         ...prev,
+//                                         as_on_date: value,
+//                                     }));
+
+//                                     // Clear the previous snapshot immediately so stale values
+//                                     // never remain visible while the newly selected date loads.
+//                                     setDashboardResponse(null);
+
+//                                     // Date selection refreshes every dashboard component immediately.
+//                                     setAppliedFilters((prev) => ({
+//                                         ...prev,
+//                                         as_on_date: value,
+//                                         year: Number(String(value).slice(0, 4)) || prev.year,
+//                                     }));
+//                                 }}
+//                             />
+//                         )}
+
+//                         <button
+//                             id="btn-apply-filter"
+//                             type="button"
+//                             onClick={handleApply}
+//                             style={{
+//                                 height: 32,
+//                                 minWidth: 58,
+//                                 padding: "0 10px",
+//                                 border: "1px solid #4f46e5",
+//                                 borderRadius: 7,
+//                                 background: "#4f46e5",
+//                                 color: "#ffffff",
+//                                 fontSize: 11,
+//                                 fontWeight: 700,
+//                                 cursor: "pointer",
+//                                 boxShadow: "none",
+//                                 flexShrink: 0,
+//                             }}
+//                         >
+//                             Apply
+//                         </button>
+
+//                         <button
+//                             id="btn-reset-filter"
+//                             type="button"
+//                             onClick={handleReset}
+//                             style={{
+//                                 height: 32,
+//                                 minWidth: 48,
+//                                 padding: "0 6px",
+//                                 border: 0,
+//                                 borderRadius: 7,
+//                                 background: "#ffffff",
+//                                 color: "#64748b",
+//                                 fontSize: 11,
+//                                 fontWeight: 600,
+//                                 cursor: "pointer",
+//                                 flexShrink: 0,
+//                             }}
+//                         >
+//                             Reset
+//                         </button>
+//                     </div>
+//                 )}
+
+
+//                 {loading ? (
+//                     <ReceivablesPageSkeleton />
+//                 ) : dashboardError ? (
+//                     <ReceivablesApiError
+//                         message={dashboardError}
+//                         minHeight={220}
+//                         onRetry={() => setDashboardRetryKey((value) => value + 1)}
+//                     />
+//                 ) : (
+//                     <>
+
+//                         {/* ==================================================
+//             KPI CARDS
+//             ================================================== */}
+
+//                         <div
+//                             style={{
+//                                 marginTop: "18px",
+//                                 display: "grid",
+//                                 gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+//                                 gridAutoRows: "124px",
+//                                 gap: 12,
+//                                 marginBottom: 16,
+//                                 alignItems: "stretch",
+//                             }}
+//                             className="receivables-main-kpi-grid"
+//                         >
+//                             <KpiCard title="Total Receivables" value={kpis.total_receivables} variance={kpis.total_receivables_variance} previousDate={kpis?.previous_date} currency={currency} icon="▤" iconBg="#dbeafe" iconColor="#2563eb" cardBg="#eef4ff" targetVariance={kpis.total_receivables_target_variance ?? kpis.total_receivables_variance ?? null} lastMonthVariance={kpis.total_receivables_variance ?? null} />
+//                             <KpiCard title="Current Receivables" value={kpis.current_receivables} variance={kpis.current_receivables_variance} previousDate={kpis.previous_date} currency={currency} icon="▦" iconBg="#fee2e2" iconColor="#d9465f" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.current_receivables_target_variance ?? kpis.current_receivables_variance ?? null} lastMonthVariance={kpis.current_receivables_variance ?? null} />
+//                             <KpiCard title="Overdue Receivables" value={kpis.overdue_receivables} variance={kpis.overdue_receivables_variance} previousDate={kpis.previous_date} currency={currency} icon="⌛" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.overdue_receivables_target_variance ?? kpis.overdue_receivables_variance ?? null} lastMonthVariance={kpis.overdue_receivables_variance ?? null} />
+//                             <KpiCard title="Overdue > 90 Days" value={kpis.overdue_gt_90} onClick={openOverdueAbove90Drilldown} variance={kpis.overdue_gt_90_variance} previousDate={kpis.previous_date} currency={currency} icon="⚠" iconBg="#ede9fe" iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#f5f1ff" targetVariance={kpis.overdue_gt_90_target_variance ?? kpis.overdue_gt_90_variance ?? null} lastMonthVariance={kpis.overdue_gt_90_variance ?? null} />
+//                             <KpiCard title="Overdue %" value={kpis.overdue_percentage ?? (Number.isFinite(Number(kpis.overdue_receivables)) && Number(kpis.total_receivables) ? Number(kpis.overdue_receivables) / Number(kpis.total_receivables) * 100 : null)} variance={kpis.overdue_percentage_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="％" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff9e9" targetVariance={kpis.overdue_percentage_target_variance ?? kpis.overdue_percentage_variance ?? null} lastMonthVariance={kpis.overdue_percentage_variance ?? null} />
+//                             <KpiCard title="DSO (Actual)" value={kpis.dso} variance={kpis.dso_variance} previousDate={kpis.previous_date} suffix="Days" currency={currency} icon="▮" iconBg="#ffe4e6" iconColor="#e11d48" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.dso_target_variance ?? kpis.dso_variance ?? null} lastMonthVariance={kpis.dso_variance ?? null} />
+//                             <KpiCard title="Target DSO" value={kpis.target_dso} variance={null} previousDate={null} suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff8e8" targetVariance={null} lastMonthVariance={null} />
+//                             <KpiCard title="DSO Variance" value={kpis.dso != null && kpis.target_dso != null ? Number(kpis.dso) - Number(kpis.target_dso) : null} suffix="Days" currency={currency} icon="⚖" iconBg="#cffafe" iconColor="#0284c7" titleColor="#0369a1" cardBg="#edfbff" targetVariance={kpis.dso_target_variance ?? kpis.dso_variance ?? null} lastMonthVariance={kpis.dso_variance ?? null} />
+//                             <KpiCard title="Collections MTD" value={kpis.collections_mtd} variance={kpis.collections_mtd_variance} previousDate={kpis.previous_date} currency={currency} icon="＄" iconBg="#ffedd5" iconColor="#c2410c" titleColor="#b45309" cardBg="#fff4eb" targetVariance={kpis.collections_mtd_target_variance ?? kpis.collections_mtd_variance ?? null} lastMonthVariance={kpis.collections_mtd_variance ?? null} />
+//                             <KpiCard title="Collection Efficiency" value={kpis.collection_efficiency} variance={kpis.collection_efficiency_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="↗" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.collection_efficiency_target_variance ?? kpis.collection_efficiency_variance ?? null} lastMonthVariance={kpis.collection_efficiency_variance ?? null} />
+//                         </div>
+//                         <style>{`@media (max-width: 1250px) { .receivables-main-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; grid-auto-rows: 124px !important; } } @media (max-width: 760px) { .receivables-main-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-auto-rows: 124px !important; } } @media (max-width: 480px) { .receivables-main-kpi-grid { grid-template-columns: minmax(0, 1fr) !important; grid-auto-rows: 124px !important; } }`}</style>
+
+//                         {/* ==================================================
+//             ROW 1
+//             ================================================== */}
+
+//                         {(
+//                             <div
+//                                 style={{
+//                                     display: "grid",
+//                                     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+//                                     gap: 9,
+//                                     marginBottom: 9,
+//                                     width: "100%",
+//                                     alignItems: "stretch",
+//                                 }}
+//                             >
+//                                 {/* Aging Summary */}
+//                                 {(
+//                                     <section
+//                                         style={{
+//                                             ...cardStyle,
+//                                             padding: 12,
+//                                             minWidth: 0,
+//                                             width: "100%",
+//                                             boxSizing: "border-box",
+//                                             overflow: "hidden",
+//                                             position: "relative",
+//                                         }}
+//                                     >
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ component: "Aging Summary" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Aging_Summary") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Aging_Summary") : undefined}
+//                                         />
+//                                         <SectionTitle info="Receivables grouped by aging bucket">
+//                                             Receivables Aging Summary ({currency})
+//                                         </SectionTitle>
+
+//                                         <div
+//                                             style={{
+//                                                 width: "100%",
+//                                                 minWidth: 0,
+//                                                 overflow: "hidden",
+//                                             }}
+//                                         >
+//                                             {data.agingSummary?.length ? (
+//                                                 <DonutChart
+//                                                     data={data.agingSummary}
+//                                                     total={kpis.total_receivables}
+//                                                     currency={currency}
+//                                                     centerLabel="Total"
+//                                                     compactAgingLegend={true}
+//                                                     onSegmentClick={openAgingDrilldown}
+//                                                 />
+//                                             ) : <NoDataAvailable minHeight={185} />}
+//                                         </div>
+//                                     </section>
+//                                 )}
+
+//                                 {/* Trend */}
+//                                 {(
+//                                     <section
+//                                         style={{
+//                                             ...cardStyle,
+//                                             padding: 12,
+//                                             minWidth: 0,
+//                                             width: "100%",
+//                                             boxSizing: "border-box",
+//                                             overflow: "hidden",
+//                                             position: "relative",
+//                                         }}
+//                                     >
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ component: "Monthly Trend" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Trend") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Trend") : undefined}
+//                                         />
+//                                         <SectionTitle info="Historical total receivables and DSO">
+//                                             Receivables Trend ({currency})
+//                                         </SectionTitle>
+
+//                                         <div
+//                                             style={{
+//                                                 width: "100%",
+//                                                 minWidth: 0,
+//                                                 overflow: "hidden",
+//                                             }}
+//                                         >
+//                                             {data.trend?.length ? (
+//                                                 <TrendChart
+//                                                     data={data.trend}
+//                                                     currency={currency}
+//                                                     onPointClick={openTrendDrilldown}
+//                                                 />
+//                                             ) : <NoDataAvailable minHeight={185} />}
+//                                         </div>
+//                                     </section>
+//                                 )}
+
+//                                 {/* Parent Division */}
+//                                 {(
+//                                     <section
+//                                         style={{
+//                                             ...cardStyle,
+//                                             padding: 12,
+//                                             minWidth: 0,
+//                                             width: "100%",
+//                                             boxSizing: "border-box",
+//                                             overflow: "hidden",
+//                                             position: "relative",
+//                                         }}
+//                                     >
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ component: "Parent Division" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Parent_Division") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Parent_Division") : undefined}
+//                                         />
+//                                         <SectionTitle>
+//                                             Receivables by Parent Division ({currency})
+//                                         </SectionTitle>
+
+//                                         <div
+//                                             style={{
+//                                                 width: "100%",
+//                                                 minWidth: 0,
+//                                                 overflow: "hidden",
+//                                             }}
+//                                         >
+//                                             {data.parentDivision?.length ? (
+//                                                 <ParentDivisionChart
+//                                                     data={data.parentDivision}
+//                                                     currency={currency}
+//                                                     onItemClick={openParentDivisionDrilldown}
+//                                                 />
+//                                             ) : <NoDataAvailable minHeight={185} />}
+//                                         </div>
+//                                     </section>
+//                                 )}
+//                             </div>
+//                         )}
+
+//                         {/* ==================================================
+//             ROW 2
+//             ================================================== */}
+
+//                         {(
+//                             <div
+//                                 className="receivables-row-2"
+//                                 style={{
+//                                     display: "grid",
+//                                     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+//                                     gap: 9,
+//                                     marginBottom: 9,
+//                                     width: "100%",
+//                                     alignItems: "stretch",
+//                                     gridAutoRows: "minmax(330px, auto)",
+//                                 }}
+//                             >
+//                                 {/* Top 10 Customers */}
+
+//                                 {(
+//                                     <section
+//                                         style={{ ...cardStyle, padding: 12, position: "relative" }}
+//                                     >
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ component: "Top 10 Customers" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Top_10_Customers") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Top_10_Customers") : undefined}
+//                                         />
+//                                         <div style={{ minWidth: 0, boxSizing: "border-box" }}>
+//                                             <SectionTitle>
+//                                                 Top 10 Customers by Receivables ({currency})
+//                                             </SectionTitle>
+//                                             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -4, marginBottom: 8 }}>
+//                                                 <div style={{ display: "flex", alignItems: "center", gap: 2, padding: 2, border: "1px solid #dbe4f0", borderRadius: 7, background: "#f8fafc" }} aria-label="Customer type selection">
+//                                                     {[{ value: "INTERNAL", label: "Internal" }, { value: "EXTERNAL", label: "External" }].map((item) => (
+//                                                         <button key={item.value} type="button" onClick={() => setTopCustomersType(item.value)} style={{ border: 0, borderRadius: 5, padding: "5px 7px", fontSize: 9, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", background: topCustomersType === item.value ? "#1d4ed8" : "transparent", color: topCustomersType === item.value ? "#ffffff" : "#475569" }}>{item.label}</button>
+//                                                     ))}
+//                                                 </div>
+//                                             </div>
+//                                         </div>
+
+//                                         <div
+//                                             className="search-wrap hide-on-tablet"
+//                                             ref={topCustomersSearchRef}
+//                                             style={{
+//                                                 position: "relative",
+//                                                 width: "100%",
+//                                                 marginBottom: 10,
+//                                             }}
+//                                         >
+//                                             <Search size={14} className="search-icon" />
+//                                             <input
+//                                                 type="text"
+//                                                 placeholder="Search Customers..."
+//                                                 className="search-input"
+//                                                 aria-label="Search Customers"
+//                                                 value={topCustomersSearch}
+//                                                 onChange={(e) => setTopCustomersSearch(e.target.value)}
+//                                                 style={{ width: "100%", boxSizing: "border-box" }}
+//                                             />
+//                                         </div>
+
+//                                         {topCustomersLoading ? (
+//                                             <div aria-label="Loading customer receivables" style={{ display: "flex", flexDirection: "column", gap: 7, padding: "8px 2px", minHeight: 185 }}>
+//                                                 <div style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr) 76px 48px", gap: 8, padding: "10px 8px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", borderRadius: 6 }}>
+//                                                     {["#", "Customer", "Receivables", "%"].map((label) => <span key={label} style={{ fontSize: 10, fontWeight: 800, color: "#64748b" }}>{label}</span>)}
+//                                                 </div>
+//                                                 {Array.from({ length: 6 }).map((_, index) => (
+//                                                     <div key={index} style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr) 76px 48px", alignItems: "center", gap: 8, padding: "8px", borderBottom: "1px solid #f1f5f9" }}>
+//                                                         <span style={{ height: 10, width: 12, borderRadius: 4, background: "#e2e8f0", animation: "receivablesShimmer 1.2s ease-in-out infinite" }} />
+//                                                         <span style={{ height: 12, borderRadius: 4, background: "linear-gradient(90deg,#e2e8f0 25%,#f8fafc 50%,#e2e8f0 75%)", backgroundSize: "200% 100%", animation: "receivablesShimmer 1.2s ease-in-out infinite" }} />
+//                                                         <span style={{ height: 12, borderRadius: 4, background: "#e2e8f0", animation: "receivablesShimmer 1.2s ease-in-out infinite" }} />
+//                                                         <span style={{ height: 12, borderRadius: 4, background: "#e2e8f0", animation: "receivablesShimmer 1.2s ease-in-out infinite" }} />
+//                                                     </div>
+//                                                 ))}
+//                                                 <style>{`@keyframes receivablesShimmer { 0% { opacity:.55; } 50% { opacity:1; } 100% { opacity:.55; } }`}</style>
+//                                             </div>
+//                                         ) : filteredTopCustomersRows.length ? (
+//                                             <DataTable
+//                                                 columns={supplierColumns}
+//                                                 rows={filteredTopCustomersRows}
+//                                                 fitColumns
+//                                                 rowGap
+//                                                 onCellClick={(row) => {
+//                                                     openCustomerDrilldown(row);
+//                                                 }}
+//                                             />
+//                                         ) : <NoDataAvailable minHeight={185} />}
+//                                         <div
+//                                             style={{
+//                                                 display: "grid",
+//                                                 gridTemplateColumns: "8% 47% 24% 21%",
+//                                                 alignItems: "center",
+//                                                 marginTop: 7,
+//                                                 padding: "0 4px",
+//                                                 fontSize: 12,
+//                                                 fontWeight: 900,
+//                                             }}
+//                                         >
+//                                             {/* Rank spacer */}
+//                                             <span aria-hidden="true" />
+
+//                                             {/* Total */}
+//                                             <span
+//                                                 style={{
+//                                                     textAlign: "left",
+//                                                     color: "#172554",
+//                                                     fontWeight: 900,
+//                                                     whiteSpace: "nowrap",
+//                                                     minWidth: 170,
+//                                                 }}
+//                                             >
+//                                                 Total of Top 10 Customers
+//                                             </span>
+
+//                                             {/* Amount */}
+//                                             <span
+//                                                 style={{
+//                                                     textAlign: "right",
+//                                                     color: "#1E293B",
+//                                                     fontWeight: 900,
+//                                                     whiteSpace: "nowrap",
+//                                                 }}
+//                                             >
+//                                                 {formatReceivablesCompact(
+//                                                     filteredTopCustomersRows.reduce(
+//                                                         (sum, item) =>
+//                                                             sum + Number(item.receivable_amount || 0),
+//                                                         0
+//                                                     ),
+//                                                     currency
+//                                                 ).replace(
+//                                                     /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
+//                                                     ""
+//                                                 )}
+//                                             </span>
+
+//                                             {/* Percentage */}
+//                                             <span
+//                                                 style={{
+//                                                     textAlign: "right",
+//                                                     color: "#1E293B",
+//                                                     fontWeight: 900,
+//                                                     whiteSpace: "nowrap",
+//                                                 }}
+//                                             >
+//                                                 {formatPercentage(
+//                                                     supplierRows.reduce(
+//                                                         (sum, item) =>
+//                                                             sum + Number(item.percentage || 0),
+//                                                         0
+//                                                     )
+//                                                 )}
+//                                             </span>
+//                                         </div>
+//                                     </section>
+//                                 )}
+
+//                                 {/* Overdue Summary */}
+
+//                                 {(
+//                                     <section
+//                                         style={{ ...cardStyle, padding: 12, position: "relative" }}
+//                                     >
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ balance_status: "OVERDUE", component: "Overdue Summary" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Overdue_Summary") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Overdue_Summary") : undefined}
+//                                         />
+//                                         <SectionTitle>
+//                                             Overdue Summary ({currency})
+//                                         </SectionTitle>
+
+
+
+//                                         <div
+//                                             className="receivables-overdue-summary-chart"
+//                                             style={{
+//                                                 width: "100%",
+//                                                 display: "flex",
+//                                                 justifyContent: "center",
+//                                                 alignItems: "center",
+//                                                 boxSizing: "border-box",
+//                                                 minHeight: 0,
+//                                             }}
+//                                         >
+//                                             {data.overdueSummary?.length ? (
+//                                                 <DonutChart
+//                                                     data={data.overdueSummary}
+//                                                     total={kpis.overdue_receivables}
+//                                                     currency={currency}
+//                                                     centerLabel="Overdue"
+//                                                     legendBelow
+//                                                     largeOverdueChart
+//                                                     onSegmentClick={openAgingDrilldown}
+//                                                 />
+//                                             ) : <NoDataAvailable minHeight={250} />}
+//                                         </div>
+//                                     </section>
+//                                 )}
+
+//                                 {/* Sub Division */}
+
+//                                 {(
+//                                     <section
+//                                         style={{ ...cardStyle, padding: 12, position: "relative" }}
+//                                     >
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ component: "Sub-Division" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Sub_Division") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Sub_Division") : undefined}
+//                                         />
+//                                         <SectionTitle>
+//                                             Receivables by Sub-Division ({currency})
+//                                         </SectionTitle>
+
+//                                         <div
+//                                             className="search-wrap hide-on-tablet"
+//                                             ref={subDivisionSearchRef}
+//                                             style={{
+//                                                 position: "relative",
+//                                                 width: "100%",
+//                                                 marginBottom: 10,
+//                                             }}
+//                                         >
+//                                             <Search size={14} className="search-icon" />
+//                                             <input
+//                                                 type="text"
+//                                                 placeholder="Search Subdivision..."
+//                                                 className="search-input"
+//                                                 aria-label="Search Subdivision"
+//                                                 value={subDivisionSearch}
+//                                                 onChange={(e) => setSubDivisionSearch(e.target.value)}
+//                                                 style={{ width: "100%", boxSizing: "border-box" }}
+//                                             />
+//                                         </div>
+
+//                                         {data.subDivision?.length ? (
+//                                             <div className="receivables-subdivision-table-gap">
+//                                                 <DataTable
+//                                                     columns={subDivisionColumns}
+//                                                     rows={filteredSubDivisionTableRows}
+//                                                     pageSize={11}
+//                                                     keepFirstRow={true}
+//                                                     fixedRowTextColor="#0f2f78"
+//                                                     fixedRowBackground="#eaf1ff"
+//                                                     showPageNumbers={true}
+//                                                     paginationStyle="compact"
+//                                                     fitColumns
+//                                                     rowGap
+//                                                     onCellClick={(row, column) => {
+//                                                         if (
+//                                                             row?.id !== "subdivision-total" &&
+//                                                             (column?.key === "name" ||
+//                                                                 column?.key === "amount" ||
+//                                                                 column?.key === "percentage")
+//                                                         ) {
+//                                                             openSubdivisionDrilldown(row);
+//                                                         }
+//                                                     }}
+//                                                 />
+//                                             </div>
+//                                         ) : <NoDataAvailable minHeight={185} />}
+//                                     </section>
+//                                 )}
+//                             </div>
+//                         )}
+
+//                         {/* ==================================================
+//             MONTH-ON-MONTH
+//             ================================================== */}
+
+//                         {(
+//                             <section
+//                                 style={{
+//                                     ...cardStyle,
+//                                     padding: 12,
+//                                     marginBottom: 10,
+//                                     position: "relative",
+//                                 }}
+//                             >
+//                                 <div
+//                                     style={{
+//                                         display: "flex",
+//                                         alignItems: "center",
+//                                         justifyContent: "space-between",
+//                                         gap: 14,
+//                                         marginBottom: 10,
+//                                         paddingRight: 42,
+//                                         boxSizing: "border-box",
+//                                         minWidth: 0,
+//                                     }}
+//                                 >
+//                                     {/* LEFT */}
+//                                     <div style={{ minWidth: 0, flexShrink: 1 }}>
+//                                         <SectionTitle info="Monthly receivable balance by legal entity">
+//                                             Month-on-Month Receivables ({currency})
+//                                         </SectionTitle>
+//                                     </div>
+
+//                                     {/* RIGHT: Search + Year + AED / AED Millions */}
+//                                     <div
+//                                         style={{
+//                                             display: "flex",
+//                                             alignItems: "center",
+//                                             gap: 10,
+//                                             flexShrink: 0,
+//                                         }}
+//                                     >
+//                                         <div
+//                                             className="search-wrap hide-on-tablet"
+//                                             ref={monthOnMonthSearchRef}
+//                                             style={{ position: "relative", width: 320, flexShrink: 0 }}
+//                                         >
+//                                             <Search size={14} className="search-icon" />
+//                                             <input
+//                                                 type="text"
+//                                                 placeholder="Search..."
+//                                                 className="search-input"
+//                                                 aria-label="Search"
+//                                                 value={monthOnMonthSearch}
+//                                                 onChange={(e) => setMonthOnMonthSearch(e.target.value)}
+//                                                 style={{ width: "100%" }}
+//                                             />
+//                                         </div>
+
+//                                         {/* YEAR */}
+//                                         <div
+//                                             style={{
+//                                                 display: "flex",
+//                                                 alignItems: "center",
+//                                                 gap: 7,
+//                                             }}
+//                                         >
+//                                             <span
+//                                                 style={{
+//                                                     fontSize: 10,
+//                                                     color: MUTED,
+//                                                 }}
+//                                             >
+//                                                 Year
+//                                             </span>
+
+//                                             <select
+//                                                 value={filters.year}
+//                                                 onChange={(e) =>
+//                                                     setFilter(
+//                                                         "year",
+//                                                         Number(e.target.value)
+//                                                     )
+//                                                 }
+//                                                 style={{
+//                                                     height: 30,
+//                                                     minWidth: 75,
+//                                                     border: "1px solid #d5ddeb",
+//                                                     borderRadius: 5,
+//                                                     background: "#fff",
+//                                                     color: BLUE,
+//                                                     padding: "0 8px",
+//                                                     fontSize: 10,
+//                                                     fontWeight: 600,
+//                                                 }}
+//                                             >
+//                                                 {filterOptions.years.map((year) => (
+//                                                     <option key={year} value={year}>
+//                                                         {year}
+//                                                     </option>
+//                                                 ))}
+//                                             </select>
+//                                         </div>
+
+//                                         {/* AED / AED MILLIONS */}
+//                                         <div
+//                                             style={{
+//                                                 display: "inline-flex",
+//                                                 alignItems: "center",
+//                                                 height: 30,
+//                                                 border: "1px solid #d6deeb",
+//                                                 borderRadius: 6,
+//                                                 background: "#f8fafc",
+//                                                 overflow: "hidden",
+//                                             }}
+//                                         >
+//                                             <button
+//                                                 type="button"
+//                                                 onClick={() => setMomDisplayUnit("AED")}
+//                                                 style={{
+//                                                     height: "100%",
+//                                                     minWidth: 42,
+//                                                     padding: "0 9px",
+//                                                     border: "none",
+//                                                     borderRight: "1px solid #d6deeb",
+//                                                     background:
+//                                                         momDisplayUnit === "AED"
+//                                                             ? "#172f80"
+//                                                             : "transparent",
+//                                                     color:
+//                                                         momDisplayUnit === "AED"
+//                                                             ? "#ffffff"
+//                                                             : "#64748b",
+//                                                     fontSize: 10,
+//                                                     fontWeight: 800,
+//                                                     cursor: "pointer",
+//                                                 }}
+//                                             >
+//                                                 AED
+//                                             </button>
+
+//                                             <button
+//                                                 type="button"
+//                                                 onClick={() => setMomDisplayUnit("Millions")}
+//                                                 style={{
+//                                                     height: "100%",
+//                                                     minWidth: 86,
+//                                                     padding: "0 9px",
+//                                                     border: "none",
+//                                                     background:
+//                                                         momDisplayUnit === "Millions"
+//                                                             ? "#172f80"
+//                                                             : "transparent",
+//                                                     color:
+//                                                         momDisplayUnit === "Millions"
+//                                                             ? "#ffffff"
+//                                                             : "#64748b",
+//                                                     fontSize: 10,
+//                                                     fontWeight: 800,
+//                                                     cursor: "pointer",
+//                                                 }}
+//                                             >
+//                                                 AED Millions
+//                                             </button>
+//                                         </div>
+
+//                                         {/* 3 DOTS */}
+//                                         <SectionActions
+//                                             onViewAll={() => openReceivablesViewAll({ component: "Month-on-Month Receivables" })}
+//                                             onExportExcel={canExportReceivables ? () => handleExport("excel", {}, "Month_on_Month") : undefined}
+//                                             onExportPdf={canExportReceivables ? () => handleExport("pdf", {}, "Month_on_Month") : undefined}
+//                                         />
+//                                     </div>
+//                                 </div>
+
+//                                 {data.monthOnMonth?.length ? (
+//                                     <DataTable
+//                                         columns={monthColumns}
+//                                         rows={filteredMonthOnMonthRows}
+//                                         pageSize={8}
+//                                         paginationStyle="compact"
+//                                         cellBorders
+//                                         rowFontWeight={500}
+//                                         wrapCells
+//                                         tableWidth="100%"
+//                                         tableMinWidth={1580}
+//                                         tableFontSize={12}
+//                                         stickyFirstColumns
+//                                         onCellClick={openMomDrilldown}
+//                                     />
+//                                 ) : <NoDataAvailable minHeight={220} />}
+//                             </section>
+//                         )}
+
+//                         {/* ==================================================
+//             FOOTER
+//             ================================================== */}
+
+//                         <div
+//                             style={{
+//                                 display: "flex",
+//                                 alignItems: "center",
+//                                 justifyContent: "space-between",
+//                                 gap: 10,
+//                                 fontSize: 10,
+//                                 fontWeight: 700,
+//                                 color: "#64748b",
+//                                 padding: "3px 8px",
+//                                 width: "100%",
+//                             }}
+//                         >
+//                             {/* LEFT SIDE */}
+//                             <div
+//                                 style={{
+//                                     display: "flex",
+//                                     alignItems: "center",
+//                                     gap: 16,
+//                                 }}
+//                             >
+//                                 <span>
+//                                     Values shown in {currency}
+//                                 </span>
+
+//                                 <span>
+//                                     Aging Basis:{" "}
+//                                     <strong style={{ color: BLUE }}>
+//                                         {appliedFilters.aging_basis}
+//                                     </strong>
+//                                 </span>
+
+//                                 <span>
+//                                     Last Updated on:{" "}
+//                                     {formatReceivablesDate(appliedFilters.as_on_date) || "-"}
+//                                 </span>
+//                             </div>
+
+//                             {/* RIGHT SIDE */}
+//                             <span
+//                                 style={{
+//                                     marginLeft: "auto",
+//                                     whiteSpace: "nowrap",
+//                                 }}
+//                             >
+//                                 ☁️ Source: Oracle Fusion Cloud
+//                             </span>
+//                         </div>
+//                     </>
+//                 )}
+//             </main>
+
+//             {/* ======================================================
+//           VIEW ALL MODAL
+//           ====================================================== */}
+
+
+//             {showViewAll && (
+//                 <ReceivablesViewAll
+//                     filters={appliedFilters}
+//                     data={data.viewAll}
+//                     mainKpis={data.kpis}
+//                     currency={currency}
+//                     filterOptions={filterOptions}
+//                     effectiveLegalEntityOptions={effectiveLegalEntityOptions}
+//                     hasLegalGroupScope={hasLegalGroupScope}
+//                     hasLegalEntityScope={hasLegalEntityScope}
+//                     baseFilters={baseApiFilters}
+//                     drilldown={viewAllContext}
+//                     onClose={() => setShowViewAll(false)}
+//                 />
+//             )}
+//         </div>
+//     );
+// }
+
+// /* ============================================================
+//    VIEW ALL KPI CARD
+//    Stable component identity prevents pagination/search rerenders
+//    from restarting the count-up animation.
+//    ============================================================ */
+
+// function ReceivablesViewAllSummaryCard({
+//     icon,
+//     title,
+//     value,
+//     iconBackground,
+//     iconColor,
+//     titleColor,
+//     cardBackground,
+//     suffix = "",
+//     viewAllCurrency,
+//     animationKey = 0,
+// }) {
+//     const numericValue = Number(value);
+//     const isNegative = Number.isFinite(numericValue) && numericValue < 0;
+
+//     const formatSummaryValue = (animatedValue) =>
+//         suffix === "Days"
+//             ? `${Number(animatedValue ?? 0).toFixed(0)} Days`
+//             : suffix === "%"
+//                 ? `${Number(animatedValue ?? 0).toFixed(1)}%`
+//                 : formatReceivablesCompact(animatedValue, viewAllCurrency);
+
+//     return (
+//         <div
+//             style={{
+//                 background: cardBackground || "#ffffff",
+//                 border: "1px solid #e2e8f0",
+//                 borderRadius: 12,
+//                 minHeight: 78,
+//                 padding: "12px 14px",
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: 12,
+//                 boxSizing: "border-box",
+//                 boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
+//             }}
+//         >
+//             <div
+//                 style={{
+//                     width: 42,
+//                     height: 42,
+//                     minWidth: 42,
+//                     borderRadius: "50%",
+//                     background: iconBackground,
+//                     color: iconColor,
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+//                     fontSize: 20,
+//                     fontWeight: 800,
+//                 }}
+//             >
+//                 {icon}
+//             </div>
+
+//             <div style={{ minWidth: 0 }}>
+//                 <div
+//                     style={{
+//                         fontSize: 10,
+//                         fontWeight: 700,
+//                         color: titleColor,
+//                         marginBottom: 3,
+//                     }}
+//                 >
+//                     {title}
+//                 </div>
+
+//                 <div
+//                     style={{
+//                         fontSize: 18,
+//                         fontWeight: 800,
+//                         color: isNegative ? "#c62828" : "#142b6f",
+//                         whiteSpace: "nowrap",
+//                     }}
+//                 >
+//                     {value === null || value === undefined || value === ""
+//                         ? "—"
+//                         : animationKey > 0
+//                             ? <AnimatedNumber
+//                                 value={value}
+//                                 formatter={formatSummaryValue}
+//                                 duration={700}
+//                                 animationKey={animationKey}
+//                             />
+//                             : formatSummaryValue(value)}
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// }
+
+// /* ============================================================
+//    VIEW ALL
+//    ============================================================ */
+
+// function ReceivablesViewAll({
+//     filters,
+//     data,
+//     mainKpis = {},
+//     currency,
+//     filterOptions = {},
+//     effectiveLegalEntityOptions = null,
+//     hasLegalGroupScope = true,
+//     hasLegalEntityScope = true,
+//     baseFilters = {},
+//     drilldown = {},
+//     onClose,
+// }) {
+//     const [search, setSearch] = useState("");
+//     const [sortKey, setSortKey] = useState("total_receivable");
+//     const [sortDirection, setSortDirection] = useState("desc");
+//     const [page, setPage] = useState(1);
+//     const [pageSize, setPageSize] = useState(10);
+//     const [viewMode, setViewMode] = useState("detailed");
+//     const [viewAllDisplayUnit, setViewAllDisplayUnit] = useState("AED");
+//     const [momSearch, setMomSearch] = useState("");
+//     const [momPage, setMomPage] = useState(1);
+//     const [momPageSize, setMomPageSize] = useState(10);
+//     const [momRows, setMomRows] = useState([]);
+//     const [momMeta, setMomMeta] = useState({ year: null, aging_basis: "", reporting_currency: "", available_months: [], snapshot_dates: {} });
+//     const [momLoading, setMomLoading] = useState(false);
+//     const [detailError, setDetailError] = useState(null);
+//     const [detailRetryKey, setDetailRetryKey] = useState(0);
+//     const [kpiError, setKpiError] = useState(null);
+//     const [kpiRetryKey, setKpiRetryKey] = useState(0);
+//     const [momError, setMomError] = useState(null);
+//     const [momRetryKey, setMomRetryKey] = useState(0);
+
+//     /* ============================================================  
+//        VIEW ALL TITLE  
+//     ============================================================ */
+
+//     const rawComponentTitle =
+//         drilldown?.component ||
+//         "Receivables";
+
+//     const getDetailedViewTitle = () => {
+//         const value = String(rawComponentTitle || "").trim();
+
+//         if (!value || value.toLowerCase() === "receivables") {
+//             return "Receivables Detailed View";
+//         }
+
+//         const normalized = value
+//             .replace(/^Receivables\s*-\s*/i, "")
+//             .replace(/\s+/g, "");
+
+//         return `Receivables - ${normalized} - Detailed View`;
+//     };
+
+//     const detailedViewTitle = getDetailedViewTitle();
+
+//     /* ============================================================  
+//        VIEW ALL FILTERS  
+//     ============================================================ */
+
+//     const getBackendAgingBasisLabel = (value) => {
+//         const options = filterOptions?.aging_bases || [];
+
+//         if (
+//             value === undefined ||
+//             value === null ||
+//             value === ""
+//         ) {
+//             return "";
+//         }
+
+//         const stringValue = String(value).trim();
+
+//         const matched = options.find((item) => {
+//             const optionValue = String(
+//                 item?.value ?? item
+//             ).trim();
+
+//             const optionLabel = String(
+//                 item?.label ?? item
+//             ).trim();
+
+//             return (
+//                 optionValue.toUpperCase() ===
+//                 stringValue.toUpperCase() ||
+//                 optionLabel.toUpperCase() ===
+//                 stringValue.toUpperCase()
+//             );
+//         });
+
+//         if (matched) {
+//             return matched.label ?? matched.value ?? stringValue;
+//         }
+
+//         return stringValue;
+//     };
+
+//     const getInitialViewFilters = () => {
+//         const fjGroupOption = (filterOptions.legal_groups || []).find((option) =>
+//             /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+//         );
+//         const currentLegalGroup = Array.isArray(filters?.legal_group)
+//             ? [...filters.legal_group]
+//             : filters?.legal_group
+//                 ? [filters.legal_group]
+//                 : [];
+//         return ({
+//             legal_group: currentLegalGroup.length
+//                 ? currentLegalGroup
+//                 : fjGroupOption
+//                     ? [fjGroupOption.label || fjGroupOption.value]
+//                     : [],
+
+//             legal_entities: Array.isArray(
+//                 filters?.legal_entities
+//             )
+//                 ? [...filters.legal_entities]
+//                 : filters?.legal_entities
+//                     ? [filters.legal_entities]
+//                     : [],
+
+//             parent_divisions: Array.isArray(
+//                 filters?.parent_divisions
+//             )
+//                 ? [...filters.parent_divisions]
+//                 : filters?.parent_divisions
+//                     ? [filters.parent_divisions]
+//                     : [],
+
+//             sub_divisions: Array.isArray(
+//                 filters?.sub_divisions
+//             )
+//                 ? [...filters.sub_divisions]
+//                 : filters?.sub_divisions
+//                     ? [filters.sub_divisions]
+//                     : [],
+
+//             reporting_currency:
+//                 filters?.reporting_currency ||
+//                 currency ||
+//                 "AED",
+
+//             as_on_date:
+//                 normalizeReceivablesDate(
+//                     filters?.as_on_date ||
+//                     filters?.asOfDate ||
+//                     filters?.snapshot_date ||
+//                     getLatestReceivablesDate(filters?.as_on_dates) ||
+//                     ""
+//                 ),
+
+//             /*  
+//              * Keep the exact backend display label.  
+//              * Example:  
+//              * DUE_DATE -> Due Date Based  
+//              * INVOICE_DATE -> Invoice Date Based  
+//              */
+//             aging_basis: getBackendAgingBasisLabel(
+//                 filters?.aging_basis ||
+//                 filters?.agingBasis ||
+//                 ""
+//             ),
+
+//             customer_type: (() => {
+//                 const raw = Array.isArray(filters?.customer_type)
+//                     ? filters.customer_type
+//                     : filters?.customer_type
+//                         ? [filters.customer_type]
+//                         : Array.isArray(filters?.customer_types)
+//                             ? filters.customer_types
+//                             : filters?.customer_types
+//                                 ? [filters.customer_types]
+//                                 : [];
+
+//                 const normalized = raw
+//                     .map((value) => String(value ?? "").trim())
+//                     .filter(Boolean);
+
+//                 // Backend ALL means no restriction, which is represented by
+//                 // an empty multi-select exactly like the other View All filters.
+//                 if (normalized.some((value) => value.toUpperCase() === "ALL")) {
+//                     return [];
+//                 }
+
+//                 return normalized;
+//             })(),
+
+//             gl_codes: Array.isArray(filters?.gl_codes)
+//                 ? [...filters.gl_codes]
+//                 : filters?.gl_codes
+//                     ? [filters.gl_codes]
+//                     : [],
+//             year: Number(filters?.year) || new Date().getFullYear(),
+//         });
+//     };
+
+//     const [viewFilters, setViewFilters] = useState(
+//         getInitialViewFilters
+//     );
+
+//     const [appliedViewFilters, setAppliedViewFilters] =
+//         useState(getInitialViewFilters);
+//     const [viewGroupLegalEntityOptions, setViewGroupLegalEntityOptions] = useState({});
+//     const [viewParentDivisionCache, setViewParentDivisionCache] = useState({});
+//     const [viewSubDivisionCache, setViewSubDivisionCache] = useState({});
+
+//     const loadViewLegalEntitiesForGroups = async (selectedGroups) => {
+//         const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups || []);
+//         if (!groupIds.length) return;
+//         const cacheKey = groupIds.slice().sort().join("|");
+//         // Do not display stale options while the selected group's request is pending.
+//         setViewGroupLegalEntityOptions((previous) => ({ ...previous, [cacheKey]: [] }));
+//         setViewParentDivisionCache({});
+//         setViewSubDivisionCache({});
+//         try {
+//             const response = await getReceivableFilters({ legal_group_id: groupIds });
+//             const entities = extractLegalEntityOptions(response);
+//             setViewGroupLegalEntityOptions((previous) => ({ ...previous, [cacheKey]: entities }));
+//         } catch (error) {
+//             console.error("Failed to load View All Legal Entities for selected Legal Group", error);
+//             setViewGroupLegalEntityOptions((previous) => ({ ...previous, [cacheKey]: [] }));
+//         }
+//     };
+
+//     const loadViewParentDivisions = async (selectedGroups, selectedEntities) => {
+//         const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups || []);
+//         const entityOptions = viewCascadeOptions?.legal_entities?.length
+//             ? viewCascadeOptions.legal_entities
+//             : effectiveLegalEntityOptions || filterOptions.legal_entities || [];
+//         const entityIds = selectedValuesToIds(selectedEntities, entityOptions);
+//         const cacheKey = [...groupIds, "::", ...entityIds].join("|");
+//         setViewSubDivisionCache({});
+//         if (!entityIds.length) {
+//             setViewParentDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+//             return;
+//         }
+//         setViewParentDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+//         try {
+//             const response = await getReceivableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds });
+//             const responseOptions = extractHierarchyOptions(response, ["parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions"]);
+//             const options = responseOptions.length
+//                 ? cascadeParentDivisions(responseOptions, entityIds, groupIds)
+//                 : cascadeParentDivisions(filterOptions.parent_divisions || [], entityIds, groupIds);
+//             setViewParentDivisionCache((previous) => ({ ...previous, [cacheKey]: options }));
+//         } catch (error) {
+//             console.error("Failed to load View All Parent Divisions", error);
+//             const fallbackOptions = cascadeParentDivisions(filterOptions.parent_divisions || [], entityIds, groupIds);
+//             setViewParentDivisionCache((previous) => ({ ...previous, [cacheKey]: fallbackOptions }));
+//         }
+//     };
+
+//     const loadViewSubDivisions = async (selectedGroups, selectedEntities, selectedDivisions) => {
+//         const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups || []);
+//         const entityOptions = viewCascadeOptions?.legal_entities?.length
+//             ? viewCascadeOptions.legal_entities
+//             : effectiveLegalEntityOptions || filterOptions.legal_entities || [];
+//         const divisionOptions = viewCascadeOptions?.parent_divisions?.length
+//             ? viewCascadeOptions.parent_divisions
+//             : filterOptions.parent_divisions || [];
+//         const entityIds = selectedValuesToIds(selectedEntities, entityOptions);
+//         const divisionIds = selectedValuesToIds(selectedDivisions, divisionOptions);
+//         const cacheKey = [...groupIds, "::", ...entityIds, "::", ...divisionIds].join("|");
+//         if (!divisionIds.length) {
+//             setViewSubDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+//             return;
+//         }
+//         setViewSubDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+//         try {
+//             const response = await getReceivableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds, parent_division_id: divisionIds });
+//             const responseOptions = extractHierarchyOptions(response, ["sub_divisions", "subdivisions", "subDivisions", "sub_division_options", "subDivisionOptions"]);
+//             const options = responseOptions.length
+//                 ? cascadeSubDivisions(responseOptions, divisionIds, entityIds, groupIds)
+//                 : cascadeSubDivisions(filterOptions.sub_divisions || [], divisionIds, entityIds, groupIds);
+//             setViewSubDivisionCache((previous) => ({ ...previous, [cacheKey]: options }));
+//         } catch (error) {
+//             console.error("Failed to load View All Sub-Divisions", error);
+//             const fallbackOptions = cascadeSubDivisions(filterOptions.sub_divisions || [], divisionIds, entityIds, groupIds);
+//             setViewSubDivisionCache((previous) => ({ ...previous, [cacheKey]: fallbackOptions }));
+//         }
+//     };
+
+//     // View All is mounted when opened. Hydrate the same group-scoped entity
+//     // options used by the main dashboard for the initially selected group.
+//     useEffect(() => {
+//         if (Array.isArray(viewFilters.legal_group) && viewFilters.legal_group.length) {
+//             void loadViewLegalEntitiesForGroups(viewFilters.legal_group);
+//         }
+//         // Intentionally run only on mount: subsequent user changes are handled
+//         // by the cascade dropdown handlers below.
+//         // eslint-disable-next-line react-hooks/exhaustive-deps
+//     }, []);
+
+//     const selectedValuesToIds = (selectedValues, options = []) => {
+//         const values = Array.isArray(selectedValues) ? selectedValues : selectedValues ? [selectedValues] : [];
+//         return values.map((selected) => {
+//             const match = normalizeOptions(options).find((option) => String(option.label) === String(selected) || String(option.value) === String(selected));
+//             return match?.value ?? selected;
+//         }).filter((value) => value !== null && value !== undefined && String(value).trim() !== "");
+//     };
+
+//     // Keep the View All hierarchy aligned with the main filter defaults.
+//     // FJ Group is selected only when it exists in the authenticated API options.
+//     useEffect(() => {
+//         const fj = (filterOptions.legal_groups || []).find((option) =>
+//             /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+//         );
+//         if (!fj) return;
+//         const label = fj.label || fj.value;
+//         setViewFilters((prev) => prev.legal_group?.length ? prev : { ...prev, legal_group: [label] });
+//         setAppliedViewFilters((prev) => prev.legal_group?.length ? prev : { ...prev, legal_group: [label] });
+//     }, [filterOptions.legal_groups]);
+
+//     const viewAllCurrency =
+//         appliedViewFilters?.reporting_currency ||
+//         currency ||
+//         "AED";
+
+//     /* ============================================================  
+//        BACKEND AGING BASIS DISPLAY  
+//     ============================================================ */
+
+//     const [serverAgingBasis, setServerAgingBasis] =
+//         useState("");
+
+//     /* ============================================================  
+//        DROPDOWN STATE  
+//     ============================================================ */
+
+//     const [openFilter, setOpenFilter] = useState(null);
+
+//     useEffect(() => {
+//         if (!openFilter) return;
+
+//         const handleOutsideFilterClick = (event) => {
+//             const target = event.target;
+
+//             if (
+//                 target instanceof Element &&
+//                 !target.closest(
+//                     ".receivables-view-all-filter"
+//                 )
+//             ) {
+//                 setOpenFilter(null);
+//             }
+//         };
+
+//         document.addEventListener(
+//             "mousedown",
+//             handleOutsideFilterClick
+//         );
+
+//         return () => {
+//             document.removeEventListener(
+//                 "mousedown",
+//                 handleOutsideFilterClick
+//             );
+//         };
+//     }, [openFilter]);
+
+//     const [filterSearch, setFilterSearch] = useState({
+//         legal_group: "",
+//         legal_entities: "",
+//         parent_divisions: "",
+//         sub_divisions: "",
+//         reporting_currency: "",
+//         as_on_date: "",
+//         aging_basis: "",
+//         customer_type: "",
+//         gl_codes: "",
+//         year: "",
+//     });
+
+//     const initialData = Array.isArray(data)
+//         ? data
+//         : [];
+
+//     /* ============================================================ 
+//        CASCADE VIEW-ALL FILTER OPTIONS 
+//        Legal Group -> Legal Entity -> Parent Division -> Sub-Division 
+//        Only the dropdown option lists are cascaded; API/integration logic 
+//        remains unchanged. 
+//     ============================================================ */
+//     const viewCascadeOptions = useMemo(() => {
+//         const legalGroups = normalizeOptions(filterOptions.legal_groups || []);
+//         const viewGroupIds = resolveLegalGroupRequestIds(viewFilters.legal_group, legalGroups);
+//         const viewGroupKey = viewGroupIds.slice().sort().join("|");
+//         const hasViewGroupOptions = Boolean(viewGroupKey) &&
+//             Object.prototype.hasOwnProperty.call(viewGroupLegalEntityOptions, viewGroupKey);
+//         // Use the same authenticated, group-scoped entity options as the main
+//         // dashboard. The View All modal must not fall back to an unscoped list
+//         // while the group-specific request is pending or when a cache is absent.
+//         const sharedLegalEntityOptions = normalizeOptions(
+//             effectiveLegalEntityOptions || filterOptions.legal_entities || []
+//         );
+//         const legalEntities = hasViewGroupOptions
+//             ? normalizeOptions(viewGroupLegalEntityOptions[viewGroupKey] || [])
+//             : cascadeLegalEntities(
+//                 sharedLegalEntityOptions,
+//                 viewGroupIds,
+//                 legalGroups
+//             );
+//         const parentDivisions = normalizeOptions(filterOptions.parent_divisions || []);
+//         const subDivisions = normalizeOptions(filterOptions.sub_divisions || []);
+
+//         const selectedKeys = (selected, options) => {
+//             const selectedValues = Array.isArray(selected) ? selected : selected ? [selected] : [];
+//             return selectedValues.flatMap((selectedValue) => {
+//                 const match = options.find(
+//                     (option) =>
+//                         String(option.value ?? "") === String(selectedValue) ||
+//                         String(option.label ?? "") === String(selectedValue)
+//                 );
+//                 if (!match) return [String(selectedValue)];
+//                 const meta = match?.meta?.meta || match?.meta || match || {};
+//                 const aliases = [match.value, match.label];
+//                 Object.entries(meta).forEach(([key, value]) => {
+//                     if (/(legal.?group|legal.?entity|parent.?division|sub.?division|group.?id|group.?code|group.?name|entity.?id|entity.?code|entity.?name|division.?id|division.?name)/i.test(key)) {
+//                         (Array.isArray(value) ? value : [value]).forEach((item) => {
+//                             if (item !== null && item !== undefined && typeof item !== "object" && String(item).trim()) aliases.push(String(item));
+//                             else if (item && typeof item === "object") aliases.push(item.id, item.code, item.value, item.name, item.label);
+//                         });
+//                     }
+//                 });
+//                 return [...new Set(aliases.filter((value) => value !== null && value !== undefined && String(value).trim()).map(String))];
+//             });
+//         };
+
+//         const selectedLegalGroups = selectedKeys(viewFilters.legal_group, legalGroups);
+//         const selectedLegalEntities = selectedKeys(viewFilters.legal_entities, legalEntities);
+
+//         // `legalEntities` is already group-scoped above. Do not cascade it a
+//         // second time with a different alias set: that can incorrectly remove
+//         // valid entities (notably RKME) from the View All dropdown.
+//         const legalEntityOptions = normalizeOptions(legalEntities);
+
+//         const viewEntityIdsForCache = selectedValuesToIds(viewFilters.legal_entities, legalEntities);
+//         const parentCacheKey = [...viewGroupIds, "::", ...viewEntityIdsForCache].join("|");
+//         const parentDivisionOptions = Object.prototype.hasOwnProperty.call(viewParentDivisionCache, parentCacheKey)
+//             ? normalizeOptions(viewParentDivisionCache[parentCacheKey] || [])
+//             : cascadeParentDivisions(parentDivisions, selectedLegalEntities, selectedLegalGroups);
+//         const selectedParentDivisions = selectedKeys(viewFilters.parent_divisions, parentDivisionOptions);
+
+//         const viewDivisionIdsForCache = selectedValuesToIds(viewFilters.parent_divisions, parentDivisionOptions);
+//         const subCacheKey = [...viewGroupIds, "::", ...viewEntityIdsForCache, "::", ...viewDivisionIdsForCache].join("|");
+//         const subDivisionOptions = Object.prototype.hasOwnProperty.call(viewSubDivisionCache, subCacheKey)
+//             ? normalizeOptions(viewSubDivisionCache[subCacheKey] || [])
+//             : cascadeSubDivisions(subDivisions, selectedParentDivisions, selectedLegalEntities, selectedLegalGroups);
+
+//         return {
+//             legal_group: legalGroups,
+//             legal_entities: legalEntityOptions,
+//             parent_divisions: parentDivisionOptions,
+//             sub_divisions: subDivisionOptions,
+//         };
+//     }, [
+//         filterOptions.legal_groups,
+//         effectiveLegalEntityOptions,
+//         filterOptions.parent_divisions,
+//         filterOptions.sub_divisions,
+//         viewFilters.legal_group,
+//         viewFilters.legal_entities,
+//         viewFilters.parent_divisions,
+//         viewGroupLegalEntityOptions,
+//         viewParentDivisionCache,
+//         viewSubDivisionCache,
+//     ]);
+
+//     const cascadeLabels = (items = []) =>
+//         items.map((item) => String(item?.label ?? item?.value ?? item ?? ""));
+
+//     /* Remove child selections which are no longer valid after a parent 
+//        filter changes. This keeps the visible cascade and submitted filters 
+//        synchronized without changing any existing API contracts. */
+//     useEffect(() => {
+//         const allowedLegalEntities = new Set(
+//             viewCascadeOptions.legal_entities.map((x) => String(x.value ?? x.label ?? x))
+//         );
+//         const allowedParentDivisions = new Set(
+//             viewCascadeOptions.parent_divisions.map((x) => String(x.value ?? x.label ?? x))
+//         );
+//         const allowedSubDivisions = new Set(
+//             viewCascadeOptions.sub_divisions.map((x) => String(x.value ?? x.label ?? x))
+//         );
+
+//         setViewFilters((prev) => {
+//             const resolveAllowed = (selected, options, allowedSet) => {
+//                 const selectedValues = Array.isArray(selected) ? selected : selected ? [selected] : [];
+//                 return selectedValues.filter((value) => {
+//                     const match = options.find(
+//                         (option) =>
+//                             String(option.value ?? option.label ?? option) === String(value) ||
+//                             String(option.label ?? option.value ?? option) === String(value)
+//                     );
+//                     return match && allowedSet.has(String(match.value ?? match.label ?? match));
+//                 });
+//             };
+
+//             const nextLegalEntities = resolveAllowed(
+//                 prev.legal_entities,
+//                 normalizeOptions(viewCascadeOptions.legal_entities || []),
+//                 allowedLegalEntities
+//             );
+//             const nextParentDivisions = resolveAllowed(
+//                 prev.parent_divisions,
+//                 normalizeOptions(filterOptions.parent_divisions || []),
+//                 allowedParentDivisions
+//             );
+//             const nextSubDivisions = resolveAllowed(
+//                 prev.sub_divisions,
+//                 normalizeOptions(filterOptions.sub_divisions || []),
+//                 allowedSubDivisions
+//             );
+
+//             if (
+//                 JSON.stringify(nextLegalEntities) === JSON.stringify(prev.legal_entities) &&
+//                 JSON.stringify(nextParentDivisions) === JSON.stringify(prev.parent_divisions) &&
+//                 JSON.stringify(nextSubDivisions) === JSON.stringify(prev.sub_divisions)
+//             ) {
+//                 return prev;
+//             }
+
+//             return {
+//                 ...prev,
+//                 legal_entities: nextLegalEntities,
+//                 parent_divisions: nextParentDivisions,
+//                 sub_divisions: nextSubDivisions,
+//             };
+//         });
+//     }, [
+//         viewCascadeOptions,
+//         effectiveLegalEntityOptions,
+//         filterOptions.parent_divisions,
+//         filterOptions.sub_divisions,
+//     ]);
+
+
+//     /* ============================================================  
+//        API FILTER OPTIONS  
+//     ============================================================ */
+
+//     const viewFilterOptions = {
+//         legal_group: (
+//             filterOptions.legal_groups || []
+//         ).map((x) => x.label ?? x),
+
+//         legal_entities: cascadeLabels(viewCascadeOptions.legal_entities),
+
+//         parent_divisions: cascadeLabels(viewCascadeOptions.parent_divisions),
+
+//         sub_divisions: cascadeLabels(viewCascadeOptions.sub_divisions),
+
+//         customer_types: ["All", ...(filterOptions.customer_types || [])
+//             .map((x) => x.label ?? x.value ?? x)
+//             .filter((value) => String(value).toLowerCase() !== "all")],
+
+//         gl_codes: (
+//             filterOptions.gl_codes || filterOptions.gl_code || []
+//         ).map((x) => x.label ?? x),
+
+//         reporting_currencies: (
+//             filterOptions.reporting_currencies || []
+//         ).map((x) => x.label ?? x),
+
+//         as_on_dates:
+//             filterOptions.as_on_dates || [],
+
+//         aging_basis: (
+//             filterOptions.aging_bases || []
+//         ).map((x) => x.label ?? x),
+//         years: (filterOptions.years || []).map((x) => String(x)),
+//     };
+
+//     const getFilterValue = (
+//         key,
+//         fallback = "All"
+//     ) => {
+//         const value = filters?.[key];
+
+//         if (
+//             value === undefined ||
+//             value === null ||
+//             value === ""
+//         ) {
+//             return fallback;
+//         }
+
+//         if (Array.isArray(value)) {
+//             return value.length
+//                 ? value.join(", ")
+//                 : fallback;
+//         }
+
+//         return value;
+//     };
+
+//     const formatFilterDate = (value) => formatReceivablesDate(value);
+//     const formatDate = (value) => {
+//         return value ?? "";
+//     };
+
+//     const cleanCurrency = (value) => {
+//         if (typeof value !== "string") {
+//             return value;
+//         }
+
+//         return value.replace(
+//             /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
+//             ""
+//         );
+//     };
+
+//     const formatTableAmount = (value) => {
+//         if (value === null || value === undefined || value === "") {
+//             return "—";
+//         }
+
+//         const number = Number(value);
+
+//         if (!Number.isFinite(number)) {
+//             return "—";
+//         }
+
+//         if (viewAllDisplayUnit === "Millions") {
+//             const millions = number / 1000000;
+//             return `${millions < 0 ? "(" : ""}${Math.abs(millions).toFixed(2)}M${millions < 0 ? ")" : ""}`;
+//         }
+
+//         const formatted = Math.abs(number).toLocaleString("en-US", {
+//             maximumFractionDigits: 0,
+//         });
+
+//         return number < 0 ? `(${formatted})` : formatted;
+//     };
+
+//     /* ============================================================  
+//        CUSTOMER TYPE HELPERS
+//        Customer Type uses the same checkbox / Select All / Clear behavior
+//        as the other multi-select View All filters. The visible options come
+//        directly from the backend filter-options response.
+//     ============================================================ */
+
+//     const getCustomerTypeApiValue = (value, options = []) => {
+//         const selected = Array.isArray(value)
+//             ? value
+//             : value
+//                 ? [value]
+//                 : [];
+
+//         const normalizedSelected = selected
+//             .map((item) => String(item ?? "").trim())
+//             .filter(Boolean);
+
+//         if (normalizedSelected.length === 0 || normalizedSelected.some((value) => value.toUpperCase() === "ALL")) {
+//             return "ALL";
+//         }
+
+//         const resolved = normalizedSelected.map((selectedValue) => {
+//             const selectedUpper = selectedValue.toUpperCase();
+//             const matched = (Array.isArray(options) ? options : []).find((item) => {
+//                 const optionValue = String(
+//                     item?.value ??
+//                     item?.code ??
+//                     item?.key ??
+//                     item ??
+//                     ""
+//                 ).trim();
+//                 const optionLabel = String(
+//                     item?.label ??
+//                     item?.name ??
+//                     item?.value ??
+//                     item ??
+//                     ""
+//                 ).trim();
+
+//                 return (
+//                     optionValue.toUpperCase() === selectedUpper ||
+//                     optionLabel.toUpperCase() === selectedUpper
+//                 );
+//             });
+
+//             return String(
+//                 matched?.value ??
+//                 matched?.code ??
+//                 matched?.key ??
+//                 selectedValue
+//             ).trim();
+//         });
+
+//         const allBackendOptions = (Array.isArray(options) ? options : [])
+//             .map((item) => String(
+//                 item?.value ??
+//                 item?.code ??
+//                 item?.key ??
+//                 item ??
+//                 ""
+//             ).trim())
+//             .filter(Boolean);
+
+//         // No restriction / Select All is represented by ALL for the API.
+//         if (
+//             normalizedSelected.length > 1 &&
+//             allBackendOptions.length > 0 &&
+//             resolved.length === allBackendOptions.length
+//         ) {
+//             return "ALL";
+//         }
+
+//         // The current backend contract accepts one customer_type value.
+//         // If both External and Internal are selected, treat it as All.
+//         if (resolved.length > 1) {
+//             const unique = [...new Set(resolved.map((x) => x.toUpperCase()))];
+//             if (unique.includes("EXTERNAL") && unique.includes("INTERNAL")) {
+//                 return "ALL";
+//             }
+//         }
+
+//         return resolved[0] || "ALL";
+//     };
+
+//     /* ============================================================  
+//        DROPDOWN HELPERS  
+//     ============================================================ */
+
+//     const multiFilterConfig = {
+//         legal_group: {
+//             label: "Legal Group",
+//             options:
+//                 viewFilterOptions.legal_group,
+//         },
+
+//         legal_entities: {
+//             label: "Legal Entity",
+//             options:
+//                 viewFilterOptions.legal_entities,
+//         },
+
+//         parent_divisions: {
+//             label: "Parent Division",
+//             options:
+//                 viewFilterOptions.parent_divisions,
+//         },
+
+//         sub_divisions: {
+//             label: "Sub-Division",
+//             options:
+//                 viewFilterOptions.sub_divisions,
+//         },
+
+//         gl_codes: {
+//             label: "GL Code",
+//             options: viewFilterOptions.gl_codes,
+//         },
+
+//         customer_type: {
+//             label: "Customer Type",
+//             options: viewFilterOptions.customer_types,
+//         },
+//     };
+
+//     const singleFilterConfig = {
+
+//         year: {
+//             label: "Year",
+//             options: viewFilterOptions.years,
+//         },
+
+//         reporting_currency: {
+//             label: "Reporting Currency",
+//             options:
+//                 viewFilterOptions.reporting_currencies,
+//         },
+
+//         as_on_date: {
+//             label: "As On Date",
+//             options:
+//                 viewFilterOptions.as_on_dates,
+//         },
+
+//         aging_basis: {
+//             label: "Aging Basis",
+//             options:
+//                 viewFilterOptions.aging_basis,
+//         },
+//     };
+
+//     const handleFilterSearch = (
+//         key,
+//         value
+//     ) => {
+//         setFilterSearch((prev) => ({
+//             ...prev,
+//             [key]: value,
+//         }));
+//     };
+
+//     const toggleMultiFilterValue = (
+//         key,
+//         value
+//     ) => {
+//         if (key === "customer_type" && String(value).toLowerCase() === "all") {
+//             setViewFilters((prev) => ({ ...prev, customer_type: [] }));
+//             return;
+//         }
+//         const currentValuesForRequest = Array.isArray(viewFilters[key]) ? viewFilters[key] : [];
+//         const existsForRequest = currentValuesForRequest.includes(value);
+//         const nextValuesForRequest = existsForRequest
+//             ? currentValuesForRequest.filter((item) => item !== value)
+//             : [...currentValuesForRequest, value];
+
+//         setViewFilters((prev) => {
+//             const currentValues =
+//                 Array.isArray(prev[key])
+//                     ? prev[key]
+//                     : [];
+
+//             const exists = currentValues.includes(value);
+//             const nextValues = exists
+//                 ? currentValues.filter((item) => item !== value)
+//                 : [...currentValues, value];
+
+//             // Changing Legal Group invalidates all downstream selections.
+//             // Reset them together so View All never submits stale RKME/FJ IDs.
+//             if (key === "legal_group") {
+//                 return {
+//                     ...prev,
+//                     legal_group: nextValues,
+//                     legal_entities: [],
+//                     parent_divisions: [],
+//                     sub_divisions: [],
+//                 };
+//             }
+
+//             if (key === "legal_entities") {
+//                 return {
+//                     ...prev,
+//                     legal_entities: nextValues,
+//                     parent_divisions: [],
+//                     sub_divisions: [],
+//                 };
+//             }
+
+//             if (key === "parent_divisions") {
+//                 return {
+//                     ...prev,
+//                     parent_divisions: nextValues,
+//                     sub_divisions: [],
+//                 };
+//             }
+
+//             return { ...prev, [key]: nextValues };
+//         });
+
+//         if (key === "legal_group") {
+//             void loadViewLegalEntitiesForGroups(nextValuesForRequest);
+//         } else if (key === "legal_entities") {
+//             void loadViewParentDivisions(viewFilters.legal_group, nextValuesForRequest);
+//         } else if (key === "parent_divisions") {
+//             void loadViewSubDivisions(viewFilters.legal_group, viewFilters.legal_entities, nextValuesForRequest);
+//         }
+//     };
+
+//     const selectAllFilterValues = (key) => {
+//         if (key === "legal_group") {
+//             const options = multiFilterConfig[key]?.options || [];
+//             const selected = Array.isArray(viewFilters[key]) ? viewFilters[key] : [];
+//             const allSelected = options.length > 0 && selected.length === options.length;
+//             const nextGroups = allSelected ? [] : [...options];
+//             setViewFilters((prev) => ({
+//                 ...prev,
+//                 legal_group: nextGroups,
+//                 legal_entities: [],
+//                 parent_divisions: [],
+//                 sub_divisions: [],
+//             }));
+//             setViewParentDivisionCache({});
+//             setViewSubDivisionCache({});
+//             void loadViewLegalEntitiesForGroups(nextGroups);
+//             return;
+//         }
+
+//         if (key === "legal_entities") {
+//             const options = multiFilterConfig[key]?.options || [];
+//             const selected = Array.isArray(viewFilters[key]) ? viewFilters[key] : [];
+//             const allSelected = options.length > 0 && selected.length === options.length;
+//             const nextEntities = allSelected ? [] : [...options];
+//             setViewFilters((prev) => ({ ...prev, legal_entities: nextEntities, parent_divisions: [], sub_divisions: [] }));
+//             void loadViewParentDivisions(viewFilters.legal_group, nextEntities);
+//             return;
+//         }
+//         if (key === "parent_divisions") {
+//             const options = multiFilterConfig[key]?.options || [];
+//             const selected = Array.isArray(viewFilters[key]) ? viewFilters[key] : [];
+//             const allSelected = options.length > 0 && selected.length === options.length;
+//             const nextDivisions = allSelected ? [] : [...options];
+//             setViewFilters((prev) => ({ ...prev, parent_divisions: nextDivisions, sub_divisions: [] }));
+//             void loadViewSubDivisions(viewFilters.legal_group, viewFilters.legal_entities, nextDivisions);
+//             return;
+//         }
+//         setViewFilters((prev) => {
+//             const options =
+//                 multiFilterConfig[key]?.options || [];
+//             const selected = Array.isArray(prev[key])
+//                 ? prev[key]
+//                 : [];
+//             const allSelected =
+//                 options.length > 0 &&
+//                 selected.length === options.length;
+
+//             const selectableOptions = key === "customer_type" ? options.filter((option) => String(option).toLowerCase() !== "all") : options;
+//             const selectableAllSelected = selectableOptions.length > 0 && selected.filter((option) => String(option).toLowerCase() !== "all").length === selectableOptions.length;
+//             return {
+//                 ...prev,
+//                 [key]: selectableAllSelected ? [] : [...selectableOptions],
+//             };
+//         });
+//     };
+
+//     const clearFilterValues = (key) => {
+//         setViewFilters((prev) => ({
+//             ...prev,
+//             [key]: Array.isArray(prev[key]) ? [] : "",
+//             ...(key === "legal_group" ? {
+//                 legal_entities: [], parent_divisions: [], sub_divisions: [],
+//             } : {}),
+//             ...(key === "legal_entities" ? {
+//                 parent_divisions: [], sub_divisions: [],
+//             } : {}),
+//             ...(key === "parent_divisions" ? { sub_divisions: [] } : {}),
+//         }));
+
+//         // Keep View All's option caches aligned with the same cascade used by
+//         // the main page; clearing a parent must never leave stale child choices.
+//         if (key === "legal_group") {
+//             setViewGroupLegalEntityOptions({});
+//             setViewParentDivisionCache({});
+//             setViewSubDivisionCache({});
+//         } else if (key === "legal_entities") {
+//             setViewParentDivisionCache({});
+//             setViewSubDivisionCache({});
+//         } else if (key === "parent_divisions") {
+//             setViewSubDivisionCache({});
+//         }
+
+//         setFilterSearch((prev) => ({ ...prev, [key]: "" }));
+//     };
+
+//     const selectSingleFilterValue = (
+//         key,
+//         value
+//     ) => {
+//         setViewFilters((prev) => ({
+//             ...prev,
+//             [key]: value,
+//         }));
+
+//         setOpenFilter(null);
+//     };
+
+//     const getMultiFilterDisplayValue = (
+//         key
+//     ) => {
+//         const selected = Array.isArray(
+//             viewFilters[key]
+//         )
+//             ? viewFilters[key]
+//             : [];
+
+//         const options =
+//             multiFilterConfig[key]
+//                 ?.options || [];
+
+//         if (selected.length === 0) {
+//             return "All";
+//         }
+
+//         const selectableCount = key === "customer_type"
+//             ? options.filter((option) => String(option).toLowerCase() !== "all").length
+//             : options.length;
+//         if (selected.filter((option) => String(option).toLowerCase() !== "all").length === selectableCount && selectableCount > 0) {
+//             return "All";
+//         }
+
+//         if (selected.length <= 2) {
+//             return selected.join(", ");
+//         }
+
+//         return `${selected.length} selected`;
+//     };
+
+//     const getSingleFilterDisplayValue = (
+//         key
+//     ) => {
+//         const value = viewFilters[key];
+
+//         if (!value) {
+//             return "All";
+//         }
+
+//         return value;
+//     };
+
+//     /* ============================================================  
+//        FILTER DROPDOWN  
+//     ============================================================ */
+
+//     const MultiSelectDropdown = ({
+//         filterKey,
+//         label,
+//     }) => {
+//         const options =
+//             multiFilterConfig[filterKey]
+//                 ?.options || [];
+
+//         const query = (
+//             filterSearch[filterKey] || ""
+//         )
+//             .trim()
+//             .toLowerCase();
+
+//         const filteredOptions =
+//             options.filter((option) =>
+//                 String(option)
+//                     .toLowerCase()
+//                     .includes(query)
+//             );
+
+//         const selectedValues =
+//             Array.isArray(
+//                 viewFilters[filterKey]
+//             )
+//                 ? viewFilters[filterKey]
+//                 : [];
+
+//         const selectableOptions = filterKey === "customer_type"
+//             ? options.filter((option) => String(option).toLowerCase() !== "all")
+//             : options;
+//         const selectedNonAll = selectedValues.filter((option) => String(option).toLowerCase() !== "all");
+//         const allSelected = selectableOptions.length > 0 && selectedNonAll.length === selectableOptions.length;
+
+//         return (
+//             <div
+//                 className="receivables-view-all-filter"
+//                 style={{
+//                     position: "relative",
+//                 }}
+//             >
+//                 <div
+//                     style={{
+//                         fontSize: 10,
+//                         fontWeight: 700,
+//                         color: "#173b8f",
+//                         marginBottom: 5,
+//                     }}
+//                 >
+//                     {label}
+//                 </div>
+
+//                 <button
+//                     type="button"
+//                     onClick={() => {
+//                         setOpenFilter(
+//                             (current) =>
+//                                 current ===
+//                                     filterKey
+//                                     ? null
+//                                     : filterKey
+//                         );
+//                     }}
+//                     style={{
+//                         width: "100%",
+//                         height: 34,
+//                         border:
+//                             "1px solid #d9e1ee",
+//                         borderRadius: 5,
+//                         background: "#ffffff",
+//                         display: "flex",
+//                         alignItems: "center",
+//                         justifyContent:
+//                             "space-between",
+//                         padding: "0 9px",
+//                         boxSizing:
+//                             "border-box",
+//                         color: "#29427f",
+//                         fontSize: 11,
+//                         fontWeight: 600,
+//                         whiteSpace: "nowrap",
+//                         cursor: "pointer",
+//                         textAlign: "left",
+//                     }}
+//                 >
+//                     <span
+//                         style={{
+//                             overflow: "hidden",
+//                             textOverflow:
+//                                 "ellipsis",
+//                             whiteSpace:
+//                                 "nowrap",
+//                             paddingRight: 5,
+//                         }}
+//                     >
+//                         {getMultiFilterDisplayValue(
+//                             filterKey
+//                         )}
+//                     </span>
+
+//                     <span
+//                         style={{
+//                             color: "#173b8f",
+//                             flexShrink: 0,
+//                         }}
+//                     >
+//                         ⌄
+//                     </span>
+//                 </button>
+
+//                 {openFilter ===
+//                     filterKey && (
+//                         <div
+//                             style={{
+//                                 position:
+//                                     "absolute",
+//                                 top:
+//                                     "calc(100% + 5px)",
+//                                 left: 0,
+//                                 width: "100%",
+//                                 minWidth: 230,
+//                                 background:
+//                                     "#ffffff",
+//                                 border:
+//                                     "1px solid #d7dfeb",
+//                                 borderRadius: 6,
+//                                 boxShadow:
+//                                     "0 8px 20px rgba(15, 23, 42, 0.12)",
+//                                 zIndex: 5000,
+//                                 overflow:
+//                                     "hidden",
+//                             }}
+//                         >
+//                             <div
+//                                 style={{
+//                                     padding:
+//                                         "7px 8px",
+//                                     borderBottom:
+//                                         "1px solid #edf1f6",
+//                                 }}
+//                             >
+//                                 <div
+//                                     style={{
+//                                         position:
+//                                             "relative",
+//                                     }}
+//                                 >
+//                                     <span
+//                                         style={{
+//                                             position:
+//                                                 "absolute",
+//                                             left: 9,
+//                                             top: "50%",
+//                                             transform:
+//                                                 "translateY(-50%)",
+//                                             color:
+//                                                 "#94a3b8",
+//                                             fontSize: 13,
+//                                         }}
+//                                     >
+//                                         ⌕
+//                                     </span>
+
+//                                     <input
+//                                         type="text"
+//                                         value={
+//                                             filterSearch[
+//                                             filterKey
+//                                             ] ||
+//                                             ""
+//                                         }
+//                                         onChange={(
+//                                             e
+//                                         ) =>
+//                                             handleFilterSearch(
+//                                                 filterKey,
+//                                                 e
+//                                                     .target
+//                                                     .value
+//                                             )
+//                                         }
+//                                         placeholder="Search..."
+//                                         autoFocus
+//                                         style={{
+//                                             width:
+//                                                 "100%",
+//                                             height: 30,
+//                                             border:
+//                                                 "1px solid #d9e1ee",
+//                                             borderRadius: 5,
+//                                             padding:
+//                                                 "0 8px 0 27px",
+//                                             outline:
+//                                                 "none",
+//                                             fontSize: 10,
+//                                             color:
+//                                                 "#334155",
+//                                             boxSizing:
+//                                                 "border-box",
+//                                         }}
+//                                     />
+//                                 </div>
+//                             </div>
+
+//                             <div
+//                                 style={{
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     justifyContent:
+//                                         "space-between",
+//                                     padding:
+//                                         "7px 9px",
+//                                     borderBottom:
+//                                         "1px solid #edf1f6",
+//                                     fontSize: 10,
+//                                     fontWeight: 700,
+//                                 }}
+//                             >
+//                                 <button
+//                                     type="button"
+//                                     onClick={() =>
+//                                         selectAllFilterValues(
+//                                             filterKey
+//                                         )
+//                                     }
+//                                     style={{
+//                                         border:
+//                                             "none",
+//                                         background:
+//                                             "transparent",
+//                                         padding: 0,
+//                                         color:
+//                                             "#24479d",
+//                                         cursor:
+//                                             "pointer",
+//                                         fontSize: 10,
+//                                         fontWeight: 700,
+//                                     }}
+//                                 >
+//                                     {allSelected
+//                                         ? "Deselect All"
+//                                         : "Select All"}
+//                                 </button>
+
+//                                 <button
+//                                     type="button"
+//                                     onClick={() =>
+//                                         clearFilterValues(
+//                                             filterKey
+//                                         )
+//                                     }
+//                                     style={{
+//                                         border:
+//                                             "none",
+//                                         background:
+//                                             "transparent",
+//                                         padding: 0,
+//                                         color:
+//                                             "#64748b",
+//                                         cursor:
+//                                             "pointer",
+//                                         fontSize: 10,
+//                                         fontWeight: 600,
+//                                     }}
+//                                 >
+//                                     Clear
+//                                 </button>
+//                             </div>
+
+//                             <div
+//                                 style={{
+//                                     maxHeight: 220,
+//                                     overflowY:
+//                                         "auto",
+//                                     padding:
+//                                         "3px 0",
+//                                 }}
+//                             >
+//                                 {filteredOptions.length >
+//                                     0 ? (
+//                                     filteredOptions.map(
+//                                         (
+//                                             option
+//                                         ) => {
+//                                             const checked = filterKey === "customer_type" && String(option).toLowerCase() === "all"
+//                                                 ? selectedValues.length === 0
+//                                                 : selectedValues.includes(option);
+
+//                                             return (
+//                                                 <label
+//                                                     key={
+//                                                         option
+//                                                     }
+//                                                     style={{
+//                                                         display:
+//                                                             "flex",
+//                                                         alignItems:
+//                                                             "center",
+//                                                         gap: 7,
+//                                                         padding:
+//                                                             "6px 9px",
+//                                                         cursor:
+//                                                             "pointer",
+//                                                         fontSize: 10,
+//                                                         color:
+//                                                             "#334155",
+//                                                         lineHeight:
+//                                                             1.2,
+//                                                     }}
+//                                                 >
+//                                                     <input
+//                                                         type="checkbox"
+//                                                         checked={
+//                                                             checked
+//                                                         }
+//                                                         onChange={() =>
+//                                                             toggleMultiFilterValue(
+//                                                                 filterKey,
+//                                                                 option
+//                                                             )
+//                                                         }
+//                                                         style={{
+//                                                             width: 12,
+//                                                             height: 12,
+//                                                             margin: 0,
+//                                                             accentColor:
+//                                                                 "#4936e9",
+//                                                         }}
+//                                                     />
+
+//                                                     <span
+//                                                         style={{
+//                                                             overflow:
+//                                                                 "hidden",
+//                                                             textOverflow:
+//                                                                 "ellipsis",
+//                                                             whiteSpace:
+//                                                                 "nowrap",
+//                                                         }}
+//                                                         title={
+//                                                             option
+//                                                         }
+//                                                     >
+//                                                         {
+//                                                             option
+//                                                         }
+//                                                     </span>
+//                                                 </label>
+//                                             );
+//                                         }
+//                                     )
+//                                 ) : (
+//                                     <div
+//                                         style={{
+//                                             padding: 15,
+//                                             textAlign:
+//                                                 "center",
+//                                             color:
+//                                                 "#94a3b8",
+//                                             fontSize: 10,
+//                                         }}
+//                                     >
+//                                         No results
+//                                         found
+//                                     </div>
+//                                 )}
+//                             </div>
+//                         </div>
+//                     )}
+//             </div>
+//         );
+//     };
+
+//     /* ============================================================  
+//        DATE FILTER  
+//     ============================================================ */
+
+//     const ViewAllDateFilter = ({
+//         filterKey = "as_on_date",
+//         label = "As On Date",
+//     }) => {
+//         const dateRef = useRef(null);
+//         const value =
+//             normalizeReceivablesDate(viewFilters[filterKey] || "");
+
+//         const openCalendar = () => {
+//             if (!dateRef.current) return;
+
+//             if (
+//                 typeof dateRef.current
+//                     .showPicker ===
+//                 "function"
+//             ) {
+//                 dateRef.current.showPicker();
+//             } else {
+//                 dateRef.current.click();
+//             }
+//         };
+
+//         return (
+//             <div
+//                 className="receivables-view-all-filter"
+//                 style={{
+//                     position: "relative",
+//                 }}
+//             >
+//                 <div
+//                     style={{
+//                         fontSize: 10,
+//                         fontWeight: 700,
+//                         color: "#173b8f",
+//                         marginBottom: 5,
+//                     }}
+//                 >
+//                     {label}
+//                 </div>
+
+//                 <input
+//                     ref={dateRef}
+//                     type="date"
+//                     value={value}
+//                     onChange={(e) =>
+//                         setViewFilters(
+//                             (prev) => ({
+//                                 ...prev,
+//                                 [filterKey]:
+//                                     e.target
+//                                         .value,
+//                             })
+//                         )
+//                     }
+//                     style={{
+//                         position:
+//                             "absolute",
+//                         width: 1,
+//                         height: 1,
+//                         opacity: 0,
+//                         pointerEvents:
+//                             "none",
+//                     }}
+//                 />
+
+//                 <button
+//                     type="button"
+//                     onClick={openCalendar}
+//                     style={{
+//                         width: "100%",
+//                         height: 34,
+//                         border:
+//                             "1px solid #d9e1ee",
+//                         borderRadius: 5,
+//                         background:
+//                             "#ffffff",
+//                         display: "flex",
+//                         alignItems:
+//                             "center",
+//                         justifyContent:
+//                             "space-between",
+//                         padding: "0 9px",
+//                         boxSizing:
+//                             "border-box",
+//                         color: value
+//                             ? "#29427f"
+//                             : "#64748b",
+//                         fontSize: 11,
+//                         fontWeight: 600,
+//                         whiteSpace:
+//                             "nowrap",
+//                         cursor:
+//                             "pointer",
+//                         textAlign: "left",
+//                     }}
+//                 >
+//                     <span>
+//                         {value
+//                             ? formatFilterDate(value)
+//                             : "Select Date"}
+//                     </span>
+
+//                     <span
+//                         style={{
+//                             fontSize: 15,
+//                         }}
+//                     >
+//                         📅
+//                     </span>
+//                 </button>
+//             </div>
+//         );
+//     };
+
+//     /* ============================================================  
+//        SINGLE SELECT DROPDOWN  
+//     ============================================================ */
+
+//     const SingleSelectDropdown = ({
+//         filterKey,
+//         label,
+//         noSearch = false,
+//         noClear = false,
+//         emphasized = false,
+//     }) => {
+//         const options =
+//             singleFilterConfig[
+//                 filterKey
+//             ]?.options || [];
+
+//         const query = (
+//             filterSearch[filterKey] || ""
+//         )
+//             .trim()
+//             .toLowerCase();
+
+//         const filteredOptions =
+//             options.filter((option) =>
+//                 String(option)
+//                     .toLowerCase()
+//                     .includes(query)
+//             );
+
+//         return (
+//             <div
+//                 style={{
+//                     position: "relative",
+//                 }}
+//             >
+//                 <div
+//                     style={{
+//                         fontSize: emphasized ? 11 : 10,
+//                         fontWeight: emphasized ? 800 : 700,
+//                         color: "#173b8f",
+//                         marginBottom: 5,
+//                     }}
+//                 >
+//                     {label}
+//                 </div>
+
+//                 <button
+//                     type="button"
+//                     onClick={() => {
+//                         setOpenFilter(
+//                             (current) =>
+//                                 current ===
+//                                     filterKey
+//                                     ? null
+//                                     : filterKey
+//                         );
+//                     }}
+//                     style={{
+//                         width: "100%",
+//                         height: 34,
+//                         border:
+//                             "1px solid #d9e1ee",
+//                         borderRadius: 5,
+//                         background:
+//                             "#ffffff",
+//                         display: "flex",
+//                         alignItems:
+//                             "center",
+//                         justifyContent:
+//                             "space-between",
+//                         padding: "0 9px",
+//                         boxSizing:
+//                             "border-box",
+//                         color: "#29427f",
+//                         fontSize: emphasized ? 12 : 11,
+//                         fontWeight: emphasized ? 800 : 600,
+//                         whiteSpace:
+//                             "nowrap",
+//                         cursor:
+//                             "pointer",
+//                         textAlign:
+//                             "left",
+//                     }}
+//                 >
+//                     <span
+//                         style={{
+//                             overflow:
+//                                 "hidden",
+//                             textOverflow:
+//                                 "ellipsis",
+//                             whiteSpace:
+//                                 "nowrap",
+//                         }}
+//                     >
+//                         {getSingleFilterDisplayValue(
+//                             filterKey
+//                         )}
+//                     </span>
+
+//                     <span
+//                         style={{
+//                             color:
+//                                 "#173b8f",
+//                             marginLeft: 5,
+//                         }}
+//                     >
+//                         ⌄
+//                     </span>
+//                 </button>
+
+//                 {openFilter ===
+//                     filterKey && (
+//                         <div
+//                             style={{
+//                                 position:
+//                                     "absolute",
+//                                 top:
+//                                     "calc(100% + 5px)",
+//                                 left: 0,
+//                                 width: "100%",
+//                                 minWidth: 200,
+//                                 background:
+//                                     "#ffffff",
+//                                 border:
+//                                     "1px solid #d7dfeb",
+//                                 borderRadius: 6,
+//                                 boxShadow:
+//                                     "0 8px 20px rgba(15, 23, 42, 0.12)",
+//                                 zIndex: 5000,
+//                                 overflow:
+//                                     "hidden",
+//                             }}
+//                         >
+//                             {!noSearch && (
+//                                 <div
+//                                     style={{
+//                                         padding:
+//                                             "7px 8px",
+//                                         borderBottom:
+//                                             "1px solid #edf1f6",
+//                                     }}
+//                                 >
+//                                     <div
+//                                         style={{
+//                                             position:
+//                                                 "relative",
+//                                         }}
+//                                     >
+//                                         <span
+//                                             style={{
+//                                                 position:
+//                                                     "absolute",
+//                                                 left: 9,
+//                                                 top: "50%",
+//                                                 transform:
+//                                                     "translateY(-50%)",
+//                                                 color:
+//                                                     "#94a3b8",
+//                                                 fontSize: 13,
+//                                             }}
+//                                         >
+//                                             ⌕
+//                                         </span>
+
+//                                         <input
+//                                             type="text"
+//                                             value={
+//                                                 filterSearch[
+//                                                 filterKey
+//                                                 ] ||
+//                                                 ""
+//                                             }
+//                                             onChange={(
+//                                                 e
+//                                             ) =>
+//                                                 handleFilterSearch(
+//                                                     filterKey,
+//                                                     e
+//                                                         .target
+//                                                         .value
+//                                                 )
+//                                             }
+//                                             placeholder="Search..."
+//                                             autoFocus
+//                                             style={{
+//                                                 width:
+//                                                     "100%",
+//                                                 height: 30,
+//                                                 border:
+//                                                     "1px solid #d9e1ee",
+//                                                 borderRadius: 5,
+//                                                 padding:
+//                                                     "0 8px 0 27px",
+//                                                 outline:
+//                                                     "none",
+//                                                 fontSize: 10,
+//                                                 color:
+//                                                     "#334155",
+//                                                 boxSizing:
+//                                                     "border-box",
+//                                             }}
+//                                         />
+//                                     </div>
+//                                 </div>
+//                             )}
+
+//                             {!noClear && (
+//                                 <div
+//                                     style={{
+//                                         display:
+//                                             "flex",
+//                                         justifyContent:
+//                                             "flex-end",
+//                                         padding:
+//                                             "7px 9px",
+//                                         borderBottom:
+//                                             "1px solid #edf1f6",
+//                                     }}
+//                                 >
+//                                     <button
+//                                         type="button"
+//                                         onClick={() =>
+//                                             clearFilterValues(
+//                                                 filterKey
+//                                             )
+//                                         }
+//                                         style={{
+//                                             border:
+//                                                 "none",
+//                                             background:
+//                                                 "transparent",
+//                                             padding: 0,
+//                                             color:
+//                                                 "#64748b",
+//                                             cursor:
+//                                                 "pointer",
+//                                             fontSize: 10,
+//                                             fontWeight: 600,
+//                                         }}
+//                                     >
+//                                         Clear
+//                                     </button>
+//                                 </div>
+//                             )}
+
+//                             <div
+//                                 style={{
+//                                     maxHeight: 200,
+//                                     overflowY:
+//                                         "auto",
+//                                     padding:
+//                                         "3px 0",
+//                                 }}
+//                             >
+//                                 {filteredOptions.length >
+//                                     0 ? (
+//                                     filteredOptions.map(
+//                                         (
+//                                             option
+//                                         ) => (
+//                                             <button
+//                                                 key={
+//                                                     option
+//                                                 }
+//                                                 type="button"
+//                                                 onClick={() =>
+//                                                     selectSingleFilterValue(
+//                                                         filterKey,
+//                                                         option
+//                                                     )
+//                                                 }
+//                                                 style={{
+//                                                     width:
+//                                                         "100%",
+//                                                     border:
+//                                                         "none",
+//                                                     background:
+//                                                         viewFilters[
+//                                                             filterKey
+//                                                         ] ===
+//                                                             option
+//                                                             ? "#f1f5ff"
+//                                                             : "#ffffff",
+//                                                     padding:
+//                                                         "7px 10px",
+//                                                     textAlign:
+//                                                         "left",
+//                                                     cursor:
+//                                                         "pointer",
+//                                                     color:
+//                                                         viewFilters[
+//                                                             filterKey
+//                                                         ] ===
+//                                                             option
+//                                                             ? "#4936e9"
+//                                                             : "#334155",
+//                                                     fontSize: 10,
+//                                                     fontWeight:
+//                                                         viewFilters[
+//                                                             filterKey
+//                                                         ] ===
+//                                                             option
+//                                                             ? 700
+//                                                             : 500,
+//                                                 }}
+//                                             >
+//                                                 {
+//                                                     option
+//                                                 }
+//                                             </button>
+//                                         )
+//                                     )
+//                                 ) : (
+//                                     <div
+//                                         style={{
+//                                             padding: 15,
+//                                             textAlign:
+//                                                 "center",
+//                                             color:
+//                                                 "#94a3b8",
+//                                             fontSize: 10,
+//                                         }}
+//                                     >
+//                                         No results
+//                                         found
+//                                     </div>
+//                                 )}
+//                             </div>
+//                         </div>
+//                     )}
+//             </div>
+//         );
+//     };
+
+//     /* ============================================================  
+//        SERVER DATA  
+//     ============================================================ */
+
+//     const [
+//         serverRows,
+//         setServerRows,
+//     ] = useState(() =>
+//         normalizeViewAllRows(
+//             initialData
+//         )
+//     );
+
+//     const safeData = serverRows;
+
+//     /* 
+//      * KPI cards stay independent from the table search. 
+//      * Typing in Search changes the table rows only. 
+//      */
+//     const [kpiRows, setKpiRows] = useState(() =>
+//         normalizeViewAllRows(initialData)
+//     );
+
+//     const [viewAllBackendKpis, setViewAllBackendKpis] = useState({});
+
+//     /* 
+//      * KPI animation is triggered only after the initial View All KPI 
+//      * dataset is loaded and after the user explicitly presses Apply. 
+//      * Pagination, page-size, search and sorting never change this key. 
+//      */
+//     const [kpiAnimationKey, setKpiAnimationKey] = useState(0);
+//     const kpiAnimationPendingRef = useRef(true);
+
+//     const [
+//         serverMeta,
+//         setServerMeta,
+//     ] = useState({
+//         total_records: initialData.length,
+//         page: 1,
+//         page_size: pageSize,
+//     });
+
+//     const [
+//         detailLoading,
+//         setDetailLoading,
+//     ] = useState(false);
+
+//     /* ============================================================  
+//        EXPORT  
+//     ============================================================ */
+
+//     const handleExport = async (
+//         format
+//     ) => {
+//         try {
+//             const apiFilters =
+//                 buildDetailFilters();
+
+//             const isPdf =
+//                 String(format).toLowerCase() ===
+//                 "pdf";
+
+//             const response = isPdf
+//                 ? await exportReceivablesPDF(
+//                     apiFilters
+//                 )
+//                 : await exportReceivablesExcel(
+//                     apiFilters
+//                 );
+
+//             triggerReceivablesBlobDownload(
+//                 response,
+//                 isPdf
+//                     ? "Receivables_View_All.pdf"
+//                     : "Receivables_View_All.xlsx"
+//             );
+//         } catch (error) {
+//             console.error(
+//                 "Receivables View All export failed",
+//                 error
+//             );
+//         }
+//     };
+
+//     /* ============================================================  
+//        BUILD DETAIL FILTERS  
+//     ============================================================ */
+
+//     const buildDetailFilters = () => {
+//         const toIds = (
+//             values,
+//             options
+//         ) =>
+//             (Array.isArray(values)
+//                 ? values
+//                 : values
+//                     ? [values]
+//                     : []
+//             )
+//                 .map((label) =>
+//                     options.find(
+//                         (x) =>
+//                             String(
+//                                 x.label ??
+//                                 x
+//                             ) ===
+//                             String(
+//                                 label
+//                             ) ||
+//                             String(
+//                                 x.value ??
+//                                 x
+//                             ) ===
+//                             String(
+//                                 label
+//                             )
+//                     )?.value ?? label
+//                 )
+//                 .filter(
+//                     (value) =>
+//                         value !== "All" &&
+//                         value !== ""
+//                 );
+
+//         const optionList = (key) =>
+//             filterOptions[key] || [];
+
+//         const {
+//             component: _component,
+//             ...drilldownFilters
+//         } = drilldown || {};
+
+//         /*  
+//          * Convert the backend display label back  
+//          * to the backend API value.  
+//          *  
+//          * Due Date Based     -> DUE_DATE  
+//          * Invoice Date Based -> INVOICE_DATE  
+//          */
+//         const selectedAgingBasis =
+//             appliedViewFilters?.aging_basis ||
+//             filters?.aging_basis ||
+//             filters?.agingBasis ||
+//             "";
+
+//         const agingBasisOption =
+//             optionList("aging_bases").find((item) => {
+//                 const optionValue = String(
+//                     item?.value ?? item
+//                 ).trim().toUpperCase();
+//                 const optionLabel = String(
+//                     item?.label ?? item
+//                 ).trim().toUpperCase();
+//                 const selected = String(
+//                     selectedAgingBasis
+//                 ).trim().toUpperCase();
+
+//                 return (
+//                     optionValue === selected ||
+//                     optionLabel === selected
+//                 );
+//             });
+
+//         return {
+//             ...baseFilters,
+//             ...drilldownFilters,
+
+//             aging_basis:
+//                 agingBasisOption?.value ??
+//                 apiAgingBasis(
+//                     selectedAgingBasis
+//                 ),
+
+//             as_on_date:
+//                 drilldown?.as_on_date ||
+//                 appliedViewFilters?.as_on_date ||
+//                 filters?.as_on_date ||
+//                 baseFilters.as_on_date,
+
+//             reporting_currency:
+//                 appliedViewFilters?.reporting_currency ||
+//                 filters?.reporting_currency ||
+//                 baseFilters.reporting_currency,
+
+//             legal_group_id: toIds(
+//                 appliedViewFilters?.legal_group,
+//                 optionList(
+//                     "legal_groups"
+//                 )
+//             ),
+
+//             legal_entity_id:
+//                 drilldown?.legal_entity_id ??
+//                 toIds(
+//                     appliedViewFilters?.legal_entities,
+//                     optionList(
+//                         "legal_entities"
+//                     )
+//                 ),
+
+//             parent_division_id:
+//                 drilldown?.parent_division_id ??
+//                 toIds(
+//                     appliedViewFilters?.parent_divisions,
+//                     optionList(
+//                         "parent_divisions"
+//                     )
+//                 ),
+
+//             subdivision_id:
+//                 drilldown?.subdivision_id ??
+//                 toIds(
+//                     appliedViewFilters?.sub_divisions,
+//                     optionList(
+//                         "sub_divisions"
+//                     )
+//                 ),
+
+//             customer_type: getCustomerTypeApiValue(
+//                 appliedViewFilters?.customer_type,
+//                 filterOptions.customer_types
+//             ),
+
+//             gl_code: toIds(
+//                 appliedViewFilters?.gl_codes,
+//                 optionList("gl_codes").length
+//                     ? optionList("gl_codes")
+//                     : optionList("gl_code")
+//             ),
+
+//             /* 
+//              * Customer Name search only. 
+//              * The Receivables API uses `customer_name` for the customer-name 
+//              * search. Keep the legacy `search` parameter only as a backend 
+//              * compatibility fallback; the table itself is always filtered 
+//              * against customer name only below. Search starts at 2 chars. 
+//              */
+//             ...(search.trim().length >= 2
+//                 ? {
+//                     customer_name: search.trim(),
+//                     search: search.trim(),
+//                 }
+//                 : {}),
+
+//             page,
+
+//             page_size: pageSize,
+
+//             sort_by:
+//                 sortKey ===
+//                     "supplier_name"
+//                     ? "customer_name"
+//                     : sortKey ===
+//                         "legal_entity"
+//                         ? "legal_entity_name"
+//                         : sortKey ===
+//                             "parent_division"
+//                             ? "parent_division_name"
+//                             : sortKey ===
+//                                 "sub_division"
+//                                 ? "subdivision_name"
+//                                 : sortKey ===
+//                                     "total_receivable"
+//                                     ? "total_receivables"
+//                                     : sortKey ===
+//                                         "overdue_receivable"
+//                                         ? "overdue_receivables"
+//                                         : sortKey,
+
+//             sort_dir:
+//                 sortDirection,
+//         };
+//     };
+
+//     /* ============================================================  
+//        LOAD VIEW ALL  
+//     ============================================================ */
+
+//     useEffect(() => {
+//         let cancelled = false;
+
+//         setDetailLoading(true);
+//         setDetailError(null);
+
+//         getReceivableDetails(
+//             buildDetailFilters()
+//         )
+//             .then((response) => {
+//                 if (cancelled) return;
+
+//                 /*  
+//                  * Backend View All response:  
+//                  *  
+//                  * {  
+//                  *   data: [...],  
+//                  *   meta: {  
+//                  *      total_records: 5486,  
+//                  *      page: 1,  
+//                  *      page_size: 10  
+//                  *   }  
+//                  * }  
+//                  *  
+//                  * Also support Axios wrapping:  
+//                  *  
+//                  * response.data.data  
+//                  */
+
+//                 const axiosPayload =
+//                     response?.data ??
+//                     response ??
+//                     {};
+
+//                 let payload =
+//                     axiosPayload;
+
+//                 /*  
+//                  * Some wrappers can return:  
+//                  *  
+//                  * response.data.data = {  
+//                  *   data: [...],  
+//                  *   meta: {...}  
+//                  * }  
+//                  *  
+//                  * Keep support for that shape too.  
+//                  */
+//                 if (
+//                     payload?.data &&
+//                     !Array.isArray(
+//                         payload.data
+//                     ) &&
+//                     typeof payload.data ===
+//                     "object" &&
+//                     (
+//                         Array.isArray(
+//                             payload.data
+//                                 ?.data
+//                         ) ||
+//                         payload.data?.meta
+//                     )
+//                 ) {
+//                     payload =
+//                         payload.data;
+//                 }
+
+//                 let rows = [];
+
+//                 if (
+//                     Array.isArray(
+//                         payload
+//                     )
+//                 ) {
+//                     rows = payload;
+//                 } else if (
+//                     Array.isArray(
+//                         payload?.data
+//                     )
+//                 ) {
+//                     rows =
+//                         payload.data;
+//                 } else if (
+//                     Array.isArray(
+//                         payload?.rows
+//                     )
+//                 ) {
+//                     rows =
+//                         payload.rows;
+//                 }
+
+//                 const meta =
+//                     payload?.meta ??
+//                     response?.meta ??
+//                     {};
+
+//                 /*  
+//                  * Backend total_records is the  
+//                  * authoritative pagination total.  
+//                  */
+//                 const totalRecords = Number(
+//                     meta?.total_records ??
+//                     meta?.total_count ??
+//                     payload?.total_records ??
+//                     payload?.total_count ??
+//                     rows.length
+//                 );
+
+//                 const responsePage =
+//                     Number(
+//                         meta?.page ??
+//                         page
+//                     );
+
+//                 const responsePageSize =
+//                     Number(
+//                         meta?.page_size ??
+//                         pageSize
+//                     );
+
+//                 const normalizedRows =
+//                     normalizeViewAllRows(rows);
+
+//                 setServerRows(normalizedRows);
+
+//                 setServerMeta({
+//                     ...meta,
+//                     total_records:
+//                         Number.isFinite(
+//                             totalRecords
+//                         )
+//                             ? totalRecords
+//                             : rows.length,
+//                     page:
+//                         responsePage,
+//                     page_size:
+//                         responsePageSize,
+//                 });
+
+//                 /*  
+//                  * Use backend aging-basis value/label  
+//                  * when it is included in the response.  
+//                  */
+//                 const responseAgingBasis =
+//                     meta?.aging_basis ??
+//                     payload?.aging_basis ??
+//                     payload?.agingBasis ??
+//                     meta?.aging_basis_label ??
+//                     payload?.aging_basis_label;
+
+//                 if (
+//                     responseAgingBasis
+//                 ) {
+//                     setServerAgingBasis(
+//                         getBackendAgingBasisLabel(
+//                             responseAgingBasis
+//                         )
+//                     );
+//                 } else {
+//                     setServerAgingBasis(
+//                         getBackendAgingBasisLabel(
+//                             appliedViewFilters?.aging_basis ||
+//                             filters?.aging_basis ||
+//                             filters?.agingBasis ||
+//                             ""
+//                         )
+//                     );
+//                 }
+//             })
+//             .catch((error) => {
+//                 console.error(
+//                     "Receivables View All failed",
+//                     error
+//                 );
+
+//                 if (!cancelled) {
+//                     setDetailError(
+//                         error?.response?.data?.message ||
+//                         error?.response?.data?.detail ||
+//                         error?.message ||
+//                         "The View All receivables data could not be loaded. Please retry."
+//                     );
+//                     setServerRows([]);
+
+//                     setServerMeta({
+//                         total_records: 0,
+//                         page,
+//                         page_size:
+//                             pageSize,
+//                     });
+//                 }
+//             })
+//             .finally(() => {
+//                 if (!cancelled) {
+//                     setDetailLoading(
+//                         false
+//                     );
+//                 }
+//             });
+
+//         return () => {
+//             cancelled = true;
+//         };
+//     }, [
+//         appliedViewFilters,
+//         search,
+//         page,
+//         pageSize,
+//         sortKey,
+//         sortDirection,
+//         baseFilters,
+//         drilldown,
+//         detailRetryKey,
+//     ]);
+
+//     /* ============================================================ 
+//        VIEW ALL KPI SOURCE DATA 
+//        Load the complete View All result set independently from the 
+//        paginated/search table so KPI cards never change when the user 
+//        changes page size, page, sorting or search. 
+//     ============================================================ */
+//     useEffect(() => {
+//         let cancelled = false;
+//         setKpiError(null);
+
+//         const loadViewAllKpiRows = async () => {
+//             try {
+//                 const baseKpiFilters = {
+//                     ...buildDetailFilters(),
+//                     page: 1,
+//                     page_size: 500,
+//                 };
+//                 delete baseKpiFilters.customer_name;
+//                 delete baseKpiFilters.search;
+//                 delete baseKpiFilters.sort_by;
+//                 delete baseKpiFilters.sort_dir;
+
+//                 const allRows = [];
+//                 let aggregateKpis = {};
+//                 let currentPage = 1;
+//                 let totalRecords = null;
+//                 let effectivePageSize = 500;
+//                 let guard = 0;
+
+//                 while (guard < 200) {
+//                     guard += 1;
+//                     const response = await getReceivableDetails({
+//                         ...baseKpiFilters,
+//                         page: currentPage,
+//                         page_size: effectivePageSize,
+//                     });
+
+//                     const axiosPayload = response?.data ?? response ?? {};
+//                     let payload = axiosPayload;
+
+//                     if (
+//                         payload?.data &&
+//                         !Array.isArray(payload.data) &&
+//                         typeof payload.data === "object" &&
+//                         (Array.isArray(payload.data?.data) || payload.data?.meta)
+//                     ) {
+//                         payload = payload.data;
+//                     }
+
+//                     const rows = Array.isArray(payload)
+//                         ? payload
+//                         : Array.isArray(payload?.data)
+//                             ? payload.data
+//                             : Array.isArray(payload?.rows)
+//                                 ? payload.rows
+//                                 : [];
+
+//                     const meta = payload?.meta ?? response?.meta ?? {};
+//                     if (payload?.kpis || meta?.kpis) {
+//                         aggregateKpis = payload?.kpis ?? meta?.kpis ?? aggregateKpis;
+//                     }
+//                     const metaTotal = Number(
+//                         meta?.total_records ??
+//                         meta?.total_count ??
+//                         payload?.total_records ??
+//                         payload?.total_count
+//                     );
+
+//                     if (Number.isFinite(metaTotal)) totalRecords = metaTotal;
+
+//                     const responsePageSize = Number(meta?.page_size);
+//                     if (Number.isFinite(responsePageSize) && responsePageSize > 0) {
+//                         effectivePageSize = responsePageSize;
+//                     }
+
+//                     allRows.push(...rows);
+
+//                     const expectedPages = Number.isFinite(totalRecords)
+//                         ? Math.ceil(totalRecords / effectivePageSize)
+//                         : null;
+
+//                     if (
+//                         rows.length === 0 ||
+//                         (Number.isFinite(totalRecords) && allRows.length >= totalRecords) ||
+//                         (expectedPages !== null && currentPage >= expectedPages) ||
+//                         rows.length < effectivePageSize
+//                     ) {
+//                         break;
+//                     }
+
+//                     currentPage += 1;
+//                 }
+
+//                 if (!cancelled) {
+//                     setKpiRows(normalizeViewAllRows(allRows));
+//                     if (aggregateKpis && Object.keys(aggregateKpis).length) {
+//                         setViewAllBackendKpis(aggregateKpis);
+//                     } else {
+//                         setViewAllBackendKpis({});
+//                     }
+
+//                     if (kpiAnimationPendingRef.current) {
+//                         kpiAnimationPendingRef.current = false;
+//                         setKpiAnimationKey((current) => current + 1);
+//                     }
+//                 }
+//             } catch (error) {
+//                 console.error("Receivables View All KPI data failed", error);
+//                 if (!cancelled) {
+//                     setKpiError(
+//                         error?.response?.data?.message ||
+//                         error?.response?.data?.detail ||
+//                         error?.message ||
+//                         "The View All KPI data could not be loaded. Please retry."
+//                     );
+//                     setKpiRows([]);
+//                 }
+//             }
+//         };
+
+//         loadViewAllKpiRows();
+
+//         return () => {
+//             cancelled = true;
+//         };
+//     }, [appliedViewFilters, baseFilters, drilldown, filterOptions, kpiRetryKey]);
+
+//     /* ============================================================  
+//        SEARCH  
+//        ============================================================ */
+
+//     /* 
+//      * Search is handled by the backend using customer_name only. 
+//      * The backend returns the matching page and matching total in 
+//      * meta.total_records, so do not filter the already-paginated 
+//      * response again on the client. 
+//      */
+//     /* 
+//      * Customer-name-only table filtering. The backend search is still used 
+//      * for server-side paging, while this final check guarantees that typing 
+//      * in the Search box can never match Legal Entity, Division, Code, GL Code, 
+//      * Country, Currency or any numeric column. 
+//      */
+//     const normalizedCustomerSearch = search.trim().toLowerCase();
+
+//     const filtered = normalizedCustomerSearch.length >= 2
+//         ? safeData.filter((row) => {
+//             const customerName = String(
+//                 row?.supplier_name ??
+//                 row?.customer_name ??
+//                 row?.supplier ??
+//                 ""
+//             ).toLowerCase();
+
+//             return customerName.includes(
+//                 normalizedCustomerSearch
+//             );
+//         })
+//         : safeData;
+
+//     /* ============================================================  
+//        PAGINATION  
+//     ============================================================ */
+
+//     const parsedTotalRecords = Number(
+//         serverMeta?.total_records ??
+//         serverMeta?.total_count ??
+//         filtered.length
+//     );
+
+//     const totalRecords = Math.max(
+//         0,
+//         Number.isFinite(parsedTotalRecords)
+//             ? parsedTotalRecords
+//             : filtered.length
+//     );
+
+//     const totalPages = Math.max(
+//         1,
+//         Math.ceil(
+//             totalRecords / pageSize
+//         )
+//     );
+
+//     /*  
+//      * Server already returns only the requested page.  
+//      * Therefore do not slice `filtered` again.  
+//      */
+//     const pageRows = filtered;
+
+//     const pageStart =
+//         totalRecords === 0
+//             ? 0
+//             : (page - 1) *
+//             pageSize +
+//             1;
+
+//     const pageEnd =
+//         totalRecords === 0
+//             ? 0
+//             : Math.min(
+//                 page * pageSize,
+//                 totalRecords
+//             );
+
+//     useEffect(() => {
+//         if (
+//             page > totalPages
+//         ) {
+//             setPage(totalPages);
+//         }
+//     }, [
+//         page,
+//         totalPages,
+//     ]);
+
+//     const changeSort = (key) => {
+//         if (
+//             sortKey === key
+//         ) {
+//             setSortDirection(
+//                 (direction) =>
+//                     direction ===
+//                         "asc"
+//                         ? "desc"
+//                         : "asc"
+//             );
+//         } else {
+//             setSortKey(key);
+//             setSortDirection(
+//                 "desc"
+//             );
+//         }
+
+//         setPage(1);
+//     };
+
+//     /*  
+//      * Search must always start from page 1.  
+//      */
+//     useEffect(() => {
+//         setPage(1);
+//     }, [search]);
+
+//     /* ============================================================  
+//        APPLY / RESET FILTERS  
+//     ============================================================ */
+
+//     const handleApplyViewFilters =
+//         () => {
+//             kpiAnimationPendingRef.current = true;
+
+//             setAppliedViewFilters({
+//                 ...viewFilters,
+//             });
+
+//             setPage(1);
+//             setOpenFilter(null);
+//         };
+
+//     const handleResetViewFilters =
+//         () => {
+//             const initialFilters = getInitialViewFilters();
+//             const fjGroupOption = (filterOptions.legal_groups || []).find((option) =>
+//                 /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+//             );
+//             if (fjGroupOption) {
+//                 initialFilters.legal_group = [fjGroupOption.label || fjGroupOption.value];
+//             }
+//             // A reset starts the hierarchy from the default group, so stale
+//             // entity/division selections from another group are not retained.
+//             initialFilters.legal_entities = [];
+//             initialFilters.parent_divisions = [];
+//             initialFilters.sub_divisions = [];
+
+//             setViewFilters(
+//                 initialFilters
+//             );
+
+//             setAppliedViewFilters(
+//                 initialFilters
+//             );
+
+//             setServerAgingBasis("");
+
+//             setFilterSearch({
+//                 legal_group: "",
+//                 legal_entities: "",
+//                 parent_divisions:
+//                     "",
+//                 sub_divisions: "",
+//                 reporting_currency:
+//                     "",
+//                 as_on_date: "",
+//                 aging_basis: "",
+//                 customer_type: "",
+//                 gl_codes: "",
+//                 year: "",
+//             });
+
+//             setPage(1);
+//             setOpenFilter(null);
+//         };
+
+//     /* ============================================================ 
+//        PARENT DIVISION MONTH-ON-MONTH 
+//        Dedicated backend response; no frontend aggregation. 
+//     ============================================================ */
+//     const buildParentDivisionMomFilters = () => {
+//         const toIds = (values, options) => (Array.isArray(values) ? values : values ? [values] : []).map((label) => options.find((x) => String(x.label ?? x) === String(label) || String(x.value ?? x) === String(label))?.value ?? label).filter((value) => value !== "All" && value !== "");
+//         const optionList = (key) => filterOptions[key] || [];
+//         const selectedAgingBasis = appliedViewFilters?.aging_basis || filters?.aging_basis || "";
+//         const agingBasisOption = optionList("aging_bases").find((item) => { const v = String(item?.value ?? item).trim().toUpperCase(); const l = String(item?.label ?? item).trim().toUpperCase(); const selected = String(selectedAgingBasis).trim().toUpperCase(); return v === selected || l === selected; });
+//         return {
+//             legal_group_id: toIds(appliedViewFilters?.legal_group, optionList("legal_groups")),
+//             legal_entity_id: toIds(appliedViewFilters?.legal_entities, optionList("legal_entities")),
+//             parent_division_id: toIds(appliedViewFilters?.parent_divisions, optionList("parent_divisions")),
+//             subdivision_id: toIds(appliedViewFilters?.sub_divisions, optionList("sub_divisions")),
+//             customer_type: getCustomerTypeApiValue(
+//                 appliedViewFilters?.customer_type,
+//                 filterOptions.customer_types
+//             ),
+//             gl_code: toIds(appliedViewFilters?.gl_codes, optionList("gl_codes").length ? optionList("gl_codes") : optionList("gl_code")),
+//             reporting_currency: appliedViewFilters?.reporting_currency || currency || "AED",
+//             aging_basis: agingBasisOption?.value ?? apiAgingBasis(selectedAgingBasis),
+//             year: Number(appliedViewFilters?.year) || new Date().getFullYear(),
+//         };
+//     };
+//     const normalizeParentDivisionMomRows = (payload) => {
+//         const root = payload?.data && typeof payload.data === "object" && !Array.isArray(payload.data)
+//             ? payload.data
+//             : payload?.data ?? payload ?? {};
+//         const sourceRows = Array.isArray(root?.rows)
+//             ? root.rows
+//             : Array.isArray(root?.data)
+//                 ? root.data
+//                 : [];
+
+//         const resolveMonthPair = (row, month) => {
+//             const key = String(month).toUpperCase();
+//             const values = row?.monthly_values || row?.monthlyValues || {};
+//             const dsoValues =
+//                 row?.monthly_dso_values ||
+//                 row?.monthlyDsoValues ||
+//                 row?.dso_values ||
+//                 row?.dsoValues ||
+//                 row?.monthly_dso ||
+//                 row?.monthlyDso ||
+//                 {};
+
+//             const rawValue = values[key] ?? values[month] ?? null;
+//             const rawDso = dsoValues[key] ?? dsoValues[month] ?? null;
+
+//             if (rawValue && typeof rawValue === "object") {
+//                 return {
+//                     receivables:
+//                         rawValue.receivables ??
+//                         rawValue.total_receivables ??
+//                         rawValue.amount ??
+//                         rawValue.value ??
+//                         null,
+//                     dso:
+//                         rawValue.dso ??
+//                         rawValue.dso_days ??
+//                         rawValue.average_dso ??
+//                         rawValue.target_dso ??
+//                         null,
+//                 };
+//             }
+
+//             return {
+//                 receivables: rawValue,
+//                 dso: rawDso,
+//             };
+//         };
+
+//         return sourceRows.map((row, index) => {
+//             const months = {};
+//             const dsoMonths = {};
+
+//             MONTHS.forEach((month) => {
+//                 const pair = resolveMonthPair(row, month);
+//                 months[month] = pair.receivables;
+//                 dsoMonths[month] = pair.dso;
+//             });
+
+//             const latestRaw = row?.latest;
+//             const latest =
+//                 latestRaw && typeof latestRaw === "object"
+//                     ? latestRaw.receivables ??
+//                     latestRaw.total_receivables ??
+//                     latestRaw.amount ??
+//                     latestRaw.value ??
+//                     null
+//                     : latestRaw ?? null;
+
+//             const latestDso =
+//                 latestRaw && typeof latestRaw === "object"
+//                     ? latestRaw.dso ??
+//                     latestRaw.dso_days ??
+//                     latestRaw.average_dso ??
+//                     null
+//                     : row?.latest_dso ?? row?.latestDso ?? null;
+
+//             return {
+//                 id: row?.parent_division_id ?? `parent-division-${index}`,
+//                 parent_division_id: row?.parent_division_id,
+//                 parent_division_name:
+//                     row?.parent_division_name ??
+//                     row?.parentDivisionName ??
+//                     row?.label ??
+//                     "—",
+//                 ...months,
+//                 dsoMonths,
+//                 latest,
+//                 latestDso,
+//             };
+//         });
+//     };
+//     useEffect(() => {
+//         if (viewMode !== "mom") return;
+//         let cancelled = false;
+//         setMomLoading(true);
+//         setMomError(null);
+//         getReceivablesParentDivisionMonthOnMonth(buildParentDivisionMomFilters()).then((response) => {
+//             if (cancelled) return; const raw = response?.data ?? response ?? {};
+//             const payload = raw?.data && typeof raw.data === "object" && !Array.isArray(raw.data) ? raw.data : raw;
+//             setMomRows(normalizeParentDivisionMomRows(payload));
+//             setMomMeta({ year: payload?.year ?? appliedViewFilters?.year, aging_basis: payload?.aging_basis ?? appliedViewFilters?.aging_basis ?? "", reporting_currency: payload?.reporting_currency ?? appliedViewFilters?.reporting_currency ?? currency, available_months: payload?.available_months || [], snapshot_dates: payload?.snapshot_dates || {} });
+//         }).catch((error) => {
+//             console.error("Receivables Parent Division Month-on-Month failed", error);
+//             if (!cancelled) {
+//                 setMomError(
+//                     error?.response?.data?.message ||
+//                     error?.response?.data?.detail ||
+//                     error?.message ||
+//                     "The Parent Division Month-on-Month data could not be loaded. Please retry."
+//                 );
+//                 setMomRows([]);
+//             }
+//         }).finally(() => { if (!cancelled) setMomLoading(false); });
+//         return () => { cancelled = true; };
+//     }, [viewMode, appliedViewFilters, filterOptions, momRetryKey]);
+//     const filteredMomRows = useMemo(() => { const q = String(momSearch || "").trim().toLowerCase(); return q ? momRows.filter((row) => String(row.parent_division_name || "").toLowerCase().includes(q)) : momRows; }, [momRows, momSearch]);
+//     const momTotalPages = Math.max(1, Math.ceil(filteredMomRows.length / momPageSize));
+//     const visibleMomRows = filteredMomRows.slice((momPage - 1) * momPageSize, momPage * momPageSize);
+//     const momPageStart = filteredMomRows.length ? (momPage - 1) * momPageSize + 1 : 0; const momPageEnd = Math.min(momPage * momPageSize, filteredMomRows.length);
+//     const momTotalByMonth = useMemo(() => {
+//         const totals = {};
+//         MONTHS.forEach((month) => {
+//             const values = filteredMomRows.map((row) => Number(row?.[month])).filter(Number.isFinite);
+//             const dsoValues = filteredMomRows.map((row) => Number(row?.dsoMonths?.[month])).filter(Number.isFinite);
+//             totals[month] = {
+//                 receivables: values.reduce((sum, value) => sum + value, 0),
+//                 dso: dsoValues.length ? dsoValues.reduce((sum, value) => sum + value, 0) / dsoValues.length : null,
+//             };
+//         });
+//         return totals;
+//     }, [filteredMomRows]);
+//     useEffect(() => { setMomPage(1); }, [momSearch, momPageSize, appliedViewFilters]);
+//     useEffect(() => { if (momPage > momTotalPages) setMomPage(momTotalPages); }, [momPage, momTotalPages]);
+//     const formatParentDivisionMomValue = (value, displayUnit = viewAllDisplayUnit) => {
+//         if (value === null || value === undefined || value === "") return "—";
+//         const rawNumber = Number(value);
+//         if (!Number.isFinite(rawNumber)) return "—";
+//         const number = displayUnit === "Millions" ? rawNumber / 1000000 : rawNumber;
+//         const formatted = Math.abs(number).toLocaleString("en-US", {
+//             minimumFractionDigits: displayUnit === "Millions" ? 2 : number < 0 ? 2 : 0,
+//             maximumFractionDigits: displayUnit === "Millions" ? 2 : number < 0 ? 2 : 0,
+//         });
+//         return number < 0 ? `(${formatted})` : formatted;
+//     };
+//     const handleParentDivisionMomExport = async (format) => { try { const apiFilters = buildParentDivisionMomFilters(); const isPdf = String(format).toLowerCase() === "pdf"; const response = isPdf ? await exportReceivablesParentDivisionMonthOnMonthPDF(apiFilters) : await exportReceivablesParentDivisionMonthOnMonthExcel(apiFilters); triggerReceivablesBlobDownload(response, isPdf ? "Receivables_Parent_Division_MoM.pdf" : "Receivables_Parent_Division_MoM.xlsx", true); } catch (error) { console.error("Receivables Parent Division Month-on-Month export failed", error); } };
+
+//     /* ============================================================  
+//        TABLE COLUMNS  
+//     ============================================================ */
+
+//     const viewColumns = [
+//         {
+//             key: "legal_entity",
+//             label: "Legal Entity",
+//             sortable: true,
+//             text: true,
+//         },
+//         {
+//             key: "parent_division",
+//             label: "Parent Division",
+//             sortable: true,
+//             text: true,
+//         },
+//         {
+//             key: "sub_division",
+//             label: "Sub-Division",
+//             sortable: true,
+//             text: true,
+//         },
+//         {
+//             key: "supplier_code",
+//             label: "Customer Code",
+//             sortable: true,
+//             text: true,
+//         },
+//         {
+//             key: "supplier_name",
+//             label: "Customer Name",
+//             sortable: true,
+//             text: true,
+//         },
+//         {
+//             key: "country",
+//             label: "Country",
+//             sortable: true,
+//             text: true,
+//         },
+//         {
+//             key: "row_currency",
+//             label: "Currency",
+//             text: true,
+//         },
+//         {
+//             key: "total_receivable",
+//             label: "Total Receivables",
+//             sortable: true,
+//         },
+//         {
+//             key: "current",
+//             label: "Current",
+//             sortable: true,
+//         },
+//         {
+//             key: "0_30",
+//             label: "0 – 30",
+//             sortable: true,
+//         },
+//         {
+//             key: "31_60",
+//             label: "31 – 60",
+//             sortable: true,
+//         },
+//         {
+//             key: "61_90",
+//             label: "61 – 90",
+//             sortable: true,
+//         },
+//         {
+//             key: "91_120",
+//             label: "91 – 120",
+//             sortable: true,
+//         },
+//         {
+//             key: "121_180",
+//             label: "121 – 180",
+//             sortable: true,
+//         },
+//         {
+//             key: "181_365",
+//             label: "181 – 365",
+//             sortable: true,
+//         },
+//         {
+//             key: "above_365",
+//             label: "Above 365",
+//             sortable: true,
+//         },
+//     ];
+
+//     const amountColumns = [
+//         "total_receivable",
+//         "current",
+//         "0_30",
+//         "31_60",
+//         "61_90",
+//         "91_120",
+//         "121_180",
+//         "181_365",
+//         "above_365",
+//     ];
+
+//     const detailedTotalRow = useMemo(
+//         () => ({
+//             total_receivable: kpiRows.reduce((sum, row) => sum + Number(row.total_receivable || 0), 0),
+//             current: kpiRows.reduce((sum, row) => sum + Number(row.current || 0), 0),
+//             "0_30": kpiRows.reduce((sum, row) => sum + Number(row["0_30"] || 0), 0),
+//             "31_60": kpiRows.reduce((sum, row) => sum + Number(row["31_60"] || 0), 0),
+//             "61_90": kpiRows.reduce((sum, row) => sum + Number(row["61_90"] || 0), 0),
+//             "91_120": kpiRows.reduce((sum, row) => sum + Number(row["91_120"] || 0), 0),
+//             "121_180": kpiRows.reduce((sum, row) => sum + Number(row["121_180"] || 0), 0),
+//             "181_365": kpiRows.reduce((sum, row) => sum + Number(row["181_365"] || 0), 0),
+//             above_365: kpiRows.reduce((sum, row) => sum + Number(row.above_365 || 0), 0),
+//         }),
+//         [kpiRows]
+//     );
+
+//     /* ============================================================  
+//        SUMMARY VALUES  
+//     ============================================================ */
+
+//     const backendKpis =
+//         viewAllBackendKpis?.kpis ||
+//         viewAllBackendKpis?.data?.kpis ||
+//         viewAllBackendKpis ||
+//         mainKpis?.kpis ||
+//         mainKpis?.data?.kpis ||
+//         data?.kpis ||
+//         mainKpis ||
+//         {};
+
+//     const hasBackendKpi = (key) =>
+//         backendKpis?.[key] !== undefined &&
+//         backendKpis?.[key] !== null &&
+//         backendKpis?.[key] !== "";
+
+//     const totalReceivables = kpiRows.reduce(
+//         (sum, row) => sum + Number(row.total_receivable || 0),
+//         0
+//     );
+
+//     const currentReceivables = kpiRows.reduce(
+//         (sum, row) => sum + Number(row.current || 0),
+//         0
+//     );
+
+//     const overdueReceivables = kpiRows.reduce(
+//         (sum, row) =>
+//             sum +
+//             Number(row["0_30"] || 0) +
+//             Number(row["31_60"] || 0) +
+//             Number(row["61_90"] || 0) +
+//             Number(row["91_120"] || 0) +
+//             Number(row["121_180"] || 0) +
+//             Number(row["181_365"] || 0) +
+//             Number(row["above_365"] || 0),
+//         0
+//     );
+
+//     const overdue90 = kpiRows.reduce(
+//         (sum, row) =>
+//             sum +
+//             Number(row["91_120"] || 0) +
+//             Number(row["121_180"] || 0) +
+//             Number(row["181_365"] || 0) +
+//             Number(row["above_365"] || 0),
+//         0
+//     );
+
+//     const viewAllDso =
+//         hasBackendKpi("dso")
+//             ? Number(backendKpis.dso)
+//             : hasBackendKpi("dso_days")
+//                 ? Number(backendKpis.dso_days)
+//                 : Number(mainKpis?.dso ?? data?.kpis?.dso ?? 0);
+
+//     const viewAllTargetDso =
+//         hasBackendKpi("target_dso")
+//             ? Number(backendKpis.target_dso)
+//             : hasBackendKpi("target_dso_days")
+//                 ? Number(backendKpis.target_dso_days)
+//                 : hasBackendKpi("dso_target")
+//                     ? Number(backendKpis.dso_target)
+//                     : (mainKpis?.target_dso ?? data?.kpis?.target_dso ?? null);
+
+//     /* ============================================================  
+//        AS ON DATE / AGING BASIS  
+//     ============================================================ */
+
+//     const asOnDate =
+//         normalizeReceivablesDate(
+//             safeData?.[0]?.as_on_date ??
+//             safeData?.[0]?.asOnDate ??
+//             appliedViewFilters?.as_on_date ??
+//             filters?.as_on_date ??
+//             filters?.asOfDate ??
+//             filters?.snapshot_date ??
+//             getLatestReceivablesDate(filters?.as_on_dates) ??
+//             ""
+//         );
+//     const agingBasis =
+//         serverAgingBasis ||
+//         getBackendAgingBasisLabel(
+//             appliedViewFilters?.aging_basis ||
+//             filters?.aging_basis ||
+//             filters?.agingBasis ||
+//             ""
+//         ) ||
+//         "";
+
+//     /* ============================================================  
+//        TABLE COLUMN WIDTHS  
+//     ============================================================ */
+
+//     const getColumnWidth = (
+//         columnIndex
+//     ) => {
+//         if (columnIndex === 0)
+//             return 165;
+
+//         if (columnIndex === 1)
+//             return 155;
+
+//         if (columnIndex === 2)
+//             return 150;
+
+//         if (columnIndex === 3)
+//             return 105;
+
+//         if (columnIndex === 4)
+//             return 155;
+
+//         if (columnIndex === 5)
+//             return 90;
+
+//         if (columnIndex === 6)
+//             return 92;
+
+//         // Total Receivables column
+//         if (columnIndex === 7)
+//             return 125;
+
+//         // Remaining amount columns
+//         return 96;
+//     };
+
+//     const getStickyLeft = (
+//         columnIndex
+//     ) => {
+//         if (columnIndex === 0)
+//             return 0;
+
+//         if (columnIndex === 1)
+//             return 165;
+
+//         if (columnIndex === 2)
+//             return 320;
+
+//         return undefined;
+//     };
+
+//     const headerLineBreakColumns = {
+//         supplier_code: ["Customer", "Code", " "],
+//         country: ["Country"],
+//         row_currency: ["Currency"],
+//         total_receivable: ["Total", "Receivables", " "],
+//         current: ["Current"],
+//         "0_30": ["0", "– 30"],
+//         "31_60": ["31", "– 60"],
+//         "61_90": ["61", "– 90"],
+//         "91_120": ["91", "– 120"],
+//         "121_180": ["121", "– 180"],
+//         "181_365": ["181", "– 365"],
+//         above_365: ["Above", "365"],
+//     };
+
+//     const renderHeaderLabel = (column) => {
+//         const lines = headerLineBreakColumns[column.key];
+
+//         if (!lines) {
+//             return column.label;
+//         }
+
+//         return lines.map((line, index) => (
+//             <React.Fragment key={`${column.key}-${index}`}>
+//                 {index > 0 && <br />}
+//                 {line}
+//             </React.Fragment>
+//         ));
+//     };
+
+//     /* ============================================================ 
+//        VIEW-ALL SCROLLBAR 
+//        Slightly wider and higher-contrast for the detailed and MoM tables. 
+//        No layout dimensions are changed. 
+//     ============================================================ */
+//     const viewAllScrollbarStyle = ` 
+//         .receivables-view-all-scroll::-webkit-scrollbar { 
+//             width: 11px; 
+//             height: 11px; 
+//         } 
+//         .receivables-view-all-scroll::-webkit-scrollbar-track { 
+//             background: #e8edf3; 
+//             border-radius: 8px; 
+//         } 
+//         .receivables-view-all-scroll::-webkit-scrollbar-thumb { 
+//             background: #64748b; 
+//             border: 2px solid #e8edf3; 
+//             border-radius: 8px; 
+//         } 
+//         .receivables-view-all-scroll::-webkit-scrollbar-thumb:hover { 
+//             background: #475569; 
+//         } 
+//         .receivables-view-all-scroll { 
+//             scrollbar-width: auto; 
+//             scrollbar-color: #64748b #e8edf3; 
+//         } 
+//     `;
+
+//     /* ============================================================  
+//        RETURN  
+//     ============================================================ */
+
+//     return (
+//         <div
+//             style={{
+//                 position: "fixed",
+//                 inset: 0,
+//                 zIndex: 2000,
+//                 background:
+//                     "rgba(15, 23, 42, 0.48)",
+//                 display: "flex",
+//                 alignItems:
+//                     "center",
+//                 justifyContent:
+//                     "center",
+//                 padding: 20,
+//                 boxSizing:
+//                     "border-box",
+//             }}
+//             onClick={(e) => {
+//                 if (
+//                     e.target ===
+//                     e.currentTarget
+//                 ) {
+//                     onClose();
+//                 }
+//             }}
+//         >
+//             <div
+//                 className="sales-style-view-all-modal"
+//                 style={{
+//                     width:
+//                         "min(1450px, 100%)",
+//                     maxHeight: "92vh",
+//                     background:
+//                         "#f7faff",
+//                     borderRadius: 10,
+//                     overflow:
+//                         "hidden",
+//                     boxShadow:
+//                         "0 18px 55px rgba(15, 23, 42, 0.28)",
+//                     display: "flex",
+//                     flexDirection:
+//                         "column",
+//                     boxSizing:
+//                         "border-box",
+//                 }}
+//             >
+//                 <div
+//                     className="receivables-view-all-scroll receivables-view-all-main-scroll"
+//                     style={{
+//                         width: "100%",
+//                         minHeight: 0,
+//                         height: "100%",
+//                         flex: "1 1 auto",
+//                         overflowY: "auto",
+//                         overflowX: "auto",
+//                         overscrollBehavior: "contain",
+//                         padding: "18px 18px 30px",
+//                         boxSizing: "border-box",
+//                         color: "#17213c",
+//                     }}
+//                 >
+//                     {/* ======================================================  
+//                         PAGE HEADER  
+//                     ====================================================== */}
+
+//                     <div
+//                         style={{
+//                             display: "flex",
+//                             justifyContent:
+//                                 "space-between",
+//                             alignItems:
+//                                 "flex-start",
+//                             gap: 15,
+//                             marginBottom: 16,
+//                         }}
+//                     >
+//                         <div>
+//                             <div
+//                                 style={{
+//                                     fontSize: 27,
+//                                     lineHeight:
+//                                         1.1,
+//                                     fontWeight: 800,
+//                                     color:
+//                                         "#102a72",
+//                                     letterSpacing:
+//                                         "-0.5px",
+//                                 }}
+//                             >
+//                                 {viewMode === "mom" ? "Receivables Global View All" : detailedViewTitle}
+//                             </div>
+
+//                             <div
+//                                 style={{
+//                                     marginTop: 5,
+//                                     fontSize: 12,
+//                                     color:
+//                                         "#64748b",
+//                                 }}
+//                             >
+//                                 {viewMode === "mom" ? "Parent Division monthly receivable balances for the selected year." : <>Review complete receivable balances and aging details for the selected snapshot.</>}
+//                             </div>
+//                         </div>
+
+//                         <div
+//                             style={{
+//                                 display: "flex",
+//                                 alignItems:
+//                                     "center",
+//                                 gap: 8,
+//                             }}
+//                         >
+//                             <button
+//                                 type="button"
+//                                 onClick={() =>
+//                                     viewMode === "mom" ? handleParentDivisionMomExport("excel") : handleExport("excel")
+//                                 }
+//                                 style={{
+//                                     height: 34,
+//                                     minWidth: 80,
+//                                     padding:
+//                                         "0 13px",
+//                                     display:
+//                                         "inline-flex",
+//                                     alignItems:
+//                                         "center",
+//                                     justifyContent:
+//                                         "center",
+//                                     gap: 6,
+//                                     border:
+//                                         "1px solid #86efac",
+//                                     borderRadius: 8,
+//                                     background:
+//                                         "#f7fffa",
+//                                     color:
+//                                         "#16a34a",
+//                                     fontSize: 11,
+//                                     fontWeight: 800,
+//                                     cursor:
+//                                         "pointer",
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         fontSize: 13,
+//                                     }}
+//                                 >
+//                                     📊
+//                                 </span>
+//                                 Excel
+//                             </button>
+
+//                             <button
+//                                 type="button"
+//                                 onClick={() =>
+//                                     viewMode === "mom" ? handleParentDivisionMomExport("pdf") : handleExport("pdf")
+//                                 }
+//                                 style={{
+//                                     height: 34,
+//                                     minWidth: 72,
+//                                     padding:
+//                                         "0 13px",
+//                                     display:
+//                                         "inline-flex",
+//                                     alignItems:
+//                                         "center",
+//                                     justifyContent:
+//                                         "center",
+//                                     gap: 6,
+//                                     border:
+//                                         "1px solid #fda4af",
+//                                     borderRadius: 8,
+//                                     background:
+//                                         "#fff8f8",
+//                                     color:
+//                                         "#ef4444",
+//                                     fontSize: 11,
+//                                     fontWeight: 800,
+//                                     cursor:
+//                                         "pointer",
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         fontSize: 13,
+//                                     }}
+//                                 >
+//                                     📄
+//                                 </span>
+//                                 PDF
+//                             </button>
+
+//                             <button
+//                                 type="button"
+//                                 onClick={
+//                                     onClose
+//                                 }
+//                                 style={{
+//                                     height: 34,
+//                                     padding:
+//                                         "0 13px",
+//                                     border:
+//                                         "1px solid #cbd5e1",
+//                                     borderRadius: 5,
+//                                     background:
+//                                         "#ffffff",
+//                                     color:
+//                                         "#3149a5",
+//                                     fontSize: 11,
+//                                     fontWeight: 700,
+//                                     cursor:
+//                                         "pointer",
+//                                 }}
+//                             >
+//                                 ✖
+//                             </button>
+//                         </div>
+//                     </div>
+
+//                     <div style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 3, marginBottom: 12, background: "#eef2ff", border: "1px solid #dbe3f5", borderRadius: 8 }}>
+//                         {[["detailed", "📑", "Detailed Receivables"], ["mom", "📶", "Month-on-Month by Parent Division"]].map(([mode, icon, label]) => (
+//                             <button key={mode} type="button" onClick={() => setViewMode(mode)} style={{ height: 32, padding: "0 13px", border: "none", borderRadius: 6, background: viewMode === mode ? "#172f80" : "transparent", color: viewMode === mode ? "#ffffff" : "#52638a", fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
+//                                 <span style={{ fontSize: 18, lineHeight: 1, verticalAlign: "-2px", marginRight: 5 }}>{icon}</span>{label}
+//                             </button>
+//                         ))}
+//                     </div>
+
+//                     {/* ======================================================  
+//                         FILTERS  
+//                     ====================================================== */}
+
+//                     <div
+//                         style={{
+//                             background:
+//                                 "#ffffff",
+//                             border:
+//                                 "1px solid #e3e9f2",
+//                             borderRadius: 9,
+//                             padding:
+//                                 "13px 14px 15px",
+//                             marginBottom: 14,
+//                             boxShadow:
+//                                 "0 2px 8px rgba(15, 23, 42, 0.025)",
+//                         }}
+//                     >
+//                         <div
+//                             style={{
+//                                 display:
+//                                     "grid",
+//                                 gridTemplateColumns:
+//                                     "repeat(12, minmax(0, 1fr))",
+//                                 gap: 8,
+//                                 alignItems:
+//                                     "end",
+//                             }}
+//                         >
+//                             {hasLegalGroupScope && (
+//                                 <MultiSelectDropdown
+//                                     filterKey="legal_group"
+//                                     label="Legal Group"
+//                                 />
+//                             )}
+
+//                             {hasLegalEntityScope && (
+//                                 <MultiSelectDropdown
+//                                     filterKey="legal_entities"
+//                                     label="Legal Entity"
+//                                 />
+//                             )}
+
+//                             <MultiSelectDropdown
+//                                 filterKey="parent_divisions"
+//                                 label="Parent Division"
+//                             />
+
+//                             <MultiSelectDropdown
+//                                 filterKey="sub_divisions"
+//                                 label="Sub-Division"
+//                             />
+
+//                             <SingleSelectDropdown
+//                                 filterKey="reporting_currency"
+//                                 label="Reporting Currency"
+//                                 emphasized
+//                             />
+
+//                             <ViewAllDateFilter
+//                                 filterKey="as_on_date"
+//                                 label="As On Date"
+//                             />
+
+//                             <SingleSelectDropdown
+//                                 filterKey="aging_basis"
+//                                 label="Aging Basis"
+//                                 noSearch
+//                                 noClear
+//                             />
+
+//                             <MultiSelectDropdown
+//                                 filterKey="customer_type"
+//                                 label="Customer Type"
+//                             />
+
+//                             <SingleSelectDropdown
+//                                 filterKey="year"
+//                                 label="Year"
+//                                 noSearch
+//                                 emphasized
+//                             />
+
+//                             <MultiSelectDropdown
+//                                 filterKey="gl_codes"
+//                                 label="GL Code"
+//                             />
+
+//                             <button
+//                                 type="button"
+//                                 onClick={
+//                                     handleApplyViewFilters
+//                                 }
+//                                 style={{
+//                                     height: 34,
+//                                     padding:
+//                                         "0 20px",
+//                                     border:
+//                                         "none",
+//                                     borderRadius: 5,
+//                                     background:
+//                                         "#4936e9",
+//                                     color:
+//                                         "#ffffff",
+//                                     fontSize: 11,
+//                                     fontWeight: 800,
+//                                     cursor:
+//                                         "pointer",
+//                                 }}
+//                             >
+//                                 Apply
+//                             </button>
+
+//                             <button
+//                                 type="button"
+//                                 onClick={
+//                                     handleResetViewFilters
+//                                 }
+//                                 style={{
+//                                     height: 34,
+//                                     padding:
+//                                         "0 18px",
+//                                     border:
+//                                         "1px solid #d4dbe7",
+//                                     borderRadius: 5,
+//                                     background:
+//                                         "#ffffff",
+//                                     color:
+//                                         "#334155",
+//                                     fontSize: 11,
+//                                     fontWeight: 700,
+//                                     cursor:
+//                                         "pointer",
+//                                 }}
+//                             >
+//                                 Reset
+//                             </button>
+//                         </div>
+//                     </div>
+
+//                     {viewMode === "detailed" ? (<>
+//                         {/* ======================================================  
+//                         SUMMARY CARDS  
+//                         Total Records card intentionally removed.  
+//                     ====================================================== */}
+
+//                         <div
+//                             style={{
+//                                 display: "grid",
+//                                 gridTemplateColumns:
+//                                     "repeat(6, minmax(0, 1fr))",
+//                                 gap: 9,
+//                                 marginBottom: 14,
+//                             }}
+//                         >
+//                             <ReceivablesViewAllSummaryCard
+//                                 icon="▣"
+//                                 title="Total Receivables"
+//                                 viewAllCurrency={viewAllCurrency}
+//                                 animationKey={kpiAnimationKey}
+//                                 value={
+//                                     totalReceivables
+//                                 }
+//                                 iconBackground="#e5faf2"
+//                                 iconColor="#149b6f"
+//                                 titleColor="#149b6f"
+//                                 cardBackground="#f0fdf4"
+//                             />
+
+//                             <ReceivablesViewAllSummaryCard
+//                                 icon="▤"
+//                                 title="Current"
+//                                 viewAllCurrency={viewAllCurrency}
+//                                 animationKey={kpiAnimationKey}
+//                                 value={
+//                                     currentReceivables
+//                                 }
+//                                 iconBackground="#e5faf2"
+//                                 iconColor="#149b6f"
+//                                 titleColor="#149b6f"
+//                                 cardBackground="#f0fdf4"
+//                             />
+
+//                             <ReceivablesViewAllSummaryCard
+//                                 icon="⌛"
+//                                 title="Overdue"
+//                                 viewAllCurrency={viewAllCurrency}
+//                                 animationKey={kpiAnimationKey}
+//                                 value={
+//                                     overdueReceivables
+//                                 }
+//                                 iconBackground="#fff2df"
+//                                 iconColor="#ed8a17"
+//                                 titleColor="#c2410c"
+//                                 cardBackground="#fff7ed"
+//                             />
+
+//                             <ReceivablesViewAllSummaryCard
+//                                 icon="!"
+//                                 title="Overdue > 90 Days"
+//                                 viewAllCurrency={viewAllCurrency}
+//                                 animationKey={kpiAnimationKey}
+//                                 value={
+//                                     overdue90
+//                                 }
+//                                 iconBackground="#ffeaf0"
+//                                 iconColor="#ed3c69"
+//                                 titleColor="#be185d"
+//                                 cardBackground="#fdf2f8"
+//                             />
+
+//                             <ReceivablesViewAllSummaryCard
+//                                 icon="%"
+//                                 title="DSO(Average)"
+//                                 viewAllCurrency={viewAllCurrency}
+//                                 animationKey={kpiAnimationKey}
+//                                 value={viewAllDso}
+//                                 suffix="Days"
+//                                 iconBackground="#cffafe"
+//                                 iconColor="#0891b2"
+//                                 titleColor="#0891b2"
+//                                 cardBackground="#ecfeff"
+//                             />
+
+//                             <ReceivablesViewAllSummaryCard
+//                                 icon="%"
+//                                 title="Target(DSO)"
+//                                 viewAllCurrency={viewAllCurrency}
+//                                 animationKey={kpiAnimationKey}
+//                                 value={viewAllTargetDso}
+//                                 suffix="Days"
+//                                 iconBackground="#ede9fe"
+//                                 iconColor="#7c3aed"
+//                                 titleColor="#7c3aed"
+//                                 cardBackground="#f5f3ff"
+//                             />
+//                         </div>
+
+//                         {kpiError && (
+//                             <div style={{ marginBottom: 14 }}>
+//                                 <ReceivablesApiError
+//                                     message={kpiError}
+//                                     minHeight={105}
+//                                     onRetry={() => setKpiRetryKey((value) => value + 1)}
+//                                 />
+//                             </div>
+//                         )}
+
+//                         {/* ======================================================  
+//                         DETAILED VIEW TABLE  
+//                     ====================================================== */}
+
+//                         <div
+//                             style={{
+//                                 background:
+//                                     "#ffffff",
+//                                 border:
+//                                     "1px solid #e3e9f2",
+//                                 borderRadius: 9,
+//                                 // The modal's main viewport owns vertical and horizontal scrolling.
+//                                 // An overflow-hidden ancestor prevents sticky table headers from sticking.
+//                                 overflow: "visible",
+//                                 boxShadow:
+//                                     "0 2px 8px rgba(15, 23, 42, 0.025)",
+//                             }}
+//                         >
+//                             {/* CARD HEADER */}
+
+//                             <div
+//                                 style={{
+//                                     padding:
+//                                         "12px 13px 9px",
+//                                 }}
+//                             >
+//                                 <div
+//                                     style={{
+//                                         display:
+//                                             "flex",
+//                                         justifyContent:
+//                                             "space-between",
+//                                         alignItems:
+//                                             "flex-end",
+//                                         gap: 10,
+//                                     }}
+//                                 >
+//                                     <div>
+//                                         <div
+//                                             style={{
+//                                                 fontSize: 19,
+//                                                 fontWeight: 800,
+//                                                 color:
+//                                                     "#142b6f",
+//                                             }}
+//                                         >
+//                                             Receivables
+//                                             Detailed View
+//                                             {" "}
+//                                             <span
+//                                                 style={{
+//                                                     fontSize: 11,
+//                                                     fontWeight: 700,
+//                                                     color:
+//                                                         "#64748b",
+//                                                     whiteSpace:
+//                                                         "nowrap",
+//                                                 }}
+//                                             >
+//                                                 (
+//                                                 {totalRecords.toLocaleString()}
+//                                                 {" "}
+//                                                 records)
+//                                             </span>
+//                                         </div>
+
+//                                         <div
+//                                             style={{
+//                                                 marginTop: 5,
+//                                                 fontSize: 10,
+//                                                 color:
+//                                                     "#64748b",
+//                                             }}
+//                                         >
+//                                             Aging basis:{" "}
+//                                             <strong
+//                                                 style={{
+//                                                     color:
+//                                                         "#334b8e",
+//                                                 }}
+//                                             >
+//                                                 {agingBasis ||
+//                                                     "—"}
+//                                             </strong>
+
+//                                             <span
+//                                                 style={{
+//                                                     margin:
+//                                                         "0 8px",
+//                                                     color:
+//                                                         "#a0aec0",
+//                                                 }}
+//                                             >
+//                                                 |
+//                                             </span>
+
+//                                             As On Date:{" "}
+//                                             <strong
+//                                                 style={{
+//                                                     color:
+//                                                         "#334b8e",
+//                                                 }}
+//                                             >
+//                                                 {formatFilterDate(asOnDate) || "—"}
+//                                             </strong>
+//                                         </div>
+//                                     </div>
+
+//                                     <div
+//                                         style={{
+//                                             display:
+//                                                 "flex",
+//                                             alignItems:
+//                                                 "center",
+//                                             gap: 10,
+//                                         }}
+//                                     >
+//                                         {/* SEARCH */}
+
+//                                         <div
+//                                             style={{
+//                                                 position:
+//                                                     "relative",
+//                                             }}
+//                                         >
+//                                             <span
+//                                                 style={{
+//                                                     position:
+//                                                         "absolute",
+//                                                     left: 10,
+//                                                     top: "50%",
+//                                                     transform:
+//                                                         "translateY(-50%)",
+//                                                     color:
+//                                                         "#52658d",
+//                                                     fontSize: 14,
+//                                                 }}
+//                                             >
+//                                                 ⌕
+//                                             </span>
+
+//                                             <input
+//                                                 type="text"
+//                                                 value={
+//                                                     search
+//                                                 }
+//                                                 onChange={(
+//                                                     e
+//                                                 ) => {
+//                                                     setSearch(
+//                                                         e
+//                                                             .target
+//                                                             .value
+//                                                     );
+//                                                     setPage(
+//                                                         1
+//                                                     );
+//                                                 }}
+//                                                 placeholder="Search..."
+//                                                 style={{
+//                                                     width: 245,
+//                                                     height: 34,
+//                                                     border:
+//                                                         "1px solid #d6dfec",
+//                                                     borderRadius: 5,
+//                                                     padding:
+//                                                         "0 10px 0 29px",
+//                                                     outline:
+//                                                         "none",
+//                                                     fontSize: 10,
+//                                                     color:
+//                                                         "#334155",
+//                                                     boxSizing:
+//                                                         "border-box",
+//                                                 }}
+//                                             />
+//                                         </div>
+
+//                                         {/* AED / AED MILLIONS */}
+//                                         <div
+//                                             style={{
+//                                                 display: "inline-flex",
+//                                                 alignItems: "center",
+//                                                 height: 34,
+//                                                 border: "1px solid #d6dfec",
+//                                                 borderRadius: 6,
+//                                                 background: "#f8fafc",
+//                                                 overflow: "hidden",
+//                                             }}
+//                                         >
+//                                             <button
+//                                                 type="button"
+//                                                 onClick={() => setViewAllDisplayUnit("AED")}
+//                                                 style={{
+//                                                     height: "100%",
+//                                                     minWidth: 42,
+//                                                     padding: "0 9px",
+//                                                     border: "none",
+//                                                     borderRight: "1px solid #d6dfec",
+//                                                     background:
+//                                                         viewAllDisplayUnit === "AED"
+//                                                             ? "#172f80"
+//                                                             : "transparent",
+//                                                     color:
+//                                                         viewAllDisplayUnit === "AED"
+//                                                             ? "#ffffff"
+//                                                             : "#64748b",
+//                                                     fontSize: 10,
+//                                                     fontWeight: 800,
+//                                                     cursor: "pointer",
+//                                                 }}
+//                                             >
+//                                                 AED
+//                                             </button>
+//                                             <button
+//                                                 type="button"
+//                                                 onClick={() => setViewAllDisplayUnit("Millions")}
+//                                                 style={{
+//                                                     height: "100%",
+//                                                     minWidth: 92,
+//                                                     padding: "0 9px",
+//                                                     border: "none",
+//                                                     background:
+//                                                         viewAllDisplayUnit === "Millions"
+//                                                             ? "#172f80"
+//                                                             : "transparent",
+//                                                     color:
+//                                                         viewAllDisplayUnit === "Millions"
+//                                                             ? "#ffffff"
+//                                                             : "#64748b",
+//                                                     fontSize: 10,
+//                                                     fontWeight: 800,
+//                                                     cursor: "pointer",
+//                                                 }}
+//                                             >
+//                                                 AED Millions
+//                                             </button>
+//                                         </div>
+
+//                                         {/* ROWS */}
+
+//                                         <select
+//                                             value={
+//                                                 pageSize
+//                                             }
+//                                             onChange={(
+//                                                 e
+//                                             ) => {
+//                                                 setPageSize(
+//                                                     Number(
+//                                                         e
+//                                                             .target
+//                                                             .value
+//                                                     )
+//                                                 );
+//                                                 setPage(
+//                                                     1
+//                                                 );
+//                                             }}
+//                                             style={{
+//                                                 width: 110,
+//                                                 height: 34,
+//                                                 border:
+//                                                     "1px solid #d6dfec",
+//                                                 borderRadius: 5,
+//                                                 padding:
+//                                                     "0 9px",
+//                                                 color:
+//                                                     "#334b8e",
+//                                                 background:
+//                                                     "#ffffff",
+//                                                 fontSize: 10,
+//                                                 fontWeight: 700,
+//                                                 outline:
+//                                                     "none",
+//                                             }}
+//                                         >
+//                                             <option
+//                                                 value={10}
+//                                             >
+//                                                 10 rows
+//                                             </option>
+
+//                                             <option
+//                                                 value={20}
+//                                             >
+//                                                 20 rows
+//                                             </option>
+
+//                                             <option
+//                                                 value={50}
+//                                             >
+//                                                 50 rows
+//                                             </option>
+
+//                                             <option
+//                                                 value={100}
+//                                             >
+//                                                 100 rows
+//                                             </option>
+//                                         </select>
+
+//                                         {/* PAGINATION TOP */}
+
+//                                         <button
+//                                             type="button"
+//                                             disabled={
+//                                                 page <=
+//                                                 1
+//                                             }
+//                                             onClick={() =>
+//                                                 setPage(
+//                                                     (p) =>
+//                                                         Math.max(
+//                                                             1,
+//                                                             p -
+//                                                             1
+//                                                         )
+//                                                 )
+//                                             }
+//                                             style={{
+//                                                 border:
+//                                                     "none",
+//                                                 background:
+//                                                     "transparent",
+//                                                 color:
+//                                                     page <=
+//                                                         1
+//                                                         ? "#cbd5e1"
+//                                                         : "#3048a5",
+//                                                 fontSize: 21,
+//                                                 cursor:
+//                                                     page <=
+//                                                         1
+//                                                         ? "not-allowed"
+//                                                         : "pointer",
+//                                                 padding: 0,
+//                                             }}
+//                                         >
+//                                             ‹
+//                                         </button>
+
+//                                         <span
+//                                             style={{
+//                                                 fontSize: 11,
+//                                                 color:
+//                                                     "#3048a5",
+//                                                 whiteSpace:
+//                                                     "nowrap",
+//                                             }}
+//                                         >
+//                                             {pageStart}
+//                                             {" – "}
+//                                             {pageEnd}
+//                                             {" of "}
+//                                             {totalRecords.toLocaleString()}
+//                                         </span>
+
+//                                         <button
+//                                             type="button"
+//                                             disabled={
+//                                                 page >=
+//                                                 totalPages
+//                                             }
+//                                             onClick={() =>
+//                                                 setPage(
+//                                                     (p) =>
+//                                                         Math.min(
+//                                                             totalPages,
+//                                                             p +
+//                                                             1
+//                                                         )
+//                                                 )
+//                                             }
+//                                             style={{
+//                                                 border:
+//                                                     "none",
+//                                                 background:
+//                                                     "transparent",
+//                                                 color:
+//                                                     page >=
+//                                                         totalPages
+//                                                         ? "#cbd5e1"
+//                                                         : "#3048a5",
+//                                                 fontSize: 21,
+//                                                 cursor:
+//                                                     page >=
+//                                                         totalPages
+//                                                         ? "not-allowed"
+//                                                         : "pointer",
+//                                                 padding: 0,
+//                                             }}
+//                                         >
+//                                             ›
+//                                         </button>
+//                                     </div>
+//                                 </div>
+//                             </div>
+
+//                             {/* ==================================================  
+//                             TABLE  
+//                         ================================================== */}
+
+//                             <div
+//                                 className="receivables-view-all-table-wrap"
+//                                 style={{
+//                                     width: "100%",
+//                                     overflowX: "visible",
+//                                     overflowY: "visible",
+//                                     /* Main View All content handles scrolling so sticky headers/totals remain anchored. */
+//                                     minHeight: 0,
+//                                     maxWidth: "100%",
+//                                     position: "relative",
+//                                 }}
+//                             >
+//                                 <table
+//                                     style={{
+//                                         width:
+//                                             "max-content",
+//                                         minWidth:
+//                                             1810,
+//                                         borderCollapse:
+//                                             "separate",
+//                                         borderSpacing:
+//                                             0,
+//                                         tableLayout:
+//                                             "fixed",
+//                                         fontSize: 10,
+//                                     }}
+//                                 >
+//                                     <thead>
+//                                         <tr>
+//                                             {viewColumns.map(
+//                                                 (
+//                                                     column,
+//                                                     columnIndex
+//                                                 ) => {
+//                                                     const isText =
+//                                                         column.text;
+
+//                                                     const isSticky =
+//                                                         columnIndex <
+//                                                         3;
+
+//                                                     const stickyLeft =
+//                                                         getStickyLeft(
+//                                                             columnIndex
+//                                                         );
+
+//                                                     const columnWidth =
+//                                                         getColumnWidth(
+//                                                             columnIndex
+//                                                         );
+
+//                                                     return (
+//                                                         <th
+//                                                             key={
+//                                                                 column.key
+//                                                             }
+//                                                             onClick={() =>
+//                                                                 column.sortable &&
+//                                                                 changeSort(
+//                                                                     column.key
+//                                                                 )
+//                                                             }
+//                                                             style={{
+//                                                                 position:
+//                                                                     isSticky
+//                                                                         ? "sticky"
+//                                                                         : "static",
+
+//                                                                 left:
+//                                                                     isSticky
+//                                                                         ? stickyLeft
+//                                                                         : undefined,
+
+//                                                                 position: "sticky",
+//                                                                 top: 0,
+
+//                                                                 zIndex:
+//                                                                     isSticky
+//                                                                         ? 25
+//                                                                         : 20,
+
+//                                                                 width:
+//                                                                     columnWidth,
+
+//                                                                 minWidth:
+//                                                                     columnWidth,
+
+//                                                                 maxWidth:
+//                                                                     columnWidth,
+
+//                                                                 whiteSpace: "normal",
+//                                                                 wordBreak: "break-word",
+//                                                                 overflowWrap: "anywhere",
+//                                                                 lineHeight: 1.15,
+//                                                                 height: 34,
+
+//                                                                 boxSizing:
+//                                                                     "border-box",
+
+//                                                                 background:
+//                                                                     "#edf4ff",
+
+//                                                                 color:
+//                                                                     "#24479d",
+
+//                                                                 fontWeight:
+//                                                                     800,
+
+//                                                                 padding:
+//                                                                     "8px 10px",
+
+//                                                                 borderBottom:
+//                                                                     "1px solid #d7e1ef",
+
+//                                                                 borderRight:
+//                                                                     "1px solid #e7edf6",
+
+//                                                                 textAlign:
+//                                                                     isText
+//                                                                         ? "left"
+//                                                                         : "right",
+
+//                                                                 /*  
+//                                                                  * Header text  
+//                                                                  * intentionally wraps  
+//                                                                  * to two lines.  
+//                                                                  */
+//                                                                 whiteSpace:
+//                                                                     "normal",
+
+//                                                                 lineHeight:
+//                                                                     1.2,
+
+//                                                                 height: 52,
+
+//                                                                 cursor:
+//                                                                     column.sortable
+//                                                                         ? "pointer"
+//                                                                         : "default",
+
+//                                                                 overflow:
+//                                                                     "hidden",
+
+//                                                                 wordBreak:
+//                                                                     "normal",
+//                                                             }}
+//                                                         >
+//                                                             <span
+//                                                                 style={{
+//                                                                     display:
+//                                                                         "-webkit-box",
+//                                                                     WebkitLineClamp: 3,
+//                                                                     WebkitBoxOrient:
+//                                                                         "vertical",
+//                                                                     overflow:
+//                                                                         "hidden",
+//                                                                 }}
+//                                                             >
+//                                                                 {renderHeaderLabel(column)}
+
+//                                                                 {column.sortable &&
+//                                                                     sortKey ===
+//                                                                     column.key && (
+//                                                                         <span
+//                                                                             style={{
+//                                                                                 marginLeft: 4,
+//                                                                                 fontSize: 8,
+//                                                                                 whiteSpace:
+//                                                                                     "nowrap",
+//                                                                             }}
+//                                                                         >
+//                                                                             {sortDirection ===
+//                                                                                 "asc"
+//                                                                                 ? "▲"
+//                                                                                 : "▼"}
+//                                                                         </span>
+//                                                                     )}
+//                                                             </span>
+//                                                         </th>
+//                                                     );
+//                                                 }
+//                                             )}
+//                                         </tr>
+//                                     </thead>
+
+//                                     <tbody>
+//                                         {pageRows.map(
+//                                             (
+//                                                 row,
+//                                                 rowIndex
+//                                             ) => (
+//                                                 <tr
+//                                                     key={
+//                                                         row.id ??
+//                                                         row.receivables_fact_id ??
+//                                                         rowIndex
+//                                                     }
+//                                                 >
+//                                                     {viewColumns.map(
+//                                                         (
+//                                                             column,
+//                                                             columnIndex
+//                                                         ) => {
+//                                                             const isSticky =
+//                                                                 columnIndex <
+//                                                                 3;
+
+//                                                             const stickyLeft =
+//                                                                 getStickyLeft(
+//                                                                     columnIndex
+//                                                                 );
+
+//                                                             let value;
+
+//                                                             if (
+//                                                                 column.key ===
+//                                                                 "row_currency"
+//                                                             ) {
+//                                                                 value =
+//                                                                     appliedViewFilters?.reporting_currency ||
+//                                                                     row.row_currency ||
+//                                                                     row.currency ||
+//                                                                     currency ||
+//                                                                     "AED";
+//                                                             } else {
+//                                                                 value =
+//                                                                     row[
+//                                                                     column.key
+//                                                                     ];
+//                                                             }
+
+//                                                             if (
+//                                                                 column.key ===
+//                                                                 "supplier_name"
+//                                                             ) {
+//                                                                 value =
+//                                                                     value ||
+//                                                                     row.supplier ||
+//                                                                     row.customer_name ||
+//                                                                     "-";
+//                                                             }
+
+//                                                             const isAmount =
+//                                                                 amountColumns.includes(
+//                                                                     column.key
+//                                                                 );
+
+//                                                             const numericValue =
+//                                                                 Number(
+//                                                                     String(
+//                                                                         value ??
+//                                                                         "0"
+//                                                                     )
+//                                                                         .replace(
+//                                                                             /,/g,
+//                                                                             ""
+//                                                                         )
+//                                                                         .replace(
+//                                                                             /[^\d.-]/g,
+//                                                                             ""
+//                                                                         )
+//                                                                 );
+
+//                                                             return (
+//                                                                 <td
+//                                                                     key={
+//                                                                         column.key
+//                                                                     }
+//                                                                     className={
+//                                                                         isAmount &&
+//                                                                             Number.isFinite(numericValue) &&
+//                                                                             numericValue < 0
+//                                                                             ? "receivables-negative-cell"
+//                                                                             : undefined
+//                                                                     }
+//                                                                     style={{
+//                                                                         position:
+//                                                                             isSticky
+//                                                                                 ? "sticky"
+//                                                                                 : "static",
+
+//                                                                         left:
+//                                                                             isSticky
+//                                                                                 ? stickyLeft
+//                                                                                 : undefined,
+
+//                                                                         zIndex:
+//                                                                             isSticky
+//                                                                                 ? 4
+//                                                                                 : 1,
+
+//                                                                         width:
+//                                                                             getColumnWidth(
+//                                                                                 columnIndex
+//                                                                             ),
+
+//                                                                         minWidth:
+//                                                                             getColumnWidth(
+//                                                                                 columnIndex
+//                                                                             ),
+
+//                                                                         maxWidth:
+//                                                                             getColumnWidth(
+//                                                                                 columnIndex
+//                                                                             ),
+
+//                                                                         padding:
+//                                                                             "9px 14px",
+
+//                                                                         borderRight:
+//                                                                             "1px solid #edf1f6",
+
+//                                                                         background:
+//                                                                             rowIndex %
+//                                                                                 2 ===
+//                                                                                 0
+//                                                                                 ? "#f9fbff"
+//                                                                                 : "#ffffff",
+
+//                                                                         /*  
+//                                                                          * Text wraps,  
+//                                                                          * numeric values  
+//                                                                          * stay on one line.  
+//                                                                          */
+//                                                                         whiteSpace:
+//                                                                             isAmount ||
+//                                                                                 column.key ===
+//                                                                                 "row_currency"
+//                                                                                 ? "nowrap"
+//                                                                                 : "normal",
+
+//                                                                         wordBreak:
+//                                                                             "normal",
+
+//                                                                         overflowWrap:
+//                                                                             "break-word",
+
+//                                                                         textAlign:
+//                                                                             column.text
+//                                                                                 ? "left"
+//                                                                                 : "right",
+
+//                                                                         color:
+//                                                                             isAmount &&
+//                                                                                 numericValue <
+//                                                                                 0
+//                                                                                 ? "#c62828"
+//                                                                                 : "#334b8e",
+
+//                                                                         fontWeight:
+//                                                                             isAmount
+//                                                                                 ? 600
+//                                                                                 : 500,
+
+//                                                                         lineHeight:
+//                                                                             1.25,
+//                                                                     }}
+//                                                                 >
+//                                                                     {column.key ===
+//                                                                         "row_currency"
+//                                                                         ? value ||
+//                                                                         "-"
+//                                                                         : isAmount
+//                                                                             ? formatTableAmount(
+//                                                                                 value
+//                                                                             )
+//                                                                             : (
+//                                                                                 <span
+//                                                                                     style={{
+//                                                                                         whiteSpace:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "normal"
+//                                                                                                 : "normal",
+//                                                                                         overflow:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "hidden"
+//                                                                                                 : "visible",
+//                                                                                         textOverflow:
+//                                                                                             "clip",
+//                                                                                         wordBreak:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "break-word"
+//                                                                                                 : "break-word",
+//                                                                                         overflowWrap:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "anywhere"
+//                                                                                                 : "anywhere",
+//                                                                                         display:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "-webkit-box"
+//                                                                                                 : "inline",
+//                                                                                         WebkitLineClamp:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? 3
+//                                                                                                 : undefined,
+//                                                                                         WebkitBoxOrient:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "vertical"
+//                                                                                                 : undefined,
+//                                                                                         lineHeight:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? 1.25
+//                                                                                                 : undefined,
+//                                                                                         maxWidth:
+//                                                                                             column.key === "legal_entity" ||
+//                                                                                                 column.key === "supplier_name"
+//                                                                                                 ? "100%"
+//                                                                                                 : undefined,
+//                                                                                     }}
+//                                                                                     title={String(
+//                                                                                         value ??
+//                                                                                         "-"
+//                                                                                     )}
+//                                                                                 >
+//                                                                                     {cleanCurrency(
+//                                                                                         value ||
+//                                                                                         "-"
+//                                                                                     )}
+//                                                                                 </span>
+//                                                                             )}
+//                                                                 </td>
+//                                                             );
+//                                                         }
+//                                                     )}
+//                                                 </tr>
+//                                             )
+//                                         )}
+
+//                                         {/* TOTAL ROW */}
+//                                         {kpiRows.length > 0 && (
+//                                             <tr>
+//                                                 {viewColumns.map((column, columnIndex) => {
+//                                                     const isSticky = columnIndex < 3;
+//                                                     const value = amountColumns.includes(column.key)
+//                                                         ? detailedTotalRow[column.key]
+//                                                         : columnIndex === 0
+//                                                             ? "Total"
+//                                                             : "";
+
+//                                                     return (
+//                                                         <td
+//                                                             key={`total-${column.key}`}
+//                                                             style={{
+//                                                                 position: "sticky",
+//                                                                 bottom: 0,
+//                                                                 left: isSticky ? getStickyLeft(columnIndex) : undefined,
+//                                                                 zIndex: isSticky ? 14 : 12,
+//                                                                 width: getColumnWidth(columnIndex),
+//                                                                 minWidth: getColumnWidth(columnIndex),
+//                                                                 maxWidth: getColumnWidth(columnIndex),
+//                                                                 padding: "10px 14px",
+//                                                                 lineHeight: 1.25,
+//                                                                 borderTop: "2px solid #cbd5e1",
+//                                                                 borderRight: "1px solid #dbe3ef",
+//                                                                 background: "#eef4ff",
+//                                                                 color: "#000000",
+//                                                                 fontWeight: 900,
+//                                                                 textAlign: column.text ? "left" : "right",
+//                                                                 whiteSpace: "nowrap",
+//                                                             }}
+//                                                         >
+//                                                             {amountColumns.includes(column.key)
+//                                                                 ? formatTableAmount(value)
+//                                                                 : value}
+//                                                         </td>
+//                                                     );
+//                                                 })}
+//                                             </tr>
+//                                         )}
+//                                     </tbody>
+//                                 </table>
+//                             </div>
+
+//                             {/* ==================================================  
+//                             NO DATA  
+//                         ================================================== */}
+
+//                             {pageRows.length === 0 && (
+//                                 detailError ? (
+//                                     <ReceivablesApiError
+//                                         message={detailError}
+//                                         minHeight={170}
+//                                         onRetry={() => setDetailRetryKey((value) => value + 1)}
+//                                     />
+//                                 ) : (
+//                                     <div
+//                                         style={{
+//                                             textAlign:
+//                                                 "center",
+//                                             padding: 45,
+//                                             color:
+//                                                 "#64748b",
+//                                             fontSize: 12,
+//                                         }}
+//                                     >
+//                                         {detailLoading
+//                                             ? "Loading receivables..."
+//                                             : "No Customers found."}
+//                                     </div>
+//                                 )
+//                             )}
+
+//                             {/* ==================================================  
+//                             FOOTER  
+//                         ================================================== */}
+
+//                             <div
+//                                 style={{
+//                                     minHeight: 55,
+//                                     padding:
+//                                         "10px 13px",
+//                                     borderTop:
+//                                         "1px solid #e5eaf2",
+//                                     display: "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     justifyContent:
+//                                         "space-between",
+//                                     gap: 15,
+//                                     boxSizing:
+//                                         "border-box",
+//                                 }}
+//                             >
+//                                 <div
+//                                     style={{
+//                                         fontSize: 10,
+//                                         color:
+//                                             "#5b6d99",
+//                                     }}
+//                                 >
+//                                     Values shown in{" "}
+//                                     {
+//                                         viewAllCurrency
+//                                     }
+
+//                                     <span
+//                                         style={{
+//                                             margin:
+//                                                 "0 8px",
+//                                             color:
+//                                                 "#b0bacb",
+//                                         }}
+//                                     >
+//                                         |
+//                                     </span>
+
+//                                     Source: Oracle
+//                                     Fusion Cloud
+//                                 </div>
+
+//                                 <div
+//                                     style={{
+//                                         display:
+//                                             "flex",
+//                                         alignItems:
+//                                             "center",
+//                                         gap: 8,
+//                                         color:
+//                                             "#3048a5",
+//                                         fontSize: 11,
+//                                         fontWeight: 600,
+//                                     }}
+//                                 >
+//                                     <button
+//                                         type="button"
+//                                         disabled={
+//                                             page <=
+//                                             1
+//                                         }
+//                                         onClick={() =>
+//                                             setPage(
+//                                                 (p) =>
+//                                                     Math.max(
+//                                                         1,
+//                                                         p -
+//                                                         1
+//                                                     )
+//                                             )
+//                                         }
+//                                         style={{
+//                                             border:
+//                                                 "none",
+//                                             background:
+//                                                 "transparent",
+//                                             color:
+//                                                 page <=
+//                                                     1
+//                                                     ? "#cbd5e1"
+//                                                     : "#3048a5",
+//                                             fontSize: 20,
+//                                             cursor:
+//                                                 page <=
+//                                                     1
+//                                                     ? "not-allowed"
+//                                                     : "pointer",
+//                                         }}
+//                                     >
+//                                         ‹
+//                                     </button>
+
+//                                     <span>
+//                                         {pageStart}
+//                                         {" – "}
+//                                         {pageEnd}
+//                                         {" of "}
+//                                         {totalRecords.toLocaleString()}
+//                                     </span>
+
+//                                     <button
+//                                         type="button"
+//                                         disabled={
+//                                             page >=
+//                                             totalPages
+//                                         }
+//                                         onClick={() =>
+//                                             setPage(
+//                                                 (p) =>
+//                                                     Math.min(
+//                                                         totalPages,
+//                                                         p +
+//                                                         1
+//                                                     )
+//                                             )
+//                                         }
+//                                         style={{
+//                                             border:
+//                                                 "none",
+//                                             background:
+//                                                 "transparent",
+//                                             color:
+//                                                 page >=
+//                                                     totalPages
+//                                                     ? "#cbd5e1"
+//                                                     : "#3048a5",
+//                                             fontSize: 20,
+//                                             cursor:
+//                                                 page >=
+//                                                     totalPages
+//                                                     ? "not-allowed"
+//                                                     : "pointer",
+//                                         }}
+//                                     >
+//                                         ›
+//                                     </button>
+//                                 </div>
+//                             </div>
+//                         </div>
+//                     </>) : (
+//                         <div style={{ background: "#ffffff", border: "1px solid #e3e9f2", borderRadius: 9, overflow: "visible", boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)" }}>
+//                             <div style={{ padding: "12px 13px 9px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
+//                                 <div><div style={{ fontSize: 19, fontWeight: 800, color: "#142b6f" }}>Month-on-Month Receivables by Parent Division</div><div style={{ marginTop: 5, fontSize: 11, color: "#64748b", fontWeight: 600 }}><span style={{ fontWeight: 800, color: "#304b91" }}>Reporting Currency:</span> {momMeta.reporting_currency || viewAllCurrency}<span style={{ margin: "0 8px", color: "#b0bacb" }}>|</span><span style={{ fontWeight: 800, color: "#304b91" }}>Year:</span> {momMeta.year || appliedViewFilters?.year || "—"}<span style={{ margin: "0 8px", color: "#b0bacb" }}>|</span><span style={{ fontWeight: 800, color: "#304b91" }}>Aging Basis:</span> {momMeta.aging_basis || appliedViewFilters?.aging_basis || "—"}</div></div>
+//                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#52658d", fontSize: 14 }}>⌕</span><input type="text" value={momSearch} onChange={(e) => setMomSearch(e.target.value)} placeholder="Search Parent Division" style={{ width: 245, height: 34, border: "1px solid #d6dfec", borderRadius: 5, padding: "0 10px 0 29px", outline: "none", fontSize: 10, color: "#334155", boxSizing: "border-box" }} /></div><select value={momPageSize} onChange={(e) => { setMomPageSize(Number(e.target.value)); setMomPage(1); }} style={{ width: 110, height: 34, border: "1px solid #d6dfec", borderRadius: 5, padding: "0 9px", color: "#334b8e", background: "#ffffff", fontSize: 10, fontWeight: 700, outline: "none" }}><option value={10}>10 rows</option><option value={20}>20 rows</option><option value={50}>50 rows</option><option value={100}>100 rows</option></select><div style={{ display: "inline-flex", alignItems: "center", height: 34, border: "1px solid #d6dfec", borderRadius: 5, background: "#f8fafc", overflow: "hidden" }}><button type="button" onClick={() => setViewAllDisplayUnit("AED")} style={{ height: "100%", minWidth: 42, padding: "0 9px", border: "none", borderRight: "1px solid #d6dfec", background: viewAllDisplayUnit === "AED" ? "#172f80" : "transparent", color: viewAllDisplayUnit === "AED" ? "#fff" : "#64748b", fontSize: 10, fontWeight: 800, cursor: "pointer" }}>AED</button><button type="button" onClick={() => setViewAllDisplayUnit("Millions")} style={{ height: "100%", minWidth: 86, padding: "0 9px", border: "none", background: viewAllDisplayUnit === "Millions" ? "#172f80" : "transparent", color: viewAllDisplayUnit === "Millions" ? "#fff" : "#64748b", fontSize: 10, fontWeight: 800, cursor: "pointer" }}>AED Millions</button></div></div>
+//                             </div>
+//                             <div className="receivables-view-all-table-wrap" style={{ width: "100%", overflowX: "visible", overflowY: "visible", /* Main View All content handles scrolling so sticky headers/totals remain anchored. */ minHeight: 0, position: "relative" }}>
+//                                 <table
+//                                     style={{
+//                                         width: "max-content",
+//                                         minWidth: 1280,
+//                                         borderCollapse: "separate",
+//                                         borderSpacing: 0,
+//                                         tableLayout: "fixed",
+//                                         fontSize: 10,
+//                                     }}
+//                                 >
+//                                     <thead>
+//                                         <tr>
+//                                             <th
+//                                                 rowSpan={2}
+//                                                 style={{
+//                                                     position: "sticky",
+//                                                     top: 0,
+//                                                     left: 0,
+//                                                     zIndex: 15,
+//                                                     width: 235,
+//                                                     minWidth: 235,
+//                                                     padding: "8px 12px",
+//                                                     background: "#edf4ff",
+//                                                     color: "#24479d",
+//                                                     fontWeight: 800,
+//                                                     textAlign: "left",
+//                                                     borderBottom: "1px solid #d7e1ef",
+//                                                     borderRight: "1px solid #d7e1ef",
+//                                                 }}
+//                                             >
+//                                                 Parent Division
+//                                             </th>
+//                                             {MONTHS.map((month) => (
+//                                                 <th
+//                                                     key={`month-${month}`}
+//                                                     colSpan={2}
+//                                                     style={{
+//                                                         position: "sticky",
+//                                                         top: 0,
+//                                                         zIndex: 10,
+//                                                         width: 156,
+//                                                         minWidth: 156,
+//                                                         padding: "7px 8px",
+//                                                         background: "#edf4ff",
+//                                                         color: "#24479d",
+//                                                         fontWeight: 800,
+//                                                         textAlign: "center",
+//                                                         borderBottom: "1px solid #d7e1ef",
+//                                                         borderRight: "1px solid #d7e1ef",
+//                                                     }}
+//                                                 >
+//                                                     {`${String(month).toLowerCase()}-${String(momMeta.year || appliedViewFilters?.year || new Date().getFullYear()).slice(-2)}`}
+//                                                 </th>
+//                                             ))}
+//                                         </tr>
+//                                         <tr>
+//                                             {MONTHS.map((month) => (
+//                                                 <React.Fragment key={`subheader-${month}`}>
+//                                                     <th
+//                                                         style={{
+//                                                             position: "sticky",
+//                                                             top: 33,
+//                                                             zIndex: 9,
+//                                                             width: 78,
+//                                                             minWidth: 78,
+//                                                             padding: "7px 8px",
+//                                                             background: "#f5f8ff",
+//                                                             color: "#36529a",
+//                                                             fontWeight: 800,
+//                                                             textAlign: "right",
+//                                                             borderBottom: "1px solid #d7e1ef",
+//                                                             borderRight: "1px solid #e5eaf2",
+//                                                         }}
+//                                                     >
+//                                                         Receivables
+//                                                     </th>
+//                                                     <th
+//                                                         style={{
+//                                                             position: "sticky",
+//                                                             top: 33,
+//                                                             zIndex: 9,
+//                                                             width: 78,
+//                                                             minWidth: 78,
+//                                                             padding: "7px 8px",
+//                                                             background: "#f5f8ff",
+//                                                             color: "#36529a",
+//                                                             fontWeight: 800,
+//                                                             textAlign: "right",
+//                                                             borderBottom: "1px solid #d7e1ef",
+//                                                             borderRight: "1px solid #e5eaf2",
+//                                                         }}
+//                                                     >
+//                                                         DSO
+//                                                     </th>
+//                                                 </React.Fragment>
+//                                             ))}
+//                                         </tr>
+//                                     </thead>
+//                                     <tbody>
+//                                         {visibleMomRows.map((row, rowIndex) => (
+//                                             <tr key={row.id}>
+//                                                 <td
+//                                                     style={{
+//                                                         position: "sticky",
+//                                                         left: 0,
+//                                                         zIndex: 4,
+//                                                         width: 235,
+//                                                         minWidth: 235,
+//                                                         padding: "9px 12px",
+//                                                         whiteSpace: "normal",
+//                                                         overflowWrap: "anywhere",
+//                                                         borderRight: "1px solid #edf1f6",
+//                                                         background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
+//                                                         color: "#334b8e",
+//                                                         fontWeight: 600,
+//                                                         textAlign: "left",
+//                                                     }}
+//                                                 >
+//                                                     {row.parent_division_name}
+//                                                 </td>
+//                                                 {MONTHS.map((month) => {
+//                                                     const value = row[month];
+//                                                     const dsoValue = row.dsoMonths?.[month];
+//                                                     const number = Number(value);
+//                                                     const negative =
+//                                                         value !== null &&
+//                                                         value !== undefined &&
+//                                                         value !== "" &&
+//                                                         Number.isFinite(number) &&
+//                                                         number < 0;
+
+//                                                     return (
+//                                                         <React.Fragment key={`${row.id}-${month}`}>
+//                                                             <td
+//                                                                 className={negative ? "receivables-negative-cell" : undefined}
+//                                                                 style={{
+//                                                                     padding: "9px 8px",
+//                                                                     borderRight: "1px solid #edf1f6",
+//                                                                     background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
+//                                                                     color: negative ? "#c62828" : "#334b8e",
+//                                                                     fontWeight: 600,
+//                                                                     textAlign: "right",
+//                                                                     whiteSpace: "nowrap",
+//                                                                 }}
+//                                                             >
+//                                                                 {formatParentDivisionMomValue(value, viewAllDisplayUnit)}
+//                                                             </td>
+//                                                             <td
+//                                                                 style={{
+//                                                                     padding: "9px 8px",
+//                                                                     borderRight: "1px solid #edf1f6",
+//                                                                     background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
+//                                                                     color: "#334b8e",
+//                                                                     fontWeight: 600,
+//                                                                     textAlign: "right",
+//                                                                     whiteSpace: "nowrap",
+//                                                                 }}
+//                                                             >
+//                                                                 {dsoValue === null || dsoValue === undefined || dsoValue === "" ? "—" : `${Number(dsoValue).toFixed(1)} Days`}
+//                                                             </td>
+//                                                         </React.Fragment>
+//                                                     );
+//                                                 })}
+//                                             </tr>
+//                                         ))}
+//                                         {filteredMomRows.length > 0 && (
+//                                             <tr>
+//                                                 <td style={{ position: "sticky", bottom: 0, left: 0, zIndex: 16, width: 235, minWidth: 235, padding: "10px 12px", background: "#e8efff", color: "#000000", fontWeight: 900, borderTop: "2px solid #aebfdf", borderRight: "1px solid #d7e1ef", whiteSpace: "nowrap" }}>Total</td>
+//                                                 {MONTHS.map((month) => (
+//                                                     <React.Fragment key={`mom-total-${month}`}>
+//                                                         <td style={{ position: "sticky", bottom: 0, zIndex: 12, padding: "10px 8px", background: "#e8efff", color: "#000000", fontWeight: 900, textAlign: "right", whiteSpace: "nowrap", borderTop: "2px solid #aebfdf", borderRight: "1px solid #d7e1ef" }}>{formatParentDivisionMomValue(momTotalByMonth[month]?.receivables, viewAllDisplayUnit)}</td>
+//                                                         <td style={{ position: "sticky", bottom: 0, zIndex: 12, padding: "10px 8px", background: "#e8efff", color: "#000000", fontWeight: 900, textAlign: "right", whiteSpace: "nowrap", borderTop: "2px solid #aebfdf", borderRight: "1px solid #d7e1ef" }}>{momTotalByMonth[month]?.dso == null ? "—" : `${momTotalByMonth[month].dso.toFixed(1)} Days`}</td>
+//                                                     </React.Fragment>
+//                                                 ))}
+//                                             </tr>
+//                                         )}
+//                                     </tbody>
+//                                 </table>
+//                             </div>
+//                             {visibleMomRows.length === 0 && (
+//                                 momError ? (
+//                                     <ReceivablesApiError
+//                                         message={momError}
+//                                         minHeight={170}
+//                                         onRetry={() => setMomRetryKey((value) => value + 1)}
+//                                     />
+//                                 ) : (
+//                                     <div style={{ textAlign: "center", padding: 45, color: "#64748b", fontSize: 12 }}>
+//                                         {momLoading ? "Loading receivables..." : "No Parent Divisions found."}
+//                                     </div>
+//                                 )
+//                             )}
+//                             <div style={{ minHeight: 55, padding: "10px 13px", borderTop: "1px solid #e5eaf2", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 15, boxSizing: "border-box" }}><div style={{ fontSize: 10, color: "#5b6d99" }}>Values shown in {viewAllDisplayUnit === "Millions" ? `${momMeta.reporting_currency || viewAllCurrency} Millions` : (momMeta.reporting_currency || viewAllCurrency)}<span style={{ margin: "0 8px", color: "#b0bacb" }}>|</span>Year {momMeta.year || appliedViewFilters?.year || "—"}<span style={{ margin: "0 8px", color: "#b0bacb" }}>|</span>Parent Division: {filteredMomRows.length.toLocaleString()}</div><div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3048a5", fontSize: 11, fontWeight: 600 }}><button type="button" disabled={momPage <= 1} onClick={() => setMomPage((p) => Math.max(1, p - 1))} style={{ border: "none", background: "transparent", color: momPage <= 1 ? "#cbd5e1" : "#3048a5", fontSize: 20, cursor: momPage <= 1 ? "not-allowed" : "pointer" }}>‹</button><span>{momPageStart} – {momPageEnd} of {filteredMomRows.length.toLocaleString()}</span><button type="button" disabled={momPage >= momTotalPages} onClick={() => setMomPage((p) => Math.min(momTotalPages, p + 1))} style={{ border: "none", background: "transparent", color: momPage >= momTotalPages ? "#cbd5e1" : "#3048a5", fontSize: 20, cursor: momPage >= momTotalPages ? "not-allowed" : "pointer" }}>›</button></div></div>
+//                         </div>
+//                     )}
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// }
+
+
+
+
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
@@ -387,11 +14692,12 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
                 k.targetDsoDays ??
                 null,
             collection_efficiency: k.collection_efficiency ?? k.collection_efficiency_percentage ?? k.collection_efficiency_percent ?? k.collection_efficiency_rate ?? k.collection_efficiency_pct ?? null,
-            collection_efficiency_variance: k.collection_efficiency_change_percentage ?? k.collection_efficiency_change_percent ?? k.collection_efficiency_variance ?? null,
+            collection_efficiency_variance: k.collection_efficiency_change_percentage ?? k.collection_efficiency_change_percent ?? k.collection_efficiency_change_pp ?? k.collection_efficiency_variance ?? null,
             overdue_percentage: k.overdue_percentage ?? k.overdue_percent ?? k.overdue_receivables_percentage ?? k.overdue_ratio_percentage ?? null,
-            overdue_percentage_variance: k.overdue_percentage_change ?? k.overdue_percent_change ?? k.overdue_percentage_change_percentage ?? null,
-            collections_mtd: k.collections_mtd ?? k.collection_mtd ?? k.collections_month_to_date ?? k.collection_amount_mtd ?? null,
-            collections_mtd_variance: k.collections_mtd_change_percentage ?? k.collection_mtd_change_percentage ?? k.collections_mtd_variance ?? null,
+            overdue_percentage_variance: k.overdue_percentage_change_pp ?? k.overdue_percentage_change ?? k.overdue_percent_change ?? k.overdue_percentage_change_percentage ?? null,
+            // API currently returns Collections PTD fields. Keep legacy MTD aliases as fallbacks.
+            collections_mtd: k.collections_ptd ?? k.collections_mtd ?? k.collection_ptd ?? k.collection_mtd ?? k.collections_month_to_date ?? k.collection_amount_mtd ?? null,
+            collections_mtd_variance: k.collections_ptd_change_percentage ?? k.collections_mtd_change_percentage ?? k.collection_ptd_change_percentage ?? k.collection_mtd_change_percentage ?? k.collections_mtd_variance ?? null,
             // Target comparisons must come from target-variance fields, never from
             // month-over-month change fields. Support the aliases used by API versions.
             total_receivables_target_variance: k.total_receivables_target_variance ?? k.total_receivables_vs_target_percentage ?? k.total_receivables_target_variance_percentage ?? k.total_receivables_variance_vs_target ?? null,
@@ -406,7 +14712,11 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
             current_receivables_variance: k.current_change_percentage ?? k.current_receivables_change_percentage ?? null,
             overdue_receivables_variance: k.overdue_change_percentage ?? k.overdue_receivables_change_percentage ?? null,
             overdue_gt_90_variance: k.overdue_above_90_change_percentage ?? k.overdue_gt_90_change_percentage ?? null,
-            dso_variance: k.dso_change_days ?? k.dso_change_percentage ?? null,
+            // "vs Last Month" is a variance indicator, not a date.
+            // Keep the percentage variance separate from the day delta so the
+            // KPI never renders a number of days with a percent sign (or vice versa).
+            dso_variance: k.dso_change_percentage ?? null,
+            dso_change_days: k.dso_change_days ?? null,
             previous_date: k.previous_date ?? k.previous_as_on_date ?? k.previous_as_of_date ?? k.previous_period_date ?? k.last_month_date ?? k.previous_month_date ?? payload.previous_date ?? payload.previous_as_on_date ?? null,
         },
 
@@ -540,6 +14850,22 @@ const formatMoMValue = (value, displayUnit = "AED") => {
 };
 const formatPercentage = (value) => value === null || value === undefined ? "—" : `${Number(value).toFixed(1)}%`;
 const formatVariance = (value) => value === null || value === undefined ? "—" : `${Number(value) >= 0 ? "▲" : "▼"} ${Math.abs(Number(value)).toFixed(1)}%`;
+
+// Variance colors follow the financial meaning of each receivables KPI,
+// not simply the direction of movement. Lower receivables/overdue/DSO values
+// are generally favorable; higher collections and collection efficiency are favorable.
+const getReceivablesVarianceColor = (value, kpiTitle) => {
+    if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) {
+        return "#64748b";
+    }
+    const numeric = Number(value);
+    if (numeric === 0) return "#64748b";
+
+    const title = String(kpiTitle || "").toLowerCase();
+    const higherIsBetter = title.includes("collections") || title.includes("collection efficiency");
+    const favorable = higherIsBetter ? numeric > 0 : numeric < 0;
+    return favorable ? "#159447" : "#e11d48";
+};
 const formatAxisMillions = (value) => value === null || value === undefined ? "—" : `${(Number(value) / 1000000).toFixed(0)}M`;
 
 // Capitalize dashboard table labels consistently without changing underlying API values.
@@ -1564,7 +15890,6 @@ function KpiCard({
     const numericValue = Number(value);
     const isNegativeValue =
         Number.isFinite(numericValue) && numericValue < 0;
-    const isPositive = Number(variance) >= 0;
 
     return (
         <div
@@ -1665,14 +15990,20 @@ function KpiCard({
                 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                         <span>vs Target</span>
-                        <strong style={{ color: targetVariance == null ? "#64748b" : Number(targetVariance) >= 0 ? "#159447" : "#e11d48", whiteSpace: "nowrap", fontWeight: 750 }}>
-                            {targetVariance == null ? "—" : `${Number(targetVariance) >= 0 ? "▲" : "▼"} ${Math.abs(Number(targetVariance)).toFixed(1)}${comparisonUnit === "pp" ? " pp" : "%"}`}
+                        <strong style={{ color: getReceivablesVarianceColor(targetVariance, title), whiteSpace: "nowrap", fontWeight: 750 }}>
+                            {targetVariance == null || !Number.isFinite(Number(targetVariance)) ? "—" : `${Number(targetVariance) >= 0 ? "▲" : "▼"} ${Math.abs(Number(targetVariance)).toFixed(1)}${comparisonUnit === "pp" ? " pp" : "%"}`}
                         </strong>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                         <span>vs Last Month</span>
-                        <strong style={{ color: "#64748b", whiteSpace: "nowrap", fontWeight: 650 }}>
-                            {previousDate ? (formatReceivablesDate(previousDate) || previousDate) : "—"}
+                        <strong style={{
+                            color: getReceivablesVarianceColor(lastMonthVariance, title),
+                            whiteSpace: "nowrap",
+                            fontWeight: 750
+                        }}>
+                            {lastMonthVariance == null || !Number.isFinite(Number(lastMonthVariance))
+                                ? "—"
+                                : `${Number(lastMonthVariance) >= 0 ? "▲" : "▼"} ${Math.abs(Number(lastMonthVariance)).toFixed(1)}${comparisonUnit === "pp" ? " pp" : comparisonUnit === "Days" ? " Days" : "%"}`}
                         </strong>
                     </div>
                 </div>
@@ -8640,16 +22971,16 @@ export default function ReceivablesDashboard() {
                             }}
                             className="receivables-main-kpi-grid"
                         >
-                            <KpiCard title="Total Receivables" value={kpis.total_receivables} variance={kpis.total_receivables_variance} previousDate={kpis?.previous_date} currency={currency} icon="▤" iconBg="#dbeafe" iconColor="#2563eb" cardBg="#eef4ff" targetVariance={kpis.total_receivables_target_variance ?? kpis.total_receivables_variance ?? null} lastMonthVariance={kpis.total_receivables_variance ?? null} />
-                            <KpiCard title="Current Receivables" value={kpis.current_receivables} variance={kpis.current_receivables_variance} previousDate={kpis.previous_date} currency={currency} icon="▦" iconBg="#fee2e2" iconColor="#d9465f" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.current_receivables_target_variance ?? kpis.current_receivables_variance ?? null} lastMonthVariance={kpis.current_receivables_variance ?? null} />
-                            <KpiCard title="Overdue Receivables" value={kpis.overdue_receivables} variance={kpis.overdue_receivables_variance} previousDate={kpis.previous_date} currency={currency} icon="⌛" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.overdue_receivables_target_variance ?? kpis.overdue_receivables_variance ?? null} lastMonthVariance={kpis.overdue_receivables_variance ?? null} />
-                            <KpiCard title="Overdue > 90 Days" value={kpis.overdue_gt_90} onClick={openOverdueAbove90Drilldown} variance={kpis.overdue_gt_90_variance} previousDate={kpis.previous_date} currency={currency} icon="⚠" iconBg="#ede9fe" iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#f5f1ff" targetVariance={kpis.overdue_gt_90_target_variance ?? kpis.overdue_gt_90_variance ?? null} lastMonthVariance={kpis.overdue_gt_90_variance ?? null} />
-                            <KpiCard title="Overdue %" value={kpis.overdue_percentage ?? (Number.isFinite(Number(kpis.overdue_receivables)) && Number(kpis.total_receivables) ? Number(kpis.overdue_receivables) / Number(kpis.total_receivables) * 100 : null)} variance={kpis.overdue_percentage_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="％" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff9e9" targetVariance={kpis.overdue_percentage_target_variance ?? kpis.overdue_percentage_variance ?? null} lastMonthVariance={kpis.overdue_percentage_variance ?? null} />
-                            <KpiCard title="DSO (Actual)" value={kpis.dso} variance={kpis.dso_variance} previousDate={kpis.previous_date} suffix="Days" currency={currency} icon="▮" iconBg="#ffe4e6" iconColor="#e11d48" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.dso_target_variance ?? kpis.dso_variance ?? null} lastMonthVariance={kpis.dso_variance ?? null} />
+                            <KpiCard title="Total Receivables" value={kpis.total_receivables} variance={kpis.total_receivables_variance} previousDate={kpis?.previous_date} currency={currency} icon="▤" iconBg="#dbeafe" iconColor="#2563eb" cardBg="#eef4ff" targetVariance={kpis.total_receivables_target_variance ?? null} lastMonthVariance={kpis.total_receivables_variance ?? null} />
+                            <KpiCard title="Current Receivables" value={kpis.current_receivables} variance={kpis.current_receivables_variance} previousDate={kpis.previous_date} currency={currency} icon="▦" iconBg="#fee2e2" iconColor="#d9465f" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.current_receivables_target_variance ?? null} lastMonthVariance={kpis.current_receivables_variance ?? null} />
+                            <KpiCard title="Overdue Receivables" value={kpis.overdue_receivables} variance={kpis.overdue_receivables_variance} previousDate={kpis.previous_date} currency={currency} icon="⌛" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.overdue_receivables_target_variance ?? null} lastMonthVariance={kpis.overdue_receivables_variance ?? null} />
+                            <KpiCard title="Overdue > 90 Days" value={kpis.overdue_gt_90} onClick={openOverdueAbove90Drilldown} variance={kpis.overdue_gt_90_variance} previousDate={kpis.previous_date} currency={currency} icon="⚠" iconBg="#ede9fe" iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#f5f1ff" targetVariance={kpis.overdue_gt_90_target_variance ?? null} lastMonthVariance={kpis.overdue_gt_90_variance ?? null} />
+                            <KpiCard title="Overdue %" value={kpis.overdue_percentage ?? (Number.isFinite(Number(kpis.overdue_receivables)) && Number(kpis.total_receivables) ? Number(kpis.overdue_receivables) / Number(kpis.total_receivables) * 100 : null)} variance={kpis.overdue_percentage_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="％" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff9e9" targetVariance={kpis.overdue_percentage_target_variance ?? null} lastMonthVariance={kpis.overdue_percentage_variance ?? null} comparisonUnit="%" />
+                            <KpiCard title="DSO (Actual)" value={kpis.dso} variance={kpis.dso_variance} previousDate={kpis.previous_date} suffix="Days" currency={currency} icon="▮" iconBg="#ffe4e6" iconColor="#e11d48" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.dso_target_variance ?? null} lastMonthVariance={kpis.dso_variance ?? null} comparisonUnit="%" />
                             <KpiCard title="Target DSO" value={kpis.target_dso} variance={null} previousDate={null} suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff8e8" targetVariance={null} lastMonthVariance={null} />
-                            <KpiCard title="DSO Variance" value={kpis.dso != null && kpis.target_dso != null ? Number(kpis.dso) - Number(kpis.target_dso) : null} suffix="Days" currency={currency} icon="⚖" iconBg="#cffafe" iconColor="#0284c7" titleColor="#0369a1" cardBg="#edfbff" targetVariance={kpis.dso_target_variance ?? kpis.dso_variance ?? null} lastMonthVariance={kpis.dso_variance ?? null} />
-                            <KpiCard title="Collections MTD" value={kpis.collections_mtd} variance={kpis.collections_mtd_variance} previousDate={kpis.previous_date} currency={currency} icon="＄" iconBg="#ffedd5" iconColor="#c2410c" titleColor="#b45309" cardBg="#fff4eb" targetVariance={kpis.collections_mtd_target_variance ?? kpis.collections_mtd_variance ?? null} lastMonthVariance={kpis.collections_mtd_variance ?? null} />
-                            <KpiCard title="Collection Efficiency" value={kpis.collection_efficiency} variance={kpis.collection_efficiency_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="↗" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.collection_efficiency_target_variance ?? kpis.collection_efficiency_variance ?? null} lastMonthVariance={kpis.collection_efficiency_variance ?? null} />
+                            <KpiCard title="DSO Variance" value={kpis.dso != null && kpis.target_dso != null ? Number(kpis.dso) - Number(kpis.target_dso) : null} suffix="Days" currency={currency} icon="⚖" iconBg="#cffafe" iconColor="#0284c7" titleColor="#0369a1" cardBg="#edfbff" targetVariance={kpis.dso_target_variance ?? null} lastMonthVariance={null} />
+                            <KpiCard title="Collections PTD" value={kpis.collections_mtd} variance={kpis.collections_mtd_variance} previousDate={kpis.previous_date} currency={currency} icon="＄" iconBg="#ffedd5" iconColor="#c2410c" titleColor="#b45309" cardBg="#fff4eb" targetVariance={kpis.collections_mtd_target_variance ?? null} lastMonthVariance={kpis.collections_mtd_variance ?? null} />
+                            <KpiCard title="Collection Efficiency" value={kpis.collection_efficiency} variance={kpis.collection_efficiency_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="↗" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.collection_efficiency_target_variance ?? null} lastMonthVariance={kpis.collection_efficiency_variance ?? null} comparisonUnit="%" />
                         </div>
                         <style>{`@media (max-width: 1250px) { .receivables-main-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; grid-auto-rows: 124px !important; } } @media (max-width: 760px) { .receivables-main-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-auto-rows: 124px !important; } } @media (max-width: 480px) { .receivables-main-kpi-grid { grid-template-columns: minmax(0, 1fr) !important; grid-auto-rows: 124px !important; } }`}</style>
 
