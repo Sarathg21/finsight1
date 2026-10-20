@@ -193,9 +193,6 @@ export function resolveLandingRoute(permissions, roleCode = null) {
   const executiveRoles = ['CFO', 'COO', 'CEO'];
 
   for (const item of LANDING_PRIORITY_ROUTES) {
-    if (item.route === '/exec-dashboard' && role && !executiveRoles.includes(role)) {
-      continue;
-    }
     if (canView(permissions, item.moduleCode)) {
       return item.route;
     }

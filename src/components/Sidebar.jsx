@@ -127,11 +127,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
   const permittedNavItems = navItems.filter(item => {
     if (!item?.to) return false;
 
-    // Strict Executive Dashboard restriction: strictly CFO, COO, and CEO
+    // Executive Dashboard follows admin-page defined access for all roles
     if (item.to === '/exec-dashboard') {
-      const allowedRoles = ['CFO', 'COO', 'CEO'];
-      const currentRole = (user?.role_code || user?.role || '').toUpperCase();
-      if (!allowedRoles.includes(currentRole)) return false;
       return Boolean(canAccess?.('/exec-dashboard'));
     }
 

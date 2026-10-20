@@ -638,23 +638,39 @@ export default function ExecutiveDashboard() {
     }, []);
 
     const handleApplyFilters = (applied) => {
-        let dateVal = '2026-09-30';
+        let dateVal = appliedFilters.as_of_date || '2026-09-30';
         if (applied && applied.period) {
-            const pStr = Array.isArray(applied.period) ? applied.period[applied.period.length - 1] : applied.period;
+            const rawItem = Array.isArray(applied.period) ? applied.period[applied.period.length - 1] : applied.period;
+            const pStr = (typeof rawItem === 'object' && rawItem !== null)
+                ? (rawItem.period_name || rawItem.value || rawItem.name || rawItem.label || '')
+                : String(rawItem || '');
+
             if (pStr) {
-                if (String(pStr).match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    dateVal = String(pStr);
+                if (pStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    dateVal = pStr;
                 } else {
-                    const parts = String(pStr).split(' ');
-                    const mIdx = MONTHS_SHORT.findIndex(m => m.toLowerCase() === parts[0].toLowerCase());
+                    const cleaned = pStr.trim();
+                    const parts = cleaned.split(/[\s\-_/]+/);
+                    let mIdx = MONTHS_SHORT.findIndex(m => parts[0] && parts[0].toLowerCase().startsWith(m.toLowerCase()));
+                    let rawYr = parts[1];
+                    if (mIdx === -1 && parts[1]) {
+                        mIdx = MONTHS_SHORT.findIndex(m => parts[1].toLowerCase().startsWith(m.toLowerCase()));
+                        rawYr = parts[0];
+                    }
                     if (mIdx !== -1) {
-                        const yr = parts[1] || applied.year || '2026';
+                        let yr = applied?.year || (rawYr ? (rawYr.length === 2 ? `20${rawYr}` : rawYr) : '2026');
                         const moStr = String(mIdx + 1).padStart(2, '0');
                         const lastDay = new Date(parseInt(yr, 10), mIdx + 1, 0).getDate();
                         dateVal = `${yr}-${moStr}-${String(lastDay).padStart(2, '0')}`;
                     }
                 }
             }
+        } else if (applied && applied.year) {
+            const parts = dateVal.split('-');
+            const mo = parts[1] || '09';
+            const yr = String(applied.year);
+            const lastDay = new Date(parseInt(yr, 10), parseInt(mo, 10), 0).getDate();
+            dateVal = `${yr}-${mo}-${String(lastDay).padStart(2, '0')}`;
         }
 
         const extractIds = (val) => {
@@ -698,7 +714,12 @@ export default function ExecutiveDashboard() {
     };
 
     // ── KPI state ──
+    const kpiReqIdRef = useRef(0);
+    const latestCompletedKpiReqIdRef = useRef(0);
+    const latestCompletedPrevReqIdRef = useRef(0);
+    const latestCompletedPlReqIdRef = useRef(0);
     const [kpiData, setKpiData] = useState(DEFAULT_KPI_DATA);
+    const [prevKpiData, setPrevKpiData] = useState(null);
     const [kpiTargets, setKpiTargets] = useState({});
     const [kpiLoading, setKpiLoading] = useState(false);
     const [kpiError, setKpiError] = useState(null);
@@ -717,38 +738,57 @@ export default function ExecutiveDashboard() {
 
     // ── Fetch KPIs & Target Comparison on filter apply ──
     useEffect(() => {
-        let cancelled = false;
+        const reqId = ++kpiReqIdRef.current;
         setKpiLoading(true);
         setKpiError(null);
 
+        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || '2026-09-30';
+        const parts = asOf.split('-');
+        const yr = parseInt(parts[0] || '2026', 10);
+        const mo = parseInt(parts[1] || '9', 10);
+        const prevDate = new Date(yr, mo - 1, 0);
+        const prevAsOf = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
+        const moIdx = mo - 1;
+        const periodName = `${MONTHS_SHORT[moIdx] || 'Sep'}-${String(yr).slice(2)}`;
+
+        // 1. Fetch Current KPIs immediately and update state without blocking on P&L
         getExecKpis(appliedFilters)
-            .then(data => {
-                if (!cancelled) {
-                    if (data && (data.kpis || data.data || data.summary || Object.keys(data).length > 0)) {
-                        setKpiData(data);
-                    } else {
-                        setKpiData(DEFAULT_KPI_DATA);
-                    }
-                }
-            })
-            .catch(err => {
-                if (!cancelled) {
-                    console.error('[Exec KPIs]', err.response?.status, err.response?.data || err.message);
-                    setKpiError(err);
+            .then(curData => {
+                if (reqId < latestCompletedKpiReqIdRef.current) return;
+                latestCompletedKpiReqIdRef.current = reqId;
+                if (curData && (curData.kpis || curData.data || curData.summary || Object.keys(curData).length > 0)) {
+                    setKpiData(curData);
+                } else {
                     setKpiData(DEFAULT_KPI_DATA);
                 }
             })
-            .finally(() => { if (!cancelled) setKpiLoading(false); });
+            .catch(err => {
+                if (reqId < latestCompletedKpiReqIdRef.current) return;
+                console.error('[Exec KPIs]', err.response?.status, err.response?.data || err.message);
+                setKpiError(err);
+            })
+            .finally(() => {
+                if (reqId >= latestCompletedKpiReqIdRef.current) setKpiLoading(false);
+            });
 
-        // Retrieve live P&L statement targets for P&L KPI cards
-        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || '2026-09-25';
-        const parts = asOf.split('-');
-        const yr = parts[0] || '2026';
-        const moIdx = parts.length > 1 ? parseInt(parts[1], 10) - 1 : 8;
-        const periodName = `${MONTHS_SHORT[moIdx] || 'Sep'}-${yr.slice(2)}`;
+        // 2. Fetch Previous KPIs for live MoM comparison
+        getExecKpis({ ...appliedFilters, as_of_date: prevAsOf, as_on_date: prevAsOf })
+            .then(prevData => {
+                if (reqId < latestCompletedPrevReqIdRef.current) return;
+                latestCompletedPrevReqIdRef.current = reqId;
+                if (prevData && (prevData.kpis || prevData.data || prevData.summary || Object.keys(prevData).length > 0)) {
+                    setPrevKpiData(prevData);
+                } else {
+                    setPrevKpiData(null);
+                }
+            })
+            .catch(() => {
+                if (reqId >= latestCompletedPrevReqIdRef.current) setPrevKpiData(null);
+            });
 
+        // 3. Fetch P&L Targets asynchronously
         fetchPLStatement({
-            year: yr,
+            year: String(yr),
             period_name: periodName,
             periodName: periodName,
             currency: appliedFilters.reporting_currency || 'AED',
@@ -757,47 +797,49 @@ export default function ExecutiveDashboard() {
             parentDivisionId: appliedFilters.parent_division_id || undefined,
             subdivisionId: appliedFilters.subdivision_id || undefined,
         })
-        .then(res => {
-            if (cancelled || !res) return;
-            let rawList = [];
-            if (Array.isArray(res)) {
-                rawList = res;
-            } else if (typeof res === 'object') {
-                ['income', 'cost_of_sales', 'expenses', 'bottom', 'data', 'rows', 'items'].forEach(k => {
-                    if (Array.isArray(res[k])) rawList = rawList.concat(res[k]);
-                });
-                if (rawList.length === 0) rawList = Object.values(res).filter(Array.isArray).flat();
-            }
-            if (!rawList.length) return;
+            .then(plRes => {
+                if (reqId < latestCompletedPlReqIdRef.current) return;
+                latestCompletedPlReqIdRef.current = reqId;
+                if (plRes) {
+                    let rawList = [];
+                    if (Array.isArray(plRes)) {
+                        rawList = plRes;
+                    } else if (typeof plRes === 'object') {
+                        ['income', 'cost_of_sales', 'expenses', 'bottom', 'data', 'rows', 'items'].forEach(k => {
+                            if (Array.isArray(plRes[k])) rawList = rawList.concat(plRes[k]);
+                        });
+                        if (rawList.length === 0) rawList = Object.values(plRes).filter(Array.isArray).flat();
+                    }
 
-            const targetsMap = {};
-            rawList.forEach(r => {
-                const p = String(r.particulars || r.label || r.name || '').toLowerCase().trim();
-                const cur = Number(r.current_ptd ?? r.current ?? 0);
-                const tgt = Number(r.target_ptd ?? r.target ?? 0);
-                const varPct = r.variance_pct_current_vs_target != null && !isNaN(Number(r.variance_pct_current_vs_target))
-                    ? Number(r.variance_pct_current_vs_target)
-                    : (tgt > 0 ? ((cur - tgt) / tgt) * 100 : null);
+                    if (rawList.length > 0) {
+                        const targetsMap = {};
+                        rawList.forEach(r => {
+                            const p = String(r.particulars || r.label || r.name || '').toLowerCase().trim();
+                            const cur = Number(r.current_ptd ?? r.current ?? 0);
+                            const tgt = Number(r.target_ptd ?? r.target ?? 0);
+                            const varPct = r.variance_pct_current_vs_target != null && !isNaN(Number(r.variance_pct_current_vs_target))
+                                ? Number(r.variance_pct_current_vs_target)
+                                : (tgt > 0 ? ((cur - tgt) / tgt) * 100 : null);
 
-                if (p === 'total revenue' || p === 'revenue from sale of goods & services' || p === 'sales revenue' || p.includes('total revenue')) {
-                    if (!targetsMap.total_revenue && tgt > 0) targetsMap.total_revenue = { target: tgt, varPct };
-                } else if (p === 'cost of material' || p.includes('cost of material')) {
-                    if (!targetsMap.cost_of_material && tgt > 0) targetsMap.cost_of_material = { target: tgt, varPct };
-                } else if (p === 'gross profit' || p === 'gross margin') {
-                    if (!targetsMap.gross_profit && tgt > 0) targetsMap.gross_profit = { target: tgt, varPct };
-                } else if (p === 'ebitda') {
-                    if (!targetsMap.ebitda && tgt > 0) targetsMap.ebitda = { target: tgt, varPct };
-                } else if (p === 'net profit' || p === 'net profit / (loss)' || p.includes('net profit')) {
-                    if (!targetsMap.net_profit && tgt > 0) targetsMap.net_profit = { target: tgt, varPct };
+                            if (p === 'total revenue' || p === 'revenue from sale of goods & services' || p === 'sales revenue' || p.includes('total revenue')) {
+                                if (!targetsMap.total_revenue && tgt > 0) targetsMap.total_revenue = { target: tgt, varPct };
+                            } else if (p === 'cost of material' || p.includes('cost of material')) {
+                                if (!targetsMap.cost_of_material && tgt > 0) targetsMap.cost_of_material = { target: tgt, varPct };
+                            } else if (p === 'gross profit' || p === 'gross margin') {
+                                if (!targetsMap.gross_profit && tgt > 0) targetsMap.gross_profit = { target: tgt, varPct };
+                            } else if (p === 'ebitda') {
+                                if (!targetsMap.ebitda && tgt > 0) targetsMap.ebitda = { target: tgt, varPct };
+                            } else if (p === 'net profit' || p === 'net profit / (loss)' || p.includes('net profit')) {
+                                if (!targetsMap.net_profit && tgt > 0) targetsMap.net_profit = { target: tgt, varPct };
+                            }
+                        });
+                        if (Object.keys(targetsMap).length > 0) {
+                            setKpiTargets(targetsMap);
+                        }
+                    }
                 }
-            });
-            if (Object.keys(targetsMap).length > 0) {
-                setKpiTargets(targetsMap);
-            }
-        })
-        .catch(err => console.warn('[Exec Dashboard P&L Targets]', err.message));
-
-        return () => { cancelled = true; };
+            })
+            .catch(() => {});
     }, [appliedFilters]);
 
     // ── Fetch TWC Trend on filter apply ──
@@ -1189,27 +1231,45 @@ export default function ExecutiveDashboard() {
 
         if (cfg.compareType === 'mom') {
             compLabel = 'vs. last month';
-            const rawApiChange = getChangeFromKpiPayload(kpiData, cfg.key);
-            const changeNum = (rawApiChange !== undefined && rawApiChange !== null && !isNaN(Number(rawApiChange)))
-                ? Number(rawApiChange)
-                : DEFAULT_KPI_DATA[`${cfg.key}_change`];
+            let changeNum = null;
 
-            if (changeNum !== undefined && changeNum !== null) {
+            // 1. Try backend API change if available
+            const rawApiChange = getChangeFromKpiPayload(kpiData, cfg.key);
+            if (rawApiChange !== undefined && rawApiChange !== null && !isNaN(Number(rawApiChange))) {
+                changeNum = Number(rawApiChange);
+            } else if (numVal !== null && prevKpiData) {
+                // 2. Compute true live MoM change from current vs previous month API values
+                const prevRaw = getValueFromKpiPayload(prevKpiData, cfg.key);
+                if (prevRaw !== undefined && prevRaw !== null && !isNaN(Number(prevRaw))) {
+                    const prevVal = Number(prevRaw);
+                    if (prevVal !== 0) {
+                        changeNum = ((numVal - prevVal) / Math.abs(prevVal)) * 100;
+                    }
+                }
+            }
+
+            // Fallback only if no previous data available
+            if (changeNum === null || isNaN(changeNum)) {
+                changeNum = DEFAULT_KPI_DATA[`${cfg.key}_change`];
+            }
+
+            if (changeNum !== undefined && changeNum !== null && !isNaN(changeNum)) {
                 const isPositive = changeNum >= 0;
                 compArrow = isPositive ? '▲' : '▼';
                 compText = `${isPositive ? '+' : ''}${changeNum.toFixed(1)}%`;
-                // In reference image: Cost of Material (-3.2%) is red (#dc2626). Others are green (#16a34a).
-                if (cfg.key === 'cost_of_material') {
-                    compColor = changeNum < 0 ? '#dc2626' : '#16a34a';
-                } else {
-                    compColor = isPositive ? '#16a34a' : '#dc2626';
-                }
+                const isLowerBetter = LOWER_IS_BETTER_KEYS.has(cfg.key);
+                const isFavorable = isLowerBetter ? changeNum <= 0 : changeNum >= 0;
+                compColor = isFavorable ? '#16a34a' : '#dc2626';
                 compTitle = `MoM Change: ${compText} vs. last month`;
             }
         } else {
             // compareType === 'target'
             compLabel = 'vs. Target';
-            const targetVal = cfg.target;
+            const liveTgt = kpiTargets[cfg.key]?.target ?? getValueFromKpiPayload(kpiData, `${cfg.key}_target`);
+            const targetVal = (liveTgt !== undefined && liveTgt !== null && !isNaN(Number(liveTgt)))
+                ? Number(liveTgt)
+                : cfg.target;
+
             if (numVal !== null && targetVal !== undefined && targetVal !== null && targetVal > 0) {
                 const diff = numVal - targetVal;
                 const diffPct = (diff / targetVal) * 100;
@@ -1310,6 +1370,19 @@ export default function ExecutiveDashboard() {
                 }
             `}</style>
             
+            {/* Page Header */}
+            <div className="page-header" style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                    <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0f172a', margin: 0, padding: 0, lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Briefcase size={24} style={{ color: '#2563eb' }} />
+                        Executive Dashboard
+                    </h1>
+                    <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '4px 0 0 0', padding: 0, fontWeight: 500 }}>
+                        Enterprise financial overview, operational performance, and key metrics across all divisions
+                    </p>
+                </div>
+            </div>
+
             {/* 1. STANDARD FINSIGHT FILTER BAR */}
             <Filters
                 filterOptions={filterOptions}
