@@ -264,16 +264,26 @@ function buildFinancialPositionParams(filters = {}) {
  * GET
  * /api/financial-position/kpis
  */
-export async function getFinancialPositionKpis(filters = {}) {
+export async function getFinancialPositionKpis(filters = {}, options = {}) {
     const params = buildFinancialPositionParams(filters);
 
-    return api.get(
-        "/financial-position/kpis",
-        {
-            params,
-            headers: getAuthHeaders(),
+    try {
+        return await api.get(
+            "/financial-position/kpis",
+            {
+                params,
+                headers: getAuthHeaders(),
+                skip404Toast: true,
+                ...options,
+            }
+        );
+    } catch (err) {
+        if (err.response?.status === 404) {
+            // Historical period has no Balance Sheet data on backend
+            return { data: {} };
         }
-    );
+        throw err;
+    }
 }
 
 /* ============================================================

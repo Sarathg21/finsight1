@@ -27,6 +27,24 @@ function parseNum(val) {
     return isNaN(n) ? null : n;
 }
 
+function formatValue(val, isDays, unitMode) {
+    const n = parseNum(val);
+    if (n === null) return '—';
+    if (isDays) {
+        // Ratios (DSO, DIO, DPO, CCC) always stay in Days
+        return n.toFixed(1);
+    }
+    if (unitMode === 'aed') {
+        const rounded = Math.round(n);
+        if (rounded < 0) return `(${Math.abs(rounded).toLocaleString('en-US')})`;
+        return rounded.toLocaleString('en-US');
+    }
+    // Default 'millions'
+    const m = n / 1_000_000;
+    if (m < 0) return `(${Math.abs(m).toFixed(1)})`;
+    return m.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
 function formatM(val) {
     const n = parseNum(val);
     if (n === null) return '—';
@@ -59,6 +77,12 @@ export default function KeyFinancialParameters({
 }) {
     // 1. PTD vs YTD toggle (default YTD as in reference design)
     const [periodType, setPeriodType] = useState('YTD');
+
+    // Tab state: 'revenue' | 'working_capital' | 'financials'
+    const [activeTab, setActiveTab] = useState('revenue');
+
+    // Unit toggle: 'millions' | 'aed' (default 'millions')
+    const [displayUnit, setDisplayUnit] = useState('millions');
 
     // 2. Local filter dropdown states below PTD/YTD toggle
     const [selectedLegalGroup, setSelectedLegalGroup] = useState('All');
@@ -194,19 +218,30 @@ export default function KeyFinancialParameters({
             ...hierarchy,
         }).catch(() => null);
 
-        const p8 = getFinancialPositionKpis({
-            calendar_date: dateMeta.asOfDate,
-            currency: currency || 'AED',
-            ...hierarchy,
-        }).catch(() => null);
+        // Financial position / Balance sheet data is currently available starting from year 2026
+        const isFpDateAvailable = (dStr) => {
+            if (!dStr) return false;
+            const yr = parseInt(String(dStr).slice(0, 4), 10);
+            return yr >= 2026;
+        };
 
-        const p9 = getFinancialPositionKpis({
-            calendar_date: dateMeta.prevAsOfDate,
-            currency: currency || 'AED',
-            ...hierarchy,
-        }).catch(() => null);
+        const p8 = isFpDateAvailable(dateMeta.asOfDate)
+            ? getFinancialPositionKpis({
+                calendar_date: dateMeta.asOfDate,
+                currency: currency || 'AED',
+                ...hierarchy,
+            }).catch(() => null)
+            : Promise.resolve(null);
 
-        const p10 = periodType === 'YTD'
+        const p9 = isFpDateAvailable(dateMeta.prevAsOfDate)
+            ? getFinancialPositionKpis({
+                calendar_date: dateMeta.prevAsOfDate,
+                currency: currency || 'AED',
+                ...hierarchy,
+            }).catch(() => null)
+            : Promise.resolve(null);
+
+        const p10 = (periodType === 'YTD' && isFpDateAvailable(dateMeta.pyAsOfDate))
             ? getFinancialPositionKpis({
                 calendar_date: dateMeta.pyAsOfDate,
                 currency: currency || 'AED',
@@ -636,8 +671,16 @@ export default function KeyFinancialParameters({
         const isFavorable = isLowerBetter ? diff <= 0 : diff >= 0;
         const color = isFavorable ? '#16a34a' : '#dc2626';
 
-        const displayDiff = isDays ? Math.abs(diff).toFixed(1) : (Math.abs(diff) / 1_000_000).toFixed(1);
-        const displayPct = pct !== null && !isNaN(pct) ? `${pct >= 0 ? '' : ''}${pct.toFixed(1)}%` : '—';
+        let displayDiff;
+        if (isDays) {
+            displayDiff = Math.abs(diff).toFixed(1);
+        } else if (displayUnit === 'aed') {
+            displayDiff = Math.round(Math.abs(diff)).toLocaleString('en-US');
+        } else {
+            displayDiff = (Math.abs(diff) / 1_000_000).toFixed(1);
+        }
+
+        const displayPct = pct !== null && !isNaN(pct) ? `${pct.toFixed(1)}%` : '—';
 
         return (
             <>
@@ -653,6 +696,22 @@ export default function KeyFinancialParameters({
     };
 
     const isYtd = periodType === 'YTD';
+
+    // Tab definitions
+    const TABS = [
+        { key: 'revenue',         label: 'Revenue & Profitability KPI', categories: ['Profitability'] },
+        { key: 'working_capital', label: 'Working Capital KPI',          categories: ['Working Capital'] },
+        { key: 'financials',      label: 'Financials KPI',               categories: ['Investments', 'Equity & Long Term Funds', 'Short Term Borrowings'] },
+    ];
+
+    const activeTabDef = TABS.find(t => t.key === activeTab) || TABS[0];
+    const visibleRows = tableData.filter(r => activeTabDef.categories.includes(r.category));
+
+    // Dynamic row unit helper (AED / Millions / Days)
+    const getRowUnit = (row) => {
+        if (row.isDays) return 'Days';
+        return displayUnit === 'aed' ? (currency || 'AED') : `${currency || 'AED'} M`;
+    };
 
     return (
         <div style={{
@@ -745,6 +804,53 @@ export default function KeyFinancialParameters({
                             }}
                         >
                             YTD
+                        </button>
+                    </div>
+
+                    {/* AED / Millions Unit Toggle */}
+                    <div style={{
+                        display: 'inline-flex',
+                        background: '#ffffff',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: 3,
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                    }}>
+                        <button
+                            type="button"
+                            onClick={() => setDisplayUnit('aed')}
+                            style={{
+                                padding: '5px 14px',
+                                borderRadius: 6,
+                                fontSize: '0.76rem',
+                                fontWeight: 700,
+                                border: 'none',
+                                cursor: 'pointer',
+                                background: displayUnit === 'aed' ? '#4f46e5' : 'transparent',
+                                color: displayUnit === 'aed' ? '#ffffff' : '#64748b',
+                                transition: 'all 0.15s ease',
+                            }}
+                            title={`Display amounts in full ${currency || 'AED'}`}
+                        >
+                            {currency || 'AED'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDisplayUnit('millions')}
+                            style={{
+                                padding: '5px 14px',
+                                borderRadius: 6,
+                                fontSize: '0.76rem',
+                                fontWeight: 700,
+                                border: 'none',
+                                cursor: 'pointer',
+                                background: displayUnit === 'millions' ? '#4f46e5' : 'transparent',
+                                color: displayUnit === 'millions' ? '#ffffff' : '#64748b',
+                                transition: 'all 0.15s ease',
+                            }}
+                            title={`Display amounts in ${currency || 'AED'} Millions`}
+                        >
+                            Millions
                         </button>
                     </div>
 
@@ -889,6 +995,40 @@ export default function KeyFinancialParameters({
                 </div>
             </div>
 
+            {/* ── TAB BUTTONS ── */}
+            <div style={{
+                display: 'flex',
+                gap: 8,
+                marginBottom: 16,
+                flexWrap: 'wrap',
+            }}>
+                {TABS.map(tab => {
+                    const isActive = activeTab === tab.key;
+                    return (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setActiveTab(tab.key)}
+                            style={{
+                                padding: '7px 18px',
+                                borderRadius: 8,
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                border: isActive ? '1.5px solid #4f46e5' : '1.5px solid #e2e8f0',
+                                cursor: 'pointer',
+                                background: isActive ? '#4f46e5' : '#ffffff',
+                                color: isActive ? '#ffffff' : '#475569',
+                                transition: 'all 0.15s ease',
+                                boxShadow: isActive ? '0 2px 6px rgba(79,70,229,0.18)' : 'none',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
             {/* ── TABLE CONTAINER ── */}
             <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
                 <table style={{
@@ -901,9 +1041,9 @@ export default function KeyFinancialParameters({
                     <thead>
                         {/* Header Row 1 */}
                         <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                            <th rowSpan={2} style={{ ...thStyle, width: 34, textAlign: 'center' }}>#</th>
-                            <th rowSpan={2} colSpan={2} style={{ ...thStyle, minWidth: 260, textAlign: 'left' }}>Parameter</th>
-                            <th rowSpan={2} style={{ ...thStyle, width: 68, textAlign: 'left' }}>Unit</th>
+                            <th rowSpan={2} style={{ ...thStyle, width: 38, textAlign: 'center' }}>#</th>
+                            <th rowSpan={2} style={{ ...thStyle, minWidth: 260, textAlign: 'left' }}>Parameter</th>
+                            <th rowSpan={2} style={{ ...thStyle, width: 75, textAlign: 'left' }}>Unit</th>
                             <th rowSpan={2} style={{ ...thStyle, minWidth: 90, textAlign: 'right' }}>
                                 Target<br/><span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>{isYtd ? 'YTD' : ''}</span>
                             </th>
@@ -941,7 +1081,7 @@ export default function KeyFinancialParameters({
                     <tbody>
                         {loading && (
                             <tr>
-                                <td colSpan={isYtd ? 14 : 11} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
+                                <td colSpan={isYtd ? 13 : 10} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                                         <RefreshCw size={16} className="animate-spin" />
                                         Loading parameters from live data sources...
@@ -949,19 +1089,7 @@ export default function KeyFinancialParameters({
                                 </td>
                             </tr>
                         )}
-                        {!loading && tableData.map((row, idx) => {
-                            // Find category config
-                            const cat = CATEGORIES.find(c => c.name === row.category);
-                            const isCategoryFirstRow = (
-                                (row.id === 1) ||
-                                (row.id === 8) ||
-                                (row.id === 16) ||
-                                (row.id === 19) ||
-                                (row.id === 21)
-                            );
-
-                            const CategoryIcon = cat?.icon || BarChart3;
-
+                        {!loading && visibleRows.map((row, idx) => {
                             return (
                                 <tr
                                     key={row.id}
@@ -973,48 +1101,8 @@ export default function KeyFinancialParameters({
                                     onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
                                     onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fafafa'}
                                 >
-                                    {/* Category Pill (Rowspan across rows) */}
-                                    {isCategoryFirstRow && (
-                                        <td
-                                            rowSpan={cat?.count || 1}
-                                            style={{
-                                                padding: '12px 10px',
-                                                verticalAlign: 'middle',
-                                                background: cat?.bg || '#ffffff',
-                                                borderRight: '1.5px solid #e2e8f0',
-                                                borderBottom: '1px solid #cbd5e1',
-                                                textAlign: 'center',
-                                                width: 140,
-                                            }}
-                                        >
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: 8,
-                                                color: cat?.text || '#1e3a8a',
-                                                fontWeight: 800,
-                                                fontSize: '0.78rem',
-                                            }}>
-                                                <div style={{
-                                                    width: 26,
-                                                    height: 26,
-                                                    borderRadius: 6,
-                                                    background: '#ffffff',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                                }}>
-                                                    <CategoryIcon size={14} color={cat?.iconColor || '#2563eb'} />
-                                                </div>
-                                                <span>{cat?.name}</span>
-                                            </div>
-                                        </td>
-                                    )}
-
                                     {/* Index # */}
-                                    <td style={{ ...tdStyle, width: 34, textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>
+                                    <td style={{ ...tdStyle, width: 38, textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>
                                         {row.id}
                                     </td>
 
@@ -1024,29 +1112,29 @@ export default function KeyFinancialParameters({
                                     </td>
 
                                     {/* Unit */}
-                                    <td style={{ ...tdStyle, width: 68, color: '#64748b', fontSize: '0.72rem', fontWeight: 500 }}>
-                                        {row.unit}
+                                    <td style={{ ...tdStyle, width: 75, color: '#64748b', fontSize: '0.72rem', fontWeight: 600 }}>
+                                        {getRowUnit(row)}
                                     </td>
 
                                     {/* Target */}
                                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                                        {row.isDays ? formatDays(row.targetVal) : formatM(row.targetVal)}
+                                        {formatValue(row.targetVal, row.isDays, displayUnit)}
                                     </td>
 
                                     {/* Actual */}
                                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
-                                        {row.isDays ? formatDays(row.actualVal) : formatM(row.actualVal)}
+                                        {formatValue(row.actualVal, row.isDays, displayUnit)}
                                     </td>
 
                                     {/* Previous Month */}
                                     <td style={{ ...tdStyle, textAlign: 'right', color: '#334155', fontWeight: 600 }}>
-                                        {row.isDays ? formatDays(row.prevVal) : formatM(row.prevVal)}
+                                        {formatValue(row.prevVal, row.isDays, displayUnit)}
                                     </td>
 
                                     {/* Previous Year (YTD only) */}
                                     {isYtd && (
                                         <td style={{ ...tdStyle, textAlign: 'right', color: '#334155', fontWeight: 600 }}>
-                                            {row.isDays ? formatDays(row.pyVal) : formatM(row.pyVal)}
+                                            {formatValue(row.pyVal, row.isDays, displayUnit)}
                                         </td>
                                     )}
 

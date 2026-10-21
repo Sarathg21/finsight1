@@ -201,9 +201,11 @@ api.interceptors.response.use(
 
       case 404:
 
-        toast.error(
-          "Record not found."
-        );
+        if (!error.config?.skipToast && !error.config?.skip404Toast) {
+          toast.error(
+            "Record not found."
+          );
+        }
 
         break;
 
