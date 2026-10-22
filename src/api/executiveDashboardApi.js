@@ -45,12 +45,143 @@ function buildParams(filters = {}) {
     return params;
 }
 
-async function execGet(path, filters = {}) {
-    const response = await api.get(`/executive-dashboard${path}`, {
-        params: buildParams(filters),
-        headers: getAuthHeaders(),
+/* ─────────────────────────────────────────────────────────────────────────────
+   IN-FLIGHT REQUEST DEDUPLICATION & USER-ISOLATED QUERY CACHE
+───────────────────────────────────────────────────────────────────────────── */
+const inFlightRequests = new Map();
+const queryCache = new Map();
+const DEFAULT_CACHE_TTL_MS = 30_000; // 30-second query cache TTL
+
+/**
+ * Extract authenticated user context and role to guarantee strict cache isolation.
+ * Prevents requests from different user accounts or RBAC scopes from sharing cached data.
+ * Raw JWT tokens are NEVER stored in keys or exposed in logs.
+ */
+function getUserContext() {
+    try {
+        const rawUser = typeof localStorage !== 'undefined' ? localStorage.getItem('finsight_user') : null;
+        if (rawUser) {
+            const u = JSON.parse(rawUser);
+            const uid = u.id || u.user_profile_id || u.emp_id || 'u';
+            const role = u.role_code || u.role || 'r';
+            return `u:${uid}:${role}`;
+        }
+    } catch {
+        // ignore parse error
+    }
+    const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('finsight_token') || localStorage.getItem('token')) : null;
+    if (token) {
+        // Safe non-sensitive suffix identifier of token signature (last 10 chars)
+        return `tok:${token.slice(-10)}`;
+    }
+    return 'anon';
+}
+
+/**
+ * Build a canonical, deterministic, and user-isolated cache key.
+ * Prepends user/role context and normalizes/sorts all query parameters and arrays.
+ */
+function getCacheKey(path, filters = {}) {
+    const userScope = getUserContext();
+    const keys = Object.keys(filters).sort();
+    const parts = [];
+    for (const key of keys) {
+        const val = filters[key];
+        if (val === undefined || val === null || val === '') continue;
+        if (Array.isArray(val)) {
+            const sorted = [...val].map(String).sort();
+            parts.push(`${encodeURIComponent(key)}=[${sorted.map(encodeURIComponent).join(',')}]`);
+        } else {
+            parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`);
+        }
+    }
+    return `[${userScope}]${path}${parts.length ? `?${parts.join('&')}` : ''}`;
+}
+
+/**
+ * Clears the executive dashboard query cache and cancels in-flight tracking.
+ * Useful on logout, user change, or manual full refresh.
+ */
+export function clearExecDashboardCache() {
+    queryCache.clear();
+    inFlightRequests.clear();
+}
+
+/**
+ * Invalidates cached queries matching a specific path or prefix.
+ */
+export function invalidateExecDashboardQuery(pathPrefix) {
+    for (const key of queryCache.keys()) {
+        if (key.includes(pathPrefix)) {
+            queryCache.delete(key);
+        }
+    }
+}
+
+// Auto-purge cache on session logout or auth expiration
+if (typeof window !== 'undefined') {
+    window.addEventListener('auth:unauthorized', () => clearExecDashboardCache());
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'finsight_token' || e.key === 'finsight_user' || e.key === 'token') {
+            clearExecDashboardCache();
+        }
     });
-    return response.data;
+}
+
+/**
+ * Central execGet with:
+ * 1. User & RBAC-isolated in-flight request deduplication:
+ *    Concurrent calls for the exact same query share the same Promise.
+ * 2. User & RBAC-isolated query caching (TTL):
+ *    Subsequent calls within the TTL window receive the cached response immediately.
+ * 3. Safe error & cancellation isolation:
+ *    Failed requests are never cached; unmounting callers cannot cancel sibling consumers.
+ * 4. Cache bypass / forceRefresh option:
+ *    Pass { forceRefresh: true } or { bypassCache: true } to force a fresh network call.
+ */
+async function execGet(path, filters = {}, options = {}) {
+    const cacheKey = getCacheKey(path, filters);
+    const ttl = options.ttlMs ?? DEFAULT_CACHE_TTL_MS;
+    const forceRefresh = options.forceRefresh || options.bypassCache || false;
+
+    // 1. Check Query Cache (if fresh and not forced)
+    if (!forceRefresh && queryCache.has(cacheKey)) {
+        const cached = queryCache.get(cacheKey);
+        if (Date.now() - cached.timestamp < ttl) {
+            return cached.data;
+        }
+        queryCache.delete(cacheKey);
+    }
+
+    // 2. In-Flight Request Deduplication:
+    // If an identical request is already underway, attach to its Promise
+    if (inFlightRequests.has(cacheKey)) {
+        return inFlightRequests.get(cacheKey);
+    }
+
+    // 3. Dispatch fresh request and register in-flight Promise
+    const fetchPromise = (async () => {
+        try {
+            const response = await api.get(`/executive-dashboard${path}`, {
+                params: buildParams(filters),
+                headers: getAuthHeaders(),
+            });
+
+            // Store successful response in query cache
+            queryCache.set(cacheKey, {
+                data: response.data,
+                timestamp: Date.now(),
+            });
+
+            return response.data;
+        } finally {
+            // Always remove from in-flight requests once settled (fulfilled or rejected)
+            inFlightRequests.delete(cacheKey);
+        }
+    })();
+
+    inFlightRequests.set(cacheKey, fetchPromise);
+    return fetchPromise;
 }
 
 /**
@@ -85,8 +216,8 @@ export function buildHierarchyParams(f = {}) {
            legal_group_id, legal_entity_id, parent_division_id, subdivision_id
 ───────────────────────────────────────────────────────────────────────────── */
 
-export async function getExecKpis(filters = {}) {
-    return execGet('/kpis', buildHierarchyParams(filters));
+export async function getExecKpis(filters = {}, options = {}) {
+    return execGet('/kpis', buildHierarchyParams(filters), options);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -96,12 +227,12 @@ export async function getExecKpis(filters = {}) {
            parent_division_id, subdivision_id
 ───────────────────────────────────────────────────────────────────────────── */
 
-export async function getExecTwcTrend(filters = {}) {
+export async function getExecTwcTrend(filters = {}, options = {}) {
     const { as_of_date, period_type, reporting_currency, ...rest } = buildHierarchyParams(filters);
     return execGet('/trade-working-capital-trend', {
         months: 12,
         ...rest,
-    });
+    }, options);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -118,14 +249,14 @@ export async function getExecTwcTrend(filters = {}) {
      trade_working_capital, cash_conversion_cycle_days
 ───────────────────────────────────────────────────────────────────────────── */
 
-export async function getExecTwcViewAll(filters = {}) {
+export async function getExecTwcViewAll(filters = {}, options = {}) {
     const h = buildHierarchyParams(filters);
     // This endpoint uses as_on_date (not as_of_date)
     const { as_of_date, period_type, reporting_currency, ...hierarchyOnly } = h;
     return execGet('/trade-working-capital-view-all', {
         ...(as_of_date ? { as_on_date: as_of_date } : {}),
         ...hierarchyOnly,
-    });
+    }, options);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -185,8 +316,8 @@ export async function exportExecTwcPdf(filters = {}) {
    Do NOT derive regional revenue by grouping the KPI response.
 ───────────────────────────────────────────────────────────────────────────── */
 
-export async function getExecRevenueByRegion(filters = {}) {
-    return execGet('/revenue-by-region', buildHierarchyParams(filters));
+export async function getExecRevenueByRegion(filters = {}, options = {}) {
+    return execGet('/revenue-by-region', buildHierarchyParams(filters), options);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -198,8 +329,8 @@ export async function getExecRevenueByRegion(filters = {}) {
    Do NOT calculate GP/EBITDA/NP percentages independently.
 ───────────────────────────────────────────────────────────────────────────── */
 
-export async function getExecProfitabilityByRegion(filters = {}) {
-    return execGet('/profitability-by-region', buildHierarchyParams(filters));
+export async function getExecProfitabilityByRegion(filters = {}, options = {}) {
+    return execGet('/profitability-by-region', buildHierarchyParams(filters), options);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

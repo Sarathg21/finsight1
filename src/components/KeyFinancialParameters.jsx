@@ -384,7 +384,7 @@ export default function KeyFinancialParameters({
             .catch(() => {});
 
         return () => { active = false; };
-    }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency, filterOptions]);
+    }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency]);
 
     // Helper to find TWC trend row by period code (e.g. "2026-09" or "2026-08")
     const getTwcRowByMonth = (yearVal, monthCode) => {
