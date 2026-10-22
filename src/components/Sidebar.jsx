@@ -75,7 +75,7 @@ const NAV_BY_ROLE = {
     { to: '/FinancialPosition', label: 'Financial Position ', group: 'Reports' },
     {
       to: '/manufacturing-cost',
-      label: 'Manufacturing Cost & Production Performance',
+      label: 'Manufacturing Cost',
       group: 'Reports',
     },
 
