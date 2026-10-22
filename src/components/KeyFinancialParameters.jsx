@@ -5,6 +5,7 @@ import {
 import { fetchPLStatement } from '../services/plApi';
 import { getExecKpis, getExecTwcTrend } from '../api/executiveDashboardApi';
 import { getFinancialPositionKpis } from '../api/financialPositionApi';
+import MultiSelectDropdown from './Filters/MultiSelectDropdown';
 
 const MONTHS_LIST = [
     { num: '01', code: 'Jan', label: 'Jan' },
@@ -68,6 +69,40 @@ function calcVar(actual, compare) {
     return { diff, pct };
 }
 
+function resolveSelectedIds(selectedVals, optionsList = []) {
+    if (!selectedVals) return null;
+    const arr = Array.isArray(selectedVals) ? selectedVals : [selectedVals];
+    if (arr.length === 0) return null;
+    if (arr.length === 1 && String(arr[0]).trim().toLowerCase() === 'all') return null;
+
+    const cleanArr = arr.filter(v => v !== null && v !== undefined && String(v).trim().toLowerCase() !== 'all');
+    if (cleanArr.length === 0) return null;
+
+    const ids = [];
+    cleanArr.forEach(val => {
+        const strVal = String(val).toLowerCase();
+        const matched = (optionsList || []).find(opt => {
+            if (opt === null || opt === undefined) return false;
+            if (typeof opt === 'object') {
+                const optId = String(opt.id ?? opt.value ?? '').toLowerCase();
+                const optName = String(opt.name ?? opt.label ?? '').toLowerCase();
+                return optId === strVal || optName === strVal;
+            }
+            return String(opt).toLowerCase() === strVal;
+        });
+
+        if (matched && typeof matched === 'object') {
+            const canonicalId = matched.id !== undefined ? matched.id : matched.value;
+            ids.push(canonicalId !== undefined ? String(canonicalId) : String(val));
+        } else {
+            ids.push(String(val));
+        }
+    });
+
+    const uniqueIds = Array.from(new Set(ids));
+    return uniqueIds.length > 0 ? uniqueIds : null;
+}
+
 export default function KeyFinancialParameters({
     filterOptions = {},
     initialFilters = {},
@@ -84,13 +119,73 @@ export default function KeyFinancialParameters({
     // Unit toggle: 'millions' | 'aed' (default 'millions')
     const [displayUnit, setDisplayUnit] = useState('millions');
 
-    // 2. Local filter dropdown states below PTD/YTD toggle
-    const [selectedLegalGroup, setSelectedLegalGroup] = useState('All');
-    const [selectedLegalEntity, setSelectedLegalEntity] = useState('All');
-    const [selectedParentDivision, setSelectedParentDivision] = useState('All');
-    const [selectedSubdivision, setSelectedSubdivision] = useState('All');
+    // 2. Local filter dropdown states below PTD/YTD toggle (multi-select for hierarchy)
+    const [selectedLegalGroup, setSelectedLegalGroup] = useState(() => {
+        if (initialFilters.legal_group_id && initialFilters.legal_group_id.length) {
+            return Array.isArray(initialFilters.legal_group_id) ? initialFilters.legal_group_id : [initialFilters.legal_group_id];
+        }
+        return ['All'];
+    });
+    const [selectedLegalEntity, setSelectedLegalEntity] = useState(() => {
+        if (initialFilters.legal_entity_id && initialFilters.legal_entity_id.length) {
+            return Array.isArray(initialFilters.legal_entity_id) ? initialFilters.legal_entity_id : [initialFilters.legal_entity_id];
+        }
+        return ['All'];
+    });
+    const [selectedParentDivision, setSelectedParentDivision] = useState(() => {
+        if (initialFilters.parent_division_id && initialFilters.parent_division_id.length) {
+            return Array.isArray(initialFilters.parent_division_id) ? initialFilters.parent_division_id : [initialFilters.parent_division_id];
+        }
+        return ['All'];
+    });
+    const [selectedSubdivision, setSelectedSubdivision] = useState(() => {
+        if (initialFilters.subdivision_id && initialFilters.subdivision_id.length) {
+            return Array.isArray(initialFilters.subdivision_id) ? initialFilters.subdivision_id : [initialFilters.subdivision_id];
+        }
+        return ['All'];
+    });
     const [selectedYear, setSelectedYear] = useState('2026');
     const [selectedMonth, setSelectedMonth] = useState('Sep 2026');
+
+    // Cascading options for hierarchy dropdowns
+    const filteredLegalEntities = useMemo(() => {
+        const entities = filterOptions.legal_entities || [];
+        const groupIds = resolveSelectedIds(selectedLegalGroup, filterOptions.legal_groups);
+        if (!groupIds || groupIds.length === 0) return entities;
+
+        return entities.filter(item => {
+            if (typeof item !== 'object' || item === null) return true;
+            const gId = item.legal_group_id ?? item.group_id ?? item.legalGroupId;
+            if (gId === undefined || gId === null) return true;
+            return groupIds.includes(String(gId));
+        });
+    }, [filterOptions.legal_entities, filterOptions.legal_groups, selectedLegalGroup]);
+
+    const filteredParentDivisions = useMemo(() => {
+        const divisions = filterOptions.parent_divisions || [];
+        const entityIds = resolveSelectedIds(selectedLegalEntity, filteredLegalEntities);
+        if (!entityIds || entityIds.length === 0) return divisions;
+
+        return divisions.filter(item => {
+            if (typeof item !== 'object' || item === null) return true;
+            const eId = item.legal_entity_id ?? item.entity_id ?? item.legalEntityId;
+            if (eId === undefined || eId === null) return true;
+            return entityIds.includes(String(eId));
+        });
+    }, [filterOptions.parent_divisions, filteredLegalEntities, selectedLegalEntity]);
+
+    const filteredSubdivisions = useMemo(() => {
+        const subs = filterOptions.subdivisions || [];
+        const divisionIds = resolveSelectedIds(selectedParentDivision, filteredParentDivisions);
+        if (!divisionIds || divisionIds.length === 0) return subs;
+
+        return subs.filter(item => {
+            if (typeof item !== 'object' || item === null) return true;
+            const dId = item.parent_division_id ?? item.division_id ?? item.parentDivisionId;
+            if (dId === undefined || dId === null) return true;
+            return divisionIds.includes(String(dId));
+        });
+    }, [filterOptions.subdivisions, filteredParentDivisions, selectedParentDivision]);
 
     // Data state
     const [loading, setLoading] = useState(true);
@@ -160,26 +255,30 @@ export default function KeyFinancialParameters({
             reporting_currency: currency || 'AED',
         };
 
-        if (selectedLegalGroup && selectedLegalGroup !== 'All') {
-            const lgObj = (filterOptions.legal_groups || []).find(g => (typeof g === 'object' ? (g.id === selectedLegalGroup || g.name === selectedLegalGroup || g.value === selectedLegalGroup) : g === selectedLegalGroup));
-            params.legalGroupId = lgObj?.id ? [lgObj.id] : [selectedLegalGroup];
-            params.legal_group_id = params.legalGroupId;
+        const lgIds = resolveSelectedIds(selectedLegalGroup, filterOptions.legal_groups);
+        if (lgIds && lgIds.length > 0) {
+            params.legalGroupId = lgIds;
+            params.legal_group_id = lgIds;
         }
-        if (selectedLegalEntity && selectedLegalEntity !== 'All') {
-            const leObj = (filterOptions.legal_entities || []).find(e => (typeof e === 'object' ? (e.id === selectedLegalEntity || e.name === selectedLegalEntity || e.value === selectedLegalEntity) : e === selectedLegalEntity));
-            params.legalEntityId = leObj?.id ? [leObj.id] : [selectedLegalEntity];
-            params.legal_entity_id = params.legalEntityId;
+
+        const leIds = resolveSelectedIds(selectedLegalEntity, filteredLegalEntities);
+        if (leIds && leIds.length > 0) {
+            params.legalEntityId = leIds;
+            params.legal_entity_id = leIds;
         }
-        if (selectedParentDivision && selectedParentDivision !== 'All') {
-            const pdObj = (filterOptions.parent_divisions || []).find(p => (typeof p === 'object' ? (p.id === selectedParentDivision || p.name === selectedParentDivision || p.value === selectedParentDivision) : p === selectedParentDivision));
-            params.parentDivisionId = pdObj?.id ? [pdObj.id] : [selectedParentDivision];
-            params.parent_division_id = params.parentDivisionId;
+
+        const pdIds = resolveSelectedIds(selectedParentDivision, filteredParentDivisions);
+        if (pdIds && pdIds.length > 0) {
+            params.parentDivisionId = pdIds;
+            params.parent_division_id = pdIds;
         }
-        if (selectedSubdivision && selectedSubdivision !== 'All') {
-            const sdObj = (filterOptions.subdivisions || []).find(s => (typeof s === 'object' ? (s.id === selectedSubdivision || s.name === selectedSubdivision || s.value === selectedSubdivision) : s === selectedSubdivision));
-            params.subdivisionId = sdObj?.id ? [sdObj.id] : [selectedSubdivision];
-            params.subdivision_id = params.subdivisionId;
+
+        const sdIds = resolveSelectedIds(selectedSubdivision, filteredSubdivisions);
+        if (sdIds && sdIds.length > 0) {
+            params.subdivisionId = sdIds;
+            params.subdivision_id = sdIds;
         }
+
         return params;
     };
 
@@ -285,7 +384,7 @@ export default function KeyFinancialParameters({
             .catch(() => {});
 
         return () => { active = false; };
-    }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency]);
+    }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency, filterOptions]);
 
     // Helper to find TWC trend row by period code (e.g. "2026-09" or "2026-08")
     const getTwcRowByMonth = (yearVal, monthCode) => {
@@ -893,72 +992,61 @@ export default function KeyFinancialParameters({
                 {/* 1. Legal Group */}
                 <div>
                     <label style={filterLabelStyle}>Legal Group</label>
-                    <select
+                    <MultiSelectDropdown
+                        options={filterOptions.legal_groups || []}
                         value={selectedLegalGroup}
-                        onChange={e => {
-                            setSelectedLegalGroup(e.target.value);
-                            setSelectedLegalEntity('All');
+                        onChange={(val) => {
+                            setSelectedLegalGroup(val);
+                            setSelectedLegalEntity(['All']);
+                            setSelectedParentDivision(['All']);
+                            setSelectedSubdivision(['All']);
                         }}
-                        style={filterSelectStyle}
-                    >
-                        <option value="All">All</option>
-                        {(filterOptions.legal_groups || []).map(g => {
-                            const val = typeof g === 'object' ? (g.id || g.value || g.name) : g;
-                            const label = typeof g === 'object' ? (g.name || g.label || val) : g;
-                            return <option key={val} value={val}>{label}</option>;
-                        })}
-                    </select>
+                        placeholder="All"
+                        label="Legal Group"
+                    />
                 </div>
 
                 {/* 2. Legal Entity */}
                 <div>
                     <label style={filterLabelStyle}>Legal Entity</label>
-                    <select
+                    <MultiSelectDropdown
+                        options={filteredLegalEntities}
                         value={selectedLegalEntity}
-                        onChange={e => setSelectedLegalEntity(e.target.value)}
-                        style={filterSelectStyle}
-                    >
-                        <option value="All">All</option>
-                        {(filterOptions.legal_entities || []).map(le => {
-                            const val = typeof le === 'object' ? (le.id || le.value || le.name) : le;
-                            const label = typeof le === 'object' ? (le.name || le.label || val) : le;
-                            return <option key={val} value={val}>{label}</option>;
-                        })}
-                    </select>
+                        onChange={(val) => {
+                            setSelectedLegalEntity(val);
+                            setSelectedParentDivision(['All']);
+                            setSelectedSubdivision(['All']);
+                        }}
+                        placeholder="All"
+                        label="Legal Entity"
+                    />
                 </div>
 
                 {/* 3. Parent Division */}
                 <div>
                     <label style={filterLabelStyle}>Parent Division</label>
-                    <select
+                    <MultiSelectDropdown
+                        options={filteredParentDivisions}
                         value={selectedParentDivision}
-                        onChange={e => setSelectedParentDivision(e.target.value)}
-                        style={filterSelectStyle}
-                    >
-                        <option value="All">All</option>
-                        {(filterOptions.parent_divisions || []).map(pd => {
-                            const val = typeof pd === 'object' ? (pd.id || pd.value || pd.name) : pd;
-                            const label = typeof pd === 'object' ? (pd.name || pd.label || val) : pd;
-                            return <option key={val} value={val}>{label}</option>;
-                        })}
-                    </select>
+                        onChange={(val) => {
+                            setSelectedParentDivision(val);
+                            setSelectedSubdivision(['All']);
+                        }}
+                        placeholder="All"
+                        label="Parent Division"
+                    />
                 </div>
 
                 {/* 4. Sub-Division */}
                 <div>
                     <label style={filterLabelStyle}>Sub-Division</label>
-                    <select
+                    <MultiSelectDropdown
+                        options={filteredSubdivisions}
                         value={selectedSubdivision}
-                        onChange={e => setSelectedSubdivision(e.target.value)}
-                        style={filterSelectStyle}
-                    >
-                        <option value="All">All</option>
-                        {(filterOptions.subdivisions || []).map(sd => {
-                            const val = typeof sd === 'object' ? (sd.id || sd.value || sd.name) : sd;
-                            const label = typeof sd === 'object' ? (sd.name || sd.label || val) : sd;
-                            return <option key={val} value={val}>{label}</option>;
-                        })}
-                    </select>
+                        onChange={(val) => setSelectedSubdivision(val)}
+                        placeholder="All"
+                        label="Sub-Division"
+                    />
                 </div>
 
                 {/* 5. Reporting Year */}
@@ -1045,10 +1133,10 @@ export default function KeyFinancialParameters({
                             <th rowSpan={2} style={{ ...thStyle, minWidth: 260, textAlign: 'left' }}>Parameter</th>
                             <th rowSpan={2} style={{ ...thStyle, width: 75, textAlign: 'left' }}>Unit</th>
                             <th rowSpan={2} style={{ ...thStyle, minWidth: 90, textAlign: 'right' }}>
-                                Target<br/><span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>{isYtd ? 'YTD' : ''}</span>
+                                Actual<br/><span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>{isYtd ? 'YTD' : ''}</span>
                             </th>
                             <th rowSpan={2} style={{ ...thStyle, minWidth: 90, textAlign: 'right' }}>
-                                Actual<br/><span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>{isYtd ? 'YTD' : ''}</span>
+                                Target<br/><span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>{isYtd ? 'YTD' : ''}</span>
                             </th>
                             <th rowSpan={2} style={{ ...thStyle, minWidth: 105, textAlign: 'right' }}>
                                 Previous Month<br/><span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b' }}>{dateMeta.prevMonthLabel}</span>
@@ -1116,14 +1204,14 @@ export default function KeyFinancialParameters({
                                         {getRowUnit(row)}
                                     </td>
 
-                                    {/* Target */}
-                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                                        {formatValue(row.targetVal, row.isDays, displayUnit)}
-                                    </td>
-
                                     {/* Actual */}
                                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
                                         {formatValue(row.actualVal, row.isDays, displayUnit)}
+                                    </td>
+
+                                    {/* Target */}
+                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                                        {formatValue(row.targetVal, row.isDays, displayUnit)}
                                     </td>
 
                                     {/* Previous Month */}
@@ -1167,11 +1255,11 @@ const filterLabelStyle = {
 
 const filterSelectStyle = {
     width: '100%',
-    height: 34,
-    border: '1px solid #cbd5e1',
-    borderRadius: 8,
+    height: 32,
+    border: '1px solid #dfe4ec',
+    borderRadius: 7,
     padding: '0 8px',
-    fontSize: '0.76rem',
+    fontSize: '0.82rem',
     fontWeight: 600,
     color: '#1e293b',
     background: '#ffffff',
