@@ -4969,6 +4969,18 @@ const buildQuery = (filters) => {
 function unwrapApiResponse(response) {
     return response?.data ?? response;
 }
+function parseManufacturingFilterOptions(response) {
+    const data = unwrapApiResponse(response);
+    const src = data?.options || data?.filters || data?.data || data || {};
+    return {
+        legalGroups: withoutAllOptions(first(src, ["legal_groups", "legalGroups", "legal_group_options"], [])),
+        legalEntities: withoutAllOptions(first(src, ["legal_entities", "legalEntities", "legal_entity_options"], [])),
+        parentDivisions: withoutAllOptions(first(src, ["parent_divisions", "parentDivisions", "parent_division_options"], [])),
+        subdivisions: withoutAllOptions(first(src, ["subdivisions", "sub_divisions", "subDivisions", "subdivision_options"], [])),
+        years: asArray(first(src, ["years", "year_options"], [])),
+        periods: asArray(first(src, ["periods", "period_names", "period_options"], [])),
+    };
+}
 function manufacturingFilters(filters = {}) {
     return {
         legal_group_id: Array.isArray(filters.legalGroup) ? filters.legalGroup : (filters.legalGroup ? [filters.legalGroup] : []),
@@ -5257,6 +5269,37 @@ function TooltipBox({ active, payload, label }) {
     </div>;
 }
 
+function ProductionOverheadTooltip({ active, payload, label, groupBy, currency = "AED", dimensionOrder = [] }) {
+    if (!active || !payload?.length) return null;
+    const point = payload.find((item) => item?.payload)?.payload;
+    if (!point) return null;
+    const suffixes = ["__actual", "__target"];
+    const names = Object.keys(point)
+        .filter((key) => suffixes.some((suffix) => key.endsWith(suffix)))
+        .map((key) => key.slice(0, key.lastIndexOf("__")))
+        .filter((name, index, all) => all.indexOf(name) === index);
+    const money = (value) => value == null || !Number.isFinite(Number(value)) ? "—" : `${currency} ${Number(value).toFixed(2)}M`;
+    const level = groupBy === "legal_entity" ? "Legal Entity" : groupBy === "parent_division" ? "Parent Division" : "Subdivision";
+    return <div style={{ minWidth: 230, maxWidth: 320, background: "#fff", border: "1px solid #dbe5f5", borderRadius: 10, padding: "10px 12px", boxShadow: "0 12px 30px rgba(15,23,42,.18)", fontSize: 11 }}>
+        <div style={{ fontWeight: 850, color: COLORS.navy, paddingBottom: 7, marginBottom: 7, borderBottom: "1px solid #e8eef8" }}>Month: {label}</div>
+        {names.map((name) => {
+            const actual = numberOrNull(point[`${name}__actual`]);
+            const target = numberOrNull(point[`${name}__target`]);
+            const variance = actual != null && target != null ? actual - target : null;
+            const colorIndex = dimensionOrder.length ? dimensionOrder.indexOf(name) : names.indexOf(name);
+            const color = COLORS_BY_CATEGORY[Math.max(0, colorIndex) % COLORS_BY_CATEGORY.length];
+            return <div key={name} style={{ borderBottom: "1px solid #f1f5f9", padding: "5px 0" }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "flex-start", fontWeight: 800, color: COLORS.navy, overflowWrap: "anywhere", marginBottom: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0, marginTop: 2 }} />{level}: {name}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, color: "#475569" }}>
+                    <span>Actual: <b style={{ color: COLORS.navy }}>{money(actual)}</b></span>
+                    <span>Target: <b style={{ color: COLORS.navy }}>{money(target)}</b></span>
+                    <span style={{ gridColumn: "1 / -1" }}>Variance: <b style={{ color: variance == null ? "#64748b" : variance <= 0 ? "#15803d" : "#dc2626" }}>{money(variance)}</b></span>
+                </div>
+            </div>;
+        })}
+    </div>;
+}
+
 export default function ManufacturingCostDashboard() {
     const [filters, setFilters] = useState(FILTER_DEFAULTS);
     const [appliedFilters, setAppliedFilters] = useState(FILTER_DEFAULTS);
@@ -5314,6 +5357,8 @@ export default function ManufacturingCostDashboard() {
     const initialFilterOptionsResolved = React.useRef(false);
     const previousMainHierarchy = React.useRef(null);
     const previousViewHierarchy = React.useRef(null);
+    const mainOptionsRequestId = React.useRef(0);
+    const viewOptionsRequestId = React.useRef(0);
 
     const update = (key, value) => setFilters((old) => {
         const next = { ...old, [key]: value };
@@ -5333,6 +5378,7 @@ export default function ManufacturingCostDashboard() {
 
     React.useEffect(() => {
         let cancelled = false;
+        const requestId = ++mainOptionsRequestId.current;
         const currentScope = {
             group: JSON.stringify(filters.legalGroup),
             entity: JSON.stringify(filters.legalEntity),
@@ -5346,23 +5392,16 @@ export default function ManufacturingCostDashboard() {
         // One options request per hierarchy change. Keep parent-level option lists cached
         // when only a descendant changes, so returning to Legal Entity shows every option.
         getManufacturingFilterOptions(manufacturingFilters(filters)).then((response) => {
-            if (cancelled) return;
-            const data = unwrapApiResponse(response);
-            const src = data?.options || data?.filters || data?.data || data || {};
-            const groups = withoutAllOptions(first(src, ["legal_groups", "legalGroups", "legal_group_options"], []));
-            const entities = withoutAllOptions(first(src, ["legal_entities", "legalEntities", "legal_entity_options"], []));
-            const parents = withoutAllOptions(first(src, ["parent_divisions", "parentDivisions", "parent_division_options"], []));
-            const subs = withoutAllOptions(first(src, ["subdivisions", "sub_divisions", "subDivisions", "subdivision_options"], []));
-            const years = asArray(first(src, ["years", "year_options"], []));
-            const periods = asArray(first(src, ["periods", "period_names", "period_options"], []));
+            if (cancelled || requestId !== mainOptionsRequestId.current) return;
+            const options = parseManufacturingFilterOptions(response);
+            // Replace hierarchy lists with the response for this exact selected scope.
+            // Retaining old lists here leaked FJ Group entities into RKME after switching groups.
             setFilterOptions((old) => ({
-                legalGroups: groupChanged || !old.legalGroups.length ? groups : old.legalGroups,
-                legalEntities: groupChanged || !old.legalEntities.length ? entities : old.legalEntities,
-                parentDivisions: groupChanged || entityChanged || !old.parentDivisions.length ? parents : old.parentDivisions,
-                subdivisions: groupChanged || entityChanged || parentChanged || !old.subdivisions.length ? subs : old.subdivisions,
-                years: years.length ? years : old.years,
-                periods: periods.length ? periods : old.periods,
+                ...options,
+                years: options.years.length ? options.years : old.years,
+                periods: options.periods.length ? options.periods : old.periods,
             }));
+            const { legalGroups: groups, years, periods } = options;
             if (!initialFilterOptionsResolved.current) {
                 const fjGroup = groups.find((x) => /\bfj\s*group\b/i.test(labelOf(x)));
                 const markedGroup = groups.find((x) => x?.is_default || x?.default);
@@ -5389,6 +5428,7 @@ export default function ManufacturingCostDashboard() {
     React.useEffect(() => {
         if (!viewAll) return undefined;
         let cancelled = false;
+        const requestId = ++viewOptionsRequestId.current;
         const currentScope = {
             group: JSON.stringify(viewAllFilters.legalGroup),
             entity: JSON.stringify(viewAllFilters.legalEntity),
@@ -5400,22 +5440,12 @@ export default function ManufacturingCostDashboard() {
         const parentChanged = !previous || previous.parent !== currentScope.parent;
         previousViewHierarchy.current = currentScope;
         getManufacturingFilterOptions(manufacturingFilters(viewAllFilters)).then((response) => {
-            if (cancelled) return;
-            const data = unwrapApiResponse(response);
-            const src = data?.options || data?.filters || data?.data || data || {};
-            const groups = withoutAllOptions(first(src, ["legal_groups", "legalGroups", "legal_group_options"], []));
-            const entities = withoutAllOptions(first(src, ["legal_entities", "legalEntities", "legal_entity_options"], []));
-            const parents = withoutAllOptions(first(src, ["parent_divisions", "parentDivisions", "parent_division_options"], []));
-            const subs = withoutAllOptions(first(src, ["subdivisions", "sub_divisions", "subDivisions", "subdivision_options"], []));
-            const years = asArray(first(src, ["years", "year_options"], []));
-            const periods = asArray(first(src, ["periods", "period_names", "period_options"], []));
+            if (cancelled || requestId !== viewOptionsRequestId.current) return;
+            const options = parseManufacturingFilterOptions(response);
             setViewAllFilterOptions((old) => ({
-                legalGroups: groupChanged || !old.legalGroups.length ? groups : old.legalGroups,
-                legalEntities: groupChanged || !old.legalEntities.length ? entities : old.legalEntities,
-                parentDivisions: groupChanged || entityChanged || !old.parentDivisions.length ? parents : old.parentDivisions,
-                subdivisions: groupChanged || entityChanged || parentChanged || !old.subdivisions.length ? subs : old.subdivisions,
-                years: years.length ? years : old.years,
-                periods: periods.length ? periods : old.periods,
+                ...options,
+                years: options.years.length ? options.years : old.years,
+                periods: options.periods.length ? options.periods : old.periods,
             }));
         }).catch((e) => {
             if (!cancelled) setDetailError((old) => old || `Unable to load View All filter options: ${e?.response?.data?.detail || e?.response?.data?.message || e.message}`);
@@ -5690,9 +5720,14 @@ export default function ManufacturingCostDashboard() {
     const dimensionNames = Array.from(new Set(dimensionOverheadRows.map((row) => row.dimension))).sort((a, b) => a.localeCompare(b));
     // Keep the grouped chart readable: show up to four groups by default. Users can
     // explicitly select a different subset without changing the applied data scope.
+    React.useEffect(() => {
+        // If main filters change (e.g. Legal Group RKME), remove stale selected names
+        // and let the new permitted group options drive the chart.
+        setOverheadSelectedDimensions((current) => current.filter((name) => dimensionNames.includes(name)));
+    }, [dimensionNames.join("\\u001f")]);
     const visibleDimensionNames = overheadSelectedDimensions.length
         ? dimensionNames.filter((name) => overheadSelectedDimensions.includes(name))
-        : dimensionNames.slice(0, 4);
+        : dimensionNames.slice(0, 5);
     // One X-axis tick per month. Each selected dimension gets its own Actual/Target
     // series, preventing long repeated "dimension · month" labels from overlapping.
     const dimensionOverheadChartData = (() => {
@@ -5754,7 +5789,8 @@ export default function ManufacturingCostDashboard() {
                     : new Blob([response?.data ?? response]);
             const disposition = response?.headers?.["content-disposition"] || "";
             const match = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
-            const fallback = `Manufacturing_${reportName.replace(/-/g, "_")}_${filterSet.period}.${format === "excel" ? "xlsx" : "pdf"}`;
+            const groupingSuffix = reportName === "production-overhead-monthly" ? `_${overheadGroupBy}` : "";
+            const fallback = `Manufacturing_${reportName.replace(/-/g, "_")}${groupingSuffix}_${filterSet.period}.${format === "excel" ? "xlsx" : "pdf"}`;
             let filename = fallback;
             if (match) {
                 const rawName = (match[1] || match[2] || "").trim();
@@ -5858,7 +5894,21 @@ export default function ManufacturingCostDashboard() {
         setViewAllPage(1);
         setDetailLoading(true);
         setViewAllRows([]);
+        const requestId = ++viewOptionsRequestId.current;
         try {
+            // Wait for the currently selected View All hierarchy scope to resolve before
+            // requesting rows; this avoids stale cascade options on the first Apply click.
+            const optionsResponse = await getManufacturingFilterOptions(manufacturingFilters(selectedFilters));
+            if (requestId !== viewOptionsRequestId.current) return;
+            const scopedOptions = parseManufacturingFilterOptions(optionsResponse);
+            setViewAllFilterOptions((old) => ({ ...scopedOptions, years: scopedOptions.years.length ? scopedOptions.years : old.years, periods: scopedOptions.periods.length ? scopedOptions.periods : old.periods }));
+            const validEntityIds = new Set(scopedOptions.legalEntities.map((x) => String(idOf(x))));
+            const validParentIds = new Set(scopedOptions.parentDivisions.map((x) => String(idOf(x))));
+            const validSubdivisionIds = new Set(scopedOptions.subdivisions.map((x) => String(idOf(x))));
+            selectedFilters.legalEntity = (selectedFilters.legalEntity || []).filter((id) => validEntityIds.has(String(id)));
+            selectedFilters.parent = (selectedFilters.parent || []).filter((id) => validParentIds.has(String(id)));
+            selectedFilters.sub = (selectedFilters.sub || []).filter((id) => validSubdivisionIds.has(String(id)));
+            setViewAllFilters(selectedFilters);
             if (reportName === "production-overhead-monthly") {
                 const response = await getManufacturingMonthlyByDimension({ ...manufacturingFilters(selectedFilters), metric: "production_overhead" }, overheadGroupBy);
                 let payload = unwrapApiResponse(response);
@@ -6004,9 +6054,18 @@ export default function ManufacturingCostDashboard() {
       .manufacturing-dashboard table { font-variant-numeric:tabular-nums; }
       .manufacturing-dashboard th { font-size:.66rem !important; font-weight:700 !important; letter-spacing:.025em; color:#64748b !important; background:#f8fafc !important; }
       .manufacturing-dashboard td { font-size:.72rem; }
+      /* Layout: trend and cost mix share the first row; grouped overhead and drill-down each get a full-width row. */
+      .manufacturing-dashboard .mfg-dashboard-panel-grid { grid-template-areas: "trend mix" "overhead overhead" "drilldown drilldown" !important; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid > .mfg-panel-column { display: contents !important; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-trend-panel { grid-area: trend; min-width: 0; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-costmix-panel { grid-area: mix; min-width: 0; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-overhead-panel { grid-area: overhead; min-width: 0; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-drilldown-panel { grid-area: drilldown; min-width: 0; }
+      @media (max-width: 1000px) { .manufacturing-dashboard .mfg-dashboard-panel-grid { grid-template-columns:minmax(0,1fr) !important; grid-template-areas: "trend" "mix" "overhead" "drilldown" !important; } }
       .manufacturing-dashboard .mfg-modal-table-wrap { scrollbar-width:thin; scrollbar-color:#94a3b8 #f1f5f9; }
       .manufacturing-dashboard .mfg-modal-table-wrap::-webkit-scrollbar { width:8px; height:8px; }
       .manufacturing-dashboard .mfg-modal-table-wrap::-webkit-scrollbar-thumb { background:#94a3b8; border-radius:8px; border:2px solid #f1f5f9; }
+      @media (max-width: 1150px) { .manufacturing-dashboard .mfg-overhead-controls { flex-wrap: wrap !important; } }
       @media (max-width: 1000px) { .manufacturing-dashboard .mfg-filter-grid { grid-template-columns:repeat(3,minmax(0,1fr)) !important; } .manufacturing-dashboard .mfg-filter-actions { grid-column:1 / -1; justify-content:flex-end; } .manufacturing-dashboard .mfg-content-grid { grid-template-columns:1fr !important; } .manufacturing-dashboard .mfg-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
       @media (max-width: 600px) { .manufacturing-dashboard .mfg-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } .manufacturing-dashboard .mfg-kpi-grid { grid-template-columns:1fr !important; } .manufacturing-dashboard .mfg-header { align-items:flex-start !important; flex-direction:column !important; } }
       @media print { body { background:#fff !important; } .manufacturing-dashboard .no-print { display:none !important; } .manufacturing-dashboard .print-panel { break-inside:avoid; box-shadow:none !important; } }
@@ -6039,7 +6098,31 @@ export default function ManufacturingCostDashboard() {
             <Filter label="Period" value={filters.period} onChange={v => update("period", v)} options={[...new Set([filters.period, ...filterOptions.periods.map(labelOf), ...monthsForYear(filters.year)].filter(Boolean))]} icon="▦" />
             <Filter label="Reporting Currency" value={filters.currency} onChange={v => update("currency", v)} options={["AED", "USD", "EUR", "GBP"]} icon="¤" />
             <div className="mfg-filter-actions" style={{ display: "flex", justifyContent: "flex-end", alignItems: "flex-end", gap: 7, paddingBottom: 0 }}>
-                <button type="button" onClick={() => { setAppliedFilters({ ...filters }); setError(""); setDashboardRefreshKey((x) => x + 1); }} className="mfg-action" style={{ ...filterActionStyle, height: 33, border: "1px solid #5B3FE4", background: "#5B3FE4", color: "#fff", padding: "0 13px" }}>Apply</button>
+                <button type="button" onClick={async () => {
+                    const selected = { ...filters, legalGroup: [...(filters.legalGroup || [])], legalEntity: [...(filters.legalEntity || [])], parent: [...(filters.parent || [])], sub: [...(filters.sub || [])] };
+                    setError("");
+                    setLoading(true);
+                    const requestId = ++mainOptionsRequestId.current;
+                    try {
+                        const optionsResponse = await getManufacturingFilterOptions(manufacturingFilters(selected));
+                        if (requestId !== mainOptionsRequestId.current) return;
+                        const scopedOptions = parseManufacturingFilterOptions(optionsResponse);
+                        setFilterOptions((old) => ({ ...scopedOptions, years: scopedOptions.years.length ? scopedOptions.years : old.years, periods: scopedOptions.periods.length ? scopedOptions.periods : old.periods }));
+                        const validEntityIds = new Set(scopedOptions.legalEntities.map((x) => String(idOf(x))));
+                        const validParentIds = new Set(scopedOptions.parentDivisions.map((x) => String(idOf(x))));
+                        const validSubdivisionIds = new Set(scopedOptions.subdivisions.map((x) => String(idOf(x))));
+                        selected.legalEntity = selected.legalEntity.filter((id) => validEntityIds.has(String(id)));
+                        selected.parent = selected.parent.filter((id) => validParentIds.has(String(id)));
+                        selected.sub = selected.sub.filter((id) => validSubdivisionIds.has(String(id)));
+                        setFilters(selected);
+                    } catch (e) {
+                        setError(`Unable to refresh hierarchy filters: ${e?.response?.data?.detail || e?.response?.data?.message || e.message}`);
+                        setLoading(false);
+                        return;
+                    }
+                    setAppliedFilters(selected);
+                    setDashboardRefreshKey((x) => x + 1);
+                }} className="mfg-action" style={{ ...filterActionStyle, height: 33, border: "1px solid #5B3FE4", background: "#5B3FE4", color: "#fff", padding: "0 13px" }}>Apply</button>
                 <button type="button" onClick={resetFilters} className="mfg-action" style={{ ...filterActionStyle, height: 33, border: 0, background: "transparent", color: "#475569", padding: "0 8px" }}>Reset</button>
             </div>
         </section>
@@ -6065,9 +6148,9 @@ export default function ManufacturingCostDashboard() {
             Production Overhead = Direct Labour + Manufacturing / Direct Overheads. Overhead Absorption % = Absorbed Overhead ÷ Production Overhead × 100. Percentage variances are displayed as percentages (%). Values are sourced from the Manufacturing API; absorption recovery follows the signed P&L control.
         </div>}
 
-        {!loading && <div className="mfg-content-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.65fr) minmax(350px,1fr)", gap: 12, alignItems: "start" }}>
-            <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-                <Panel title="Monthly Manufacturing Cost Trend" subtitle="Actual vs Target by cost category" style={{ minHeight: 265 }} className="mfg-chart-panel" action={<div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Monthly trend options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19 }} onClick={() => setTrendMenuOpen(v => !v)}>⋮</button>{trendMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 165, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("monthly-trend"); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div>}>
+        {!loading && <div className="mfg-content-grid mfg-dashboard-panel-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, alignItems: "stretch" }}>
+            <div className="mfg-panel-column" style={{ display: "grid", gap: 10, minWidth: 0 }}>
+                <Panel title="Monthly Manufacturing Cost Trend" subtitle="Actual vs Target by cost category" style={{ minHeight: 265 }} className="mfg-chart-panel mfg-trend-panel" action={<div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Monthly trend options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19 }} onClick={() => setTrendMenuOpen(v => !v)}>⋮</button>{trendMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 165, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("monthly-trend"); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div>}>
 
                     <div style={{ display: "flex", justifyContent: "flex-start", gap: 14, flexWrap: "wrap", margin: "0 0 3px 12px", paddingLeft: 4, fontSize: 10.5, color: "#475569" }}>
                         {[["#14b8a6", "Material (Actual)", false], ["#14b8a6", "Material (Target)", true], ["#8b5cf6", "Labour (Actual)", false], ["#8b5cf6", "Labour (Target)", true], ["#f59e0b", "Overheads (Actual)", false], ["#f59e0b", "Overheads (Target)", true]].map(([c, t, target]) => <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><i style={{ width: 10, height: 10, background: target ? `${c}20` : c, border: target ? `1px dashed ${c}` : `1px solid ${c}`, borderRadius: 3 }} />{t}</span>)}
@@ -6090,7 +6173,7 @@ export default function ManufacturingCostDashboard() {
                     </motion.div>
                 </Panel>
 
-                <Panel title="Manufacturing Cost Drill-Down" subtitle="Actual, target and variance by cost category" action={<div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Manufacturing drill-down options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19, lineHeight: 1 }} onClick={() => setDrillMenuOpen((v) => !v)}>⋮</button>{drillMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 170, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, borderTop: "1px solid #f1f5f9", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, borderTop: "1px solid #f1f5f9", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div>}>
+                <Panel title="Manufacturing Cost Drill-Down" subtitle="Actual, target and variance by cost category" className="mfg-drilldown-panel" action={<div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Manufacturing drill-down options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19, lineHeight: 1 }} onClick={() => setDrillMenuOpen((v) => !v)}>⋮</button>{drillMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 170, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, borderTop: "1px solid #f1f5f9", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, borderTop: "1px solid #f1f5f9", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div>}>
                     <div style={{ overflowX: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 10.5, minWidth: 650 }}>
                             <thead><tr>{["COST CATEGORY", "ACTUAL PTD", "TARGET PTD", "VARIANCE PTD", "ACTUAL YTD", "TARGET YTD", "VARIANCE YTD"].map((h, i) => <th key={h} style={{ textAlign: i === 0 ? "left" : "right", padding: "7px 6px", color: "#475569", fontSize: 9.5, background: "#f8fafc", borderBottom: "1px solid #dbe3ef", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
@@ -6126,8 +6209,8 @@ export default function ManufacturingCostDashboard() {
                 </Panel>
             </div>
 
-            <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-                <Panel title="Current PTD Cost Mix" subtitle="Share of current period cost" className="mfg-chart-panel">
+            <div className="mfg-panel-column" style={{ display: "grid", gap: 10, minWidth: 0 }}>
+                <Panel title="Current PTD Cost Mix" subtitle="Share of current period cost" className="mfg-chart-panel mfg-costmix-panel" style={{ minHeight: 265 }}>
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .45 }} style={{ display: "grid", gap: 9 }}>
                         {costMix.map((item) => <div key={item.name} data-tooltip={`${item.name} | Amount: ${item.amount == null ? "Unavailable" : `${appliedFilters.currency} ${item.amount.toFixed(2)}M`} | Share: ${item.pct == null ? "Unavailable" : `${item.pct.toFixed(1)}%`}`} style={{ display: "grid", gridTemplateColumns: "minmax(100px,.8fr) minmax(70px,1.7fr) 88px", gap: 8, alignItems: "center", borderRadius: 8, padding: "6px 5px", transition: "background .18s ease, transform .18s ease", position: "relative" }} className="mfg-row mfg-mix-row">
                             <div style={{ color: "#334155", fontSize: 11, lineHeight: 1.2, fontWeight: 750 }}>{item.name}</div>
@@ -6139,8 +6222,8 @@ export default function ManufacturingCostDashboard() {
 
 
 
-                <Panel title="Month-on-Month Production Overhead" subtitle="Each month compares Actual and Target for each selected group" className="mfg-chart-panel" action={<div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, color: "#475569", fontWeight: 750 }}>
+                <Panel title="Month-on-Month Production Overhead" subtitle="Each month compares Actual and Target for each selected group" className="mfg-chart-panel mfg-overhead-panel" action={<div className="mfg-overhead-controls" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap", justifyContent: "flex-end", minWidth: 0 }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, color: "#475569", fontWeight: 750, whiteSpace: "nowrap" }}>
                         View by
                         <select id="manufacturing-overhead-group-by" aria-label="View production overhead by" value={overheadGroupBy} onChange={(e) => { setOverheadGroupBy(e.target.value); setOverheadSelectedDimensions([]); }} style={{ height: 30, maxWidth: 150, border: "1px solid #d7e0f0", borderRadius: 7, background: "#fff", color: "#26364f", padding: "0 8px", fontSize: 10.5, fontWeight: 650 }}>
                             <option value="legal_entity">Legal Entity</option>
@@ -6148,7 +6231,7 @@ export default function ManufacturingCostDashboard() {
                             <option value="subdivision">Subdivision</option>
                         </select>
                     </label>
-                    <div style={{ minWidth: 180, maxWidth: 250, flex: "1 1 190px" }}>
+                    <div style={{ minWidth: 180, maxWidth: 250, flex: "0 1 230px" }}>
                         <MultiSelectFilter
                             label={overheadGroupBy === "legal_entity" ? "Legal Entities" : overheadGroupBy === "parent_division" ? "Divisions" : "Subdivisions"}
                             value={overheadSelectedDimensions}
@@ -6166,7 +6249,7 @@ export default function ManufacturingCostDashboard() {
                                 <CartesianGrid stroke="#e8eef6" strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="month" interval="preserveStartEnd" minTickGap={16} height={24} tick={{ fontSize: 9, fill: "#475569" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
                                 <YAxis width={42} tick={{ fontSize: 9, fill: "#64748b" }} tickLine={false} axisLine={false} tickFormatter={v => `${v.toFixed ? v.toFixed(2) : v}M`} />
-                                <Tooltip content={<TooltipBox />} cursor={{ fill: "#eef2ff", opacity: 0.45 }} />
+                                <Tooltip content={<ProductionOverheadTooltip groupBy={overheadGroupBy} currency={appliedFilters.currency || "AED"} dimensionOrder={dimensionNames} />} cursor={{ fill: "#eef2ff", opacity: 0.45 }} />
                                 {visibleDimensionNames.map((dimension) => {
                                     const color = COLORS_BY_CATEGORY[Math.max(0, dimensionNames.indexOf(dimension)) % COLORS_BY_CATEGORY.length];
                                     return <React.Fragment key={dimension}>
@@ -6177,7 +6260,16 @@ export default function ManufacturingCostDashboard() {
                             </BarChart>
                         </ResponsiveContainer>
                     </motion.div>}
-                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Colour identifies each group; solid bars are Actual and outlined bars are Target. Chart shows a limited selection for readability; View All and exports include the full filtered dataset.</div>
+                    <div aria-label="Production overhead chart legend" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "7px 14px", padding: "8px 2px 5px", marginTop: 2, borderTop: "1px solid #eef2f7" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: "#334155", fontWeight: 750, whiteSpace: "nowrap" }}><i style={{ width: 11, height: 11, display: "inline-block", borderRadius: 2, background: "#334155" }} /> Actual</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: "#334155", fontWeight: 750, whiteSpace: "nowrap" }}><i style={{ width: 11, height: 11, display: "inline-block", borderRadius: 2, background: "#fff", border: "1.5px solid #334155" }} /> Target</span>
+                        <span style={{ width: 1, height: 16, background: "#dbe3ef" }} />
+                        {visibleDimensionNames.map((dimension) => {
+                            const color = COLORS_BY_CATEGORY[Math.max(0, dimensionNames.indexOf(dimension)) % COLORS_BY_CATEGORY.length];
+                            return <span key={dimension} title={dimension} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, color: "#475569", maxWidth: 190, minWidth: 0 }}><i style={{ width: 9, height: 9, display: "inline-block", borderRadius: 99, background: color, flexShrink: 0 }} /><span style={{ overflowWrap: "anywhere", lineHeight: 1.25 }}>{dimension}</span></span>;
+                        })}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.4, marginTop: 2 }}>Chart displays {visibleDimensionNames.length} selected {overheadGroupBy === "legal_entity" ? "legal entit(y/ies)" : overheadGroupBy === "parent_division" ? "parent division(s)" : "subdivision(s)"}. View All and Excel/PDF exports include the full filtered scope for the selected grouping, not just the chart selection.</div>
                 </Panel>
             </div>
         </div>}
@@ -6186,7 +6278,7 @@ export default function ManufacturingCostDashboard() {
             {viewAll && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,.42)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }} onMouseDown={e => { if (e.target === e.currentTarget) setViewAll(""); }}>
                 <motion.div initial={{ y: 15, scale: .98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 10, scale: .98 }} style={{ width: "min(1400px, 96vw)", maxHeight: "92vh", background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(15,23,42,.18)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, background: "#fff" }}>
-                        <div><div style={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.navy }}>{viewAll === "category-breakdown" ? "Manufacturing Cost Drill-Down — Detailed View" : viewAll === "category-detail" ? `Manufacturing Account Detail${selectedDetailCategory ? ` — ${selectedDetailCategory}` : ""}` : viewAll === "monthly-trend" ? "Monthly Manufacturing Cost Trend — Detailed View" : viewAll === "production-overhead-monthly" ? "Month-on-Month Production Overhead — Detailed View" : viewAll}</div><div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3 }}>Current filters · {(Array.isArray(viewAllFilters.legalGroup) ? viewAllFilters.legalGroup : (viewAllFilters.legalGroup ? [viewAllFilters.legalGroup] : [])).map((id) => labelOf(legalGroups.find((x) => String(idOf(x)) === String(id)) || id)).join(", ") || "All Legal Groups"} · {viewAllFilters.period} · Reporting Currency: {viewAllFilters.currency || "AED"}</div></div>
+                        <div><div style={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.navy }}>{viewAll === "category-breakdown" ? "Manufacturing Cost Drill-Down — Detailed View" : viewAll === "category-detail" ? `Manufacturing Account Detail${selectedDetailCategory ? ` — ${selectedDetailCategory}` : ""}` : viewAll === "monthly-trend" ? "Monthly Manufacturing Cost Trend — Detailed View" : viewAll === "production-overhead-monthly" ? "Month-on-Month Production Overhead — Detailed View" : viewAll}</div><div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3 }}>Current filters · {(Array.isArray(viewAllFilters.legalGroup) ? viewAllFilters.legalGroup : (viewAllFilters.legalGroup ? [viewAllFilters.legalGroup] : [])).map((id) => labelOf(legalGroups.find((x) => String(idOf(x)) === String(id)) || id)).join(", ") || "All Legal Groups"} · {viewAllFilters.period} · Reporting Currency: {viewAllFilters.currency || "AED"}{viewAll === "production-overhead-monthly" ? ` · Grouping: ${overheadGroupBy === "legal_entity" ? "Legal Entity" : overheadGroupBy === "parent_division" ? "Parent Division" : "Subdivision"} · View All/exports include the full filtered scope` : ""}</div></div>
                         <button onClick={() => setViewAll("")} style={{ border: 0, background: "#f1f5f9", color: COLORS.navy, borderRadius: 8, width: 32, height: 32, fontSize: 17, cursor: "pointer" }}>×</button>
                     </div>
                     <div className="no-print mfg-filter-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr)) auto", alignItems: "end", gap: 7, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: "#fff" }}>
@@ -6217,7 +6309,7 @@ export default function ManufacturingCostDashboard() {
                                 const numericColumn = i >= firstNumericColumn;
                                 return <th key={h} scope="col" style={{ position: "sticky", top: 0, background: "#f1f5f9", color: COLORS.navy, textAlign: numericColumn ? "right" : "left", padding: "11px 9px", borderBottom: "2px solid #cbd5e1", whiteSpace: viewAll === "production-overhead-monthly" && !["Actual", "Target", "Variance"].includes(h) ? "normal" : "nowrap", overflowWrap: "anywhere", lineHeight: 1.25, fontVariantNumeric: "tabular-nums", width: undefined }}>{h}</th>;
                             })}</tr></thead>
-                            <tbody>{pagedViewAllRows.map((r, idx) => <tr className="mfg-row" key={`${first(r.raw, ["legal_entity_id", "legal_entity_code"], r.legalEntity || "")}-${first(r.raw, ["parent_division_id", "parent_division_code"], r.parentDivision || "")}-${first(r.raw, ["subdivision_id", "subdivision_code"], r.subDivision || "")}-${first(r.raw, ["source_code", "source_id", "category_id"], r.category || "")}-${r.accountCode || ""}-${r.accountName || ""}-${idx}`} style={{ background: idx % 2 ? "#f8fafc" : "#fff" }}>{viewAll === "category-breakdown" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.category].map((v, i) => <td key={`breakdown-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : 150, maxWidth: i < 3 ? 210 : 260, lineHeight: 1.4, color: i === 3 ? COLORS.navy : "#475569", fontWeight: i === 3 ? 750 : 500 }}>{v || "—"}</td>)}</> : viewAll === "category-detail" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.accountCode, r.accountName].map((v, i) => <td key={`detail-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : i === 3 ? 105 : 180, maxWidth: i < 3 ? 210 : 280, lineHeight: 1.4, color: i >= 3 ? COLORS.navy : "#475569", fontWeight: i >= 3 ? 650 : 500 }}>{v || "—"}</td>)}</> : viewAll === "production-overhead-monthly" ? <><td style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "middle", fontWeight: 650, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap", width: "16%" }}>{r.category}</td><td title={r.dimension || "—"} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "middle", fontWeight: 650, borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", lineHeight: 1.4, width: "31%" }}>{r.dimension || "—"}</td></> : <td style={{ padding: "10px 9px", fontWeight: 750, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{r.category}</td>}{(viewAll === "monthly-trend" ? [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd, r.overheadActual, r.overheadTarget, r.overheadVariance] : viewAll === "production-overhead-monthly" ? [r.actualPtd, r.targetPtd, r.variancePtd] : [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd]).map((v, i) => <td key={i} style={{ padding: "10px 9px", textAlign: "right", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap", color: (viewAll === "monthly-trend" ? [2, 5, 8].includes(i) : viewAll === "production-overhead-monthly" ? i === 2 : [2, 5].includes(i))
+                            <tbody>{pagedViewAllRows.map((r, idx) => <tr className="mfg-row" key={`${first(r.raw, ["legal_entity_id", "legal_entity_code"], r.legalEntity || "")}-${first(r.raw, ["parent_division_id", "parent_division_code"], r.parentDivision || "")}-${first(r.raw, ["subdivision_id", "subdivision_code"], r.subDivision || "")}-${first(r.raw, ["source_code", "source_id", "category_id"], r.category || "")}-${r.accountCode || ""}-${r.accountName || ""}-${idx}`} style={{ background: idx % 2 ? "#f8fafc" : "#fff" }}>{viewAll === "category-breakdown" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.category].map((v, i) => <td key={`breakdown-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : 150, maxWidth: i < 3 ? 210 : 260, lineHeight: 1.4, color: i === 3 ? COLORS.navy : "#475569", fontWeight: i === 3 ? 750 : 500 }}>{v || "—"}</td>)}</> : viewAll === "category-detail" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.accountCode, r.accountName].map((v, i) => <td key={`detail-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : i === 3 ? 105 : 180, maxWidth: i < 3 ? 210 : 280, lineHeight: 1.4, color: i >= 3 ? COLORS.navy : "#475569", fontWeight: i >= 3 ? 650 : 500 }}>{v || "—"}</td>)}</> : viewAll === "production-overhead-monthly" ? <><td style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "middle", fontWeight: 650, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap", width: "16%" }}>{r.category}</td><td title={r.dimension || "—"} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", fontWeight: 650, borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", lineHeight: 1.35, width: "31%", maxWidth: 260 }}>{r.dimension || "—"}</td></> : <td style={{ padding: "10px 9px", fontWeight: 750, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{r.category}</td>}{(viewAll === "monthly-trend" ? [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd, r.overheadActual, r.overheadTarget, r.overheadVariance] : viewAll === "production-overhead-monthly" ? [r.actualPtd, r.targetPtd, r.variancePtd] : [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd]).map((v, i) => <td key={i} style={{ padding: "10px 9px", textAlign: "right", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap", color: (viewAll === "monthly-trend" ? [2, 5, 8].includes(i) : viewAll === "production-overhead-monthly" ? i === 2 : [2, 5].includes(i))
                                     ? (v == null ? "#64748b" : (viewAll === "category-breakdown" || viewAll === "category-detail")
                                         ? varianceColor(i === 2 ? r.varianceStatusPtd : r.varianceStatusYtd, v, !/absorption/i.test(r.category))
                                         : v <= 0 ? "#15803d" : "#dc2626")
