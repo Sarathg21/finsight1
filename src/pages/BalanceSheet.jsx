@@ -27,6 +27,8 @@ import {
 } from '../utils/bsExport';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
+import useFullscreen from '../hooks/useFullscreen';
+import FullscreenToggleButton from '../components/Common/FullscreenToggleButton';
 // Calendar and ChevronDown removed -- PeriodDropdown uses native <select>
 // MultiSelectDropdown replaced by inline MultiSelect (matches Sales Revenue style)
 
@@ -747,11 +749,10 @@ function KebabMenu({ id, items }) {
 function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
   const bodyRef = useRef(null);
   const overlayRef = useRef(null);
+  const { isMaximized, toggleFullscreen } = useFullscreen({ isOpen, onClose });
 
   useEffect(() => {
     if (!isOpen) return;
-    const esc = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', esc);
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -760,10 +761,9 @@ function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
 
     return () => {
-      document.removeEventListener('keydown', esc);
       document.body.style.overflow = prevOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -775,20 +775,28 @@ function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
         position: 'fixed', inset: 0,
         background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '20px 16px 28px',
-        overflowY: 'auto',
+        display: 'flex', alignItems: isMaximized ? 'stretch' : 'flex-start', justifyContent: 'center',
+        padding: isMaximized ? 0 : '20px 16px 28px',
+        overflowY: isMaximized ? 'hidden' : 'auto',
         zIndex: 99999, animation: 'bs-fadeIn 0.18s ease',
       }}
     >
-      <div style={{
-        background: '#fff', borderRadius: 16,
-        width: '98vw', maxWidth: 1520,
-        maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 48px rgba(0,0,0,0.18)',
+      <div
+        className="finsight-view-all-modal"
+        style={{
+        background: '#fff',
+        borderRadius: isMaximized ? 0 : 16,
+        width: isMaximized ? '100vw' : '98vw',
+        maxWidth: isMaximized ? '100vw' : 1520,
+        height: isMaximized ? '100vh' : undefined,
+        maxHeight: isMaximized ? '100vh' : 'calc(100vh - 40px)',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: isMaximized ? 'none' : '0 24px 48px rgba(0,0,0,0.18)',
         animation: 'bs-modalPop 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards',
-        overflow: 'hidden', border: '1px solid #e2e8f0',
+        overflow: 'hidden',
+        border: isMaximized ? 'none' : '1px solid #e2e8f0',
         marginTop: 0, flexShrink: 0,
+        transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         {/* Header */}
         <div style={{
@@ -801,18 +809,26 @@ function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: C.navy }}>{title}</h3>
             {subtitle && <div style={{ fontSize: '0.7rem', color: C.muted, marginTop: 2 }}>{subtitle}</div>}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              width: 30, height: 30, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.85rem', color: C.slate, transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            title="Close (Esc)"
-          >✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FullscreenToggleButton
+              isMaximized={isMaximized}
+              onToggle={toggleFullscreen}
+              titleMaximize="Maximize to full screen"
+              titleMinimize="Restore window size"
+            />
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                width: 30, height: 30, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.85rem', color: C.slate, transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              title="Close (Esc)"
+            >✕</button>
+          </div>
         </div>
         {/* Body */}
         <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>

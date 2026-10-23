@@ -109,6 +109,8 @@ const toApiIdList = (val) => {
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Box, Coins, BarChart3, Clock, AlertTriangle, Percent, RotateCw, Calendar, Target, Scale, Info, ChevronDown } from "lucide-react";
+import useFullscreen from "../hooks/useFullscreen";
+import FullscreenToggleButton from "../components/Common/FullscreenToggleButton";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -780,6 +782,21 @@ const [loading, setLoading] = useState(true);
   const [showViewAll, setShowViewAll] = useState(false);
   const [viewAllSection, setViewAllSection] = useState("all");
   const [viewAllDetailFilters, setViewAllDetailFilters] = useState({});
+
+  const isViewAllOpen = Boolean(viewAllModal || showViewAll);
+  const closeViewAll = useCallback(() => {
+    setViewAllModal(null);
+    setShowViewAll(false);
+    setViewAllSearch("");
+    setViewAllDetailFilters({});
+  }, []);
+  const {
+    isMaximized: isInventoryMaximized,
+    toggleFullscreen: toggleInventoryFullscreen,
+  } = useFullscreen({
+    isOpen: isViewAllOpen,
+    onClose: closeViewAll,
+  });
   const [viewAllSearch, setViewAllSearch] = useState("");
   const [viewAllData, setViewAllData] = useState([]);
   const [viewAllLoading, setViewAllLoading] = useState(false);
@@ -5471,32 +5488,33 @@ const detailsSource = modalFilteredDetails || [];
                 background: "rgba(15, 23, 42, 0.48)",
                 backdropFilter: "blur(4px)",
                 display: "flex",
-                alignItems: "center",
+                alignItems: isInventoryMaximized ? "stretch" : "center",
                 justifyContent: "center",
-                padding: 20,
+                padding: isInventoryMaximized ? 0 : 20,
                 boxSizing: "border-box",
               }}
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
-                  setViewAllModal(null);
-                  setShowViewAll(false);
-                  setViewAllSearch("");
-                  setViewAllDetailFilters({});
+                  closeViewAll();
                 }
               }}
             >
               <div
-                className="sales-style-view-all-modal"
+                className="sales-style-view-all-modal finsight-view-all-modal"
                 style={{
-                  width: "96vw", maxWidth: "1800px",
-                  maxHeight: "92vh",
+                  width: isInventoryMaximized ? "100vw" : "96vw",
+                  maxWidth: isInventoryMaximized ? "100vw" : "1800px",
+                  height: isInventoryMaximized ? "100vh" : undefined,
+                  maxHeight: isInventoryMaximized ? "100vh" : "92vh",
                   background: "#f7faff",
-                  borderRadius: 10,
+                  borderRadius: isInventoryMaximized ? 0 : 10,
                   overflow: "hidden",
-                  boxShadow: "0 18px 55px rgba(15, 23, 42, 0.28)",
+                  boxShadow: isInventoryMaximized ? "none" : "0 18px 55px rgba(15, 23, 42, 0.28)",
                   display: "flex",
                   flexDirection: "column",
                   boxSizing: "border-box",
+                  border: isInventoryMaximized ? "none" : "1px solid #e2e8f0",
+                  transition: "all 0.18s cubic-bezier(0.4, 0, 0.2, 1)",
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -5505,9 +5523,10 @@ const detailsSource = modalFilteredDetails || [];
                     width: "100%",
                     minHeight: 0,
                     overflowY: "auto",
-                    padding: "18px 18px 30px",
+                    padding: isInventoryMaximized ? "16px 24px 30px" : "18px 18px 30px",
                     boxSizing: "border-box",
                     color: "#17213c",
+                    flex: 1,
                   }}
                 >
                   {/* PAGE HEADER */}
@@ -5679,14 +5698,17 @@ const detailsSource = modalFilteredDetails || [];
                         PDF
                       </button>
 
+                      <FullscreenToggleButton
+                        isMaximized={isInventoryMaximized}
+                        onToggle={toggleInventoryFullscreen}
+                        titleMaximize="Maximize to full screen"
+                        titleMinimize="Restore window size"
+                        variant="square"
+                      />
+
                       <button
                         type="button"
-                        onClick={() => {
-                          setViewAllModal(null);
-                          setShowViewAll(false);
-                          setViewAllSearch("");
-                          setViewAllDetailFilters({});
-                        }}
+                        onClick={closeViewAll}
                         style={{
                           height: 34,
                           padding: "0 13px",

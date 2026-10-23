@@ -35,6 +35,8 @@ import {
 
 import { C, CHART_COLORS } from '../utils/theme';
 import ErrorBoundary from '../components/ErrorBoundary';
+import useFullscreen from '../hooks/useFullscreen';
+import FullscreenToggleButton from '../components/Common/FullscreenToggleButton';
 
 
 /* ─── Default filter state ──────────────────────────────────────── */
@@ -417,6 +419,7 @@ function DetailApiModal({
   tabs = null,
   activeTabId = null,
 }) {
+  const { isMaximized, toggleFullscreen } = useFullscreen({ isOpen, onClose });
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
@@ -604,20 +607,29 @@ function DetailApiModal({
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(15, 23, 42, 0.35)', backdropFilter: 'blur(6px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      display: 'flex', alignItems: isMaximized ? 'stretch' : 'center', justifyContent: 'center',
+      padding: isMaximized ? 0 : undefined,
       zIndex: 1000, animation: 'fadeIn 0.2s ease',
     }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       `}</style>
-      <div style={{
-        background: '#fff', borderRadius: 16,
-        width: '96vw', maxWidth: maxWidth,
-        maxHeight: '94vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+      <div
+        className="finsight-view-all-modal"
+        style={{
+        background: '#fff',
+        borderRadius: isMaximized ? 0 : 16,
+        width: isMaximized ? '100vw' : '96vw',
+        maxWidth: isMaximized ? '100vw' : maxWidth,
+        height: isMaximized ? '100vh' : undefined,
+        maxHeight: isMaximized ? '100vh' : '94vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: isMaximized ? 'none' : '0 20px 60px rgba(0,0,0,0.18)',
         animation: 'scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        overflow: 'hidden', border: '1px solid #e2e8f0',
+        overflow: 'hidden',
+        border: isMaximized ? 'none' : '1px solid #e2e8f0',
+        transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         {/* Header */}
         <div style={{
@@ -644,6 +656,12 @@ function DetailApiModal({
                 currency={filters?.reportingCurrency || 'AED'}
               />
             )}
+            <FullscreenToggleButton
+              isMaximized={isMaximized}
+              onToggle={toggleFullscreen}
+              titleMaximize="Maximize to full screen"
+              titleMinimize="Restore window size"
+            />
             <ModalCloseButton onClick={onClose} />
           </div>
         </div>
