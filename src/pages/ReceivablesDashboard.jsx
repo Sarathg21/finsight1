@@ -1,7 +1,8 @@
 
+
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Search } from "lucide-react";
+import { Search, Maximize2, Minimize2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 import {
@@ -8156,6 +8157,32 @@ export default function ReceivablesDashboard() {
         .receivables-sales-ui .receivables-action-menu > div {
           animation: scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards;
         }
+        /* View All shell and header alignment follow the Sales Revenue page.
+           These rules intentionally do not target table elements. */
+        .receivables-sales-ui .sales-style-view-all-modal {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-main-scroll {
+          scrollbar-gutter: stable;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal button {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal button:focus-visible {
+          outline: 2px solid #818cf8;
+          outline-offset: 2px;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal.is-maximized {
+          width: 100vw !important;
+          max-width: 100vw !important;
+          height: 100dvh !important;
+          max-height: 100dvh !important;
+          border-radius: 0 !important;
+          top: 0 !important;
+          left: 0 !important;
+          transform: none !important;
+        }
         .receivables-sales-ui .sales-style-view-all-modal {
           position: fixed !important;
           top: 0 !important;
@@ -9489,6 +9516,7 @@ function ReceivablesViewAll({
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [viewMode, setViewMode] = useState("detailed");
+    const [isViewAllMaximized, setIsViewAllMaximized] = useState(false);
     const [viewAllDisplayUnit, setViewAllDisplayUnit] = useState("AED");
     const [momSearch, setMomSearch] = useState("");
     const [momPage, setMomPage] = useState(1);
@@ -9502,6 +9530,16 @@ function ReceivablesViewAll({
     const [kpiRetryKey, setKpiRetryKey] = useState(0);
     const [momError, setMomError] = useState(null);
     const [momRetryKey, setMomRetryKey] = useState(0);
+
+    useEffect(() => {
+        if (!isViewAllMaximized) return undefined;
+        const handleViewAllEscape = (event) => {
+            if (event.key === "Escape") setIsViewAllMaximized(false);
+        };
+        document.addEventListener("keydown", handleViewAllEscape);
+        return () => document.removeEventListener("keydown", handleViewAllEscape);
+    }, [isViewAllMaximized]);
+
 
     /* ============================================================  
        VIEW ALL TITLE  
@@ -12057,6 +12095,15 @@ function ReceivablesViewAll({
 
     const handleResetViewFilters =
         () => {
+            // Reset must refresh the View All KPI dataset as well as the table.
+            // The KPI query is intentionally independent from pagination/search,
+            // so explicitly bump its retry key to guarantee a fresh request even
+            // when the restored filter values happen to equal the previous values.
+            kpiAnimationPendingRef.current = true;
+            setKpiError(null);
+            setViewAllBackendKpis({});
+            setKpiRetryKey((current) => current + 1);
+
             const initialFilters = getInitialViewFilters();
             const fjGroupOption = (filterOptions.legal_groups || []).find((option) =>
                 /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
@@ -12608,9 +12655,10 @@ function ReceivablesViewAll({
                     "center",
                 justifyContent:
                     "center",
-                padding: 20,
+                padding: isViewAllMaximized ? 0 : 20,
                 boxSizing:
                     "border-box",
+                transition: "padding 180ms ease",
             }}
             onClick={(e) => {
                 if (
@@ -12622,14 +12670,15 @@ function ReceivablesViewAll({
             }}
         >
             <div
-                className="sales-style-view-all-modal"
+                className={`sales-style-view-all-modal${isViewAllMaximized ? " is-maximized" : ""}`}
                 style={{
-                    width:
-                        "min(1450px, 100%)",
-                    maxHeight: "92vh",
+                    width: isViewAllMaximized ? "100vw" : "min(1450px, 100%)",
+                    height: isViewAllMaximized ? "100dvh" : "92vh",
+                    maxWidth: isViewAllMaximized ? "100vw" : "1540px",
+                    maxHeight: isViewAllMaximized ? "100dvh" : "92vh",
                     background:
                         "#f7faff",
-                    borderRadius: 10,
+                    borderRadius: isViewAllMaximized ? 0 : 10,
                     overflow:
                         "hidden",
                     boxShadow:
@@ -12674,14 +12723,11 @@ function ReceivablesViewAll({
                         <div>
                             <div
                                 style={{
-                                    fontSize: 27,
-                                    lineHeight:
-                                        1.1,
+                                    fontSize: 23,
+                                    lineHeight: 1.2,
                                     fontWeight: 800,
-                                    color:
-                                        "#102a72",
-                                    letterSpacing:
-                                        "-0.5px",
+                                    color: "#0f172a",
+                                    letterSpacing: "-0.35px",
                                 }}
                             >
                                 {viewMode === "mom" ? "Receivables Global View All" : detailedViewTitle}
@@ -12702,9 +12748,10 @@ function ReceivablesViewAll({
                         <div
                             style={{
                                 display: "flex",
-                                alignItems:
-                                    "center",
-                                gap: 8,
+                                alignItems: "center",
+                                justifyContent: "flex-end",
+                                gap: 16,
+                                flexWrap: "wrap",
                             }}
                         >
                             <button
@@ -12787,6 +12834,29 @@ function ReceivablesViewAll({
                                 PDF
                             </button>
 
+                            <button
+                                type="button"
+                                onClick={() => setIsViewAllMaximized((current) => !current)}
+                                aria-label={isViewAllMaximized ? "Restore View All window" : "Maximize View All to full screen"}
+                                title={isViewAllMaximized ? "Restore window" : "Maximize to full screen"}
+                                style={{
+                                    width: 34,
+                                    height: 34,
+                                    flex: "0 0 34px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: "1px solid #cbd5e1",
+                                    borderRadius: 8,
+                                    background: "#ffffff",
+                                    color: "#334155",
+                                    lineHeight: 1,
+                                    cursor: "pointer",
+                                    marginLeft: 2,
+                                }}
+                            >
+                                {isViewAllMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                            </button>
                             <button
                                 type="button"
                                 onClick={
@@ -14335,6 +14405,7 @@ function ReceivablesViewAll({
         </div>
     );
 }
+
 
 
 

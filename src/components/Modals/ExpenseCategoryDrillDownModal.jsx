@@ -1,7 +1,6 @@
 
-
-
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
 import { exportOpexCategoryBreakdown, getOpexFilterOptions } from "../../api/opexApi";
 
@@ -745,6 +744,7 @@ export default function ExpenseCategoryDrillDownModal({
        EXPANDED CATEGORIES & LOCAL FILTER STATE
     ===================================================== */
 
+    const [isMaximized, setIsMaximized] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState({});
     const [detailData, setDetailData] = useState({});
     const [detailLoading, setDetailLoading] = useState({});
@@ -1765,9 +1765,9 @@ export default function ExpenseCategoryDrillDownModal({
                     zIndex: 1000,
                     background: "rgba(15, 23, 42, 0.45)",
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: isMaximized ? "stretch" : "center",
                     justifyContent: "center",
-                    padding: "20px",
+                    padding: isMaximized ? 0 : "20px",
                 }}
                 onMouseDown={(event) => {
                     if (
@@ -1781,11 +1781,12 @@ export default function ExpenseCategoryDrillDownModal({
                 <div
                     className="expense-drilldown-modal"
                     style={{
-                        width: "100%",
-                        maxWidth: "1400px",
-                        maxHeight: "92vh",
+                        width: isMaximized ? "100vw" : "100%",
+                        maxWidth: isMaximized ? "100vw" : "1400px",
+                        height: isMaximized ? "100dvh" : "auto",
+                        maxHeight: isMaximized ? "100dvh" : "92vh",
                         background: "#ffffff",
-                        borderRadius: "10px",
+                        borderRadius: isMaximized ? 0 : "10px",
                         boxShadow:
                             "0 20px 50px rgba(15, 23, 42, 0.20)",
                         display: "flex",
@@ -1835,32 +1836,63 @@ export default function ExpenseCategoryDrillDownModal({
                             </div>
                         </div>
 
-                        {/* =================================================
-                        CLOSE BUTTON
-                    ================================================= */}
-
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            aria-label="Close"
+                        {/* Maximize / Restore and Close stay on the same row */}
+                        <div
                             style={{
-                                width: "32px",
-                                height: "32px",
-                                border: "none",
-                                background: "transparent",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                color: "#64748b",
-                                fontSize: "24px",
-                                lineHeight: "28px",
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center",
+                                justifyContent: "flex-end",
+                                gap: "6px",
                                 flexShrink: 0,
                             }}
                         >
-                            ×
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsMaximized((current) => !current)}
+                                aria-label={isMaximized ? "Restore modal" : "Maximize modal"}
+                                title={isMaximized ? "Restore" : "Maximize"}
+                                style={{
+                                    width: "32px",
+                                    height: "32px",
+                                    border: "none",
+                                    background: "transparent",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    color: "#64748b",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {isMaximized
+                                    ? <Minimize2 size={18} aria-hidden="true" />
+                                    : <Maximize2 size={18} aria-hidden="true" />}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleClose}
+                                aria-label="Close"
+                                title="Close"
+                                style={{
+                                    width: "32px",
+                                    height: "32px",
+                                    border: "none",
+                                    background: "transparent",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    color: "#64748b",
+                                    fontSize: "24px",
+                                    lineHeight: "28px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
                     </div>
 
                     {/* =================================================

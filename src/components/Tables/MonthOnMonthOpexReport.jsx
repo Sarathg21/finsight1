@@ -1,4 +1,5 @@
 
+
 import React, {
     useEffect,
     useMemo,
@@ -14,7 +15,7 @@ import {
     MoreVertical,
     Search,
     FileSpreadsheet,
-    FileText, Eye, X,
+    FileText, Eye, X, Maximize2, Minimize2,
 } from "lucide-react";
 import {
     getOpexFilterOptions,
@@ -1733,6 +1734,7 @@ function MonthOnMonthOpexViewAllModal({
     applyingFilters = false,
     onClose,
 }) {
+    const [isMaximized, setIsMaximized] = useState(false);
     const [filters, setFilters] = useState(() => normalizeFilterState(initialFilters));
     const [modalFilterOptions, setModalFilterOptions] = useState(() => normalizeModalOpexOptions(filterOptions));
     const [modalOptionsLoading, setModalOptionsLoading] = useState(false);
@@ -1789,6 +1791,7 @@ function MonthOnMonthOpexViewAllModal({
 
     useEffect(() => {
         if (!open) {
+            setIsMaximized(false);
             initializedRef.current = false;
             return;
         }
@@ -2012,20 +2015,20 @@ function MonthOnMonthOpexViewAllModal({
             z-index: 2147483647 !important;
             background: rgba(15, 23, 42, 0.58) !important;
             display: flex !important;
-            align-items: stretch !important;
+            align-items: center !important;
             justify-content: center !important;
-            padding: 0 !important;
+            padding: 16px !important;
             margin: 0 !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
         }
 
         .mom-opex-viewall-overlay > .mom-opex-viewall-container {
-            width: calc(100vw - 32px);
+            width: min(1600px, calc(100vw - 32px));
             max-width: 1600px;
-            height: 100vh;
-            min-height: 100vh;
-            max-height: 100vh;
+            height: min(92vh, 100dvh - 32px);
+            min-height: 0;
+            max-height: calc(100dvh - 32px);
             margin: 0;
             box-sizing: border-box;
         }
@@ -2049,18 +2052,25 @@ function MonthOnMonthOpexViewAllModal({
     `;
 
     const modalContent = (
-        <div className="mom-opex-viewall-overlay">
+        <div
+            className="mom-opex-viewall-overlay"
+            style={{
+                alignItems: isMaximized ? "stretch" : "center",
+                padding: isMaximized ? 0 : 16,
+                background: isMaximized ? "rgba(15, 23, 42, 0.58)" : "rgba(15, 23, 42, 0.58)",
+            }}
+        >
             <style>{modalScrollbarStyles}</style>
             <div
                 className="mom-opex-viewall-container"
                 style={{
-                    width: "calc(100vw - 32px)",
-                    maxWidth: "1600px",
-                    height: "100vh",
-                    minHeight: "100vh",
-                    maxHeight: "100vh",
+                    width: isMaximized ? "100vw" : "min(1600px, calc(100vw - 32px))",
+                    maxWidth: isMaximized ? "100vw" : "1600px",
+                    height: isMaximized ? "100dvh" : "min(92vh, calc(100dvh - 32px))",
+                    minHeight: 0,
+                    maxHeight: isMaximized ? "100dvh" : "calc(100dvh - 32px)",
                     background: "#FFFFFF",
-                    borderRadius: 14,
+                    borderRadius: isMaximized ? 0 : 14,
                     boxShadow: "0 24px 70px rgba(15,23,42,0.30)",
                     position: "relative",
                     zIndex: 2147483647,
@@ -2107,27 +2117,61 @@ function MonthOnMonthOpexViewAllModal({
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Close View All"
+                    <div
                         style={{
-                            width: 32,
-                            height: 32,
-                            flexShrink: 0,
-                            border: "1px solid #E2E8F0",
-                            background: "#FFFFFF",
-                            color: "#64748B",
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                            borderRadius: 8,
-                            padding: 0,
+                            justifyContent: "flex-end",
+                            gap: 8,
+                            flexShrink: 0,
+                            marginLeft: 16,
                         }}
                     >
-                        <X size={18} />
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsMaximized((current) => !current)}
+                            aria-label={isMaximized ? "Restore View All" : "Maximize View All"}
+                            title={isMaximized ? "Restore" : "Maximize"}
+                            style={{
+                                width: 32,
+                                height: 32,
+                                flexShrink: 0,
+                                border: "1px solid #E2E8F0",
+                                background: "#FFFFFF",
+                                color: "#64748B",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                borderRadius: 8,
+                                padding: 0,
+                            }}
+                        >
+                            {isMaximized ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close View All"
+                            title="Close"
+                            style={{
+                                width: 32,
+                                height: 32,
+                                flexShrink: 0,
+                                border: "1px solid #E2E8F0",
+                                background: "#FFFFFF",
+                                color: "#64748B",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                borderRadius: 8,
+                                padding: 0,
+                            }}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div

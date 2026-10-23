@@ -15,6 +15,8 @@ import {
     ShoppingBag,
     MoreVertical,
     Search,
+    Maximize2,
+    Minimize2,
     X,
 } from 'lucide-react';
 
@@ -4115,6 +4117,7 @@ function Modal({
 }) {
     const bodyRef = useRef(null);
     const overlayRef = useRef(null);
+    const [isMaximized, setIsMaximized] = useState(false);
 
     useEffect(() => {
         const handler = (e) => {
@@ -4174,12 +4177,10 @@ function Modal({
                 WebkitBackdropFilter:
                     'blur(6px)',
                 display: 'flex',
-                alignItems:
-                    'flex-start',
-                justifyContent:
-                    'center',
-                padding: 0,
-                overflowY: 'auto',
+                alignItems: isMaximized ? 'stretch' : 'center',
+                justifyContent: 'center',
+                padding: isMaximized ? 0 : 16,
+                overflowY: isMaximized ? 'hidden' : 'auto',
                 minHeight: '100vh',
                 zIndex: 99999,
                 animation:
@@ -4190,11 +4191,12 @@ function Modal({
             <div
                 style={{
                     background: '#fff',
-                    borderRadius: 0,
-                    width: '98%',
-                    maxWidth: 1500,
-                    height: '96vh',
-                    maxHeight: '96vh',
+                    position: 'relative',
+                    borderRadius: isMaximized ? 0 : 12,
+                    width: isMaximized ? '100vw' : 'min(96vw, 1500px)',
+                    maxWidth: isMaximized ? '100vw' : 1500,
+                    height: isMaximized ? '100dvh' : 'min(92dvh, 900px)',
+                    maxHeight: isMaximized ? '100dvh' : '92dvh',
                     minHeight: 0,
                     display: 'flex',
                     flexDirection:
@@ -4206,11 +4208,37 @@ function Modal({
                     overflow: 'hidden',
                     border:
                         '1px solid #e2e8f0',
-                    marginTop: '2vh',
+                    marginTop: isMaximized ? 0 : 0,
                     flexShrink: 0,
                     boxSizing: 'border-box',
                 }}
             >
+                <button
+                    type="button"
+                    onClick={() => setIsMaximized((current) => !current)}
+                    aria-label={isMaximized ? 'Restore View All window' : 'Maximize View All window'}
+                    aria-pressed={isMaximized}
+                    title={isMaximized ? 'Restore window' : 'Maximize window'}
+                    style={{
+                        position: 'absolute',
+                        top: 13,
+                        right: 54,
+                        zIndex: 100001,
+                        width: 34,
+                        height: 34,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #dbe3ee',
+                        borderRadius: 8,
+                        background: '#ffffff',
+                        color: '#334155',
+                        boxShadow: '0 2px 8px rgba(15,23,42,.12)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    {isMaximized ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+                </button>
                 {/* Modal Body */}
                 <div
                     ref={bodyRef}
@@ -6795,7 +6823,7 @@ export default function CostStructureAnalysis({
                     <div
                         style={{
                             padding:
-                                '14px 18px',
+                                '14px 90px 14px 18px',
                             borderBottom:
                                 '1px solid #e2e8f0',
                             display:
@@ -6855,6 +6883,10 @@ export default function CostStructureAnalysis({
                                 )
                             }
                             style={{
+                                position: 'absolute',
+                                top: 13,
+                                right: 13,
+                                zIndex: 100001,
                                 width: 31,
                                 height: 31,
                                 border: 0,

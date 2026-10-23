@@ -1,8 +1,7 @@
 
-
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Search } from "lucide-react";
+import { Search, Maximize2, Minimize2 } from "lucide-react";
 import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -7698,11 +7697,6 @@ export default function PayablesDashboard() {
           from { transform: scale(0.95); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
-        @keyframes payablesViewAllKpiIn {
-          from { opacity: 0; transform: translateY(8px) scale(0.985); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
@@ -10529,6 +10523,9 @@ function PayablesViewAll({
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [viewAllDisplayUnit, setViewAllDisplayUnit] = useState("AED");
+    // Start in a comfortable modal window; the header control expands every
+    // Payables View All mode to the full dashboard viewport and restores it.
+    const [isViewAllMaximized, setIsViewAllMaximized] = useState(false);
 
     const [showParentDivisionMonthOnMonth, setShowParentDivisionMonthOnMonth] =
         useState(false);
@@ -12797,30 +12794,44 @@ function PayablesViewAll({
         let cancelled = false;
         const loadFilteredKpis = async () => {
             try {
+                // Always request the full dashboard KPI snapshot, including on
+                // first open when the user has not changed any View All filters.
                 const filtersForKpis = { ...buildDetailFilters() };
                 ["page", "page_size", "sort_by", "sort_dir", "unit", "report_section", "report_title"].forEach((key) => delete filtersForKpis[key]);
                 const response = await getPayablesDashboard(filtersForKpis);
                 if (cancelled) return;
                 const root = response?.data ?? response ?? {};
                 const payload = root?.data && !Array.isArray(root.data) ? root.data : root;
-                const kpis =
-                    payload?.kpis ?? payload?.data?.kpis ?? payload?.summary?.kpis ??
-                    payload?.summary ?? root?.kpis ?? root?.data?.kpis ?? {};
-                if (kpis && typeof kpis === "object" && Object.keys(kpis).length) {
+                const candidates = [
+                    payload?.kpis,
+                    payload?.data?.kpis,
+                    payload?.summary?.kpis,
+                    payload?.summary,
+                    root?.kpis,
+                    root?.data?.kpis,
+                    root?.data?.summary?.kpis,
+                ];
+                const kpis = candidates.find((candidate) =>
+                    candidate && typeof candidate === "object" && !Array.isArray(candidate) && Object.keys(candidate).length > 0
+                );
+                if (kpis) {
                     setViewAllKpis({
                         ...kpis,
                         trade_payables_aging: kpis.trade_payables_aging ??
                             kpis.aging_trade_payables ?? kpis.total_trade_payable ?? kpis.total_trade_payables,
                     });
                 }
+                // Always restart after the initial request settles. If the API
+                // does not return KPI fields, render the main dashboard snapshot
+                // below rather than letting an empty object hide those values.
             } catch (error) {
-                // Keep the last known KPI snapshot; never replace it with page sums.
                 console.error("Payables filtered KPI request failed", error);
+                // mainKpis remains available as a fallback when this request fails.
             }
         };
         loadFilteredKpis();
         return () => { cancelled = true; };
-    }, [appliedViewFilters, filterOptions, drilldown, baseFilters, filters, currency, search]);
+    }, [appliedViewFilters, filterOptions, drilldown, baseFilters, filters, currency]);
 
     /* ============================================================ 
        LOAD VIEW ALL 
@@ -13336,14 +13347,19 @@ function PayablesViewAll({
        SUMMARY VALUES 
     ============================================================ */
 
-    const backendKpis =
-        viewAllKpis?.kpis ||
-        viewAllKpis ||
-        mainKpis?.kpis ||
-        mainKpis?.data?.kpis ||
-        data?.kpis ||
-        mainKpis ||
-        {};
+    // Empty objects are truthy in JavaScript; don't allow the initial empty
+    // View All snapshot to mask usable KPI data already loaded by the dashboard.
+    const firstPopulatedKpiObject = (...candidates) => candidates.find((candidate) =>
+        candidate && typeof candidate === "object" && !Array.isArray(candidate) && Object.keys(candidate).length > 0
+    ) || {};
+    const backendKpis = firstPopulatedKpiObject(
+        viewAllKpis?.kpis,
+        viewAllKpis,
+        mainKpis?.kpis,
+        mainKpis?.data?.kpis,
+        data?.kpis,
+        mainKpis
+    );
 
     const hasBackendKpi = (key) =>
         backendKpis?.[key] !== undefined &&
@@ -13522,9 +13538,9 @@ function PayablesViewAll({
                             textOverflow: "ellipsis",
                         }}
                     >
-                        {value === null || value === undefined || value === ""
+                        {value === null || value === undefined || value === "" || !Number.isFinite(Number(value))
                             ? "—"
-                            : formatSummaryValue(value)}
+                            : formatSummaryValue(Number(value))}
                     </div>
                 </div>
             </div>
@@ -13627,10 +13643,13 @@ function PayablesViewAll({
                 position: "fixed",
                 inset: 0,
                 zIndex: 2000,
+                isolation: "isolate",
                 background:
                     "rgba(15, 23, 42, 0.48)",
-                display: "block",
-                padding: 0,
+                display: "flex",
+                alignItems: isViewAllMaximized ? "stretch" : "center",
+                justifyContent: isViewAllMaximized ? "flex-start" : "center",
+                padding: isViewAllMaximized ? 0 : "2vh 2vw",
                 boxSizing: "border-box",
                 width: "100vw",
                 minWidth: "100vw",
@@ -13650,23 +13669,26 @@ function PayablesViewAll({
             }}
         >
             <div
-                className="sales-style-view-all-modal"
+                className={`sales-style-view-all-modal ${isViewAllMaximized ? "payables-view-all-maximized" : "payables-view-all-restored"}`}
                 style={{
-                    position: "fixed",
-                    inset: 0,
-                    left: 0,
-                    right: 0,
-                    width: "100vw",
-                    minWidth: "100vw",
-                    maxWidth: "none",
-                    height: "100vh",
+                    position: isViewAllMaximized ? "absolute" : "relative",
+                    top: isViewAllMaximized ? 0 : "auto",
+                    right: isViewAllMaximized ? 0 : "auto",
+                    bottom: isViewAllMaximized ? 0 : "auto",
+                    left: isViewAllMaximized ? 0 : "auto",
+                    width: isViewAllMaximized ? "100%" : "96vw",
+                    minWidth: 0,
+                    maxWidth: isViewAllMaximized ? "100%" : "96vw",
+                    height: isViewAllMaximized ? "100%" : "94vh",
                     minHeight: 0,
-                    maxHeight: "100dvh",
+                    maxHeight: isViewAllMaximized ? "100%" : "94dvh",
                     flex: "none",
                     alignSelf: "stretch",
+                    margin: 0,
                     transform: "none",
+                    transition: "width 180ms ease, height 180ms ease, border-radius 180ms ease",
                     background: "#f7faff",
-                    borderRadius: 0,
+                    borderRadius: isViewAllMaximized ? 0 : 16,
                     overflow:
                         "hidden",
                     boxShadow:
@@ -13679,6 +13701,22 @@ function PayablesViewAll({
                 }}
             >
                 <style>{`
+                    /* Override legacy global !important modal rules that otherwise force
+                       a centered 96vw panel and translateX(-50%), blocking maximize/restore. */
+                    .sales-style-view-all-modal.payables-view-all-maximized {
+                        position: fixed !important; inset: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                        width: 100vw !important; min-width: 100vw !important; max-width: none !important;
+                        height: 100dvh !important; min-height: 100dvh !important; max-height: 100dvh !important;
+                        margin: 0 !important; transform: none !important; border-radius: 0 !important;
+                        animation: none !important; box-shadow: none !important;
+                    }
+                    .sales-style-view-all-modal.payables-view-all-restored {
+                        position: relative !important; inset: auto !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+                        width: min(96vw, 1540px) !important; min-width: 0 !important; max-width: min(96vw, 1540px) !important;
+                        height: 94vh !important; min-height: 0 !important; max-height: 94dvh !important;
+                        margin: 0 !important; transform: none !important; border-radius: 16px !important;
+                        animation: none !important;
+                    }
                     /* All View All table headers follow the modal's single vertical page scroller. */
                     .sales-style-view-all-modal .payables-view-all-scroll table thead th {
                         position: -webkit-sticky !important;
@@ -13835,7 +13873,7 @@ function PayablesViewAll({
                                 display: "flex",
                                 alignItems:
                                     "center",
-                                gap: 8,
+                                gap: 12,
                                 flexWrap: "wrap",
                                 justifyContent: "flex-end",
                             }}
@@ -13942,6 +13980,33 @@ function PayablesViewAll({
                             >
                                 <span style={{ fontSize: 13 }}>📄</span>
                                 PDF
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setIsViewAllMaximized((current) => !current)}
+                                aria-label={isViewAllMaximized ? "Restore View All window" : "Maximize View All to full screen"}
+                                aria-pressed={isViewAllMaximized}
+                                title={isViewAllMaximized ? "Restore window" : "Maximize to full screen"}
+                                style={{
+                                    width: 36,
+                                    height: 34,
+                                    padding: 0,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: "1px solid #cbd5e1",
+                                    borderRadius: 8,
+                                    background: "#ffffff",
+                                    color: "#3149a5",
+                                    cursor: "pointer",
+                                    transition: "background 0.15s ease, border-color 0.15s ease",
+                                    flex: "0 0 auto",
+                                }}
+                            >
+                                {isViewAllMaximized
+                                    ? <Minimize2 size={16} strokeWidth={2.2} />
+                                    : <Maximize2 size={16} strokeWidth={2.2} />}
                             </button>
 
                             <button

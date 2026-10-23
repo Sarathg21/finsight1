@@ -1,6 +1,6 @@
 
-
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -2061,6 +2061,10 @@ export default function OperatingAnalysisViewAllModal({
     const [searchTerm, setSearchTerm] =
         useState("");
 
+    // Viewport sizing is local UI state only; it does not reload the page
+    // or alter filters, data requests, exports, or permission checks.
+    const [isMaximized, setIsMaximized] = useState(false);
+
     /* =====================================================
        VIEW ALL UNIT TOGGLE
        Only used by Actual vs Target and OPEX Composition.
@@ -3900,6 +3904,55 @@ export default function OperatingAnalysisViewAllModal({
                      rgba(15, 23, 42, 0.24);
              }
 
+                .finsight-detail-backdrop-maximized {
+                    padding: 0 !important;
+                    align-items: stretch !important;
+                    justify-content: stretch !important;
+                }
+
+                .finsight-detail-modal-maximized {
+                    width: 100vw !important;
+                    max-width: none !important;
+                    height: 100dvh !important;
+                    min-height: 0 !important;
+                    border-radius: 0 !important;
+                    border: 0 !important;
+                }
+
+                .finsight-detail-header-actions {
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    gap: 8px;
+                    flex: 0 0 auto;
+                    margin-left: auto;
+                }
+
+                .finsight-detail-window-toggle {
+                    width: 34px;
+                    height: 34px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    background: #ffffff;
+                    color: #334155;
+                    cursor: pointer;
+                    flex: 0 0 auto;
+                    transition: background 0.15s ease, border-color 0.15s ease;
+                }
+
+                .finsight-detail-window-toggle:hover {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                }
+
+                .finsight-detail-header-actions .finsight-detail-close {
+                    position: static;
+                    flex: 0 0 auto;
+                }
+
                 .finsight-detail-header {
                     min-height: 68px;
                     padding:
@@ -5000,7 +5053,7 @@ export default function OperatingAnalysisViewAllModal({
             ===================================================== */}
 
             <div
-                className="finsight-detail-backdrop"
+                className={`finsight-detail-backdrop${isMaximized ? " finsight-detail-backdrop-maximized" : ""}`}
                 onClick={(event) => {
 
                     if (
@@ -5018,7 +5071,7 @@ export default function OperatingAnalysisViewAllModal({
                     MODAL
                 ================================================= */}
 
-                <div className="finsight-detail-modal">
+                <div className={`finsight-detail-modal${isMaximized ? " finsight-detail-modal-maximized" : ""}`}>
 
 
                     {/* =================================================
@@ -5041,14 +5094,29 @@ export default function OperatingAnalysisViewAllModal({
                         </div>
 
 
-                        <button
-                            type="button"
-                            className="finsight-detail-close"
-                            onClick={onClose}
-                            aria-label="Close"
-                        >
-                            ×
-                        </button>
+                        <div className="finsight-detail-header-actions">
+                            <button
+                                type="button"
+                                className="finsight-detail-window-toggle"
+                                onClick={() => setIsMaximized((previous) => !previous)}
+                                aria-label={isMaximized ? "Restore centered modal" : "Maximize modal"}
+                                title={isMaximized ? "Restore" : "Maximize"}
+                            >
+                                {isMaximized
+                                    ? <Minimize2 size={18} aria-hidden="true" />
+                                    : <Maximize2 size={18} aria-hidden="true" />}
+                            </button>
+
+                            <button
+                                type="button"
+                                className="finsight-detail-close"
+                                onClick={onClose}
+                                aria-label="Close"
+                                title="Close"
+                            >
+                                ×
+                            </button>
+                        </div>
 
                     </div>
 
