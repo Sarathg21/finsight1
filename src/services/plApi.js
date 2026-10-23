@@ -12,11 +12,12 @@
 
 // Keep ?? (not ||) — empty string means relative paths (Vite proxy), not fallback to default
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+import { getApiBaseUrl } from '../utils/apiBase';
+const API_BASE = getApiBaseUrl();
 
 /* ── Auth headers ───────────────────────────────────────────────── */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -265,7 +266,7 @@ const apiCache = new Map();
  * @returns {Promise<any>}
  */
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
 
   // Preserve existing demo-mode behavior.
   if (!token) {
@@ -321,8 +322,7 @@ async function apiCall(path, params = {}) {
 
   const queryString = urlParams.toString();
 
-  const url = `${API_BASE}${path}${queryString ? `?${queryString}` : ''
-    }`;
+  const url = `${getApiBaseUrl()}${path}${queryString ? `?${queryString}` : ''}`;
 
   // Different URLs or authentication tokens must remain separate.
   const requestKey = `${token}::${url}`;
@@ -654,7 +654,7 @@ export function exportPL(reportName, format, filters = {}) {
   const qs = urlParams.toString();
 
   const url =
-    `${API_BASE}/api/pl/${backendReportName}/export` +
+    `${getApiBaseUrl()}/api/pl/${backendReportName}/export` +
     `${qs ? `?${qs}` : ''}`;
 
   console.log('[plApi] Export request:', {

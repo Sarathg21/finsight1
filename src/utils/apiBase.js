@@ -9,9 +9,17 @@
  * requests — fall back to the same-origin /api proxy instead.
  */
 export function getApiBaseUrl() {
+  // If running in browser on Vercel or any HTTPS host, always use relative /api paths
+  // to prevent mixed content blocking and route through api/proxy.js
+  if (typeof window !== "undefined") {
+    if (window.location.protocol === "https:" || window.location.hostname.includes("vercel.app")) {
+      return "";
+    }
+  }
+
   const configured = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 
-  if (!configured) {
+  if (!configured || configured.includes("13.233.207.68")) {
     return "";
   }
 

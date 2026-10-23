@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../utils/apiBase';
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -65,7 +66,7 @@ const triggerPayablesBlobDownload = (response, fallbackName) => {
    PARENT DIVISION MONTH-ON-MONTH HELPERS
    ============================================================ */
 const getPayablesApiBaseUrl = () => {
-    const base = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+    const base = getApiBaseUrl();
     return base.endsWith("/api") ? base : `${base}/api`;
 };
 

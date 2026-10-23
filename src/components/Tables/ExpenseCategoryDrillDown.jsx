@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../../utils/apiBase';
 
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -1727,7 +1728,7 @@ export default function ExpenseCategoryDrillDown({
             setCategoryDetailLoading((prev) => ({ ...prev, [cacheKey]: true }));
             setCategoryDetailError((prev) => ({ ...prev, [cacheKey]: null }));
 
-            const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
+            const configuredBaseUrl = getApiBaseUrl();
             const baseUrl = configuredBaseUrl.replace(/\/+$/, "");
             const apiUrl = baseUrl.endsWith("/api")
                 ? `${baseUrl}/opex/category-detail`

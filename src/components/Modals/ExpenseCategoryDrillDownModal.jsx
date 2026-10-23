@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../../utils/apiBase';
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
@@ -602,7 +603,7 @@ const MultiSelectDropdown = ({
    must use /api/opex/category-detail-monthly only.
 ========================================================= */
 const getOpexApiBase = () =>
-    String(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+    getApiBaseUrl();
 
 const appendFilterValues = (params, key, values) => {
     const list = normalizeMultiValue(values).filter(

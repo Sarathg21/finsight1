@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../../utils/apiBase';
 
 
 import React, {
@@ -2479,7 +2480,7 @@ export default function MonthOnMonthOpexReport({
         const currency = cleanArray(sourceFilters?.reporting_currency)[0] || reportingCurrency || "AED";
         if (currency) params.set("reporting_currency", currency);
 
-        const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+        const configuredBaseUrl = getApiBaseUrl();
         const apiUrl = configuredBaseUrl.endsWith("/api")
             ? `${configuredBaseUrl}/opex/monthly/export`
             : `${configuredBaseUrl}/api/opex/monthly/export`;
