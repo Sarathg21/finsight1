@@ -1,5 +1,25 @@
 
-import api from "./axios";
+
+
+import axios from "axios";
+
+/* ─────────────────────────────────────────────
+   API BASE URL
+───────────────────────────────────────────── */
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+
+/* ─────────────────────────────────────────────
+   AXIOS INSTANCE
+───────────────────────────────────────────── */
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
+});
 
 /* ─────────────────────────────────────────────
    AUTH TOKEN
@@ -17,34 +37,13 @@ function getAuthHeaders() {
   const token = getAuthToken();
 
   return token
-    ? {
-      Authorization: `Bearer ${token}`,
-    }
+    ? { Authorization: `Bearer ${token}` }
     : {};
 }
 
 /* ─────────────────────────────────────────────
    QUERY PARAM HELPERS
 ───────────────────────────────────────────── */
-
-/*
- * Adds query parameters safely.
- *
- * For arrays, the same query parameter is appended
- * multiple times.
- *
- * Example:
- *
- * gl_code=[
- *   "121201-Accounts Receivables",
- *   "121202-PDC Receipts"
- * ]
- *
- * becomes:
- *
- * gl_code=121201-Accounts%20Receivables
- * &gl_code=121202-PDC%20Receipts
- */
 
 function appendParam(params, key, value) {
   if (value === undefined || value === null || value === "") {
@@ -57,7 +56,6 @@ function appendParam(params, key, value) {
         params.append(key, item);
       }
     });
-
     return;
   }
 
@@ -71,78 +69,16 @@ function appendParam(params, key, value) {
 function buildDashboardParams(filters = {}) {
   const params = new URLSearchParams();
 
-  /* Existing filters */
+  appendParam(params, "legal_group_id", filters.legal_group_id);
+  appendParam(params, "legal_entity_id", filters.legal_entity_id);
+  appendParam(params, "parent_division_id", filters.parent_division_id);
+  appendParam(params, "subdivision_id", filters.subdivision_id);
 
-  appendParam(
-    params,
-    "legal_group_id",
-    filters.legal_group_id
-  );
+  appendParam(params, "customer_type", filters.customer_type || "ALL");
+  appendParam(params, "gl_code", filters.gl_code);
 
-  appendParam(
-    params,
-    "legal_entity_id",
-    filters.legal_entity_id
-  );
-
-  appendParam(
-    params,
-    "parent_division_id",
-    filters.parent_division_id
-  );
-
-  appendParam(
-    params,
-    "subdivision_id",
-    filters.subdivision_id
-  );
-
-  /* ─────────────────────────────────────────
-     NEW: CUSTOMER TYPE
-     
-     Supported:
-     ALL
-     EXTERNAL
-     INTERNAL
-
-     Default:
-     ALL
-  ───────────────────────────────────────── */
-
-  appendParam(
-    params,
-    "customer_type",
-    filters.customer_type || "ALL"
-  );
-
-  /* ─────────────────────────────────────────
-     NEW: GL CODE MULTI-SELECT
-
-     If filters.gl_code is an array,
-     appendParam() sends one gl_code parameter
-     for every selected value.
-  ───────────────────────────────────────── */
-
-  appendParam(
-    params,
-    "gl_code",
-    filters.gl_code
-  );
-
-  /* Existing filters */
-
-  appendParam(
-    params,
-    "aging_basis",
-    filters.aging_basis || "DUE_DATE"
-  );
-
-  appendParam(
-    params,
-    "as_on_date",
-    filters.as_on_date
-  );
-
+  appendParam(params, "aging_basis", filters.aging_basis || "DUE_DATE");
+  appendParam(params, "as_on_date", filters.as_on_date);
   appendParam(
     params,
     "reporting_currency",
@@ -157,87 +93,18 @@ function buildDashboardParams(filters = {}) {
 ───────────────────────────────────────────── */
 
 function buildViewAllParams(filters = {}) {
-  /*
-   * buildDashboardParams() already includes:
-   *
-   * - legal_group_id
-   * - legal_entity_id
-   * - parent_division_id
-   * - subdivision_id
-   * - customer_type
-   * - gl_code
-   * - aging_basis
-   * - as_on_date
-   * - reporting_currency
-   */
-
   const params = buildDashboardParams(filters);
 
-  /* Existing View All pagination */
+  appendParam(params, "page", filters.page ?? 1);
+  appendParam(params, "page_size", filters.page_size ?? 50);
+  appendParam(params, "sort_by", filters.sort_by || "total_receivables");
+  appendParam(params, "sort_dir", filters.sort_dir || "desc");
 
-  appendParam(
-    params,
-    "page",
-    filters.page ?? 1
-  );
-
-  appendParam(
-    params,
-    "page_size",
-    filters.page_size ?? 50
-  );
-
-  /* Existing sorting */
-
-  appendParam(
-    params,
-    "sort_by",
-    filters.sort_by || "total_receivables"
-  );
-
-  appendParam(
-    params,
-    "sort_dir",
-    filters.sort_dir || "desc"
-  );
-
-  /* Existing View All filters */
-
-  appendParam(
-    params,
-    "customer_id",
-    filters.customer_id
-  );
-
-  appendParam(
-    params,
-    "source_currency",
-    filters.source_currency
-  );
-
-  /*
-   * DO NOT add gl_code here again.
-   *
-   * It is already included by buildDashboardParams().
-   */
-
-  appendParam(
-    params,
-    "search",
-    filters.search
-  );
-
-  appendParam(
-    params,
-    "aging_bucket",
-    filters.aging_bucket
-  );
-
-  appendParam(
-    params,
-    "balance_status",
-    filters.balance_status
-  );
+  appendParam(params, "customer_id", filters.customer_id);
+  appendParam(params, "source_currency", filters.source_currency);
+  appendParam(params, "search", filters.search);
+  appendParam(params, "aging_bucket", filters.aging_bucket);
+  appendParam(params, "balance_status", filters.balance_status);
 
   return params;
 }
@@ -247,74 +114,59 @@ function buildViewAllParams(filters = {}) {
 ───────────────────────────────────────────── */
 
 function buildExportParams(filters = {}) {
-  /*
-   * buildDashboardParams() already includes:
-   *
-   * - customer_type
-   * - gl_code
-   * - all existing common filters
-   */
-
   const params = buildDashboardParams(filters);
 
-  /* Existing export filters */
-
-  appendParam(
-    params,
-    "aging_bucket",
-    filters.aging_bucket
-  );
-
-  appendParam(
-    params,
-    "balance_status",
-    filters.balance_status
-  );
-
-  appendParam(
-    params,
-    "customer_id",
-    filters.customer_id
-  );
-
-  appendParam(
-    params,
-    "source_currency",
-    filters.source_currency
-  );
-
-  /*
-   * DO NOT add gl_code here again.
-   *
-   * It is already included by buildDashboardParams().
-   */
-
-  appendParam(
-    params,
-    "search",
-    filters.search
-  );
-
-  appendParam(
-    params,
-    "section",
-    filters.section
-  );
+  appendParam(params, "aging_bucket", filters.aging_bucket);
+  appendParam(params, "balance_status", filters.balance_status);
+  appendParam(params, "customer_id", filters.customer_id);
+  appendParam(params, "source_currency", filters.source_currency);
+  appendParam(params, "search", filters.search);
+  appendParam(params, "section", filters.section);
 
   return params;
 }
 
 /* ─────────────────────────────────────────────
    1. FILTER OPTIONS
+   Supports the hierarchy cascade on the main
+   dashboard and the View All modal.
 ───────────────────────────────────────────── */
 
-export async function getReceivablesFilterOptions() {
-  const response = await api.get(
-    "/receivables/filter-options",
-    {
-      headers: getAuthHeaders(),
-    }
+export async function getReceivablesFilterOptions(filters = {}) {
+  const params = new URLSearchParams();
+
+  appendParam(
+    params,
+    "legal_group_id",
+    filters.legal_group_id ?? filters.legal_groups ?? filters.legal_group
   );
+
+  appendParam(
+    params,
+    "legal_entity_id",
+    filters.legal_entity_id ?? filters.legal_entities ?? filters.legal_entity
+  );
+
+  appendParam(
+    params,
+    "parent_division_id",
+    filters.parent_division_id ??
+    filters.parent_divisions ??
+    filters.parent_division
+  );
+
+  appendParam(
+    params,
+    "subdivision_id",
+    filters.subdivision_id ??
+    filters.sub_divisions ??
+    filters.subdivision
+  );
+
+  const response = await api.get("/api/receivables/filter-options", {
+    params,
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -324,15 +176,10 @@ export async function getReceivablesFilterOptions() {
 ───────────────────────────────────────────── */
 
 export async function getReceivablesDashboard(filters = {}) {
-  const params = buildDashboardParams(filters);
-
-  const response = await api.get(
-    "/receivables/dashboard",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/dashboard", {
+    params: buildDashboardParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -342,15 +189,10 @@ export async function getReceivablesDashboard(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function getReceivablesKPIs(filters = {}) {
-  const params = buildDashboardParams(filters);
-
-  const response = await api.get(
-    "/receivables/kpis",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/kpis", {
+    params: buildDashboardParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -360,15 +202,10 @@ export async function getReceivablesKPIs(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function getReceivablesAgingSummary(filters = {}) {
-  const params = buildDashboardParams(filters);
-
-  const response = await api.get(
-    "/receivables/aging-summary",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/aging-summary", {
+    params: buildDashboardParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -378,15 +215,10 @@ export async function getReceivablesAgingSummary(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function getReceivablesTrend(filters = {}) {
-  const params = buildDashboardParams(filters);
-
-  const response = await api.get(
-    "/receivables/trend",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/trend", {
+    params: buildDashboardParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -396,15 +228,10 @@ export async function getReceivablesTrend(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function getReceivablesByParentDivision(filters = {}) {
-  const params = buildDashboardParams(filters);
-
-  const response = await api.get(
-    "/receivables/by-parent-division",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/by-parent-division", {
+    params: buildDashboardParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -414,15 +241,10 @@ export async function getReceivablesByParentDivision(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function getReceivablesBySubdivision(filters = {}) {
-  const params = buildDashboardParams(filters);
-
-  const response = await api.get(
-    "/receivables/by-subdivision",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/by-subdivision", {
+    params: buildDashboardParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -436,20 +258,12 @@ export async function getReceivablesTopCustomers(
   limit = 10
 ) {
   const params = buildDashboardParams(filters);
+  appendParam(params, "limit", limit);
 
-  appendParam(
+  const response = await api.get("/api/receivables/top-customers", {
     params,
-    "limit",
-    limit
-  );
-
-  const response = await api.get(
-    "/receivables/top-customers",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -458,24 +272,14 @@ export async function getReceivablesTopCustomers(
    9. MONTH-ON-MONTH
 ───────────────────────────────────────────── */
 
-export async function getReceivablesMonthOnMonth(
-  filters = {}
-) {
+export async function getReceivablesMonthOnMonth(filters = {}) {
   const params = buildDashboardParams(filters);
+  appendParam(params, "year", filters.year);
 
-  appendParam(
+  const response = await api.get("/api/receivables/month-on-month", {
     params,
-    "year",
-    filters.year
-  );
-
-  const response = await api.get(
-    "/receivables/month-on-month",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -485,15 +289,10 @@ export async function getReceivablesMonthOnMonth(
 ───────────────────────────────────────────── */
 
 export async function getReceivablesViewAll(filters = {}) {
-  const params = buildViewAllParams(filters);
-
-  const response = await api.get(
-    "/receivables/view-all",
-    {
-      params,
-      headers: getAuthHeaders(),
-    }
-  );
+  const response = await api.get("/api/receivables/view-all", {
+    params: buildViewAllParams(filters),
+    headers: getAuthHeaders(),
+  });
 
   return response;
 }
@@ -503,16 +302,11 @@ export async function getReceivablesViewAll(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function exportReceivablesExcel(filters = {}) {
-  const params = buildExportParams(filters);
-
-  const response = await api.get(
-    "/receivables/export/excel",
-    {
-      params,
-      headers: getAuthHeaders(),
-      responseType: "blob",
-    }
-  );
+  const response = await api.get("/api/receivables/export/excel", {
+    params: buildExportParams(filters),
+    headers: getAuthHeaders(),
+    responseType: "blob",
+  });
 
   return response;
 }
@@ -522,55 +316,27 @@ export async function exportReceivablesExcel(filters = {}) {
 ───────────────────────────────────────────── */
 
 export async function exportReceivablesPDF(filters = {}) {
-  const params = buildExportParams(filters);
-
-  const response = await api.get(
-    "/receivables/export/pdf",
-    {
-      params,
-      headers: getAuthHeaders(),
-      responseType: "blob",
-    }
-  );
+  const response = await api.get("/api/receivables/export/pdf", {
+    params: buildExportParams(filters),
+    headers: getAuthHeaders(),
+    responseType: "blob",
+  });
 
   return response;
 }
-
 
 /* ─────────────────────────────────────────────
    13. PARENT DIVISION MONTH-ON-MONTH
 ───────────────────────────────────────────── */
 
-/**
- * Parent Division MoM
- *
- * Uses the dedicated backend endpoint:
- * GET /api/receivables/month-on-month/parent-divisions
- *
- * Sends:
- * - year
- * - legal_group_id
- * - legal_entity_id
- * - parent_division_id
- * - subdivision_id
- * - customer_type
- * - gl_code
- * - reporting_currency
- * - aging_basis
- */
 export async function getReceivablesParentDivisionMonthOnMonth(
   filters = {}
 ) {
   const params = buildDashboardParams(filters);
-
-  appendParam(
-    params,
-    "year",
-    filters.year
-  );
+  appendParam(params, "year", filters.year);
 
   const response = await api.get(
-    "/receivables/month-on-month/parent-divisions",
+    "/api/receivables/month-on-month/parent-divisions",
     {
       params,
       headers: getAuthHeaders(),
@@ -584,25 +350,14 @@ export async function getReceivablesParentDivisionMonthOnMonth(
    14. PARENT DIVISION MOM EXCEL EXPORT
 ───────────────────────────────────────────── */
 
-/**
- * Parent Division MoM Excel export
- *
- * Uses:
- * GET /api/receivables/month-on-month/parent-divisions/export/excel
- */
 export async function exportReceivablesParentDivisionMonthOnMonthExcel(
   filters = {}
 ) {
   const params = buildDashboardParams(filters);
-
-  appendParam(
-    params,
-    "year",
-    filters.year
-  );
+  appendParam(params, "year", filters.year);
 
   const response = await api.get(
-    "/receivables/month-on-month/parent-divisions/export/excel",
+    "/api/receivables/month-on-month/parent-divisions/export/excel",
     {
       params,
       headers: getAuthHeaders(),
@@ -617,25 +372,14 @@ export async function exportReceivablesParentDivisionMonthOnMonthExcel(
    15. PARENT DIVISION MOM PDF EXPORT
 ───────────────────────────────────────────── */
 
-/**
- * Parent Division MoM PDF export
- *
- * Uses:
- * GET /api/receivables/month-on-month/parent-divisions/export/pdf
- */
 export async function exportReceivablesParentDivisionMonthOnMonthPDF(
   filters = {}
 ) {
   const params = buildDashboardParams(filters);
-
-  appendParam(
-    params,
-    "year",
-    filters.year
-  );
+  appendParam(params, "year", filters.year);
 
   const response = await api.get(
-    "/receivables/month-on-month/parent-divisions/export/pdf",
+    "/api/receivables/month-on-month/parent-divisions/export/pdf",
     {
       params,
       headers: getAuthHeaders(),

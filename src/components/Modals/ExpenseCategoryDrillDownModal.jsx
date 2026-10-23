@@ -1,6069 +1,8 @@
 
-// // import React, { useMemo, useState, useEffect, useRef } from "react";
-// // import ExportButtons from "../Common/ExportButtons";
-// // import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
-// // import { exportOpexCategoryBreakdown } from "../../api/opexApi";
-
-// // /* =========================================================
-// //    FORMAT NUMBER
-// // ========================================================= */
-
-// // const formatNumber = (value) => {
-// //     if (
-// //         value === null ||
-// //         value === undefined ||
-// //         value === "" ||
-// //         value === "-"
-// //     ) {
-// //         return "—";
-// //     }
-
-// //     const number = Number(value);
-
-// //     if (!Number.isFinite(number)) {
-// //         return "—";
-// //     }
-
-// //     return number.toLocaleString("en-US", {
-// //         minimumFractionDigits: 0,
-// //         maximumFractionDigits: 0,
-// //     });
-// // };
-
-// // /* =========================================================
-// //    FORMAT PERCENTAGE
-// // ========================================================= */
-
-// // const formatPercentage = (value) => {
-// //     if (
-// //         value === null ||
-// //         value === undefined ||
-// //         value === "" ||
-// //         value === "-"
-// //     ) {
-// //         return "—";
-// //     }
-
-// //     const number = Number(value);
-
-// //     if (!Number.isFinite(number)) {
-// //         return "—";
-// //     }
-
-// //     return `${Math.round(number)}%`;
-// // };
-
-// // /* =========================================================
-// //    GET VALUE
-// // ========================================================= */
-
-// // const getValue = (row, keys = []) => {
-// //     for (const key of keys) {
-// //         if (
-// //             row?.[key] !== null &&
-// //             row?.[key] !== undefined &&
-// //             row?.[key] !== ""
-// //         ) {
-// //             return row[key];
-// //         }
-// //     }
-
-// //     return null;
-// // };
-
-// // /* =========================================================
-// //    HAS VALUE
-// // ========================================================= */
-
-// // const hasValue = (value) => {
-// //     return (
-// //         value !== null &&
-// //         value !== undefined &&
-// //         value !== ""
-// //     );
-// // };
-
-// // /* =========================================================
-// //    TABLE NUMBER COLOR
-// //    Negative values are displayed in red.
-// // ========================================================= */
-
-// // const getNumberColor = (value, defaultColor = "#334155") => {
-// //     const number = Number(value);
-// //     return Number.isFinite(number) && number < 0
-// //         ? "#dc2626"
-// //         : defaultColor;
-// // };
-
-// // /* =========================================================
-// //    NATURAL ACCOUNT DISPLAY
-// //    Prevent repeated account code when account_name already
-// //    contains the same account code.
-// // ========================================================= */
-
-// // const getNaturalAccountName = (account) => {
-// //     const code = String(account?.account_code ?? "").trim();
-// //     const name = String(account?.account_name ?? "").trim();
-
-// //     if (!name) {
-// //         return "—";
-// //     }
-
-// //     if (!code) {
-// //         return name;
-// //     }
-
-// //     const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-// //     return (
-// //         name.replace(
-// //             new RegExp(
-// //                 `^${escapedCode}(?:\\s*[-–—:|]\\s*|\\s+)`,
-// //                 "i"
-// //             ),
-// //             ""
-// //         ).trim() || name
-// //     );
-// // };
-
-// // /* =========================================================
-// //    FILTER OPTION HELPERS
-// // ========================================================= */
-
-// // const getFilterOptionId = (option) => {
-// //     if (option === null || option === undefined) {
-// //         return "";
-// //     }
-
-// //     if (typeof option !== "object") {
-// //         return String(option);
-// //     }
-
-// //     return (
-// //         option.value ??
-// //         option.id ??
-// //         option.code ??
-// //         option.legal_group_id ??
-// //         option.legal_entity_id ??
-// //         option.parent_division_id ??
-// //         option.subdivision_id ??
-// //         option.period_name ??
-// //         option.year ??
-// //         option.name ??
-// //         ""
-// //     );
-// // };
-
-// // const getFilterOptionName = (option) => {
-// //     if (option === null || option === undefined) {
-// //         return "";
-// //     }
-
-// //     if (typeof option !== "object") {
-// //         return String(option);
-// //     }
-
-// //     return (
-// //         option.name ??
-// //         option.label ??
-// //         option.display_name ??
-// //         option.displayName ??
-// //         option.description ??
-// //         option.title ??
-// //         option.text ??
-// //         option.period_name ??
-// //         option.value ??
-// //         option.code ??
-// //         option.id ??
-// //         ""
-// //     );
-// // };
-
-// // const normalizeMultiValue = (value) => {
-// //     if (value === null || value === undefined || value === "") {
-// //         return [];
-// //     }
-
-// //     if (Array.isArray(value)) {
-// //         return value.map((v) => (typeof v === "object" ? getFilterOptionId(v) : String(v)));
-// //     }
-
-// //     if (typeof value === "object") {
-// //         return [getFilterOptionId(value)];
-// //     }
-
-// //     return [String(value)];
-// // };
-
-// // /* =========================================================
-// //    CUSTOM MULTI-SELECT DROPDOWN COMPONENT (MATCHING UI REFERENCE)
-// // ========================================================= */
-// // const MultiSelectDropdown = ({
-// //     label,
-// //     options = [],
-// //     selectedValues = [],
-// //     onChange,
-// // }) => {
-// //     const [isOpen, setIsOpen] = useState(false);
-// //     const [searchTerm, setSearchTerm] = useState("");
-// //     const containerRef = useRef(null);
-
-// //     useEffect(() => {
-// //         const handleClickOutside = (event) => {
-// //             if (
-// //                 containerRef.current &&
-// //                 !containerRef.current.contains(event.target)
-// //             ) {
-// //                 setIsOpen(false);
-// //             }
-// //         };
-
-// //         document.addEventListener("mousedown", handleClickOutside);
-
-// //         return () => {
-// //             document.removeEventListener(
-// //                 "mousedown",
-// //                 handleClickOutside
-// //             );
-// //         };
-// //     }, []);
-
-// //     const formattedOptions = useMemo(() => {
-// //         return options.map((opt) => ({
-// //             id: String(getFilterOptionId(opt)),
-// //             name: String(getFilterOptionName(opt)),
-// //         }));
-// //     }, [options]);
-
-// //     const normalizedSelectedValues = useMemo(() => {
-// //         if (!Array.isArray(selectedValues)) {
-// //             return [];
-// //         }
-
-// //         return selectedValues.map((value) => String(value));
-// //     }, [selectedValues]);
-
-// //     const filteredOptions = useMemo(() => {
-// //         if (!searchTerm.trim()) {
-// //             return formattedOptions;
-// //         }
-
-// //         return formattedOptions.filter((opt) =>
-// //             opt.name
-// //                 .toLowerCase()
-// //                 .includes(searchTerm.toLowerCase())
-// //         );
-// //     }, [formattedOptions, searchTerm]);
-
-// //     const handleToggle = (id) => {
-// //         const normalizedId = String(id);
-
-// //         if (
-// //             normalizedSelectedValues.includes(
-// //                 normalizedId
-// //             )
-// //         ) {
-// //             onChange(
-// //                 normalizedSelectedValues.filter(
-// //                     (value) =>
-// //                         value !== normalizedId
-// //                 )
-// //             );
-// //         } else {
-// //             onChange([
-// //                 ...normalizedSelectedValues,
-// //                 normalizedId,
-// //             ]);
-// //         }
-// //     };
-
-// //     const handleSelectAll = () => {
-// //         const allIds = formattedOptions.map(
-// //             (opt) => opt.id
-// //         );
-
-// //         onChange(allIds);
-// //     };
-
-// //     const handleClear = () => {
-// //         onChange([]);
-// //     };
-
-// //     const displayLabel = useMemo(() => {
-// //         if (
-// //             normalizedSelectedValues.length === 0
-// //         ) {
-// //             return "Select";
-// //         }
-
-// //         if (
-// //             normalizedSelectedValues.length === 1
-// //         ) {
-// //             const found =
-// //                 formattedOptions.find(
-// //                     (opt) =>
-// //                         opt.id ===
-// //                         normalizedSelectedValues[0]
-// //                 );
-
-// //             return found
-// //                 ? found.name
-// //                 : "1 Selected";
-// //         }
-
-// //         return `${normalizedSelectedValues.length} Selected`;
-// //     }, [
-// //         normalizedSelectedValues,
-// //         formattedOptions,
-// //     ]);
-
-// //     return (
-// //         <div
-// //             ref={containerRef}
-// //             style={{
-// //                 position: "relative",
-// //                 display: "flex",
-// //                 flexDirection: "column",
-// //                 gap: "6px",
-// //             }}
-// //         >
-// //             <label
-// //                 style={{
-// //                     fontSize: "12px",
-// //                     fontWeight: 700,
-// //                     color: "#2b3b75",
-// //                 }}
-// //             >
-// //                 {label}
-// //             </label>
-
-// //             <button
-// //                 type="button"
-// //                 onClick={() =>
-// //                     setIsOpen((prev) => !prev)
-// //                 }
-// //                 style={{
-// //                     height: "38px",
-// //                     minWidth: "130px",
-// //                     padding: "0 12px",
-// //                     borderRadius: "10px",
-// //                     border: "1px solid #e0e6ed",
-// //                     background: "#ffffff",
-// //                     color: "#2b3b75",
-// //                     fontSize: "13px",
-// //                     fontWeight: 600,
-// //                     display: "flex",
-// //                     alignItems: "center",
-// //                     justifyContent:
-// //                         "space-between",
-// //                     cursor: "pointer",
-// //                     outline: "none",
-// //                 }}
-// //             >
-// //                 <span
-// //                     style={{
-// //                         overflow: "hidden",
-// //                         textOverflow: "ellipsis",
-// //                         whiteSpace: "nowrap",
-// //                         marginRight: "8px",
-// //                     }}
-// //                 >
-// //                     {displayLabel}
-// //                 </span>
-
-// //                 <span
-// //                     style={{
-// //                         fontSize: "10px",
-// //                         color: "#2b3b75",
-// //                     }}
-// //                 >
-// //                     ▼
-// //                 </span>
-// //             </button>
-
-// //             {isOpen && (
-// //                 <div
-// //                     style={{
-// //                         position: "absolute",
-// //                         top: "100%",
-// //                         left: 0,
-// //                         marginTop: "4px",
-// //                         width: "220px",
-// //                         background: "#ffffff",
-// //                         border: "1px solid #e2e8f0",
-// //                         borderRadius: "12px",
-// //                         boxShadow:
-// //                             "0 10px 25px rgba(0,0,0,0.1)",
-// //                         zIndex: 1050,
-// //                         padding: "8px",
-// //                     }}
-// //                 >
-// //                     {/* SEARCH */}
-// //                     <div
-// //                         style={{
-// //                             position: "relative",
-// //                             marginBottom: "8px",
-// //                         }}
-// //                     >
-// //                         <span
-// //                             style={{
-// //                                 position: "absolute",
-// //                                 left: "10px",
-// //                                 top: "50%",
-// //                                 transform:
-// //                                     "translateY(-50%)",
-// //                                 color: "#94a3b8",
-// //                                 fontSize: "12px",
-// //                             }}
-// //                         >
-// //                             🔍
-// //                         </span>
-
-// //                         <input
-// //                             type="text"
-// //                             placeholder="Search..."
-// //                             value={searchTerm}
-// //                             onChange={(e) =>
-// //                                 setSearchTerm(
-// //                                     e.target.value
-// //                                 )
-// //                             }
-// //                             style={{
-// //                                 width: "100%",
-// //                                 height: "32px",
-// //                                 paddingLeft: "30px",
-// //                                 paddingRight: "8px",
-// //                                 borderRadius: "6px",
-// //                                 border:
-// //                                     "1px solid #e2e8f0",
-// //                                 fontSize: "12px",
-// //                                 outline: "none",
-// //                                 boxSizing: "border-box",
-// //                             }}
-// //                         />
-// //                     </div>
-
-// //                     {/* SELECT ALL / CLEAR */}
-// //                     <div
-// //                         style={{
-// //                             display: "flex",
-// //                             justifyContent:
-// //                                 "space-between",
-// //                             padding:
-// //                                 "4px 4px 8px 4px",
-// //                             fontSize: "12px",
-// //                             fontWeight: 700,
-// //                         }}
-// //                     >
-// //                         <span
-// //                             onClick={handleSelectAll}
-// //                             style={{
-// //                                 color: "#2b3b75",
-// //                                 cursor: "pointer",
-// //                             }}
-// //                         >
-// //                             Select All
-// //                         </span>
-
-// //                         <span
-// //                             onClick={handleClear}
-// //                             style={{
-// //                                 color: "#64748b",
-// //                                 cursor: "pointer",
-// //                             }}
-// //                         >
-// //                             Clear
-// //                         </span>
-// //                     </div>
-
-// //                     {/* OPTIONS */}
-// //                     <div
-// //                         style={{
-// //                             maxHeight: "160px",
-// //                             overflowY: "auto",
-// //                             display: "flex",
-// //                             flexDirection:
-// //                                 "column",
-// //                             gap: "6px",
-// //                         }}
-// //                     >
-// //                         {filteredOptions.length ===
-// //                             0 ? (
-// //                             <div
-// //                                 style={{
-// //                                     fontSize: "12px",
-// //                                     color: "#94a3b8",
-// //                                     padding:
-// //                                         "6px 4px",
-// //                                 }}
-// //                             >
-// //                                 No options
-// //                             </div>
-// //                         ) : (
-// //                             filteredOptions.map(
-// //                                 (opt) => {
-// //                                     /*
-// //                                      * IMPORTANT:
-// //                                      * Empty selection means
-// //                                      * NOTHING is selected.
-// //                                      */
-// //                                     const isChecked =
-// //                                         normalizedSelectedValues.includes(
-// //                                             opt.id
-// //                                         );
-
-// //                                     return (
-// //                                         <label
-// //                                             key={opt.id}
-// //                                             style={{
-// //                                                 display:
-// //                                                     "flex",
-// //                                                 alignItems:
-// //                                                     "center",
-// //                                                 gap: "8px",
-// //                                                 fontSize:
-// //                                                     "12px",
-// //                                                 color:
-// //                                                     "#2b3b75",
-// //                                                 fontWeight:
-// //                                                     600,
-// //                                                 cursor:
-// //                                                     "pointer",
-// //                                                 padding:
-// //                                                     "2px 4px",
-// //                                             }}
-// //                                         >
-// //                                             <input
-// //                                                 type="checkbox"
-// //                                                 checked={
-// //                                                     isChecked
-// //                                                 }
-// //                                                 onChange={() =>
-// //                                                     handleToggle(
-// //                                                         opt.id
-// //                                                     )
-// //                                                 }
-// //                                                 style={{
-// //                                                     accentColor:
-// //                                                         "#5c60f5",
-// //                                                     cursor:
-// //                                                         "pointer",
-// //                                                 }}
-// //                                             />
-
-// //                                             <span
-// //                                                 style={{
-// //                                                     overflow:
-// //                                                         "hidden",
-// //                                                     textOverflow:
-// //                                                         "ellipsis",
-// //                                                     whiteSpace:
-// //                                                         "nowrap",
-// //                                                 }}
-// //                                             >
-// //                                                 {
-// //                                                     opt.name
-// //                                                 }
-// //                                             </span>
-// //                                         </label>
-// //                                     );
-// //                                 }
-// //                             )
-// //                         )}
-// //                     </div>
-// //                 </div>
-// //             )}
-// //         </div>
-// //     );
-// // };
-
-// // /* =========================================================
-// //    EXPENSE CATEGORY DRILL-DOWN MODAL
-// // ========================================================= */
-
-// // export default function ExpenseCategoryDrillDownModal({
-// //     open,
-// //     onClose,
-// //     data = [],
-// //     loading = false,
-// //     activeFilters = {},
-// //     reportingCurrency = "AED",
-
-// //     /* =====================================================
-// //        FILTER OPTIONS & REFRESH CALLBACKS
-// //     ===================================================== */
-
-// //     filterOptions = {},
-// //     onApplyFilters,
-// //     onRefresh,
-
-// //     onExpandCategory,
-// // }) {
-// //     /* =====================================================
-// //        EXPANDED CATEGORIES & LOCAL FILTER STATE
-// //     ===================================================== */
-
-// //     const [expandedCategories, setExpandedCategories] = useState({});
-// //     const [detailData, setDetailData] = useState({});
-// //     const [detailLoading, setDetailLoading] = useState({});
-
-// //     const [viewAllFilters, setViewAllFilters] = useState({
-// //         year: [],
-// //         legal_entity: [],
-// //         parent_division: [],
-// //         subdivision: [],
-// //         period: [],
-// //     });
-// //     const getSelectedFilterValues = (value) => {
-// //         if (
-// //             value === undefined ||
-// //             value === null ||
-// //             value === "" ||
-// //             value === "All"
-// //         ) {
-// //             return [];
-// //         }
-
-// //         if (Array.isArray(value)) {
-// //             return value.filter(
-// //                 (item) =>
-// //                     item !== undefined &&
-// //                     item !== null &&
-// //                     item !== "" &&
-// //                     item !== "All"
-// //             );
-// //         }
-
-// //         return [value];
-// //     };
-
-// //     useEffect(() => {
-// //         if (!open) return;
-
-// //         setViewAllFilters({
-// //             year: Array.isArray(activeFilters?.year)
-// //                 ? activeFilters.year.map((v) => String(v))
-// //                 : activeFilters?.year
-// //                     ? [String(activeFilters.year)]
-// //                     : [],
-
-// //             legal_entity: Array.isArray(
-// //                 activeFilters?.legal_entity
-// //             )
-// //                 ? activeFilters.legal_entity.map((v) =>
-// //                     String(v)
-// //                 )
-// //                 : activeFilters?.legal_entity
-// //                     ? [String(activeFilters.legal_entity)]
-// //                     : [],
-
-// //             parent_division: Array.isArray(
-// //                 activeFilters?.parent_division
-// //             )
-// //                 ? activeFilters.parent_division.map(
-// //                     (v) => String(v)
-// //                 )
-// //                 : activeFilters?.parent_division
-// //                     ? [
-// //                         String(
-// //                             activeFilters.parent_division
-// //                         ),
-// //                     ]
-// //                     : [],
-
-// //             subdivision: Array.isArray(
-// //                 activeFilters?.subdivision
-// //             )
-// //                 ? activeFilters.subdivision.map((v) =>
-// //                     String(v)
-// //                 )
-// //                 : activeFilters?.subdivision
-// //                     ? [String(activeFilters.subdivision)]
-// //                     : [],
-
-// //             period: Array.isArray(
-// //                 activeFilters?.period
-// //             )
-// //                 ? activeFilters.period.map((v) =>
-// //                     String(v)
-// //                 )
-// //                 : activeFilters?.period
-// //                     ? [String(activeFilters.period)]
-// //                     : [],
-// //         });
-// //     }, [open]);
-
-// //     const handleFilterChange = (key, values) => {
-// //         setViewAllFilters((prev) => ({
-// //             ...prev,
-// //             [key]: Array.isArray(values)
-// //                 ? values.map((value) =>
-// //                     String(value)
-// //                 )
-// //                 : [],
-// //         }));
-// //     };
-// //     const cleanFilterValues = (values) => {
-// //         if (!Array.isArray(values)) return [];
-
-// //         return values.filter(
-// //             (value) =>
-// //                 value !== undefined &&
-// //                 value !== null &&
-// //                 value !== "" &&
-// //                 value !== "All"
-// //         );
-// //     };
-
-// //     const handleApplyFilters = async () => {
-// //         if (typeof onApplyFilters !== "function") {
-// //             return;
-// //         }
-
-// //         const selectedFilters = {
-// //             year: viewAllFilters.year,
-// //             legal_entity:
-// //                 viewAllFilters.legal_entity,
-// //             parent_division:
-// //                 viewAllFilters.parent_division,
-// //             subdivision:
-// //                 viewAllFilters.subdivision,
-// //             period: viewAllFilters.period,
-// //         };
-
-// //         if (
-// //             !Array.isArray(selectedFilters.period) ||
-// //             selectedFilters.period.length === 0
-// //         ) {
-// //             return;
-// //         }
-
-// //         await onApplyFilters(selectedFilters);
-// //     };
-
-
-// //     const handleResetFilters = async () => {
-// //         /*
-// //          * RESET should return to the default OPEX filter state,
-// //          * NOT the filters that were present when the modal opened.
-// //          *
-// //          * Default:
-// //          * - Year = first/default available year
-// //          * - Period = latest available period
-// //          * - Legal Entity = empty
-// //          * - Parent Division = empty
-// //          * - Sub-Division = empty
-// //          */
-
-// //         const defaultYear =
-// //             filterOptions?.years?.length > 0
-// //                 ? getFilterOptionId(
-// //                     filterOptions.years[0]
-// //                 )
-// //                 : "";
-
-// //         const latestPeriod =
-// //             filterOptions?.periods?.length > 0
-// //                 ? getFilterOptionId(
-// //                     filterOptions.periods[
-// //                     filterOptions.periods.length - 1
-// //                     ]
-// //                 )
-// //                 : "";
-
-// //         const resetFilters = {
-// //             year: defaultYear
-// //                 ? [String(defaultYear)]
-// //                 : [],
-
-// //             legal_entity: [],
-
-// //             parent_division: [],
-
-// //             subdivision: [],
-
-// //             period: latestPeriod
-// //                 ? [String(latestPeriod)]
-// //                 : [],
-// //         };
-
-// //         /*
-// //          * Immediately update dropdowns.
-// //          */
-// //         setViewAllFilters(resetFilters);
-
-// //         /*
-// //          * Refresh the View All table using
-// //          * the reset/default filters.
-// //          */
-// //         if (
-// //             typeof onApplyFilters === "function"
-// //         ) {
-// //             await onApplyFilters(resetFilters);
-// //         }
-// //     };
-// //     /* =====================================================
-// //        NORMALIZE CATEGORY DATA
-// //     ===================================================== */
-
-// //     const rows = useMemo(() => {
-// //         if (Array.isArray(data)) {
-// //             return data;
-// //         }
-
-// //         if (Array.isArray(data?.items)) {
-// //             return data.items;
-// //         }
-
-// //         if (Array.isArray(data?.categories)) {
-// //             return data.categories;
-// //         }
-
-// //         if (Array.isArray(data?.data)) {
-// //             return data.data;
-// //         }
-
-// //         if (Array.isArray(data?.results)) {
-// //             return data.results;
-// //         }
-
-// //         return [];
-// //     }, [data]);
-
-// //     /* =====================================================
-// //        CURRENCY
-// //     ===================================================== */
-
-// //     const currency =
-// //         rows?.[0]?.reporting_currency ||
-// //         activeFilters?.reporting_currency ||
-// //         reportingCurrency ||
-// //         "AED";
-
-// //     /* =====================================================
-// //        TOTALS
-// //     ===================================================== */
-
-// //     const totals = useMemo(() => {
-// //         let actualPTD = 0;
-// //         let targetPTD = 0;
-// //         let variancePTD = 0;
-
-// //         let actualYTD = 0;
-// //         let targetYTD = 0;
-// //         let varianceYTD = 0;
-
-// //         let hasTargetPTD = false;
-// //         let hasVariancePTD = false;
-
-// //         let hasTargetYTD = false;
-// //         let hasVarianceYTD = false;
-
-// //         rows.forEach((row) => {
-// //             const rowActualPTD = getValue(row, [
-// //                 "actual_ptd_aed",
-// //                 "actual_ptd",
-// //             ]);
-
-// //             const rowTargetPTD = getValue(row, [
-// //                 "target_ptd_aed",
-// //                 "target_ptd",
-// //             ]);
-
-// //             const rowVariancePTD = getValue(row, [
-// //                 "variance_ptd_aed",
-// //                 "variance_ptd",
-// //             ]);
-
-// //             const rowActualYTD = getValue(row, [
-// //                 "actual_ytd_aed",
-// //                 "actual_ytd",
-// //             ]);
-
-// //             const rowTargetYTD = getValue(row, [
-// //                 "target_ytd_aed",
-// //                 "target_ytd",
-// //             ]);
-
-// //             const rowVarianceYTD = getValue(row, [
-// //                 "variance_ytd_aed",
-// //                 "variance_ytd",
-// //             ]);
-
-// //             if (hasValue(rowActualPTD)) {
-// //                 actualPTD += Number(rowActualPTD) || 0;
-// //             }
-
-// //             if (hasValue(rowTargetPTD)) {
-// //                 targetPTD += Number(rowTargetPTD) || 0;
-// //                 hasTargetPTD = true;
-// //             }
-
-// //             if (hasValue(rowVariancePTD)) {
-// //                 variancePTD +=
-// //                     Number(rowVariancePTD) || 0;
-// //                 hasVariancePTD = true;
-// //             }
-
-// //             if (hasValue(rowActualYTD)) {
-// //                 actualYTD += Number(rowActualYTD) || 0;
-// //             }
-
-// //             if (hasValue(rowTargetYTD)) {
-// //                 targetYTD += Number(rowTargetYTD) || 0;
-// //                 hasTargetYTD = true;
-// //             }
-
-// //             if (hasValue(rowVarianceYTD)) {
-// //                 varianceYTD +=
-// //                     Number(rowVarianceYTD) || 0;
-// //                 hasVarianceYTD = true;
-// //             }
-// //         });
-
-// //         return {
-// //             actualPTD,
-// //             targetPTD: hasTargetPTD
-// //                 ? targetPTD
-// //                 : null,
-// //             variancePTD: hasVariancePTD
-// //                 ? variancePTD
-// //                 : null,
-
-// //             actualYTD,
-// //             targetYTD: hasTargetYTD
-// //                 ? targetYTD
-// //                 : null,
-// //             varianceYTD: hasVarianceYTD
-// //                 ? varianceYTD
-// //                 : null,
-// //         };
-// //     }, [rows]);
-
-// //     /* =====================================================
-// //        TOTAL VARIANCE %
-// //     ===================================================== */
-
-// //     const totalVariancePTDPercent =
-// //         hasValue(totals.targetPTD) &&
-// //             Number(totals.targetPTD) !== 0 &&
-// //             hasValue(totals.variancePTD)
-// //             ? (Number(totals.variancePTD) /
-// //                 Number(totals.targetPTD)) *
-// //             100
-// //             : null;
-
-// //     const totalVarianceYTDPercent =
-// //         hasValue(totals.targetYTD) &&
-// //             Number(totals.targetYTD) !== 0 &&
-// //             hasValue(totals.varianceYTD)
-// //             ? (Number(totals.varianceYTD) /
-// //                 Number(totals.targetYTD)) *
-// //             100
-// //             : null;
-
-// //     /* =====================================================
-// //        NORMALIZE DETAIL RESPONSE
-// //     ===================================================== */
-
-// //     const normalizeDetailRows = (response) => {
-// //         if (Array.isArray(response)) {
-// //             return response;
-// //         }
-
-// //         if (Array.isArray(response?.items)) {
-// //             return response.items;
-// //         }
-
-// //         if (Array.isArray(response?.data)) {
-// //             return response.data;
-// //         }
-
-// //         if (Array.isArray(response?.results)) {
-// //             return response.results;
-// //         }
-
-// //         return [];
-// //     };
-
-// //     /* =====================================================
-// //        EXPAND CATEGORY
-// //     ===================================================== */
-
-// //     const handleToggleCategory = async (category, row) => {
-// //         if (!category) {
-// //             return;
-// //         }
-
-// //         const isExpanded =
-// //             expandedCategories[category];
-
-// //         if (isExpanded) {
-// //             setExpandedCategories((previous) => ({
-// //                 ...previous,
-// //                 [category]: false,
-// //             }));
-
-// //             return;
-// //         }
-
-// //         if (
-// //             Array.isArray(detailData[category]) &&
-// //             detailData[category].length > 0
-// //         ) {
-// //             setExpandedCategories((previous) => ({
-// //                 ...previous,
-// //                 [category]: true,
-// //             }));
-
-// //             return;
-// //         }
-
-// //         if (!onExpandCategory) {
-// //             const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-// //             setDetailData((previous) => ({
-// //                 ...previous,
-// //                 [category]: fallbackRows,
-// //             }));
-// //             setExpandedCategories((previous) => ({
-// //                 ...previous,
-// //                 [category]: true,
-// //             }));
-
-// //             return;
-// //         }
-
-// //         try {
-// //             setDetailLoading((previous) => ({
-// //                 ...previous,
-// //                 [category]: true,
-// //             }));
-
-// //             const response =
-// //                 await onExpandCategory(category, row);
-
-// //             let detailRows =
-// //                 normalizeDetailRows(response);
-
-// //             if ((!detailRows || detailRows.length === 0) && row) {
-// //                 detailRows = deriveCategoryNaturalAccounts(row, category);
-// //             }
-
-// //             setDetailData((previous) => ({
-// //                 ...previous,
-// //                 [category]: detailRows,
-// //             }));
-
-// //             setExpandedCategories((previous) => ({
-// //                 ...previous,
-// //                 [category]: true,
-// //             }));
-// //         } catch (error) {
-// //             console.error(
-// //                 `Failed to load natural account details for ${category}:`,
-// //                 error
-// //             );
-
-// //             const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-
-// //             setDetailData((previous) => ({
-// //                 ...previous,
-// //                 [category]: fallbackRows,
-// //             }));
-
-// //             setExpandedCategories((previous) => ({
-// //                 ...previous,
-// //                 [category]: true,
-// //             }));
-// //         } finally {
-// //             setDetailLoading((previous) => ({
-// //                 ...previous,
-// //                 [category]: false,
-// //             }));
-// //         }
-// //     };
-
-// //     /* =====================================================
-// //        RESET DETAILS WHEN MODAL CLOSES
-// //     ===================================================== */
-
-// //     const handleClose = () => {
-// //         setExpandedCategories({});
-// //         setDetailData({});
-// //         setDetailLoading({});
-// //         onClose?.();
-// //     };
-
-// //     /* =====================================================
-// //        COMMON EXPORT HANDLER
-// //     ===================================================== */
-
-// //     const handleExport = async (type) => {
-// //         if (!rows.length) {
-// //             return;
-// //         }
-
-// //         /* =====================================================
-// //            EXCEL
-// //            Keep the existing frontend CSV export unchanged.
-// //         ===================================================== */
-// //         if (type === "excel") {
-// //             const exportRows = [];
-
-// //             rows.forEach((row) => {
-// //                 const category = getValue(row, [
-// //                     "category",
-// //                     "name",
-// //                 ]);
-
-// //                 exportRows.push({
-// //                     "Expense Category": category || "—",
-// //                     [`Actual PTD (${currency})`]:
-// //                         getValue(row, [
-// //                             "actual_ptd_aed",
-// //                             "actual_ptd",
-// //                         ]) ?? "",
-// //                     [`Target PTD (${currency})`]:
-// //                         getValue(row, [
-// //                             "target_ptd_aed",
-// //                             "target_ptd",
-// //                         ]) ?? "",
-// //                     [`Variance PTD (${currency})`]:
-// //                         getValue(row, [
-// //                             "variance_ptd_aed",
-// //                             "variance_ptd",
-// //                         ]) ?? "",
-// //                     "Variance PTD %":
-// //                         getValue(row, [
-// //                             "variance_ptd_pct",
-// //                         ]) ?? "",
-// //                     [`Actual YTD (${currency})`]:
-// //                         getValue(row, [
-// //                             "actual_ytd_aed",
-// //                             "actual_ytd",
-// //                         ]) ?? "",
-// //                     [`Target YTD (${currency})`]:
-// //                         getValue(row, [
-// //                             "target_ytd_aed",
-// //                             "target_ytd",
-// //                         ]) ?? "",
-// //                     [`Variance YTD (${currency})`]:
-// //                         getValue(row, [
-// //                             "variance_ytd_aed",
-// //                             "variance_ytd",
-// //                         ]) ?? "",
-// //                     "Variance YTD %":
-// //                         getValue(row, [
-// //                             "variance_ytd_pct",
-// //                         ]) ?? "",
-// //                 });
-
-// //                 const accounts =
-// //                     detailData[category] || [];
-
-// //                 accounts.forEach((account) => {
-// //                     exportRows.push({
-// //                         "Expense Category":
-// //                             `${category || "—"} - Natural Account`,
-// //                         "Natural Account":
-// //                             account.account_code || "—",
-// //                         "Account Name":
-// //                             account.account_name || "—",
-// //                         [`Actual PTD (${currency})`]:
-// //                             getValue(account, [
-// //                                 "actual_ptd_aed",
-// //                                 "actual_ptd",
-// //                             ]) ?? "",
-// //                         [`Actual YTD (${currency})`]:
-// //                             getValue(account, [
-// //                                 "actual_ytd_aed",
-// //                                 "actual_ytd",
-// //                             ]) ?? "",
-// //                     });
-// //                 });
-// //             });
-
-// //             const headers = Object.keys(
-// //                 exportRows[0] || {}
-// //             );
-
-// //             const csvRows = [
-// //                 headers.join(","),
-// //                 ...exportRows.map((row) =>
-// //                     headers
-// //                         .map((header) => {
-// //                             const value =
-// //                                 row[header] ?? "";
-
-// //                             return `"${String(value).replace(
-// //                                 /"/g,
-// //                                 '""'
-// //                             )}"`;
-// //                         })
-// //                         .join(",")
-// //                 ),
-// //             ];
-
-// //             const blob = new Blob(
-// //                 [csvRows.join("\n")],
-// //                 {
-// //                     type: "text/csv;charset=utf-8;",
-// //                 }
-// //             );
-
-// //             const url =
-// //                 URL.createObjectURL(blob);
-
-// //             const link =
-// //                 document.createElement("a");
-
-// //             link.href = url;
-// //             link.download =
-// //                 "expense-category-drill-down.csv";
-
-// //             document.body.appendChild(link);
-// //             link.click();
-// //             document.body.removeChild(link);
-
-// //             URL.revokeObjectURL(url);
-// //             return;
-// //         }
-
-// //         /* =====================================================
-// //            PDF
-// //            IMPORTANT:
-// //            Use the backend category-breakdown PDF API directly.
-// //            Do NOT open a print window and do NOT call window.print().
-
-// //            The filters below are the same filters currently selected
-// //            in this View All modal, including Parent Division.
-// //         ===================================================== */
-// //         if (type === "pdf") {
-// //             const apiFilters = {
-// //                 year:
-// //                     viewAllFilters.year?.length
-// //                         ? viewAllFilters.year
-// //                         : undefined,
-
-// //                 legal_entity_id:
-// //                     viewAllFilters.legal_entity?.length
-// //                         ? viewAllFilters.legal_entity
-// //                         : undefined,
-
-// //                 parent_division_id:
-// //                     viewAllFilters.parent_division?.length
-// //                         ? viewAllFilters.parent_division
-// //                         : undefined,
-
-// //                 subdivision_id:
-// //                     viewAllFilters.subdivision?.length
-// //                         ? viewAllFilters.subdivision
-// //                         : undefined,
-
-// //                 period_name:
-// //                     viewAllFilters.period?.length
-// //                         ? viewAllFilters.period
-// //                         : undefined,
-
-// //                 reporting_currency:
-// //                     currency ||
-// //                     reportingCurrency ||
-// //                     "AED",
-// //             };
-
-// //             try {
-// //                 const response =
-// //                     await exportOpexCategoryBreakdown(
-// //                         apiFilters,
-// //                         "pdf"
-// //                     );
-
-// //                 if (!response) {
-// //                     return;
-// //                 }
-
-// //                 const blob =
-// //                     response?.data instanceof Blob
-// //                         ? response.data
-// //                         : response instanceof Blob
-// //                             ? response
-// //                             : new Blob(
-// //                                 [response?.data ?? response],
-// //                                 {
-// //                                     type: "application/pdf",
-// //                                 }
-// //                             );
-
-// //                 const contentDisposition =
-// //                     response?.headers?.["content-disposition"] ||
-// //                     response?.headers?.["Content-Disposition"] ||
-// //                     "";
-
-// //                 const fileNameMatch =
-// //                     contentDisposition.match(
-// //                         /filename\*?=(?:UTF-8''|\")?([^;\"]+)/i
-// //                     );
-
-// //                 const fileName =
-// //                     fileNameMatch?.[1]
-// //                         ? decodeURIComponent(
-// //                             fileNameMatch[1].replace(/\"/g, "").trim()
-// //                         )
-// //                         : "expense-category-drill-down.pdf";
-
-// //                 const url =
-// //                     window.URL.createObjectURL(blob);
-
-// //                 const link =
-// //                     document.createElement("a");
-
-// //                 link.href = url;
-// //                 link.download = fileName;
-// //                 link.style.display = "none";
-
-// //                 document.body.appendChild(link);
-// //                 link.click();
-// //                 document.body.removeChild(link);
-
-// //                 window.URL.revokeObjectURL(url);
-// //             } catch (error) {
-// //                 console.error(
-// //                     "Failed to export Expense Category Drill-Down PDF:",
-// //                     error
-// //                 );
-// //             }
-// //         }
-// //     };
-// //     /* =====================================================
-// //        DON'T RENDER
-// //     ===================================================== */
-
-// //     if (!open) {
-// //         return null;
-// //     }
-
-// //     /* =====================================================
-// //        SCOPED PAGE EFFECTS / VISUAL POLISH
-// //        These styles only affect this modal.
-// //     ===================================================== */
-
-// //     const modalEffects = `
-// //         @keyframes expenseDrillDownFadeIn {
-// //             from {
-// //                 opacity: 0;
-// //                 transform: translateY(10px) scale(0.985);
-// //             }
-// //             to {
-// //                 opacity: 1;
-// //                 transform: translateY(0) scale(1);
-// //             }
-// //         }
-
-// //         @keyframes expenseDrillDownCardIn {
-// //             from {
-// //                 opacity: 0;
-// //                 transform: translateY(6px);
-// //             }
-// //             to {
-// //                 opacity: 1;
-// //                 transform: translateY(0);
-// //             }
-// //         }
-
-// //         .expense-drilldown-modal {
-// //             animation: expenseDrillDownFadeIn 220ms ease-out;
-// //         }
-
-// //         .expense-drilldown-kpi {
-// //             position: relative;
-// //             overflow: hidden;
-// //             transition:
-// //                 transform 180ms ease,
-// //                 box-shadow 180ms ease,
-// //                 border-color 180ms ease;
-// //             animation: expenseDrillDownCardIn 280ms ease-out both;
-// //         }
-
-// //         .expense-drilldown-kpi:nth-child(2) {
-// //             animation-delay: 40ms;
-// //         }
-
-// //         .expense-drilldown-kpi:nth-child(3) {
-// //             animation-delay: 80ms;
-// //         }
-
-// //         .expense-drilldown-kpi:nth-child(4) {
-// //             animation-delay: 120ms;
-// //         }
-
-// //         .expense-drilldown-kpi:hover {
-// //             transform: translateY(-6px) scale(1.02);
-// //             box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-// //             border-color: var(--kpi-accent) !important;
-// //         }
-
-// //         .expense-drilldown-kpi:hover::before {
-// //             width: 6px;
-// //         }
-
-// //         .expense-drilldown-kpi::before {
-// //             transition: width 180ms ease;
-// //         }
-
-// //         .expense-drilldown-kpi::before {
-// //             content: "";
-// //             position: absolute;
-// //             inset: 0 auto 0 0;
-// //             width: 4px;
-// //             background: var(--kpi-accent);
-// //         }
-
-// //         .expense-drilldown-table-wrap {
-// //             box-shadow: 0 4px 18px rgba(15, 23, 42, 0.045);
-// //             transition: box-shadow 180ms ease;
-// //         }
-
-// //         .expense-drilldown-table-wrap:hover {
-// //             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-// //         }
-
-// //         .expense-drilldown-category-row,
-// //         .expense-drilldown-account-row {
-// //             transition: background 160ms ease;
-// //         }
-
-// //         .expense-drilldown-category-row:hover td {
-// //             background: #f8faff !important;
-// //         }
-
-// //         .expense-drilldown-account-row:hover td {
-// //             background: #f1f5f9 !important;
-// //         }
-
-// //         .expense-drilldown-close {
-// //             transition:
-// //                 background 160ms ease,
-// //                 color 160ms ease,
-// //                 transform 160ms ease;
-// //         }
-
-// //         .expense-drilldown-close:hover {
-// //             background: #f1f5f9 !important;
-// //             color: #1e293b !important;
-// //             transform: rotate(3deg);
-// //         }
-
-// //         .expense-drilldown-filter-section {
-// //             background:
-// //                 linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-// //         }
-// //     `;
-
-// //     /* =====================================================
-// //        RENDER OPTIONS PREPARATION
-// //     ===================================================== */
-
-// //     const yearOptions = filterOptions?.years || filterOptions?.fiscal_years || [];
-// //     const legalEntityOptions = filterOptions?.legal_entities || [];
-// //     const parentDivisionOptions = filterOptions?.parent_divisions || [];
-// //     const subdivisionOptions = filterOptions?.subdivisions || [];
-// //     const periodOptions = filterOptions?.periods || [];
-
-// //     /* =====================================================
-// //        RENDER
-// //     ===================================================== */
-
-// //     return (
-// //         <>
-// //             <style>{modalEffects}</style>
-
-// //             <div
-// //                 style={{
-// //                     position: "fixed",
-// //                     inset: 0,
-// //                     zIndex: 1000,
-// //                     background: "rgba(15, 23, 42, 0.45)",
-// //                     display: "flex",
-// //                     alignItems: "center",
-// //                     justifyContent: "center",
-// //                     padding: "20px",
-// //                 }}
-// //                 onMouseDown={(event) => {
-// //                     if (
-// //                         event.target ===
-// //                         event.currentTarget
-// //                     ) {
-// //                         handleClose();
-// //                     }
-// //                 }}
-// //             >
-// //                 <div
-// //                     className="expense-drilldown-modal"
-// //                     style={{
-// //                         width: "100%",
-// //                         maxWidth: "1400px",
-// //                         maxHeight: "92vh",
-// //                         background: "#ffffff",
-// //                         borderRadius: "10px",
-// //                         boxShadow:
-// //                             "0 20px 50px rgba(15, 23, 42, 0.20)",
-// //                         display: "flex",
-// //                         flexDirection: "column",
-// //                         overflow: "hidden",
-// //                     }}
-// //                 >
-// //                     {/* =================================================
-// //                     HEADER
-// //                 ================================================= */}
-
-// //                     <div
-// //                         style={{
-// //                             padding: "20px 22px 16px",
-// //                             borderBottom:
-// //                                 "1px solid #e5e7eb",
-// //                             background:
-// //                                 "linear-gradient(135deg, #ffffff 0%, #f8faff 100%)",
-// //                             display: "flex",
-// //                             alignItems: "flex-start",
-// //                             justifyContent: "space-between",
-// //                             gap: "16px",
-// //                             flexShrink: 0,
-// //                         }}
-// //                     >
-// //                         <div>
-// //                             <div
-// //                                 style={{
-// //                                     fontSize: "18px",
-// //                                     fontWeight: 700,
-// //                                     color: "#111827",
-// //                                     lineHeight: 1.3,
-// //                                 }}
-// //                             >
-// //                                 Expense Category Drill-Down
-// //                             </div>
-
-// //                             <div
-// //                                 style={{
-// //                                     marginTop: "4px",
-// //                                     fontSize: "12px",
-// //                                     color: "#6b7280",
-// //                                 }}
-// //                             >
-// //                                 Detailed PTD and YTD expense
-// //                                 category analysis   <span style={{ fontWeight: 900 }}>Amounts in {reportingCurrency || "AED"}</span>
-// //                             </div>
-// //                         </div>
-
-// //                         {/* =================================================
-// //                         CLOSE BUTTON
-// //                     ================================================= */}
-
-// //                         <button
-// //                             type="button"
-// //                             onClick={handleClose}
-// //                             aria-label="Close"
-// //                             style={{
-// //                                 width: "32px",
-// //                                 height: "32px",
-// //                                 border: "none",
-// //                                 background: "transparent",
-// //                                 borderRadius: "6px",
-// //                                 cursor: "pointer",
-// //                                 color: "#64748b",
-// //                                 fontSize: "24px",
-// //                                 lineHeight: "28px",
-// //                                 display: "flex",
-// //                                 alignItems: "center",
-// //                                 justifyContent: "center",
-// //                                 flexShrink: 0,
-// //                             }}
-// //                         >
-// //                             ×
-// //                         </button>
-// //                     </div>
-
-// //                     {/* =================================================
-// //                     INTERACTIVE MULTI-SELECT FILTERS SECTION (REFERENCE IMAGE COMPATIBLE)
-// //                 ================================================= */}
-
-// //                     <div
-// //                         className="expense-drilldown-filter-section"
-// //                         style={{
-// //                             padding: "16px 22px",
-// //                             borderBottom: "1px solid #f1f5f9",
-// //                             display: "flex",
-// //                             alignItems: "flex-end",
-// //                             flexWrap: "wrap",
-// //                             gap: "12px",
-// //                             background: "#ffffff",
-// //                             flexShrink: 0,
-// //                         }}
-// //                     >
-// //                         {/* Year Filter */}
-// //                         <MultiSelectDropdown
-// //                             label="Year"
-// //                             options={yearOptions}
-// //                             selectedValues={viewAllFilters.year}
-// //                             onChange={(vals) => handleFilterChange("year", vals)}
-// //                         />
-
-// //                         {/* Legal Entity Filter */}
-// //                         <MultiSelectDropdown
-// //                             label="Legal Entity"
-// //                             options={legalEntityOptions}
-// //                             selectedValues={viewAllFilters.legal_entity}
-// //                             onChange={(vals) => handleFilterChange("legal_entity", vals)}
-// //                         />
-
-// //                         {/* Parent Division Filter */}
-// //                         <MultiSelectDropdown
-// //                             label="Parent Division"
-// //                             options={parentDivisionOptions}
-// //                             selectedValues={viewAllFilters.parent_division}
-// //                             onChange={(vals) => handleFilterChange("parent_division", vals)}
-// //                         />
-
-// //                         {/* Sub-Division Filter */}
-// //                         <MultiSelectDropdown
-// //                             label="Sub-Division"
-// //                             options={subdivisionOptions}
-// //                             selectedValues={viewAllFilters.subdivision}
-// //                             onChange={(vals) => handleFilterChange("subdivision", vals)}
-// //                         />
-
-// //                         {/* Period Filter */}
-// //                         <MultiSelectDropdown
-// //                             label="Period"
-// //                             options={periodOptions}
-// //                             selectedValues={viewAllFilters.period}
-// //                             onChange={(vals) => handleFilterChange("period", vals)}
-// //                         />
-
-// //                         {/* Apply / Reset & Export Controls */}
-// //                         <div
-// //                             style={{
-// //                                 display: "flex",
-// //                                 alignItems: "center",
-// //                                 gap: "8px",
-// //                                 marginLeft: "auto",
-// //                             }}
-// //                         >
-// //                             <button
-// //                                 type="button"
-// //                                 onClick={handleApplyFilters}
-// //                                 style={{
-// //                                     height: "38px",
-// //                                     padding: "0 22px",
-// //                                     borderRadius: "10px",
-// //                                     border: "none",
-// //                                     background: "#5c60f5",
-// //                                     color: "#ffffff",
-// //                                     fontSize: "13px",
-// //                                     fontWeight: 700,
-// //                                     cursor: "pointer",
-// //                                     outline: "none",
-// //                                 }}
-// //                             >
-// //                                 Apply
-// //                             </button>
-
-// //                             <button
-// //                                 type="button"
-// //                                 onClick={handleResetFilters}
-// //                                 style={{
-// //                                     height: "38px",
-// //                                     padding: "0 18px",
-// //                                     borderRadius: "10px",
-// //                                     border: "1px solid #e0e6ed",
-// //                                     background: "#ffffff",
-// //                                     color: "#2b3b75",
-// //                                     fontSize: "13px",
-// //                                     fontWeight: 700,
-// //                                     cursor: "pointer",
-// //                                     outline: "none",
-// //                                 }}
-// //                             >
-// //                                 Reset
-// //                             </button>
-
-// //                             <ExportButtons
-// //                                 endpoint="expense-category-drill-down"
-// //                                 exporting={
-// //                                     loading || rows.length === 0 ? "disabled" : false
-// //                                 }
-// //                                 handleExport={handleExport}
-// //                             />
-// //                         </div>
-// //                     </div>
-
-// //                     {/* =================================================
-// //                     CONTENT
-// //                 ================================================= */}
-
-// //                     <div
-// //                         style={{
-// //                             flex: 1,
-// //                             minHeight: 0,
-// //                             overflow: "auto",
-// //                             padding: "18px 22px",
-// //                         }}
-// //                     >
-// //                         {loading ? (
-// //                             <div
-// //                                 style={{
-// //                                     minHeight: "300px",
-// //                                     display: "flex",
-// //                                     alignItems: "center",
-// //                                     justifyContent: "center",
-// //                                     color: "#64748b",
-// //                                     fontSize: "13px",
-// //                                 }}
-// //                             >
-// //                                 Loading expense category
-// //                                 details...
-// //                             </div>
-// //                         ) : rows.length === 0 ? (
-// //                             <div
-// //                                 style={{
-// //                                     minHeight: "300px",
-// //                                     display: "flex",
-// //                                     flexDirection: "column",
-// //                                     alignItems: "center",
-// //                                     justifyContent: "center",
-// //                                     color: "#64748b",
-// //                                     fontSize: "13px",
-// //                                     textAlign: "center",
-// //                                 }}
-// //                             >
-// //                                 <div
-// //                                     style={{
-// //                                         fontSize: "15px",
-// //                                         fontWeight: 600,
-// //                                         color: "#334155",
-// //                                         marginBottom: "5px",
-// //                                     }}
-// //                                 >
-// //                                     No expense category data
-// //                                 </div>
-
-// //                                 <div>
-// //                                     No records are available
-// //                                     for the selected filters.
-// //                                 </div>
-// //                             </div>
-// //                         ) : (
-// //                             <>
-// //                                 {/* =================================================
-// //                                 SUMMARY CARDS
-// //                             ================================================= */}
-
-// //                                 <div
-// //                                     style={{
-// //                                         display: "grid",
-// //                                         gridTemplateColumns:
-// //                                             "repeat(4, minmax(0, 1fr))",
-// //                                         gap: "10px",
-// //                                         marginBottom: "16px",
-// //                                     }}
-// //                                 >
-// //                                     {[
-// //                                         {
-// //                                             label: "PTD Actual",
-// //                                             value: `${currency} ${formatNumber(
-// //                                                 totals.actualPTD
-// //                                             )}`,
-// //                                             accent: "#4f46e5",
-// //                                             soft: "#eef2ff",
-// //                                         },
-// //                                         {
-// //                                             label: "PTD Target",
-// //                                             value: hasValue(
-// //                                                 totals.targetPTD
-// //                                             )
-// //                                                 ? `${currency} ${formatNumber(
-// //                                                     totals.targetPTD
-// //                                                 )}`
-// //                                                 : "—",
-// //                                             accent: "#0891b2",
-// //                                             soft: "#ecfeff",
-// //                                         },
-// //                                         {
-// //                                             label: "YTD Actual",
-// //                                             value: `${currency} ${formatNumber(
-// //                                                 totals.actualYTD
-// //                                             )}`,
-// //                                             accent: "#059669",
-// //                                             soft: "#ecfdf5",
-// //                                         },
-// //                                         {
-// //                                             label: "YTD Target",
-// //                                             value: hasValue(
-// //                                                 totals.targetYTD
-// //                                             )
-// //                                                 ? `${currency} ${formatNumber(
-// //                                                     totals.targetYTD
-// //                                                 )}`
-// //                                                 : "—",
-// //                                             accent: "#d97706",
-// //                                             soft: "#fffbeb",
-// //                                         },
-// //                                     ].map(
-// //                                         (
-// //                                             card
-// //                                         ) => (
-// //                                             <div
-// //                                                 key={
-// //                                                     card.label
-// //                                                 }
-// //                                                 className="expense-drilldown-kpi"
-// //                                                 style={{
-// //                                                     "--kpi-accent":
-// //                                                         card.accent,
-// //                                                     border:
-// //                                                         `1px solid ${card.accent}33`,
-// //                                                     borderRadius:
-// //                                                         "12px",
-// //                                                     padding:
-// //                                                         "14px 16px",
-// //                                                     background:
-// //                                                         `linear-gradient(135deg, #ffffff 0%, ${card.soft} 100%)`,
-// //                                                     boxShadow:
-// //                                                         "0 2px 8px rgba(15, 23, 42, 0.04)",
-// //                                                 }}
-// //                                             >
-// //                                                 <div
-// //                                                     style={{
-// //                                                         display:
-// //                                                             "flex",
-// //                                                         alignItems:
-// //                                                             "center",
-// //                                                         gap:
-// //                                                             "8px",
-// //                                                         fontSize:
-// //                                                             "10px",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                         color:
-// //                                                             card.accent,
-// //                                                         textTransform:
-// //                                                             "uppercase",
-// //                                                         letterSpacing:
-// //                                                             "0.05em",
-// //                                                     }}
-// //                                                 >
-// //                                                     <span
-// //                                                         style={{
-// //                                                             width:
-// //                                                                 "7px",
-// //                                                             height:
-// //                                                                 "7px",
-// //                                                             borderRadius:
-// //                                                                 "50%",
-// //                                                             background:
-// //                                                                 card.accent,
-// //                                                             boxShadow:
-// //                                                                 `0 0 0 4px ${card.accent}18`,
-// //                                                             flexShrink:
-// //                                                                 0,
-// //                                                         }}
-// //                                                     />
-// //                                                     {card.label}
-// //                                                 </div>
-
-// //                                                 <div
-// //                                                     style={{
-// //                                                         marginTop:
-// //                                                             "8px",
-// //                                                         fontSize:
-// //                                                             "18px",
-// //                                                         fontWeight:
-// //                                                             800,
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         letterSpacing:
-// //                                                             "-0.01em",
-// //                                                     }}
-// //                                                 >
-// //                                                     {
-// //                                                         card.value
-// //                                                     }
-// //                                                 </div>
-// //                                             </div>
-// //                                         )
-// //                                     )}
-// //                                 </div>
-
-// //                                 {/* =================================================
-// //                                 TABLE
-// //                             ================================================= */}
-
-// //                                 <div
-// //                                     className="expense-drilldown-table-wrap"
-// //                                     style={{
-// //                                         width: "100%",
-// //                                         overflowX: "auto",
-// //                                         overflowY: "visible",
-// //                                         border:
-// //                                             "1px solid #e5e7eb",
-// //                                         borderRadius: "8px",
-// //                                     }}
-// //                                 >
-// //                                     <table
-// //                                         style={{
-// //                                             width: "100%",
-// //                                             minWidth:
-// //                                                 "1250px",
-// //                                             borderCollapse:
-// //                                                 "separate",
-// //                                             borderSpacing:
-// //                                                 0,
-// //                                             fontSize:
-// //                                                 "14px",
-// //                                         }}
-// //                                     >
-// //                                         <thead>
-// //                                             <tr>
-// //                                                 <th
-// //                                                     rowSpan={
-// //                                                         2
-// //                                                     }
-// //                                                     style={{
-// //                                                         position:
-// //                                                             "sticky",
-// //                                                         left: 0,
-// //                                                         zIndex: 4,
-// //                                                         minWidth:
-// //                                                             "300px",
-// //                                                         padding:
-// //                                                             "10px 12px",
-// //                                                         textAlign:
-// //                                                             "left",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderBottom:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         borderRight:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         color:
-// //                                                             "#475569",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                         whiteSpace:
-// //                                                             "nowrap",
-// //                                                     }}
-// //                                                 >
-// //                                                     Expense Category
-// //                                                 </th>
-
-// //                                                 <th
-// //                                                     colSpan={
-// //                                                         4
-// //                                                     }
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "9px 12px",
-// //                                                         textAlign:
-// //                                                             "center",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderBottom:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         borderRight:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         color:
-// //                                                             "#334155",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     PTD
-// //                                                 </th>
-
-// //                                                 <th
-// //                                                     colSpan={
-// //                                                         4
-// //                                                     }
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "9px 12px",
-// //                                                         textAlign:
-// //                                                             "center",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderBottom:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         color:
-// //                                                             "#334155",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     YTD
-// //                                                 </th>
-// //                                             </tr>
-
-// //                                             <tr>
-// //                                                 {[
-// //                                                     "Actual",
-
-// //                                                     "Target",
-
-// //                                                     "Variance",
-
-// //                                                     "Variance %",
-
-// //                                                     "Actual",
-
-// //                                                     "Target",
-
-// //                                                     "Variance",
-
-// //                                                     "Variance %",
-// //                                                 ].map((heading, index) => (
-// //                                                     <th
-// //                                                         key={`${heading}-${index}`}
-// //                                                         style={{
-// //                                                             padding: "9px 12px",
-// //                                                             textAlign: "right",
-// //                                                             background: "#f8fafc",
-// //                                                             borderBottom: "1px solid #e5e7eb",
-// //                                                             borderRight:
-// //                                                                 index === 3
-// //                                                                     ? "1px solid #e5e7eb"
-// //                                                                     : "none",
-// //                                                             color: "#64748b",
-// //                                                             fontWeight: 700,
-// //                                                             fontSize: "13px",
-// //                                                             whiteSpace: "nowrap",
-// //                                                         }}
-// //                                                     >
-// //                                                         {heading}
-// //                                                     </th>
-// //                                                 ))}
-// //                                             </tr>
-// //                                         </thead>
-
-// //                                         <tbody>
-// //                                             {rows.map(
-// //                                                 (
-// //                                                     row,
-// //                                                     index
-// //                                                 ) => {
-// //                                                     const category =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "category",
-// //                                                                 "name",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const actualPTD =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "actual_ptd_aed",
-// //                                                                 "actual_ptd",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const targetPTD =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "target_ptd_aed",
-// //                                                                 "target_ptd",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const variancePTD =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "variance_ptd_aed",
-// //                                                                 "variance_ptd",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const variancePTDPercent =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "variance_ptd_pct",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const actualYTD =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "actual_ytd_aed",
-// //                                                                 "actual_ytd",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const targetYTD =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "target_ytd_aed",
-// //                                                                 "target_ytd",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const varianceYTD =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "variance_ytd_aed",
-// //                                                                 "variance_ytd",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const varianceYTDPercent =
-// //                                                         getValue(
-// //                                                             row,
-// //                                                             [
-// //                                                                 "variance_ytd_pct",
-// //                                                             ]
-// //                                                         );
-
-// //                                                     const isExpanded =
-// //                                                         !!expandedCategories[
-// //                                                         category
-// //                                                         ];
-
-// //                                                     const categoryLoading =
-// //                                                         !!detailLoading[
-// //                                                         category
-// //                                                         ];
-
-// //                                                     const accounts =
-// //                                                         (Array.isArray(detailData[category]) && detailData[category].length > 0)
-// //                                                             ? detailData[category]
-// //                                                             : (row ? deriveCategoryNaturalAccounts(row, category) : []);
-
-// //                                                     return (
-// //                                                         <React.Fragment
-// //                                                             key={`${category}-${index}`}
-// //                                                         >
-// //                                                             {/* =================================================
-// //                                                             CATEGORY ROW
-// //                                                         ================================================= */}
-
-// //                                                             <tr className="expense-drilldown-category-row">
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         position:
-// //                                                                             "sticky",
-// //                                                                         left: 0,
-// //                                                                         zIndex: 2,
-// //                                                                         minWidth:
-// //                                                                             "300px",
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         background:
-// //                                                                             "#ffffff",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         borderRight:
-// //                                                                             "1px solid #e5e7eb",
-// //                                                                         color:
-// //                                                                             "#1e293b",
-// //                                                                         fontWeight:
-// //                                                                             600,
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <button
-// //                                                                         type="button"
-// //                                                                         onClick={() =>
-// //                                                                             handleToggleCategory(
-// //                                                                                 category,
-// //                                                                                 row
-// //                                                                             )
-// //                                                                         }
-// //                                                                         style={{
-// //                                                                             width:
-// //                                                                                 "24px",
-// //                                                                             height:
-// //                                                                                 "24px",
-// //                                                                             marginRight:
-// //                                                                                 "7px",
-// //                                                                             border:
-// //                                                                                 "none",
-// //                                                                             background:
-// //                                                                                 "transparent",
-// //                                                                             cursor:
-// //                                                                                 "pointer",
-// //                                                                             color:
-// //                                                                                 "#64748b",
-// //                                                                             fontSize:
-// //                                                                                 "12px",
-// //                                                                             padding:
-// //                                                                                 0,
-// //                                                                             verticalAlign:
-// //                                                                                 "middle",
-// //                                                                         }}
-// //                                                                         aria-label={
-// //                                                                             isExpanded
-// //                                                                                 ? `Collapse ${category}`
-// //                                                                                 : `Expand ${category}`
-// //                                                                         }
-// //                                                                     >
-// //                                                                         {isExpanded
-// //                                                                             ? "▼"
-// //                                                                             : "▶"}
-// //                                                                     </button>
-
-// //                                                                     {String(category || "—").toUpperCase()}
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(actualPTD) }}>{formatNumber(actualPTD)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(targetPTD) }}>{formatNumber(targetPTD)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(variancePTD) }}>{formatNumber(variancePTD)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         borderRight:
-// //                                                                             "1px solid #e5e7eb",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(variancePTDPercent) }}>{formatPercentage(variancePTDPercent)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(actualYTD) }}>{formatNumber(actualYTD)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(targetYTD) }}>{formatNumber(targetYTD)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(varianceYTD) }}>{formatNumber(varianceYTD)}</span>
-// //                                                                 </td>
-
-// //                                                                 <td
-// //                                                                     style={{
-// //                                                                         padding:
-// //                                                                             "10px 12px",
-// //                                                                         textAlign:
-// //                                                                             "right",
-// //                                                                         borderBottom:
-// //                                                                             "1px solid #f1f5f9",
-// //                                                                         color:
-// //                                                                             "#334155",
-// //                                                                         whiteSpace:
-// //                                                                             "nowrap",
-// //                                                                     }}
-// //                                                                 >
-// //                                                                     <span style={{ color: getNumberColor(varianceYTDPercent) }}>{formatPercentage(varianceYTDPercent)}</span>
-// //                                                                 </td>
-// //                                                             </tr>
-
-// //                                                             {/* =================================================
-// //                                                             NATURAL ACCOUNT LOADING ROW
-// //                                                         ================================================= */}
-
-// //                                                             {isExpanded &&
-// //                                                                 categoryLoading && (
-// //                                                                     <tr>
-// //                                                                         <td
-// //                                                                             colSpan={
-// //                                                                                 9
-// //                                                                             }
-// //                                                                             style={{
-// //                                                                                 padding:
-// //                                                                                     "14px 20px",
-// //                                                                                 background:
-// //                                                                                     "#f8fafc",
-// //                                                                                 borderBottom:
-// //                                                                                     "1px solid #e5e7eb",
-// //                                                                                 color:
-// //                                                                                     "#64748b",
-// //                                                                                 fontSize:
-// //                                                                                     "12px",
-// //                                                                             }}
-// //                                                                         >
-// //                                                                             Loading natural account details...
-// //                                                                         </td>
-// //                                                                     </tr>
-// //                                                                 )}
-
-// //                                                             {/* =================================================
-
-// //                                                             {/* =================================================
-// //                                                             EXPANDED NATURAL ACCOUNT TABLE HEADER
-// //                                                             Shown only when a category is expanded.
-// //                                                         ================================================= */}
-
-// //                                                             {isExpanded &&
-// //                                                                 !categoryLoading &&
-// //                                                                 accounts.length >
-// //                                                                 0 && (
-// //                                                                     <tr className="expense-drilldown-account-header-row">
-// //                                                                         <th
-// //                                                                             style={{
-// //                                                                                 position: "sticky",
-// //                                                                                 left: 0,
-// //                                                                                 zIndex: 2,
-// //                                                                                 minWidth: "300px",
-// //                                                                                 padding: "9px 12px 9px 45px",
-// //                                                                                 textAlign: "left",
-// //                                                                                 background: "#f1f5f9",
-// //                                                                                 borderBottom: "1px solid #e2e8f0",
-// //                                                                                 borderRight: "1px solid #e5e7eb",
-// //                                                                                 color: "#475569",
-// //                                                                                 fontWeight: 700,
-// //                                                                                 fontSize: "12px",
-// //                                                                                 whiteSpace: "nowrap",
-// //                                                                             }}
-// //                                                                         >
-// //                                                                             NATURAL ACCOUNT
-// //                                                                         </th>
-
-// //                                                                         {[
-// //                                                                             "Actual",
-// //                                                                             "Target",
-// //                                                                             "Variance",
-// //                                                                             "Variance %",
-// //                                                                             "Actual",
-// //                                                                             "Target",
-// //                                                                             "Variance",
-// //                                                                             "Variance %",
-// //                                                                         ].map((heading, headerIndex) => (
-// //                                                                             <th
-// //                                                                                 key={`expanded-${heading}-${headerIndex}`}
-// //                                                                                 style={{
-// //                                                                                     padding: "9px 12px",
-// //                                                                                     textAlign: "right",
-// //                                                                                     background: "#f1f5f9",
-// //                                                                                     borderBottom: "1px solid #e2e8f0",
-// //                                                                                     borderRight:
-// //                                                                                         headerIndex === 3
-// //                                                                                             ? "1px solid #e5e7eb"
-// //                                                                                             : "none",
-// //                                                                                     color: "#64748b",
-// //                                                                                     fontWeight: 700,
-// //                                                                                     fontSize: "12px",
-// //                                                                                     whiteSpace: "nowrap",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 {heading.toUpperCase()}
-// //                                                                             </th>
-// //                                                                         ))}
-// //                                                                     </tr>
-// //                                                                 )}
-
-
-// //                                                             {isExpanded &&
-// //                                                                 !categoryLoading &&
-// //                                                                 accounts.length >
-// //                                                                 0 &&
-// //                                                                 accounts.map(
-// //                                                                     (
-// //                                                                         account,
-// //                                                                         accountIndex
-// //                                                                     ) => (
-// //                                                                         <tr
-// //                                                                             className="expense-drilldown-account-row"
-// //                                                                             key={`${category}-${account.account_code}-${accountIndex}`}
-// //                                                                         >
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     position:
-// //                                                                                         "sticky",
-// //                                                                                     left: 0,
-// //                                                                                     zIndex: 1,
-// //                                                                                     minWidth:
-// //                                                                                         "300px",
-// //                                                                                     padding:
-// //                                                                                         "9px 12px 9px 45px",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     borderRight:
-// //                                                                                         "1px solid #e5e7eb",
-// //                                                                                     color:
-// //                                                                                         "#475569",
-// //                                                                                     fontWeight:
-// //                                                                                         500,
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 <div
-// //                                                                                     style={{
-// //                                                                                         fontSize:
-// //                                                                                             "12px",
-// //                                                                                         color:
-// //                                                                                             "#64748b",
-// //                                                                                         fontWeight:
-// //                                                                                             600,
-// //                                                                                     }}
-// //                                                                                 >
-// //                                                                                     {account.account_code ||
-// //                                                                                         "—"}
-// //                                                                                 </div>
-
-// //                                                                                 <div
-// //                                                                                     style={{
-// //                                                                                         marginTop:
-// //                                                                                             "2px",
-// //                                                                                         fontSize:
-// //                                                                                             "12px",
-// //                                                                                         color:
-// //                                                                                             "#334155",
-// //                                                                                         fontWeight:
-// //                                                                                             500,
-// //                                                                                         whiteSpace:
-// //                                                                                             "normal",
-// //                                                                                         lineHeight:
-// //                                                                                             1.4,
-// //                                                                                     }}
-// //                                                                                 >
-// //                                                                                     {getNaturalAccountName(account)}
-// //                                                                                 </div>
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     color:
-// //                                                                                         "#475569",
-// //                                                                                     whiteSpace:
-// //                                                                                         "nowrap",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 <span
-// //                                                                                     style={{
-// //                                                                                         color: getNumberColor(
-// //                                                                                             getValue(account, [
-// //                                                                                                 "actual_ptd_aed",
-// //                                                                                                 "actual_ptd",
-// //                                                                                             ]),
-// //                                                                                             "#475569"
-// //                                                                                         ),
-// //                                                                                     }}
-// //                                                                                 >
-// //                                                                                     {formatNumber(
-// //                                                                                         getValue(account, [
-// //                                                                                             "actual_ptd_aed",
-// //                                                                                             "actual_ptd",
-// //                                                                                         ])
-// //                                                                                     )}
-// //                                                                                 </span>
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     color:
-// //                                                                                         "#94a3b8",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 —
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     color:
-// //                                                                                         "#94a3b8",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 —
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     borderRight:
-// //                                                                                         "1px solid #e5e7eb",
-// //                                                                                     color:
-// //                                                                                         "#94a3b8",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 —
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     color:
-// //                                                                                         "#475569",
-// //                                                                                     whiteSpace:
-// //                                                                                         "nowrap",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 <span
-// //                                                                                     style={{
-// //                                                                                         color: getNumberColor(
-// //                                                                                             getValue(account, [
-// //                                                                                                 "actual_ytd_aed",
-// //                                                                                                 "actual_ytd",
-// //                                                                                             ]),
-// //                                                                                             "#475569"
-// //                                                                                         ),
-// //                                                                                     }}
-// //                                                                                 >
-// //                                                                                     {formatNumber(
-// //                                                                                         getValue(account, [
-// //                                                                                             "actual_ytd_aed",
-// //                                                                                             "actual_ytd",
-// //                                                                                         ])
-// //                                                                                     )}
-// //                                                                                 </span>
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     color:
-// //                                                                                         "#94a3b8",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 —
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #eef2f7",
-// //                                                                                     color:
-// //                                                                                         "#94a3b8",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 —
-// //                                                                             </td>
-
-// //                                                                             <td
-// //                                                                                 style={{
-// //                                                                                     padding:
-// //                                                                                         "9px 12px",
-// //                                                                                     textAlign:
-// //                                                                                         "right",
-// //                                                                                     background:
-// //                                                                                         "#f8fafc",
-// //                                                                                     borderBottom:
-// //                                                                                         "1px solid #e5e7eb",
-// //                                                                                     color:
-// //                                                                                         "#94a3b8",
-// //                                                                                 }}
-// //                                                                             >
-// //                                                                                 —
-// //                                                                             </td>
-// //                                                                         </tr>
-// //                                                                     )
-// //                                                                 )}
-
-// //                                                             {/* =================================================
-// //                                                             NO ACCOUNT DATA
-// //                                                         ================================================= */}
-
-// //                                                             {isExpanded &&
-// //                                                                 !categoryLoading &&
-// //                                                                 accounts.length ===
-// //                                                                 0 && (
-// //                                                                     <tr>
-// //                                                                         <td
-// //                                                                             colSpan={
-// //                                                                                 9
-// //                                                                             }
-// //                                                                             style={{
-// //                                                                                 padding:
-// //                                                                                     "12px 20px 12px 45px",
-// //                                                                                 background:
-// //                                                                                     "#f8fafc",
-// //                                                                                 borderBottom:
-// //                                                                                     "1px solid #e5e7eb",
-// //                                                                                 color:
-// //                                                                                     "#64748b",
-// //                                                                                 fontSize:
-// //                                                                                     "11px",
-// //                                                                             }}
-// //                                                                         >
-// //                                                                             No natural account details available for{" "}
-// //                                                                             <strong>
-// //                                                                                 {String(category || "—").toUpperCase()}
-// //                                                                             </strong>
-// //                                                                             .
-// //                                                                         </td>
-// //                                                                     </tr>
-// //                                                                 )}
-// //                                                         </React.Fragment>
-// //                                                     );
-// //                                                 }
-// //                                             )}
-
-// //                                             {/* =================================================
-// //                                             TOTAL ROW
-// //                                         ================================================= */}
-
-// //                                             <tr>
-// //                                                 <td
-// //                                                     style={{
-// //                                                         position:
-// //                                                             "sticky",
-// //                                                         left: 0,
-// //                                                         zIndex: 3,
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         borderRight:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                         whiteSpace:
-// //                                                             "nowrap",
-// //                                                     }}
-// //                                                 >
-// //                                                     Total
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatNumber(totals.actualPTD)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatNumber(totals.targetPTD)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatNumber(totals.variancePTD)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         borderRight:
-// //                                                             "1px solid #e5e7eb",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totalVariancePTDPercent, "#0f172a") }}>{formatPercentage(totalVariancePTDPercent)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatNumber(totals.actualYTD)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatNumber(totals.targetYTD)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatNumber(totals.varianceYTD)}</span>
-// //                                                 </td>
-
-// //                                                 <td
-// //                                                     style={{
-// //                                                         padding:
-// //                                                             "11px 12px",
-// //                                                         textAlign:
-// //                                                             "right",
-// //                                                         background:
-// //                                                             "#f8fafc",
-// //                                                         borderTop:
-// //                                                             "1px solid #cbd5e1",
-// //                                                         color:
-// //                                                             "#0f172a",
-// //                                                         fontWeight:
-// //                                                             700,
-// //                                                     }}
-// //                                                 >
-// //                                                     <span style={{ color: getNumberColor(totalVarianceYTDPercent, "#0f172a") }}>{formatPercentage(totalVarianceYTDPercent)}</span>
-// //                                                 </td>
-// //                                             </tr>
-// //                                         </tbody>
-// //                                     </table>
-// //                                 </div>
-// //                             </>
-// //                         )}
-// //                     </div>
-
-// //                     {/* =================================================
-// //                     FOOTER
-// //                 ================================================= */}
-
-// //                     <div
-// //                         style={{
-// //                             padding: "12px 22px",
-// //                             borderTop:
-// //                                 "1px solid #e5e7eb",
-// //                             display: "flex",
-// //                             alignItems: "center",
-// //                             justifyContent: "flex-end",
-// //                             background: "#ffffff",
-// //                             flexShrink: 0,
-// //                         }}
-// //                     >
-// //                         <button
-// //                             type="button"
-// //                             onClick={handleClose}
-// //                             style={{
-// //                                 padding: "8px 18px",
-// //                                 borderRadius: "6px",
-// //                                 border:
-// //                                     "1px solid #d1d5db",
-// //                                 background: "#ffffff",
-// //                                 color: "#374151",
-// //                                 fontSize: "12px",
-// //                                 fontWeight: 600,
-// //                                 cursor: "pointer",
-// //                             }}
-// //                         >
-// //                             Close
-// //                         </button>
-// //                     </div>
-// //                 </div>
-// //             </div>
-// //         </>
-// //     );
-// // }
-
-
-
-// import React, { useMemo, useState, useEffect, useRef } from "react";
-// import ExportButtons from "../Common/ExportButtons";
-// import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
-// import { exportOpexCategoryBreakdown } from "../../api/opexApi";
-
-// /* =========================================================
-//    FORMAT NUMBER
-// ========================================================= */
-
-// const formatNumber = (value) => {
-//     if (
-//         value === null ||
-//         value === undefined ||
-//         value === "" ||
-//         value === "-"
-//     ) {
-//         return "—";
-//     }
-
-//     const number = Number(value);
-
-//     if (!Number.isFinite(number)) {
-//         return "—";
-//     }
-
-//     return number.toLocaleString("en-US", {
-//         minimumFractionDigits: 0,
-//         maximumFractionDigits: 0,
-//     });
-// };
-
-// /* =========================================================
-//    FORMAT PERCENTAGE
-// ========================================================= */
-
-// const formatPercentage = (value) => {
-//     if (
-//         value === null ||
-//         value === undefined ||
-//         value === "" ||
-//         value === "-"
-//     ) {
-//         return "—";
-//     }
-
-//     const number = Number(value);
-
-//     if (!Number.isFinite(number)) {
-//         return "—";
-//     }
-
-//     return `${Math.round(number)}%`;
-// };
-
-// /* =========================================================
-//    GET VALUE
-// ========================================================= */
-
-// const getValue = (row, keys = []) => {
-//     for (const key of keys) {
-//         if (
-//             row?.[key] !== null &&
-//             row?.[key] !== undefined &&
-//             row?.[key] !== ""
-//         ) {
-//             return row[key];
-//         }
-//     }
-
-//     return null;
-// };
-
-// /* =========================================================
-//    HAS VALUE
-// ========================================================= */
-
-// const hasValue = (value) => {
-//     return (
-//         value !== null &&
-//         value !== undefined &&
-//         value !== ""
-//     );
-// };
-
-// /* =========================================================
-//    TABLE NUMBER COLOR
-//    Negative values are displayed in red.
-// ========================================================= */
-
-// const getNumberColor = (value, defaultColor = "#334155") => {
-//     const number = Number(value);
-//     return Number.isFinite(number) && number < 0
-//         ? "#dc2626"
-//         : defaultColor;
-// };
-
-// /* =========================================================
-//    NATURAL ACCOUNT DISPLAY
-//    Prevent repeated account code when account_name already
-//    contains the same account code.
-// ========================================================= */
-
-// const getNaturalAccountName = (account) => {
-//     const code = String(account?.account_code ?? "").trim();
-//     const name = String(account?.account_name ?? "").trim();
-
-//     if (!name) {
-//         return "—";
-//     }
-
-//     if (!code) {
-//         return name;
-//     }
-
-//     const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-//     return (
-//         name.replace(
-//             new RegExp(
-//                 `^${escapedCode}(?:\\s*[-–—:|]\\s*|\\s+)`,
-//                 "i"
-//             ),
-//             ""
-//         ).trim() || name
-//     );
-// };
-
-// /* =========================================================
-//    FILTER OPTION HELPERS
-// ========================================================= */
-
-// const getFilterOptionId = (option) => {
-//     if (option === null || option === undefined) {
-//         return "";
-//     }
-
-//     if (typeof option !== "object") {
-//         return String(option);
-//     }
-
-//     return (
-//         option.value ??
-//         option.id ??
-//         option.code ??
-//         option.legal_group_id ??
-//         option.legal_entity_id ??
-//         option.parent_division_id ??
-//         option.subdivision_id ??
-//         option.period_name ??
-//         option.year ??
-//         option.name ??
-//         ""
-//     );
-// };
-
-// const getFilterOptionName = (option) => {
-//     if (option === null || option === undefined) {
-//         return "";
-//     }
-
-//     if (typeof option !== "object") {
-//         return String(option);
-//     }
-
-//     return (
-//         option.name ??
-//         option.label ??
-//         option.display_name ??
-//         option.displayName ??
-//         option.description ??
-//         option.title ??
-//         option.text ??
-//         option.period_name ??
-//         option.value ??
-//         option.code ??
-//         option.id ??
-//         ""
-//     );
-// };
-
-// const normalizeMultiValue = (value) => {
-//     if (value === null || value === undefined || value === "") {
-//         return [];
-//     }
-
-//     if (Array.isArray(value)) {
-//         return value.map((v) => (typeof v === "object" ? getFilterOptionId(v) : String(v)));
-//     }
-
-//     if (typeof value === "object") {
-//         return [getFilterOptionId(value)];
-//     }
-
-//     return [String(value)];
-// };
-
-// /* =========================================================
-//    CUSTOM MULTI-SELECT DROPDOWN COMPONENT (MATCHING UI REFERENCE)
-// ========================================================= */
-// const MultiSelectDropdown = ({
-//     label,
-//     options = [],
-//     selectedValues = [],
-//     onChange,
-// }) => {
-//     const [isOpen, setIsOpen] = useState(false);
-//     const [searchTerm, setSearchTerm] = useState("");
-//     const containerRef = useRef(null);
-
-//     useEffect(() => {
-//         const handleClickOutside = (event) => {
-//             if (
-//                 containerRef.current &&
-//                 !containerRef.current.contains(event.target)
-//             ) {
-//                 setIsOpen(false);
-//             }
-//         };
-
-//         document.addEventListener("mousedown", handleClickOutside);
-
-//         return () => {
-//             document.removeEventListener(
-//                 "mousedown",
-//                 handleClickOutside
-//             );
-//         };
-//     }, []);
-
-//     const formattedOptions = useMemo(() => {
-//         return options.map((opt) => ({
-//             id: String(getFilterOptionId(opt)),
-//             name: String(getFilterOptionName(opt)),
-//         }));
-//     }, [options]);
-
-//     const normalizedSelectedValues = useMemo(() => {
-//         if (!Array.isArray(selectedValues)) {
-//             return [];
-//         }
-
-//         return selectedValues.map((value) => String(value));
-//     }, [selectedValues]);
-
-//     const filteredOptions = useMemo(() => {
-//         if (!searchTerm.trim()) {
-//             return formattedOptions;
-//         }
-
-//         return formattedOptions.filter((opt) =>
-//             opt.name
-//                 .toLowerCase()
-//                 .includes(searchTerm.toLowerCase())
-//         );
-//     }, [formattedOptions, searchTerm]);
-
-//     const handleToggle = (id) => {
-//         const normalizedId = String(id);
-
-//         if (
-//             normalizedSelectedValues.includes(
-//                 normalizedId
-//             )
-//         ) {
-//             onChange(
-//                 normalizedSelectedValues.filter(
-//                     (value) =>
-//                         value !== normalizedId
-//                 )
-//             );
-//         } else {
-//             onChange([
-//                 ...normalizedSelectedValues,
-//                 normalizedId,
-//             ]);
-//         }
-//     };
-
-//     const handleSelectAll = () => {
-//         const allIds = formattedOptions.map(
-//             (opt) => opt.id
-//         );
-
-//         onChange(allIds);
-//     };
-
-//     const handleClear = () => {
-//         onChange([]);
-//     };
-
-//     const displayLabel = useMemo(() => {
-//         if (
-//             normalizedSelectedValues.length === 0
-//         ) {
-//             return "Select";
-//         }
-
-//         if (
-//             normalizedSelectedValues.length === 1
-//         ) {
-//             const found =
-//                 formattedOptions.find(
-//                     (opt) =>
-//                         opt.id ===
-//                         normalizedSelectedValues[0]
-//                 );
-
-//             return found
-//                 ? found.name
-//                 : "1 Selected";
-//         }
-
-//         return `${normalizedSelectedValues.length} Selected`;
-//     }, [
-//         normalizedSelectedValues,
-//         formattedOptions,
-//     ]);
-
-//     return (
-//         <div
-//             ref={containerRef}
-//             style={{
-//                 position: "relative",
-//                 display: "flex",
-//                 flexDirection: "column",
-//                 gap: "6px",
-//             }}
-//         >
-//             <label
-//                 style={{
-//                     fontSize: "12px",
-//                     fontWeight: 700,
-//                     color: "#2b3b75",
-//                 }}
-//             >
-//                 {label}
-//             </label>
-
-//             <button
-//                 type="button"
-//                 onClick={() =>
-//                     setIsOpen((prev) => !prev)
-//                 }
-//                 style={{
-//                     height: "38px",
-//                     minWidth: "130px",
-//                     padding: "0 12px",
-//                     borderRadius: "10px",
-//                     border: "1px solid #e0e6ed",
-//                     background: "#ffffff",
-//                     color: "#2b3b75",
-//                     fontSize: "13px",
-//                     fontWeight: 600,
-//                     display: "flex",
-//                     alignItems: "center",
-//                     justifyContent:
-//                         "space-between",
-//                     cursor: "pointer",
-//                     outline: "none",
-//                 }}
-//             >
-//                 <span
-//                     style={{
-//                         overflow: "hidden",
-//                         textOverflow: "ellipsis",
-//                         whiteSpace: "nowrap",
-//                         marginRight: "8px",
-//                     }}
-//                 >
-//                     {displayLabel}
-//                 </span>
-
-//                 <span
-//                     style={{
-//                         fontSize: "10px",
-//                         color: "#2b3b75",
-//                     }}
-//                 >
-//                     ▼
-//                 </span>
-//             </button>
-
-//             {isOpen && (
-//                 <div
-//                     style={{
-//                         position: "absolute",
-//                         top: "100%",
-//                         left: 0,
-//                         marginTop: "4px",
-//                         width: "220px",
-//                         background: "#ffffff",
-//                         border: "1px solid #e2e8f0",
-//                         borderRadius: "12px",
-//                         boxShadow:
-//                             "0 10px 25px rgba(0,0,0,0.1)",
-//                         zIndex: 1050,
-//                         padding: "8px",
-//                     }}
-//                 >
-//                     {/* SEARCH */}
-//                     <div
-//                         style={{
-//                             position: "relative",
-//                             marginBottom: "8px",
-//                         }}
-//                     >
-//                         <span
-//                             style={{
-//                                 position: "absolute",
-//                                 left: "10px",
-//                                 top: "50%",
-//                                 transform:
-//                                     "translateY(-50%)",
-//                                 color: "#94a3b8",
-//                                 fontSize: "12px",
-//                             }}
-//                         >
-//                             🔍
-//                         </span>
-
-//                         <input
-//                             type="text"
-//                             placeholder="Search..."
-//                             value={searchTerm}
-//                             onChange={(e) =>
-//                                 setSearchTerm(
-//                                     e.target.value
-//                                 )
-//                             }
-//                             style={{
-//                                 width: "100%",
-//                                 height: "32px",
-//                                 paddingLeft: "30px",
-//                                 paddingRight: "8px",
-//                                 borderRadius: "6px",
-//                                 border:
-//                                     "1px solid #e2e8f0",
-//                                 fontSize: "12px",
-//                                 outline: "none",
-//                                 boxSizing: "border-box",
-//                             }}
-//                         />
-//                     </div>
-
-//                     {/* SELECT ALL / CLEAR */}
-//                     <div
-//                         style={{
-//                             display: "flex",
-//                             justifyContent:
-//                                 "space-between",
-//                             padding:
-//                                 "4px 4px 8px 4px",
-//                             fontSize: "12px",
-//                             fontWeight: 700,
-//                         }}
-//                     >
-//                         <span
-//                             onClick={handleSelectAll}
-//                             style={{
-//                                 color: "#2b3b75",
-//                                 cursor: "pointer",
-//                             }}
-//                         >
-//                             Select All
-//                         </span>
-
-//                         <span
-//                             onClick={handleClear}
-//                             style={{
-//                                 color: "#64748b",
-//                                 cursor: "pointer",
-//                             }}
-//                         >
-//                             Clear
-//                         </span>
-//                     </div>
-
-//                     {/* OPTIONS */}
-//                     <div
-//                         style={{
-//                             maxHeight: "160px",
-//                             overflowY: "auto",
-//                             display: "flex",
-//                             flexDirection:
-//                                 "column",
-//                             gap: "6px",
-//                         }}
-//                     >
-//                         {filteredOptions.length ===
-//                             0 ? (
-//                             <div
-//                                 style={{
-//                                     fontSize: "12px",
-//                                     color: "#94a3b8",
-//                                     padding:
-//                                         "6px 4px",
-//                                 }}
-//                             >
-//                                 No options
-//                             </div>
-//                         ) : (
-//                             filteredOptions.map(
-//                                 (opt) => {
-//                                     /*
-//                                      * IMPORTANT:
-//                                      * Empty selection means
-//                                      * NOTHING is selected.
-//                                      */
-//                                     const isChecked =
-//                                         normalizedSelectedValues.includes(
-//                                             opt.id
-//                                         );
-
-//                                     return (
-//                                         <label
-//                                             key={opt.id}
-//                                             style={{
-//                                                 display:
-//                                                     "flex",
-//                                                 alignItems:
-//                                                     "center",
-//                                                 gap: "8px",
-//                                                 fontSize:
-//                                                     "12px",
-//                                                 color:
-//                                                     "#2b3b75",
-//                                                 fontWeight:
-//                                                     600,
-//                                                 cursor:
-//                                                     "pointer",
-//                                                 padding:
-//                                                     "2px 4px",
-//                                             }}
-//                                         >
-//                                             <input
-//                                                 type="checkbox"
-//                                                 checked={
-//                                                     isChecked
-//                                                 }
-//                                                 onChange={() =>
-//                                                     handleToggle(
-//                                                         opt.id
-//                                                     )
-//                                                 }
-//                                                 style={{
-//                                                     accentColor:
-//                                                         "#5c60f5",
-//                                                     cursor:
-//                                                         "pointer",
-//                                                 }}
-//                                             />
-
-//                                             <span
-//                                                 style={{
-//                                                     overflow:
-//                                                         "hidden",
-//                                                     textOverflow:
-//                                                         "ellipsis",
-//                                                     whiteSpace:
-//                                                         "nowrap",
-//                                                 }}
-//                                             >
-//                                                 {
-//                                                     opt.name
-//                                                 }
-//                                             </span>
-//                                         </label>
-//                                     );
-//                                 }
-//                             )
-//                         )}
-//                     </div>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// };
-
-// /* =========================================================
-//    EXPENSE CATEGORY DRILL-DOWN MODAL
-// ========================================================= */
-
-// export default function ExpenseCategoryDrillDownModal({
-//     open,
-//     onClose,
-//     data = [],
-//     loading = false,
-//     activeFilters = {},
-//     reportingCurrency = "AED",
-
-//     /* =====================================================
-//        FILTER OPTIONS & REFRESH CALLBACKS
-//     ===================================================== */
-
-//     filterOptions = {},
-//     onApplyFilters,
-//     onRefresh,
-
-//     onExpandCategory,
-// }) {
-//     /* =====================================================
-//        EXPANDED CATEGORIES & LOCAL FILTER STATE
-//     ===================================================== */
-
-//     const [expandedCategories, setExpandedCategories] = useState({});
-//     const [detailData, setDetailData] = useState({});
-//     const [detailLoading, setDetailLoading] = useState({});
-
-//     const [viewAllFilters, setViewAllFilters] = useState({
-//         year: [],
-//         legal_entity: [],
-//         parent_division: [],
-//         subdivision: [],
-//         period: [],
-//     });
-
-//     // View All display-only toggle. Backend/API values remain unchanged.
-//     const [displayUnit, setDisplayUnit] = useState("AED");
-
-//     const formatDisplayNumber = (value) => {
-//         if (
-//             value === null ||
-//             value === undefined ||
-//             value === "" ||
-//             value === "-"
-//         ) {
-//             return "—";
-//         }
-
-//         const number = Number(value);
-
-//         if (!Number.isFinite(number)) {
-//             return "—";
-//         }
-
-//         const displayValue =
-//             displayUnit === "AED_MILLIONS"
-//                 ? number / 1000000
-//                 : number;
-
-//         return displayValue.toLocaleString("en-US", {
-//             minimumFractionDigits:
-//                 displayUnit === "AED_MILLIONS" ? 0 : 0,
-//             maximumFractionDigits:
-//                 displayUnit === "AED_MILLIONS" ? 2 : 0,
-//         });
-//     };
-//     const getSelectedFilterValues = (value) => {
-//         if (
-//             value === undefined ||
-//             value === null ||
-//             value === "" ||
-//             value === "All"
-//         ) {
-//             return [];
-//         }
-
-//         if (Array.isArray(value)) {
-//             return value.filter(
-//                 (item) =>
-//                     item !== undefined &&
-//                     item !== null &&
-//                     item !== "" &&
-//                     item !== "All"
-//             );
-//         }
-
-//         return [value];
-//     };
-
-//     useEffect(() => {
-//         if (!open) return;
-
-//         setViewAllFilters({
-//             year: Array.isArray(activeFilters?.year)
-//                 ? activeFilters.year.map((v) => String(v))
-//                 : activeFilters?.year
-//                     ? [String(activeFilters.year)]
-//                     : [],
-
-//             legal_entity: Array.isArray(
-//                 activeFilters?.legal_entity
-//             )
-//                 ? activeFilters.legal_entity.map((v) =>
-//                     String(v)
-//                 )
-//                 : activeFilters?.legal_entity
-//                     ? [String(activeFilters.legal_entity)]
-//                     : [],
-
-//             parent_division: Array.isArray(
-//                 activeFilters?.parent_division
-//             )
-//                 ? activeFilters.parent_division.map(
-//                     (v) => String(v)
-//                 )
-//                 : activeFilters?.parent_division
-//                     ? [
-//                         String(
-//                             activeFilters.parent_division
-//                         ),
-//                     ]
-//                     : [],
-
-//             subdivision: Array.isArray(
-//                 activeFilters?.subdivision
-//             )
-//                 ? activeFilters.subdivision.map((v) =>
-//                     String(v)
-//                 )
-//                 : activeFilters?.subdivision
-//                     ? [String(activeFilters.subdivision)]
-//                     : [],
-
-//             period: Array.isArray(
-//                 activeFilters?.period
-//             )
-//                 ? activeFilters.period.map((v) =>
-//                     String(v)
-//                 )
-//                 : activeFilters?.period
-//                     ? [String(activeFilters.period)]
-//                     : [],
-//         });
-//     }, [open]);
-
-//     const handleFilterChange = (key, values) => {
-//         setViewAllFilters((prev) => ({
-//             ...prev,
-//             [key]: Array.isArray(values)
-//                 ? values.map((value) =>
-//                     String(value)
-//                 )
-//                 : [],
-//         }));
-//     };
-//     const cleanFilterValues = (values) => {
-//         if (!Array.isArray(values)) return [];
-
-//         return values.filter(
-//             (value) =>
-//                 value !== undefined &&
-//                 value !== null &&
-//                 value !== "" &&
-//                 value !== "All"
-//         );
-//     };
-
-//     const handleApplyFilters = async () => {
-//         if (typeof onApplyFilters !== "function") {
-//             return;
-//         }
-
-//         const selectedFilters = {
-//             year: viewAllFilters.year,
-//             legal_entity:
-//                 viewAllFilters.legal_entity,
-//             parent_division:
-//                 viewAllFilters.parent_division,
-//             subdivision:
-//                 viewAllFilters.subdivision,
-//             period: viewAllFilters.period,
-//         };
-
-//         if (
-//             !Array.isArray(selectedFilters.period) ||
-//             selectedFilters.period.length === 0
-//         ) {
-//             return;
-//         }
-
-//         await onApplyFilters(selectedFilters);
-//     };
-
-
-//     const handleResetFilters = async () => {
-//         /*
-//          * RESET should return to the default OPEX filter state,
-//          * NOT the filters that were present when the modal opened.
-//          *
-//          * Default:
-//          * - Year = first/default available year
-//          * - Period = latest available period
-//          * - Legal Entity = empty
-//          * - Parent Division = empty
-//          * - Sub-Division = empty
-//          */
-
-//         const defaultYear =
-//             filterOptions?.years?.length > 0
-//                 ? getFilterOptionId(
-//                     filterOptions.years[0]
-//                 )
-//                 : "";
-
-//         const latestPeriod =
-//             filterOptions?.periods?.length > 0
-//                 ? getFilterOptionId(
-//                     filterOptions.periods[
-//                     filterOptions.periods.length - 1
-//                     ]
-//                 )
-//                 : "";
-
-//         const resetFilters = {
-//             year: defaultYear
-//                 ? [String(defaultYear)]
-//                 : [],
-
-//             legal_entity: [],
-
-//             parent_division: [],
-
-//             subdivision: [],
-
-//             period: latestPeriod
-//                 ? [String(latestPeriod)]
-//                 : [],
-//         };
-
-//         /*
-//          * Immediately update dropdowns.
-//          */
-//         setViewAllFilters(resetFilters);
-
-//         /*
-//          * Refresh the View All table using
-//          * the reset/default filters.
-//          */
-//         if (
-//             typeof onApplyFilters === "function"
-//         ) {
-//             await onApplyFilters(resetFilters);
-//         }
-//     };
-//     /* =====================================================
-//        NORMALIZE CATEGORY DATA
-//     ===================================================== */
-
-//     const rows = useMemo(() => {
-//         if (Array.isArray(data)) {
-//             return data;
-//         }
-
-//         if (Array.isArray(data?.items)) {
-//             return data.items;
-//         }
-
-//         if (Array.isArray(data?.categories)) {
-//             return data.categories;
-//         }
-
-//         if (Array.isArray(data?.data)) {
-//             return data.data;
-//         }
-
-//         if (Array.isArray(data?.results)) {
-//             return data.results;
-//         }
-
-//         return [];
-//     }, [data]);
-
-//     /* =====================================================
-//        CURRENCY
-//     ===================================================== */
-
-//     const currency =
-//         rows?.[0]?.reporting_currency ||
-//         activeFilters?.reporting_currency ||
-//         reportingCurrency ||
-//         "AED";
-
-//     /* =====================================================
-//        TOTALS
-//     ===================================================== */
-
-//     const totals = useMemo(() => {
-//         let actualPTD = 0;
-//         let targetPTD = 0;
-//         let variancePTD = 0;
-
-//         let actualYTD = 0;
-//         let targetYTD = 0;
-//         let varianceYTD = 0;
-
-//         let hasTargetPTD = false;
-//         let hasVariancePTD = false;
-
-//         let hasTargetYTD = false;
-//         let hasVarianceYTD = false;
-
-//         rows.forEach((row) => {
-//             const rowActualPTD = getValue(row, [
-//                 "actual_ptd_aed",
-//                 "actual_ptd",
-//             ]);
-
-//             const rowTargetPTD = getValue(row, [
-//                 "target_ptd_aed",
-//                 "target_ptd",
-//             ]);
-
-//             const rowVariancePTD = getValue(row, [
-//                 "variance_ptd_aed",
-//                 "variance_ptd",
-//             ]);
-
-//             const rowActualYTD = getValue(row, [
-//                 "actual_ytd_aed",
-//                 "actual_ytd",
-//             ]);
-
-//             const rowTargetYTD = getValue(row, [
-//                 "target_ytd_aed",
-//                 "target_ytd",
-//             ]);
-
-//             const rowVarianceYTD = getValue(row, [
-//                 "variance_ytd_aed",
-//                 "variance_ytd",
-//             ]);
-
-//             if (hasValue(rowActualPTD)) {
-//                 actualPTD += Number(rowActualPTD) || 0;
-//             }
-
-//             if (hasValue(rowTargetPTD)) {
-//                 targetPTD += Number(rowTargetPTD) || 0;
-//                 hasTargetPTD = true;
-//             }
-
-//             if (hasValue(rowVariancePTD)) {
-//                 variancePTD +=
-//                     Number(rowVariancePTD) || 0;
-//                 hasVariancePTD = true;
-//             }
-
-//             if (hasValue(rowActualYTD)) {
-//                 actualYTD += Number(rowActualYTD) || 0;
-//             }
-
-//             if (hasValue(rowTargetYTD)) {
-//                 targetYTD += Number(rowTargetYTD) || 0;
-//                 hasTargetYTD = true;
-//             }
-
-//             if (hasValue(rowVarianceYTD)) {
-//                 varianceYTD +=
-//                     Number(rowVarianceYTD) || 0;
-//                 hasVarianceYTD = true;
-//             }
-//         });
-
-//         return {
-//             actualPTD,
-//             targetPTD: hasTargetPTD
-//                 ? targetPTD
-//                 : null,
-//             variancePTD: hasVariancePTD
-//                 ? variancePTD
-//                 : null,
-
-//             actualYTD,
-//             targetYTD: hasTargetYTD
-//                 ? targetYTD
-//                 : null,
-//             varianceYTD: hasVarianceYTD
-//                 ? varianceYTD
-//                 : null,
-//         };
-//     }, [rows]);
-
-//     /* =====================================================
-//        TOTAL VARIANCE %
-//     ===================================================== */
-
-//     const totalVariancePTDPercent =
-//         hasValue(totals.targetPTD) &&
-//             Number(totals.targetPTD) !== 0 &&
-//             hasValue(totals.variancePTD)
-//             ? (Number(totals.variancePTD) /
-//                 Number(totals.targetPTD)) *
-//             100
-//             : null;
-
-//     const totalVarianceYTDPercent =
-//         hasValue(totals.targetYTD) &&
-//             Number(totals.targetYTD) !== 0 &&
-//             hasValue(totals.varianceYTD)
-//             ? (Number(totals.varianceYTD) /
-//                 Number(totals.targetYTD)) *
-//             100
-//             : null;
-
-//     /* =====================================================
-//        NORMALIZE DETAIL RESPONSE
-//     ===================================================== */
-
-//     const normalizeDetailRows = (response) => {
-//         if (Array.isArray(response)) {
-//             return response;
-//         }
-
-//         if (Array.isArray(response?.items)) {
-//             return response.items;
-//         }
-
-//         if (Array.isArray(response?.data)) {
-//             return response.data;
-//         }
-
-//         if (Array.isArray(response?.results)) {
-//             return response.results;
-//         }
-
-//         return [];
-//     };
-
-//     /* =====================================================
-//        EXPAND CATEGORY
-//     ===================================================== */
-
-//     const handleToggleCategory = async (category, row) => {
-//         if (!category) {
-//             return;
-//         }
-
-//         const isExpanded =
-//             expandedCategories[category];
-
-//         if (isExpanded) {
-//             setExpandedCategories((previous) => ({
-//                 ...previous,
-//                 [category]: false,
-//             }));
-
-//             return;
-//         }
-
-//         if (
-//             Array.isArray(detailData[category]) &&
-//             detailData[category].length > 0
-//         ) {
-//             setExpandedCategories((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-
-//             return;
-//         }
-
-//         if (!onExpandCategory) {
-//             const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-//             setDetailData((previous) => ({
-//                 ...previous,
-//                 [category]: fallbackRows,
-//             }));
-//             setExpandedCategories((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-
-//             return;
-//         }
-
-//         try {
-//             setDetailLoading((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-
-//             const response =
-//                 await onExpandCategory(category, row);
-
-//             let detailRows =
-//                 normalizeDetailRows(response);
-
-//             if ((!detailRows || detailRows.length === 0) && row) {
-//                 detailRows = deriveCategoryNaturalAccounts(row, category);
-//             }
-
-//             setDetailData((previous) => ({
-//                 ...previous,
-//                 [category]: detailRows,
-//             }));
-
-//             setExpandedCategories((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-//         } catch (error) {
-//             console.error(
-//                 `Failed to load natural account details for ${category}:`,
-//                 error
-//             );
-
-//             const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-
-//             setDetailData((previous) => ({
-//                 ...previous,
-//                 [category]: fallbackRows,
-//             }));
-
-//             setExpandedCategories((previous) => ({
-//                 ...previous,
-//                 [category]: true,
-//             }));
-//         } finally {
-//             setDetailLoading((previous) => ({
-//                 ...previous,
-//                 [category]: false,
-//             }));
-//         }
-//     };
-
-//     /* =====================================================
-//        RESET DETAILS WHEN MODAL CLOSES
-//     ===================================================== */
-
-//     const handleClose = () => {
-//         setExpandedCategories({});
-//         setDetailData({});
-//         setDetailLoading({});
-//         onClose?.();
-//     };
-
-//     /* =====================================================
-//        COMMON EXPORT HANDLER
-//     ===================================================== */
-
-//     const handleExport = async (type) => {
-//         if (!rows.length) {
-//             return;
-//         }
-
-//         /* =====================================================
-//            EXCEL
-//            Keep the existing frontend CSV export unchanged.
-//         ===================================================== */
-//         if (type === "excel") {
-//             const exportRows = [];
-
-//             rows.forEach((row) => {
-//                 const category = getValue(row, [
-//                     "category",
-//                     "name",
-//                 ]);
-
-//                 exportRows.push({
-//                     "Expense Category": category || "—",
-//                     [`Actual PTD (${currency})`]:
-//                         getValue(row, [
-//                             "actual_ptd_aed",
-//                             "actual_ptd",
-//                         ]) ?? "",
-//                     [`Target PTD (${currency})`]:
-//                         getValue(row, [
-//                             "target_ptd_aed",
-//                             "target_ptd",
-//                         ]) ?? "",
-//                     [`Variance PTD (${currency})`]:
-//                         getValue(row, [
-//                             "variance_ptd_aed",
-//                             "variance_ptd",
-//                         ]) ?? "",
-//                     "Variance PTD %":
-//                         getValue(row, [
-//                             "variance_ptd_pct",
-//                         ]) ?? "",
-//                     [`Actual YTD (${currency})`]:
-//                         getValue(row, [
-//                             "actual_ytd_aed",
-//                             "actual_ytd",
-//                         ]) ?? "",
-//                     [`Target YTD (${currency})`]:
-//                         getValue(row, [
-//                             "target_ytd_aed",
-//                             "target_ytd",
-//                         ]) ?? "",
-//                     [`Variance YTD (${currency})`]:
-//                         getValue(row, [
-//                             "variance_ytd_aed",
-//                             "variance_ytd",
-//                         ]) ?? "",
-//                     "Variance YTD %":
-//                         getValue(row, [
-//                             "variance_ytd_pct",
-//                         ]) ?? "",
-//                 });
-
-//                 const accounts =
-//                     detailData[category] || [];
-
-//                 accounts.forEach((account) => {
-//                     exportRows.push({
-//                         "Expense Category":
-//                             `${category || "—"} - Natural Account`,
-//                         "Natural Account":
-//                             account.account_code || "—",
-//                         "Account Name":
-//                             account.account_name || "—",
-//                         [`Actual PTD (${currency})`]:
-//                             getValue(account, [
-//                                 "actual_ptd_aed",
-//                                 "actual_ptd",
-//                             ]) ?? "",
-//                         [`Actual YTD (${currency})`]:
-//                             getValue(account, [
-//                                 "actual_ytd_aed",
-//                                 "actual_ytd",
-//                             ]) ?? "",
-//                     });
-//                 });
-//             });
-
-//             const headers = Object.keys(
-//                 exportRows[0] || {}
-//             );
-
-//             const csvRows = [
-//                 headers.join(","),
-//                 ...exportRows.map((row) =>
-//                     headers
-//                         .map((header) => {
-//                             const value =
-//                                 row[header] ?? "";
-
-//                             return `"${String(value).replace(
-//                                 /"/g,
-//                                 '""'
-//                             )}"`;
-//                         })
-//                         .join(",")
-//                 ),
-//             ];
-
-//             const blob = new Blob(
-//                 [csvRows.join("\n")],
-//                 {
-//                     type: "text/csv;charset=utf-8;",
-//                 }
-//             );
-
-//             const url =
-//                 URL.createObjectURL(blob);
-
-//             const link =
-//                 document.createElement("a");
-
-//             link.href = url;
-//             link.download =
-//                 "expense-category-drill-down.csv";
-
-//             document.body.appendChild(link);
-//             link.click();
-//             document.body.removeChild(link);
-
-//             URL.revokeObjectURL(url);
-//             return;
-//         }
-
-//         /* =====================================================
-//            PDF
-//            IMPORTANT:
-//            Use the backend category-breakdown PDF API directly.
-//            Do NOT open a print window and do NOT call window.print().
-
-//            The filters below are the same filters currently selected
-//            in this View All modal, including Parent Division.
-//         ===================================================== */
-//         if (type === "pdf") {
-//             const apiFilters = {
-//                 year:
-//                     viewAllFilters.year?.length
-//                         ? viewAllFilters.year
-//                         : undefined,
-
-//                 legal_entity_id:
-//                     viewAllFilters.legal_entity?.length
-//                         ? viewAllFilters.legal_entity
-//                         : undefined,
-
-//                 parent_division_id:
-//                     viewAllFilters.parent_division?.length
-//                         ? viewAllFilters.parent_division
-//                         : undefined,
-
-//                 subdivision_id:
-//                     viewAllFilters.subdivision?.length
-//                         ? viewAllFilters.subdivision
-//                         : undefined,
-
-//                 period_name:
-//                     viewAllFilters.period?.length
-//                         ? viewAllFilters.period
-//                         : undefined,
-
-//                 reporting_currency:
-//                     currency ||
-//                     reportingCurrency ||
-//                     "AED",
-//             };
-
-//             try {
-//                 const response =
-//                     await exportOpexCategoryBreakdown(
-//                         apiFilters,
-//                         "pdf"
-//                     );
-
-//                 if (!response) {
-//                     return;
-//                 }
-
-//                 const blob =
-//                     response?.data instanceof Blob
-//                         ? response.data
-//                         : response instanceof Blob
-//                             ? response
-//                             : new Blob(
-//                                 [response?.data ?? response],
-//                                 {
-//                                     type: "application/pdf",
-//                                 }
-//                             );
-
-//                 const contentDisposition =
-//                     response?.headers?.["content-disposition"] ||
-//                     response?.headers?.["Content-Disposition"] ||
-//                     "";
-
-//                 const fileNameMatch =
-//                     contentDisposition.match(
-//                         /filename\*?=(?:UTF-8''|\")?([^;\"]+)/i
-//                     );
-
-//                 const fileName =
-//                     fileNameMatch?.[1]
-//                         ? decodeURIComponent(
-//                             fileNameMatch[1].replace(/\"/g, "").trim()
-//                         )
-//                         : "expense-category-drill-down.pdf";
-
-//                 const url =
-//                     window.URL.createObjectURL(blob);
-
-//                 const link =
-//                     document.createElement("a");
-
-//                 link.href = url;
-//                 link.download = fileName;
-//                 link.style.display = "none";
-
-//                 document.body.appendChild(link);
-//                 link.click();
-//                 document.body.removeChild(link);
-
-//                 window.URL.revokeObjectURL(url);
-//             } catch (error) {
-//                 console.error(
-//                     "Failed to export Expense Category Drill-Down PDF:",
-//                     error
-//                 );
-//             }
-//         }
-//     };
-//     /* =====================================================
-//        DON'T RENDER
-//     ===================================================== */
-
-//     if (!open) {
-//         return null;
-//     }
-
-//     /* =====================================================
-//        SCOPED PAGE EFFECTS / VISUAL POLISH
-//        These styles only affect this modal.
-//     ===================================================== */
-
-//     const modalEffects = `
-//         @keyframes expenseDrillDownFadeIn {
-//             from {
-//                 opacity: 0;
-//                 transform: translateY(10px) scale(0.985);
-//             }
-//             to {
-//                 opacity: 1;
-//                 transform: translateY(0) scale(1);
-//             }
-//         }
-
-//         @keyframes expenseDrillDownCardIn {
-//             from {
-//                 opacity: 0;
-//                 transform: translateY(6px);
-//             }
-//             to {
-//                 opacity: 1;
-//                 transform: translateY(0);
-//             }
-//         }
-
-//         .expense-drilldown-modal {
-//             animation: expenseDrillDownFadeIn 220ms ease-out;
-//         }
-
-//         .expense-drilldown-kpi {
-//             position: relative;
-//             overflow: hidden;
-//             transition:
-//                 transform 180ms ease,
-//                 box-shadow 180ms ease,
-//                 border-color 180ms ease;
-//             animation: expenseDrillDownCardIn 280ms ease-out both;
-//         }
-
-//         .expense-drilldown-kpi:nth-child(2) {
-//             animation-delay: 40ms;
-//         }
-
-//         .expense-drilldown-kpi:nth-child(3) {
-//             animation-delay: 80ms;
-//         }
-
-//         .expense-drilldown-kpi:nth-child(4) {
-//             animation-delay: 120ms;
-//         }
-
-//         .expense-drilldown-kpi:hover {
-//             transform: translateY(-6px) scale(1.02);
-//             box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-//             border-color: var(--kpi-accent) !important;
-//         }
-
-//         .expense-drilldown-kpi:hover::before {
-//             width: 6px;
-//         }
-
-//         .expense-drilldown-kpi::before {
-//             transition: width 180ms ease;
-//         }
-
-//         .expense-drilldown-kpi::before {
-//             content: "";
-//             position: absolute;
-//             inset: 0 auto 0 0;
-//             width: 4px;
-//             background: var(--kpi-accent);
-//         }
-
-//         .expense-drilldown-table-wrap {
-//             box-shadow: 0 4px 18px rgba(15, 23, 42, 0.045);
-//             transition: box-shadow 180ms ease;
-//         }
-
-//         .expense-drilldown-table-wrap:hover {
-//             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-//         }
-
-//         .expense-drilldown-category-row,
-//         .expense-drilldown-account-row {
-//             transition: background 160ms ease;
-//         }
-
-//         .expense-drilldown-category-row:hover td {
-//             background: #f8faff !important;
-//         }
-
-//         .expense-drilldown-account-row:hover td {
-//             background: #f1f5f9 !important;
-//         }
-
-//         .expense-drilldown-close {
-//             transition:
-//                 background 160ms ease,
-//                 color 160ms ease,
-//                 transform 160ms ease;
-//         }
-
-//         .expense-drilldown-close:hover {
-//             background: #f1f5f9 !important;
-//             color: #1e293b !important;
-//             transform: rotate(3deg);
-//         }
-
-//         .expense-drilldown-filter-section {
-//             background:
-//                 linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-//         }
-//     `;
-
-//     /* =====================================================
-//        RENDER OPTIONS PREPARATION
-//     ===================================================== */
-
-//     const yearOptions = filterOptions?.years || filterOptions?.fiscal_years || [];
-//     const legalEntityOptions = filterOptions?.legal_entities || [];
-//     const parentDivisionOptions = filterOptions?.parent_divisions || [];
-//     const subdivisionOptions = filterOptions?.subdivisions || [];
-//     const periodOptions = filterOptions?.periods || [];
-
-//     /* =====================================================
-//        RENDER
-//     ===================================================== */
-
-//     return (
-//         <>
-//             <style>{modalEffects}</style>
-
-//             <div
-//                 style={{
-//                     position: "fixed",
-//                     inset: 0,
-//                     zIndex: 1000,
-//                     background: "rgba(15, 23, 42, 0.45)",
-//                     display: "flex",
-//                     alignItems: "center",
-//                     justifyContent: "center",
-//                     padding: "20px",
-//                 }}
-//                 onMouseDown={(event) => {
-//                     if (
-//                         event.target ===
-//                         event.currentTarget
-//                     ) {
-//                         handleClose();
-//                     }
-//                 }}
-//             >
-//                 <div
-//                     className="expense-drilldown-modal"
-//                     style={{
-//                         width: "100%",
-//                         maxWidth: "1400px",
-//                         maxHeight: "92vh",
-//                         background: "#ffffff",
-//                         borderRadius: "10px",
-//                         boxShadow:
-//                             "0 20px 50px rgba(15, 23, 42, 0.20)",
-//                         display: "flex",
-//                         flexDirection: "column",
-//                         overflow: "hidden",
-//                     }}
-//                 >
-//                     {/* =================================================
-//                     HEADER
-//                 ================================================= */}
-
-//                     <div
-//                         style={{
-//                             padding: "20px 22px 16px",
-//                             borderBottom:
-//                                 "1px solid #e5e7eb",
-//                             background:
-//                                 "linear-gradient(135deg, #ffffff 0%, #f8faff 100%)",
-//                             display: "flex",
-//                             alignItems: "flex-start",
-//                             justifyContent: "space-between",
-//                             gap: "16px",
-//                             flexShrink: 0,
-//                         }}
-//                     >
-//                         <div>
-//                             <div
-//                                 style={{
-//                                     fontSize: "18px",
-//                                     fontWeight: 700,
-//                                     color: "#111827",
-//                                     lineHeight: 1.3,
-//                                 }}
-//                             >
-//                                 Expense Category Drill-Down
-//                             </div>
-
-//                             <div
-//                                 style={{
-//                                     marginTop: "4px",
-//                                     fontSize: "12px",
-//                                     color: "#6b7280",
-//                                 }}
-//                             >
-//                                 Detailed PTD and YTD expense
-//                                 category analysis   <span style={{ fontWeight: 900 }}>Amounts in {displayUnit === "AED_MILLIONS" ? "AED Millions" : "AED"}</span>
-//                             </div>
-//                         </div>
-
-//                         {/* =================================================
-//                         CLOSE BUTTON
-//                     ================================================= */}
-
-//                         <button
-//                             type="button"
-//                             onClick={handleClose}
-//                             aria-label="Close"
-//                             style={{
-//                                 width: "32px",
-//                                 height: "32px",
-//                                 border: "none",
-//                                 background: "transparent",
-//                                 borderRadius: "6px",
-//                                 cursor: "pointer",
-//                                 color: "#64748b",
-//                                 fontSize: "24px",
-//                                 lineHeight: "28px",
-//                                 display: "flex",
-//                                 alignItems: "center",
-//                                 justifyContent: "center",
-//                                 flexShrink: 0,
-//                             }}
-//                         >
-//                             ×
-//                         </button>
-//                     </div>
-
-//                     {/* =================================================
-//                     INTERACTIVE MULTI-SELECT FILTERS SECTION (REFERENCE IMAGE COMPATIBLE)
-//                 ================================================= */}
-
-//                     <div
-//                         className="expense-drilldown-filter-section"
-//                         style={{
-//                             padding: "16px 22px",
-//                             borderBottom: "1px solid #f1f5f9",
-//                             display: "flex",
-//                             alignItems: "flex-end",
-//                             flexWrap: "wrap",
-//                             gap: "12px",
-//                             background: "#ffffff",
-//                             flexShrink: 0,
-//                         }}
-//                     >
-//                         {/* Year Filter */}
-//                         <MultiSelectDropdown
-//                             label="Year"
-//                             options={yearOptions}
-//                             selectedValues={viewAllFilters.year}
-//                             onChange={(vals) => handleFilterChange("year", vals)}
-//                         />
-
-//                         {/* Legal Entity Filter */}
-//                         <MultiSelectDropdown
-//                             label="Legal Entity"
-//                             options={legalEntityOptions}
-//                             selectedValues={viewAllFilters.legal_entity}
-//                             onChange={(vals) => handleFilterChange("legal_entity", vals)}
-//                         />
-
-//                         {/* Parent Division Filter */}
-//                         <MultiSelectDropdown
-//                             label="Parent Division"
-//                             options={parentDivisionOptions}
-//                             selectedValues={viewAllFilters.parent_division}
-//                             onChange={(vals) => handleFilterChange("parent_division", vals)}
-//                         />
-
-//                         {/* Sub-Division Filter */}
-//                         <MultiSelectDropdown
-//                             label="Sub-Division"
-//                             options={subdivisionOptions}
-//                             selectedValues={viewAllFilters.subdivision}
-//                             onChange={(vals) => handleFilterChange("subdivision", vals)}
-//                         />
-
-//                         {/* Period Filter */}
-//                         <MultiSelectDropdown
-//                             label="Period"
-//                             options={periodOptions}
-//                             selectedValues={viewAllFilters.period}
-//                             onChange={(vals) => handleFilterChange("period", vals)}
-//                         />
-
-//                         {/* AED / AED MILLIONS DISPLAY TOGGLE */}
-//                         <div
-//                             style={{
-//                                 display: "inline-flex",
-//                                 alignItems: "center",
-//                                 height: "38px",
-//                                 padding: "3px",
-//                                 border: "1px solid #e0e6ed",
-//                                 borderRadius: "10px",
-//                                 background: "#f8fafc",
-//                                 boxSizing: "border-box",
-//                             }}
-//                         >
-//                             <button
-//                                 type="button"
-//                                 onClick={() => setDisplayUnit("AED")}
-//                                 style={{
-//                                     height: "30px",
-//                                     padding: "0 12px",
-//                                     border: "none",
-//                                     borderRadius: "7px",
-//                                     background:
-//                                         displayUnit === "AED"
-//                                             ? "#ffffff"
-//                                             : "transparent",
-//                                     color:
-//                                         displayUnit === "AED"
-//                                             ? "#2b3b75"
-//                                             : "#64748b",
-//                                     fontSize: "12px",
-//                                     fontWeight:
-//                                         displayUnit === "AED" ? 700 : 600,
-//                                     cursor: "pointer",
-//                                     boxShadow:
-//                                         displayUnit === "AED"
-//                                             ? "0 1px 3px rgba(15, 23, 42, 0.10)"
-//                                             : "none",
-//                                     outline: "none",
-//                                 }}
-//                             >
-//                                 AED
-//                             </button>
-
-//                             <button
-//                                 type="button"
-//                                 onClick={() =>
-//                                     setDisplayUnit("AED_MILLIONS")
-//                                 }
-//                                 style={{
-//                                     height: "30px",
-//                                     padding: "0 12px",
-//                                     border: "none",
-//                                     borderRadius: "7px",
-//                                     background:
-//                                         displayUnit === "AED_MILLIONS"
-//                                             ? "#ffffff"
-//                                             : "transparent",
-//                                     color:
-//                                         displayUnit === "AED_MILLIONS"
-//                                             ? "#2b3b75"
-//                                             : "#64748b",
-//                                     fontSize: "12px",
-//                                     fontWeight:
-//                                         displayUnit === "AED_MILLIONS"
-//                                             ? 700
-//                                             : 600,
-//                                     cursor: "pointer",
-//                                     boxShadow:
-//                                         displayUnit === "AED_MILLIONS"
-//                                             ? "0 1px 3px rgba(15, 23, 42, 0.10)"
-//                                             : "none",
-//                                     outline: "none",
-//                                 }}
-//                             >
-//                                 AED Millions
-//                             </button>
-//                         </div>
-
-//                         {/* Apply / Reset & Export Controls */}
-//                         <div
-//                             style={{
-//                                 display: "flex",
-//                                 alignItems: "center",
-//                                 gap: "8px",
-//                                 marginLeft: "auto",
-//                             }}
-//                         >
-//                             <button
-//                                 type="button"
-//                                 onClick={handleApplyFilters}
-//                                 style={{
-//                                     height: "38px",
-//                                     padding: "0 22px",
-//                                     borderRadius: "10px",
-//                                     border: "none",
-//                                     background: "#5c60f5",
-//                                     color: "#ffffff",
-//                                     fontSize: "13px",
-//                                     fontWeight: 700,
-//                                     cursor: "pointer",
-//                                     outline: "none",
-//                                 }}
-//                             >
-//                                 Apply
-//                             </button>
-
-//                             <button
-//                                 type="button"
-//                                 onClick={handleResetFilters}
-//                                 style={{
-//                                     height: "38px",
-//                                     padding: "0 18px",
-//                                     borderRadius: "10px",
-//                                     border: "1px solid #e0e6ed",
-//                                     background: "#ffffff",
-//                                     color: "#2b3b75",
-//                                     fontSize: "13px",
-//                                     fontWeight: 700,
-//                                     cursor: "pointer",
-//                                     outline: "none",
-//                                 }}
-//                             >
-//                                 Reset
-//                             </button>
-
-//                             <ExportButtons
-//                                 endpoint="expense-category-drill-down"
-//                                 exporting={
-//                                     loading || rows.length === 0 ? "disabled" : false
-//                                 }
-//                                 handleExport={handleExport}
-//                             />
-//                         </div>
-//                     </div>
-
-//                     {/* =================================================
-//                     CONTENT
-//                 ================================================= */}
-
-//                     <div
-//                         style={{
-//                             flex: 1,
-//                             minHeight: 0,
-//                             overflow: "auto",
-//                             padding: "18px 22px",
-//                         }}
-//                     >
-//                         {loading ? (
-//                             <div
-//                                 style={{
-//                                     minHeight: "300px",
-//                                     display: "flex",
-//                                     alignItems: "center",
-//                                     justifyContent: "center",
-//                                     color: "#64748b",
-//                                     fontSize: "13px",
-//                                 }}
-//                             >
-//                                 Loading expense category
-//                                 details...
-//                             </div>
-//                         ) : rows.length === 0 ? (
-//                             <div
-//                                 style={{
-//                                     minHeight: "300px",
-//                                     display: "flex",
-//                                     flexDirection: "column",
-//                                     alignItems: "center",
-//                                     justifyContent: "center",
-//                                     color: "#64748b",
-//                                     fontSize: "13px",
-//                                     textAlign: "center",
-//                                 }}
-//                             >
-//                                 <div
-//                                     style={{
-//                                         fontSize: "15px",
-//                                         fontWeight: 600,
-//                                         color: "#334155",
-//                                         marginBottom: "5px",
-//                                     }}
-//                                 >
-//                                     No expense category data
-//                                 </div>
-
-//                                 <div>
-//                                     No records are available
-//                                     for the selected filters.
-//                                 </div>
-//                             </div>
-//                         ) : (
-//                             <>
-//                                 {/* =================================================
-//                                 SUMMARY CARDS
-//                             ================================================= */}
-
-//                                 <div
-//                                     style={{
-//                                         display: "grid",
-//                                         gridTemplateColumns:
-//                                             "repeat(4, minmax(0, 1fr))",
-//                                         gap: "10px",
-//                                         marginBottom: "16px",
-//                                     }}
-//                                 >
-//                                     {[
-//                                         {
-//                                             label: "PTD Actual",
-//                                             value: `${currency} ${formatDisplayNumber(
-//                                                 totals.actualPTD
-//                                             )}`,
-//                                             accent: "#4f46e5",
-//                                             soft: "#eef2ff",
-//                                         },
-//                                         {
-//                                             label: "PTD Target",
-//                                             value: hasValue(
-//                                                 totals.targetPTD
-//                                             )
-//                                                 ? `${currency} ${formatNumber(
-//                                                     totals.targetPTD
-//                                                 )}`
-//                                                 : "—",
-//                                             accent: "#0891b2",
-//                                             soft: "#ecfeff",
-//                                         },
-//                                         {
-//                                             label: "YTD Actual",
-//                                             value: `${currency} ${formatDisplayNumber(
-//                                                 totals.actualYTD
-//                                             )}`,
-//                                             accent: "#059669",
-//                                             soft: "#ecfdf5",
-//                                         },
-//                                         {
-//                                             label: "YTD Target",
-//                                             value: hasValue(
-//                                                 totals.targetYTD
-//                                             )
-//                                                 ? `${currency} ${formatNumber(
-//                                                     totals.targetYTD
-//                                                 )}`
-//                                                 : "—",
-//                                             accent: "#d97706",
-//                                             soft: "#fffbeb",
-//                                         },
-//                                     ].map(
-//                                         (
-//                                             card
-//                                         ) => (
-//                                             <div
-//                                                 key={
-//                                                     card.label
-//                                                 }
-//                                                 className="expense-drilldown-kpi"
-//                                                 style={{
-//                                                     "--kpi-accent":
-//                                                         card.accent,
-//                                                     border:
-//                                                         `1px solid ${card.accent}33`,
-//                                                     borderRadius:
-//                                                         "12px",
-//                                                     padding:
-//                                                         "14px 16px",
-//                                                     background:
-//                                                         `linear-gradient(135deg, #ffffff 0%, ${card.soft} 100%)`,
-//                                                     boxShadow:
-//                                                         "0 2px 8px rgba(15, 23, 42, 0.04)",
-//                                                 }}
-//                                             >
-//                                                 <div
-//                                                     style={{
-//                                                         display:
-//                                                             "flex",
-//                                                         alignItems:
-//                                                             "center",
-//                                                         gap:
-//                                                             "8px",
-//                                                         fontSize:
-//                                                             "10px",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             card.accent,
-//                                                         textTransform:
-//                                                             "uppercase",
-//                                                         letterSpacing:
-//                                                             "0.05em",
-//                                                     }}
-//                                                 >
-//                                                     <span
-//                                                         style={{
-//                                                             width:
-//                                                                 "7px",
-//                                                             height:
-//                                                                 "7px",
-//                                                             borderRadius:
-//                                                                 "50%",
-//                                                             background:
-//                                                                 card.accent,
-//                                                             boxShadow:
-//                                                                 `0 0 0 4px ${card.accent}18`,
-//                                                             flexShrink:
-//                                                                 0,
-//                                                         }}
-//                                                     />
-//                                                     {card.label}
-//                                                 </div>
-
-//                                                 <div
-//                                                     style={{
-//                                                         marginTop:
-//                                                             "8px",
-//                                                         fontSize:
-//                                                             "18px",
-//                                                         fontWeight:
-//                                                             800,
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         letterSpacing:
-//                                                             "-0.01em",
-//                                                     }}
-//                                                 >
-//                                                     {
-//                                                         card.value
-//                                                     }
-//                                                 </div>
-//                                             </div>
-//                                         )
-//                                     )}
-//                                 </div>
-
-//                                 {/* =================================================
-//                                 TABLE
-//                             ================================================= */}
-
-//                                 <div
-//                                     className="expense-drilldown-table-wrap"
-//                                     style={{
-//                                         width: "100%",
-//                                         overflowX: "auto",
-//                                         overflowY: "visible",
-//                                         border:
-//                                             "1px solid #e5e7eb",
-//                                         borderRadius: "8px",
-//                                     }}
-//                                 >
-//                                     <table
-//                                         style={{
-//                                             width: "100%",
-//                                             minWidth:
-//                                                 "1250px",
-//                                             borderCollapse:
-//                                                 "separate",
-//                                             borderSpacing:
-//                                                 0,
-//                                             fontSize:
-//                                                 "14px",
-//                                         }}
-//                                     >
-//                                         <thead>
-//                                             <tr>
-//                                                 <th
-//                                                     rowSpan={
-//                                                         2
-//                                                     }
-//                                                     style={{
-//                                                         position:
-//                                                             "sticky",
-//                                                         left: 0,
-//                                                         zIndex: 4,
-//                                                         minWidth:
-//                                                             "300px",
-//                                                         padding:
-//                                                             "10px 12px",
-//                                                         textAlign:
-//                                                             "left",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderBottom:
-//                                                             "1px solid #e5e7eb",
-//                                                         borderRight:
-//                                                             "1px solid #e5e7eb",
-//                                                         color:
-//                                                             "#475569",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         whiteSpace:
-//                                                             "nowrap",
-//                                                     }}
-//                                                 >
-//                                                     Expense Category
-//                                                 </th>
-
-//                                                 <th
-//                                                     colSpan={
-//                                                         4
-//                                                     }
-//                                                     style={{
-//                                                         padding:
-//                                                             "9px 12px",
-//                                                         textAlign:
-//                                                             "center",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderBottom:
-//                                                             "1px solid #e5e7eb",
-//                                                         borderRight:
-//                                                             "1px solid #e5e7eb",
-//                                                         color:
-//                                                             "#334155",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     PTD
-//                                                 </th>
-
-//                                                 <th
-//                                                     colSpan={
-//                                                         4
-//                                                     }
-//                                                     style={{
-//                                                         padding:
-//                                                             "9px 12px",
-//                                                         textAlign:
-//                                                             "center",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderBottom:
-//                                                             "1px solid #e5e7eb",
-//                                                         color:
-//                                                             "#334155",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     YTD
-//                                                 </th>
-//                                             </tr>
-
-//                                             <tr>
-//                                                 {[
-//                                                     "Actual",
-
-//                                                     "Target",
-
-//                                                     "Variance",
-
-//                                                     "Variance %",
-
-//                                                     "Actual",
-
-//                                                     "Target",
-
-//                                                     "Variance",
-
-//                                                     "Variance %",
-//                                                 ].map((heading, index) => (
-//                                                     <th
-//                                                         key={`${heading}-${index}`}
-//                                                         style={{
-//                                                             padding: "9px 12px",
-//                                                             textAlign: "right",
-//                                                             background: "#f8fafc",
-//                                                             borderBottom: "1px solid #e5e7eb",
-//                                                             borderRight:
-//                                                                 index === 3
-//                                                                     ? "1px solid #e5e7eb"
-//                                                                     : "none",
-//                                                             color: "#64748b",
-//                                                             fontWeight: 700,
-//                                                             fontSize: "13px",
-//                                                             whiteSpace: "nowrap",
-//                                                         }}
-//                                                     >
-//                                                         {heading}
-//                                                     </th>
-//                                                 ))}
-//                                             </tr>
-//                                         </thead>
-
-//                                         <tbody>
-//                                             {rows.map(
-//                                                 (
-//                                                     row,
-//                                                     index
-//                                                 ) => {
-//                                                     const category =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "category",
-//                                                                 "name",
-//                                                             ]
-//                                                         );
-
-//                                                     const actualPTD =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "actual_ptd_aed",
-//                                                                 "actual_ptd",
-//                                                             ]
-//                                                         );
-
-//                                                     const targetPTD =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "target_ptd_aed",
-//                                                                 "target_ptd",
-//                                                             ]
-//                                                         );
-
-//                                                     const variancePTD =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "variance_ptd_aed",
-//                                                                 "variance_ptd",
-//                                                             ]
-//                                                         );
-
-//                                                     const variancePTDPercent =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "variance_ptd_pct",
-//                                                             ]
-//                                                         );
-
-//                                                     const actualYTD =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "actual_ytd_aed",
-//                                                                 "actual_ytd",
-//                                                             ]
-//                                                         );
-
-//                                                     const targetYTD =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "target_ytd_aed",
-//                                                                 "target_ytd",
-//                                                             ]
-//                                                         );
-
-//                                                     const varianceYTD =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "variance_ytd_aed",
-//                                                                 "variance_ytd",
-//                                                             ]
-//                                                         );
-
-//                                                     const varianceYTDPercent =
-//                                                         getValue(
-//                                                             row,
-//                                                             [
-//                                                                 "variance_ytd_pct",
-//                                                             ]
-//                                                         );
-
-//                                                     const isExpanded =
-//                                                         !!expandedCategories[
-//                                                         category
-//                                                         ];
-
-//                                                     const categoryLoading =
-//                                                         !!detailLoading[
-//                                                         category
-//                                                         ];
-
-//                                                     const accounts =
-//                                                         (Array.isArray(detailData[category]) && detailData[category].length > 0)
-//                                                             ? detailData[category]
-//                                                             : (row ? deriveCategoryNaturalAccounts(row, category) : []);
-
-//                                                     return (
-//                                                         <React.Fragment
-//                                                             key={`${category}-${index}`}
-//                                                         >
-//                                                             {/* =================================================
-//                                                             CATEGORY ROW
-//                                                         ================================================= */}
-
-//                                                             <tr className="expense-drilldown-category-row">
-//                                                                 <td
-//                                                                     style={{
-//                                                                         position:
-//                                                                             "sticky",
-//                                                                         left: 0,
-//                                                                         zIndex: 2,
-//                                                                         minWidth:
-//                                                                             "300px",
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         background:
-//                                                                             "#ffffff",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         borderRight:
-//                                                                             "1px solid #e5e7eb",
-//                                                                         color:
-//                                                                             "#1e293b",
-//                                                                         fontWeight:
-//                                                                             600,
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <button
-//                                                                         type="button"
-//                                                                         onClick={() =>
-//                                                                             handleToggleCategory(
-//                                                                                 category,
-//                                                                                 row
-//                                                                             )
-//                                                                         }
-//                                                                         style={{
-//                                                                             width:
-//                                                                                 "24px",
-//                                                                             height:
-//                                                                                 "24px",
-//                                                                             marginRight:
-//                                                                                 "7px",
-//                                                                             border:
-//                                                                                 "none",
-//                                                                             background:
-//                                                                                 "transparent",
-//                                                                             cursor:
-//                                                                                 "pointer",
-//                                                                             color:
-//                                                                                 "#64748b",
-//                                                                             fontSize:
-//                                                                                 "12px",
-//                                                                             padding:
-//                                                                                 0,
-//                                                                             verticalAlign:
-//                                                                                 "middle",
-//                                                                         }}
-//                                                                         aria-label={
-//                                                                             isExpanded
-//                                                                                 ? `Collapse ${category}`
-//                                                                                 : `Expand ${category}`
-//                                                                         }
-//                                                                     >
-//                                                                         {isExpanded
-//                                                                             ? "▼"
-//                                                                             : "▶"}
-//                                                                     </button>
-
-//                                                                     {String(category || "—").toUpperCase()}
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(actualPTD) }}>{formatDisplayNumber(actualPTD)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(targetPTD) }}>{formatDisplayNumber(targetPTD)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         borderRight:
-//                                                                             "1px solid #e5e7eb",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(variancePTDPercent) }}>{formatPercentage(variancePTDPercent)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(actualYTD) }}>{formatDisplayNumber(actualYTD)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(targetYTD) }}>{formatDisplayNumber(targetYTD)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
-//                                                                 </td>
-
-//                                                                 <td
-//                                                                     style={{
-//                                                                         padding:
-//                                                                             "10px 12px",
-//                                                                         textAlign:
-//                                                                             "right",
-//                                                                         borderBottom:
-//                                                                             "1px solid #f1f5f9",
-//                                                                         color:
-//                                                                             "#334155",
-//                                                                         whiteSpace:
-//                                                                             "nowrap",
-//                                                                     }}
-//                                                                 >
-//                                                                     <span style={{ color: getNumberColor(varianceYTDPercent) }}>{formatPercentage(varianceYTDPercent)}</span>
-//                                                                 </td>
-//                                                             </tr>
-
-//                                                             {/* =================================================
-//                                                             NATURAL ACCOUNT LOADING ROW
-//                                                         ================================================= */}
-
-//                                                             {isExpanded &&
-//                                                                 categoryLoading && (
-//                                                                     <tr>
-//                                                                         <td
-//                                                                             colSpan={
-//                                                                                 9
-//                                                                             }
-//                                                                             style={{
-//                                                                                 padding:
-//                                                                                     "14px 20px",
-//                                                                                 background:
-//                                                                                     "#f8fafc",
-//                                                                                 borderBottom:
-//                                                                                     "1px solid #e5e7eb",
-//                                                                                 color:
-//                                                                                     "#64748b",
-//                                                                                 fontSize:
-//                                                                                     "12px",
-//                                                                             }}
-//                                                                         >
-//                                                                             Loading natural account details...
-//                                                                         </td>
-//                                                                     </tr>
-//                                                                 )}
-
-//                                                             {/* =================================================
-
-//                                                             {/* =================================================
-//                                                             EXPANDED NATURAL ACCOUNT TABLE HEADER
-//                                                             Shown only when a category is expanded.
-//                                                         ================================================= */}
-
-//                                                             {isExpanded &&
-//                                                                 !categoryLoading &&
-//                                                                 accounts.length >
-//                                                                 0 && (
-//                                                                     <tr className="expense-drilldown-account-header-row">
-//                                                                         <th
-//                                                                             style={{
-//                                                                                 position: "sticky",
-//                                                                                 left: 0,
-//                                                                                 zIndex: 2,
-//                                                                                 minWidth: "300px",
-//                                                                                 padding: "9px 12px 9px 45px",
-//                                                                                 textAlign: "left",
-//                                                                                 background: "#f1f5f9",
-//                                                                                 borderBottom: "1px solid #e2e8f0",
-//                                                                                 borderRight: "1px solid #e5e7eb",
-//                                                                                 color: "#475569",
-//                                                                                 fontWeight: 700,
-//                                                                                 fontSize: "12px",
-//                                                                                 whiteSpace: "nowrap",
-//                                                                             }}
-//                                                                         >
-//                                                                             NATURAL ACCOUNT
-//                                                                         </th>
-
-//                                                                         {[
-//                                                                             "Actual",
-//                                                                             "Target",
-//                                                                             "Variance",
-//                                                                             "Variance %",
-//                                                                             "Actual",
-//                                                                             "Target",
-//                                                                             "Variance",
-//                                                                             "Variance %",
-//                                                                         ].map((heading, headerIndex) => (
-//                                                                             <th
-//                                                                                 key={`expanded-${heading}-${headerIndex}`}
-//                                                                                 style={{
-//                                                                                     padding: "9px 12px",
-//                                                                                     textAlign: "right",
-//                                                                                     background: "#f1f5f9",
-//                                                                                     borderBottom: "1px solid #e2e8f0",
-//                                                                                     borderRight:
-//                                                                                         headerIndex === 3
-//                                                                                             ? "1px solid #e5e7eb"
-//                                                                                             : "none",
-//                                                                                     color: "#64748b",
-//                                                                                     fontWeight: 700,
-//                                                                                     fontSize: "12px",
-//                                                                                     whiteSpace: "nowrap",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 {heading.toUpperCase()}
-//                                                                             </th>
-//                                                                         ))}
-//                                                                     </tr>
-//                                                                 )}
-
-
-//                                                             {isExpanded &&
-//                                                                 !categoryLoading &&
-//                                                                 accounts.length >
-//                                                                 0 &&
-//                                                                 accounts.map(
-//                                                                     (
-//                                                                         account,
-//                                                                         accountIndex
-//                                                                     ) => (
-//                                                                         <tr
-//                                                                             className="expense-drilldown-account-row"
-//                                                                             key={`${category}-${account.account_code}-${accountIndex}`}
-//                                                                         >
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     position:
-//                                                                                         "sticky",
-//                                                                                     left: 0,
-//                                                                                     zIndex: 1,
-//                                                                                     minWidth:
-//                                                                                         "300px",
-//                                                                                     padding:
-//                                                                                         "9px 12px 9px 45px",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     borderRight:
-//                                                                                         "1px solid #e5e7eb",
-//                                                                                     color:
-//                                                                                         "#475569",
-//                                                                                     fontWeight:
-//                                                                                         500,
-//                                                                                 }}
-//                                                                             >
-//                                                                                 <div
-//                                                                                     style={{
-//                                                                                         fontSize:
-//                                                                                             "12px",
-//                                                                                         color:
-//                                                                                             "#64748b",
-//                                                                                         fontWeight:
-//                                                                                             600,
-//                                                                                     }}
-//                                                                                 >
-//                                                                                     {account.account_code ||
-//                                                                                         "—"}
-//                                                                                 </div>
-
-//                                                                                 <div
-//                                                                                     style={{
-//                                                                                         marginTop:
-//                                                                                             "2px",
-//                                                                                         fontSize:
-//                                                                                             "12px",
-//                                                                                         color:
-//                                                                                             "#334155",
-//                                                                                         fontWeight:
-//                                                                                             500,
-//                                                                                         whiteSpace:
-//                                                                                             "normal",
-//                                                                                         lineHeight:
-//                                                                                             1.4,
-//                                                                                     }}
-//                                                                                 >
-//                                                                                     {getNaturalAccountName(account)}
-//                                                                                 </div>
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     color:
-//                                                                                         "#475569",
-//                                                                                     whiteSpace:
-//                                                                                         "nowrap",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 <span
-//                                                                                     style={{
-//                                                                                         color: getNumberColor(
-//                                                                                             getValue(account, [
-//                                                                                                 "actual_ptd_aed",
-//                                                                                                 "actual_ptd",
-//                                                                                             ]),
-//                                                                                             "#475569"
-//                                                                                         ),
-//                                                                                     }}
-//                                                                                 >
-//                                                                                     {formatNumber(
-//                                                                                         getValue(account, [
-//                                                                                             "actual_ptd_aed",
-//                                                                                             "actual_ptd",
-//                                                                                         ])
-//                                                                                     )}
-//                                                                                 </span>
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     color:
-//                                                                                         "#94a3b8",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 —
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     color:
-//                                                                                         "#94a3b8",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 —
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     borderRight:
-//                                                                                         "1px solid #e5e7eb",
-//                                                                                     color:
-//                                                                                         "#94a3b8",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 —
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     color:
-//                                                                                         "#475569",
-//                                                                                     whiteSpace:
-//                                                                                         "nowrap",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 <span
-//                                                                                     style={{
-//                                                                                         color: getNumberColor(
-//                                                                                             getValue(account, [
-//                                                                                                 "actual_ytd_aed",
-//                                                                                                 "actual_ytd",
-//                                                                                             ]),
-//                                                                                             "#475569"
-//                                                                                         ),
-//                                                                                     }}
-//                                                                                 >
-//                                                                                     {formatNumber(
-//                                                                                         getValue(account, [
-//                                                                                             "actual_ytd_aed",
-//                                                                                             "actual_ytd",
-//                                                                                         ])
-//                                                                                     )}
-//                                                                                 </span>
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     color:
-//                                                                                         "#94a3b8",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 —
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #eef2f7",
-//                                                                                     color:
-//                                                                                         "#94a3b8",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 —
-//                                                                             </td>
-
-//                                                                             <td
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "9px 12px",
-//                                                                                     textAlign:
-//                                                                                         "right",
-//                                                                                     background:
-//                                                                                         "#f8fafc",
-//                                                                                     borderBottom:
-//                                                                                         "1px solid #e5e7eb",
-//                                                                                     color:
-//                                                                                         "#94a3b8",
-//                                                                                 }}
-//                                                                             >
-//                                                                                 —
-//                                                                             </td>
-//                                                                         </tr>
-//                                                                     )
-//                                                                 )}
-
-//                                                             {/* =================================================
-//                                                             NO ACCOUNT DATA
-//                                                         ================================================= */}
-
-//                                                             {isExpanded &&
-//                                                                 !categoryLoading &&
-//                                                                 accounts.length ===
-//                                                                 0 && (
-//                                                                     <tr>
-//                                                                         <td
-//                                                                             colSpan={
-//                                                                                 9
-//                                                                             }
-//                                                                             style={{
-//                                                                                 padding:
-//                                                                                     "12px 20px 12px 45px",
-//                                                                                 background:
-//                                                                                     "#f8fafc",
-//                                                                                 borderBottom:
-//                                                                                     "1px solid #e5e7eb",
-//                                                                                 color:
-//                                                                                     "#64748b",
-//                                                                                 fontSize:
-//                                                                                     "11px",
-//                                                                             }}
-//                                                                         >
-//                                                                             No natural account details available for{" "}
-//                                                                             <strong>
-//                                                                                 {String(category || "—").toUpperCase()}
-//                                                                             </strong>
-//                                                                             .
-//                                                                         </td>
-//                                                                     </tr>
-//                                                                 )}
-//                                                         </React.Fragment>
-//                                                     );
-//                                                 }
-//                                             )}
-
-//                                             {/* =================================================
-//                                             TOTAL ROW
-//                                         ================================================= */}
-
-//                                             <tr>
-//                                                 <td
-//                                                     style={{
-//                                                         position:
-//                                                             "sticky",
-//                                                         left: 0,
-//                                                         zIndex: 3,
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         borderRight:
-//                                                             "1px solid #e5e7eb",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         whiteSpace:
-//                                                             "nowrap",
-//                                                     }}
-//                                                 >
-//                                                     Total
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.actualPTD, "#0f172a") }}>{formatNumber(totals.actualPTD)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.targetPTD, "#0f172a") }}>{formatNumber(totals.targetPTD)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatNumber(totals.variancePTD)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         borderRight:
-//                                                             "1px solid #e5e7eb",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totalVariancePTDPercent, "#0f172a") }}>{formatPercentage(totalVariancePTDPercent)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.actualYTD, "#0f172a") }}>{formatNumber(totals.actualYTD)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.targetYTD, "#0f172a") }}>{formatNumber(totals.targetYTD)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatNumber(totals.varianceYTD)}</span>
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         background:
-//                                                             "#f8fafc",
-//                                                         borderTop:
-//                                                             "1px solid #cbd5e1",
-//                                                         color:
-//                                                             "#0f172a",
-//                                                         fontWeight:
-//                                                             700,
-//                                                     }}
-//                                                 >
-//                                                     <span style={{ color: getNumberColor(totalVarianceYTDPercent, "#0f172a") }}>{formatPercentage(totalVarianceYTDPercent)}</span>
-//                                                 </td>
-//                                             </tr>
-//                                         </tbody>
-//                                     </table>
-//                                 </div>
-//                             </>
-//                         )}
-//                     </div>
-
-//                     {/* =================================================
-//                     FOOTER
-//                 ================================================= */}
-
-//                     <div
-//                         style={{
-//                             padding: "12px 22px",
-//                             borderTop:
-//                                 "1px solid #e5e7eb",
-//                             display: "flex",
-//                             alignItems: "center",
-//                             justifyContent: "flex-end",
-//                             background: "#ffffff",
-//                             flexShrink: 0,
-//                         }}
-//                     >
-//                         <button
-//                             type="button"
-//                             onClick={handleClose}
-//                             style={{
-//                                 padding: "8px 18px",
-//                                 borderRadius: "6px",
-//                                 border:
-//                                     "1px solid #d1d5db",
-//                                 background: "#ffffff",
-//                                 color: "#374151",
-//                                 fontSize: "12px",
-//                                 fontWeight: 600,
-//                                 cursor: "pointer",
-//                             }}
-//                         >
-//                             Close
-//                         </button>
-//                     </div>
-//                 </div>
-//             </div>
-//         </>
-//     );
-// }
-
-
-
-
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
-import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
-import { exportOpexCategoryBreakdown } from "../../api/opexApi";
+import { exportOpexCategoryBreakdown, getOpexFilterOptions } from "../../api/opexApi";
 
 /* =========================================================
    FORMAT NUMBER
@@ -6111,7 +50,10 @@ const formatPercentage = (value) => {
         return "—";
     }
 
-    return `${Math.round(number)}%`;
+    return `${number.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    })}%`;
 };
 
 /* =========================================================
@@ -6145,15 +87,29 @@ const hasValue = (value) => {
 };
 
 /* =========================================================
-   TABLE NUMBER COLOR
-   Negative values are displayed in red.
+   TABLE NUMBER COLORS
+   Actual/target negatives remain red. Expense variances use
+   favourable/unfavourable semantics: negative = green,
+   positive = red, zero or unavailable = default color.
 ========================================================= */
 
 const getNumberColor = (value, defaultColor = "#334155") => {
+    if (value === null || value === undefined || value === "") {
+        return defaultColor;
+    }
     const number = Number(value);
     return Number.isFinite(number) && number < 0
         ? "#dc2626"
         : defaultColor;
+};
+
+const getVarianceColor = (value, defaultColor = "#334155") => {
+    if (value === null || value === undefined || value === "") {
+        return defaultColor;
+    }
+    const number = Number(value);
+    if (!Number.isFinite(number) || number === 0) return defaultColor;
+    return number < 0 ? "#16a34a" : "#dc2626";
 };
 
 /* =========================================================
@@ -6638,6 +594,131 @@ const MultiSelectDropdown = ({
     );
 };
 
+
+/* =========================================================
+   CATEGORY DETAIL API
+   PTD/YTD account expansion uses /api/opex/category-detail.
+   Monthly account expansion remains a separate concern and
+   must use /api/opex/category-detail-monthly only.
+========================================================= */
+const getOpexApiBase = () =>
+    String(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
+const appendFilterValues = (params, key, values) => {
+    const list = normalizeMultiValue(values).filter(
+        (value) => value !== "" && value !== "All"
+    );
+    list.forEach((value) => params.append(key, value));
+};
+
+const fetchCategoryDetail = async (category, filters, currency) => {
+    const params = new URLSearchParams();
+    params.set("category", String(category ?? ""));
+    params.set("reporting_currency", String(currency || "AED"));
+
+    const year = filters?.year;
+    const period = filters?.period;
+    appendFilterValues(params, "year", year);
+    appendFilterValues(params, "period_name", period);
+    appendFilterValues(params, "legal_group_id", filters?.legal_group);
+    appendFilterValues(params, "legal_entity_id", filters?.legal_entity);
+    appendFilterValues(params, "parent_division_id", filters?.parent_division);
+    appendFilterValues(params, "subdivision_id", filters?.subdivision);
+
+    const token =
+        (typeof window !== "undefined" &&
+            (window.localStorage?.getItem("finsight_token") ||
+                window.localStorage?.getItem("token"))) ||
+        "";
+
+    const base = getOpexApiBase();
+    const url = `${base}/api/opex/category-detail?${params.toString()}`;
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+    });
+
+    if (!response.ok) {
+        const message = await response.text().catch(() => "");
+        throw new Error(
+            `category-detail request failed (${response.status})${message ? `: ${message}` : ""}`
+        );
+    }
+
+    return response.json();
+};
+
+const normalizeAccountDetailRow = (row) => {
+    if (!row || typeof row !== "object") return row;
+    // Spread first so all backend target/variance and future fields survive.
+    return {
+        ...row,
+        actual_ptd: getValue(row, ["actual_ptd", "actual_ptd_aed"]),
+        target_ptd: getValue(row, ["target_ptd", "target_ptd_aed"]),
+        variance_ptd: getValue(row, ["variance_ptd", "variance_ptd_aed"]),
+        variance_ptd_pct: getValue(row, ["variance_ptd_pct"]),
+        actual_ytd: getValue(row, ["actual_ytd", "actual_ytd_aed"]),
+        target_ytd: getValue(row, ["target_ytd", "target_ytd_aed"]),
+        variance_ytd: getValue(row, ["variance_ytd", "variance_ytd_aed"]),
+        variance_ytd_pct: getValue(row, ["variance_ytd_pct"]),
+    };
+};
+
+/* =========================================================
+   VIEW-ALL FILTER OPTION NORMALIZATION
+   Handles common OPEX API response wrappers without changing
+   the dashboard's existing filter state.
+========================================================= */
+const normalizeExpenseFilterOptions = (payload = {}) => {
+    let data = payload;
+    for (let i = 0; i < 4; i += 1) {
+        if (!data || typeof data !== "object" || Array.isArray(data)) break;
+        const nested = data.data ?? data.filters ?? data.filter_options ?? data.options;
+        if (!nested || nested === data) break;
+        data = nested;
+    }
+    if (Array.isArray(data)) data = {};
+    const firstArray = (...values) => values.find(Array.isArray) || [];
+    return {
+        ...(data && typeof data === "object" ? data : {}),
+        years: firstArray(data?.years, data?.fiscal_years, data?.accounting_years, payload?.years, payload?.fiscal_years),
+        legal_groups: firstArray(data?.legal_groups, data?.legalGroups, data?.legal_group_options, payload?.legal_groups, payload?.legalGroups, payload?.legal_group_options),
+        legal_entities: firstArray(data?.legal_entities, data?.legalEntities, data?.legal_entity_options, payload?.legal_entities, payload?.legalEntities, payload?.legal_entity_options),
+        parent_divisions: firstArray(data?.parent_divisions, data?.parentDivisions, data?.parent_division_options, payload?.parent_divisions, payload?.parentDivisions, payload?.parent_division_options),
+        subdivisions: firstArray(data?.subdivisions, data?.sub_divisions, data?.subDivisions, data?.subdivision_options, payload?.subdivisions, payload?.sub_divisions, payload?.subDivisions),
+        periods: firstArray(data?.periods, data?.period_names, data?.available_periods, payload?.periods, payload?.period_names, payload?.available_periods),
+    };
+};
+
+const resolveDefaultLegalGroupId = (groups = []) => {
+    const list = Array.isArray(groups) ? groups : [];
+    const markedDefault = list.find((group) => group && typeof group === "object" && (
+        group.is_default === true || group.isDefault === true || group.default === true || group.is_default_group === true
+    ));
+    const namedFj = list.find((group) => /\bfj\b/i.test(String(getFilterOptionName(group)).trim()));
+    const candidate = markedDefault || namedFj;
+    return candidate ? String(getFilterOptionId(candidate)) : "";
+};
+
+const opexFilterOptionsInFlight = new Map();
+const requestOpexFilterOptions = (filters = {}) => {
+    const stable = Object.keys(filters || {}).sort().reduce((result, key) => {
+        const value = filters[key];
+        result[key] = Array.isArray(value) ? value.map(String).sort() : value;
+        return result;
+    }, {});
+    const key = JSON.stringify(stable);
+    if (opexFilterOptionsInFlight.has(key)) return opexFilterOptionsInFlight.get(key);
+    const request = Promise.resolve(getOpexFilterOptions(filters)).finally(() => {
+        if (opexFilterOptionsInFlight.get(key) === request) opexFilterOptionsInFlight.delete(key);
+    });
+    opexFilterOptionsInFlight.set(key, request);
+    return request;
+};
+
 /* =========================================================
    EXPENSE CATEGORY DRILL-DOWN MODAL
 ========================================================= */
@@ -6655,26 +736,72 @@ export default function ExpenseCategoryDrillDownModal({
     ===================================================== */
 
     filterOptions = {},
+    showLegalGroupFilter = true,
     onApplyFilters,
     onRefresh,
-
-    onExpandCategory,
 }) {
     /* =====================================================
        EXPANDED CATEGORIES & LOCAL FILTER STATE
     ===================================================== */
 
+    const [isMaximized, setIsMaximized] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState({});
     const [detailData, setDetailData] = useState({});
     const [detailLoading, setDetailLoading] = useState({});
+    const detailRequestInFlight = useRef(new Set());
 
     const [viewAllFilters, setViewAllFilters] = useState({
         year: [],
+        legal_group: [],
         legal_entity: [],
         parent_division: [],
         subdivision: [],
         period: [],
     });
+    const [viewAllFilterOptions, setViewAllFilterOptions] = useState(() =>
+        normalizeExpenseFilterOptions(filterOptions)
+    );
+    const [viewAllOptionsLoading, setViewAllOptionsLoading] = useState(false);
+    const viewAllOptionsRequestRef = useRef(0);
+
+    useEffect(() => {
+        setViewAllFilterOptions((previous) => ({
+            ...normalizeExpenseFilterOptions(filterOptions),
+            ...previous,
+            legal_groups: normalizeExpenseFilterOptions(filterOptions).legal_groups?.length
+                ? normalizeExpenseFilterOptions(filterOptions).legal_groups
+                : previous.legal_groups || [],
+        }));
+    }, [filterOptions]);
+
+    const loadViewAllOptions = async (filters = {}) => {
+        const requestId = ++viewAllOptionsRequestRef.current;
+        setViewAllOptionsLoading(true);
+        try {
+            const response = await requestOpexFilterOptions({
+                reporting_currency: activeFilters?.reporting_currency || reportingCurrency || "AED",
+                ...(filters.legal_group?.length ? { legal_group_id: filters.legal_group } : {}),
+                ...(filters.legal_entity?.length ? { legal_entity_id: filters.legal_entity } : {}),
+                ...(filters.parent_division?.length ? { parent_division_id: filters.parent_division } : {}),
+                ...(filters.year?.length ? { year: filters.year } : {}),
+                ...(filters.period?.length ? { period_name: filters.period } : {}),
+            });
+            if (requestId !== viewAllOptionsRequestRef.current) return;
+            const normalized = normalizeExpenseFilterOptions(response);
+            setViewAllFilterOptions((previous) => ({
+                ...previous,
+                ...normalized,
+                legal_groups: normalized.legal_groups?.length ? normalized.legal_groups : previous.legal_groups || [],
+                legal_entities: Array.isArray(normalized.legal_entities) ? normalized.legal_entities : previous.legal_entities || [],
+                parent_divisions: Array.isArray(normalized.parent_divisions) ? normalized.parent_divisions : previous.parent_divisions || [],
+                subdivisions: Array.isArray(normalized.subdivisions) ? normalized.subdivisions : previous.subdivisions || [],
+            }));
+        } catch (error) {
+            console.error("Failed to load Expense Category View All filters:", error);
+        } finally {
+            if (requestId === viewAllOptionsRequestRef.current) setViewAllOptionsLoading(false);
+        }
+    };
 
     // View All display-only toggle. Backend/API values remain unchanged.
     const [displayUnit, setDisplayUnit] = useState("AED");
@@ -6700,10 +827,11 @@ export default function ExpenseCategoryDrillDownModal({
                 ? number / 1000000
                 : number;
 
+        // Preserve the API precision for normal AED values as well as
+        // million-unit display; formatting is presentation-only.
         const formattedValue = displayValue.toLocaleString("en-US", {
             minimumFractionDigits: 0,
-            maximumFractionDigits:
-                displayUnit === "AED_MILLIONS" ? 2 : 0,
+            maximumFractionDigits: 0,
         });
 
         return displayUnit === "AED_MILLIONS"
@@ -6736,6 +864,11 @@ export default function ExpenseCategoryDrillDownModal({
     useEffect(() => {
         if (!open) return;
 
+        const initialOptions = normalizeExpenseFilterOptions(filterOptions);
+        const defaultGroupId = resolveDefaultLegalGroupId(initialOptions.legal_groups || []);
+        const activeGroup = getSelectedFilterValues(activeFilters?.legal_group ?? activeFilters?.legal_group_id);
+        const initialGroup = activeGroup.length ? activeGroup.map(String) : (defaultGroupId ? [defaultGroupId] : []);
+
         setViewAllFilters({
             year: Array.isArray(activeFilters?.year)
                 ? activeFilters.year.map((v) => String(v))
@@ -6743,6 +876,7 @@ export default function ExpenseCategoryDrillDownModal({
                     ? [String(activeFilters.year)]
                     : [],
 
+            legal_group: initialGroup,
             legal_entity: Array.isArray(
                 activeFilters?.legal_entity
             )
@@ -6787,17 +921,59 @@ export default function ExpenseCategoryDrillDownModal({
                     ? [String(activeFilters.period)]
                     : [],
         });
+        void loadViewAllOptions({
+            legal_group: initialGroup,
+            legal_entity: getSelectedFilterValues(activeFilters?.legal_entity).map(String),
+            parent_division: getSelectedFilterValues(activeFilters?.parent_division).map(String),
+            year: getSelectedFilterValues(activeFilters?.year).map(String),
+            period: getSelectedFilterValues(activeFilters?.period).map(String),
+        });
     }, [open]);
 
     const handleFilterChange = (key, values) => {
-        setViewAllFilters((prev) => ({
-            ...prev,
-            [key]: Array.isArray(values)
-                ? values.map((value) =>
-                    String(value)
-                )
-                : [],
-        }));
+        const normalizedValues = Array.isArray(values) ? values.map(String) : [];
+        if (key === "legal_group") {
+            setViewAllFilters((prev) => ({
+                ...prev,
+                legal_group: normalizedValues,
+                legal_entity: [],
+                parent_division: [],
+                subdivision: [],
+            }));
+            setViewAllFilterOptions((previous) => ({
+                ...previous,
+                legal_entities: [],
+                parent_divisions: [],
+                subdivisions: [],
+            }));
+            void loadViewAllOptions({ legal_group: normalizedValues });
+            return;
+        }
+        const clearChildren = key === "legal_entity"
+            ? { parent_division: [], subdivision: [] }
+            : key === "parent_division"
+                ? { subdivision: [] }
+                : {};
+        setViewAllFilters((prev) => ({ ...prev, ...clearChildren, [key]: normalizedValues }));
+        if (["legal_entity", "parent_division"].includes(key)) {
+            const next = {
+                ...viewAllFilters,
+                ...clearChildren,
+                [key]: normalizedValues,
+            };
+            if (key === "legal_entity") {
+                setViewAllFilterOptions((previous) => ({ ...previous, parent_divisions: [], subdivisions: [] }));
+            } else {
+                setViewAllFilterOptions((previous) => ({ ...previous, subdivisions: [] }));
+            }
+            void loadViewAllOptions({
+                legal_group: next.legal_group,
+                legal_entity: next.legal_entity,
+                parent_division: next.parent_division,
+                year: next.year,
+                period: next.period,
+            });
+        }
     };
     const cleanFilterValues = (values) => {
         if (!Array.isArray(values)) return [];
@@ -6818,6 +994,7 @@ export default function ExpenseCategoryDrillDownModal({
 
         const selectedFilters = {
             year: viewAllFilters.year,
+            legal_group: viewAllFilters.legal_group,
             legal_entity:
                 viewAllFilters.legal_entity,
             parent_division:
@@ -6834,6 +1011,10 @@ export default function ExpenseCategoryDrillDownModal({
             return;
         }
 
+        setExpandedCategories({});
+        setDetailData({});
+        setDetailLoading({});
+        detailRequestInFlight.current.clear();
         await onApplyFilters(selectedFilters);
     };
 
@@ -6867,10 +1048,13 @@ export default function ExpenseCategoryDrillDownModal({
                 )
                 : "";
 
+        const defaultGroupId = resolveDefaultLegalGroupId(viewAllFilterOptions.legal_groups || filterOptions?.legal_groups || []);
         const resetFilters = {
             year: defaultYear
                 ? [String(defaultYear)]
                 : [],
+
+            legal_group: defaultGroupId ? [String(defaultGroupId)] : [],
 
             legal_entity: [],
 
@@ -6887,6 +1071,17 @@ export default function ExpenseCategoryDrillDownModal({
          * Immediately update dropdowns.
          */
         setViewAllFilters(resetFilters);
+        setViewAllFilterOptions((previous) => ({
+            ...previous,
+            legal_entities: [],
+            parent_divisions: [],
+            subdivisions: [],
+        }));
+        void loadViewAllOptions({ legal_group: resetFilters.legal_group });
+        setExpandedCategories({});
+        setDetailData({});
+        setDetailLoading({});
+        detailRequestInFlight.current.clear();
 
         /*
          * Refresh the View All table using
@@ -7084,94 +1279,71 @@ export default function ExpenseCategoryDrillDownModal({
 
     /* =====================================================
        EXPAND CATEGORY
+       PTD/YTD account rows are fetched with the modal's local
+       filters from /api/opex/category-detail.
     ===================================================== */
 
     const handleToggleCategory = async (category, row) => {
-        if (!category) {
-            return;
-        }
+        if (!category) return;
 
-        const isExpanded =
-            expandedCategories[category];
-
-        if (isExpanded) {
+        if (expandedCategories[category]) {
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: false,
             }));
-
             return;
         }
 
-        if (
-            Array.isArray(detailData[category]) &&
-            detailData[category].length > 0
-        ) {
+        if (detailRequestInFlight.current.has(category)) return;
+
+        // Reuse cached rows only when they were loaded for the current
+        // modal filter state. Apply/reset explicitly clears the cache below.
+        if (Array.isArray(detailData[category])) {
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
             }));
-
             return;
         }
 
-        if (!onExpandCategory) {
-            const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-            setDetailData((previous) => ({
-                ...previous,
-                [category]: fallbackRows,
-            }));
-            setExpandedCategories((previous) => ({
-                ...previous,
-                [category]: true,
-            }));
-
-            return;
-        }
+        detailRequestInFlight.current.add(category);
+        setDetailLoading((previous) => ({ ...previous, [category]: true }));
 
         try {
-            setDetailLoading((previous) => ({
-                ...previous,
-                [category]: true,
-            }));
-
-            const response =
-                await onExpandCategory(category, row);
-
-            let detailRows =
-                normalizeDetailRows(response);
-
-            if ((!detailRows || detailRows.length === 0) && row) {
-                detailRows = deriveCategoryNaturalAccounts(row, category);
-            }
+            const response = await fetchCategoryDetail(
+                category,
+                viewAllFilters,
+                currency || reportingCurrency || "AED"
+            );
+            const detailRows = normalizeDetailRows(response)
+                .filter((item) => item && typeof item === "object")
+                .map(normalizeAccountDetailRow);
 
             setDetailData((previous) => ({
                 ...previous,
                 [category]: detailRows,
             }));
-
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
             }));
         } catch (error) {
             console.error(
-                `Failed to load natural account details for ${category}:`,
+                `Failed to load PTD/YTD account details for ${category}:`,
                 error
             );
-
-            const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
-
+            // Do not substitute derived/category-summary data: it can show
+            // incorrect PTD/YTD target and variance values.
             setDetailData((previous) => ({
                 ...previous,
-                [category]: fallbackRows,
+                [category]: [],
             }));
-
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
             }));
         } finally {
+            detailRequestInFlight.current.delete(category);
             setDetailLoading((previous) => ({
                 ...previous,
                 [category]: false,
@@ -7187,6 +1359,7 @@ export default function ExpenseCategoryDrillDownModal({
         setExpandedCategories({});
         setDetailData({});
         setDetailLoading({});
+        detailRequestInFlight.current.clear();
         onClose?.();
     };
 
@@ -7266,15 +1439,21 @@ export default function ExpenseCategoryDrillDownModal({
                         "Account Name":
                             account.account_name || "—",
                         [`Actual PTD (${currency})`]:
-                            getValue(account, [
-                                "actual_ptd_aed",
-                                "actual_ptd",
-                            ]) ?? "",
+                            getValue(account, ["actual_ptd_aed", "actual_ptd"]) ?? "",
+                        [`Target PTD (${currency})`]:
+                            getValue(account, ["target_ptd", "target_ptd_aed"]) ?? "",
+                        [`Variance PTD (${currency})`]:
+                            getValue(account, ["variance_ptd", "variance_ptd_aed"]) ?? "",
+                        "Variance PTD %":
+                            getValue(account, ["variance_ptd_pct"]) ?? "",
                         [`Actual YTD (${currency})`]:
-                            getValue(account, [
-                                "actual_ytd_aed",
-                                "actual_ytd",
-                            ]) ?? "",
+                            getValue(account, ["actual_ytd_aed", "actual_ytd"]) ?? "",
+                        [`Target YTD (${currency})`]:
+                            getValue(account, ["target_ytd", "target_ytd_aed"]) ?? "",
+                        [`Variance YTD (${currency})`]:
+                            getValue(account, ["variance_ytd", "variance_ytd_aed"]) ?? "",
+                        "Variance YTD %":
+                            getValue(account, ["variance_ytd_pct"]) ?? "",
                     });
                 });
             });
@@ -7339,6 +1518,11 @@ export default function ExpenseCategoryDrillDownModal({
                 year:
                     viewAllFilters.year?.length
                         ? viewAllFilters.year
+                        : undefined,
+
+                legal_group_id:
+                    viewAllFilters.legal_group?.length
+                        ? viewAllFilters.legal_group
                         : undefined,
 
                 legal_entity_id:
@@ -7559,11 +1743,12 @@ export default function ExpenseCategoryDrillDownModal({
        RENDER OPTIONS PREPARATION
     ===================================================== */
 
-    const yearOptions = filterOptions?.years || filterOptions?.fiscal_years || [];
-    const legalEntityOptions = filterOptions?.legal_entities || [];
-    const parentDivisionOptions = filterOptions?.parent_divisions || [];
-    const subdivisionOptions = filterOptions?.subdivisions || [];
-    const periodOptions = filterOptions?.periods || [];
+    const yearOptions = viewAllFilterOptions?.years || filterOptions?.years || filterOptions?.fiscal_years || [];
+    const legalGroupOptions = viewAllFilterOptions?.legal_groups || filterOptions?.legal_groups || [];
+    const legalEntityOptions = viewAllFilterOptions?.legal_entities || [];
+    const parentDivisionOptions = viewAllFilterOptions?.parent_divisions || [];
+    const subdivisionOptions = viewAllFilterOptions?.subdivisions || [];
+    const periodOptions = viewAllFilterOptions?.periods || filterOptions?.periods || [];
 
     /* =====================================================
        RENDER
@@ -7580,9 +1765,9 @@ export default function ExpenseCategoryDrillDownModal({
                     zIndex: 1000,
                     background: "rgba(15, 23, 42, 0.45)",
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: isMaximized ? "stretch" : "center",
                     justifyContent: "center",
-                    padding: "20px",
+                    padding: isMaximized ? 0 : "20px",
                 }}
                 onMouseDown={(event) => {
                     if (
@@ -7596,11 +1781,12 @@ export default function ExpenseCategoryDrillDownModal({
                 <div
                     className="expense-drilldown-modal"
                     style={{
-                        width: "100%",
-                        maxWidth: "1400px",
-                        maxHeight: "92vh",
+                        width: isMaximized ? "100vw" : "100%",
+                        maxWidth: isMaximized ? "100vw" : "1400px",
+                        height: isMaximized ? "100dvh" : "auto",
+                        maxHeight: isMaximized ? "100dvh" : "92vh",
                         background: "#ffffff",
-                        borderRadius: "10px",
+                        borderRadius: isMaximized ? 0 : "10px",
                         boxShadow:
                             "0 20px 50px rgba(15, 23, 42, 0.20)",
                         display: "flex",
@@ -7650,32 +1836,63 @@ export default function ExpenseCategoryDrillDownModal({
                             </div>
                         </div>
 
-                        {/* =================================================
-                        CLOSE BUTTON
-                    ================================================= */}
-
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            aria-label="Close"
+                        {/* Maximize / Restore and Close stay on the same row */}
+                        <div
                             style={{
-                                width: "32px",
-                                height: "32px",
-                                border: "none",
-                                background: "transparent",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                color: "#64748b",
-                                fontSize: "24px",
-                                lineHeight: "28px",
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center",
+                                justifyContent: "flex-end",
+                                gap: "6px",
                                 flexShrink: 0,
                             }}
                         >
-                            ×
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsMaximized((current) => !current)}
+                                aria-label={isMaximized ? "Restore modal" : "Maximize modal"}
+                                title={isMaximized ? "Restore" : "Maximize"}
+                                style={{
+                                    width: "32px",
+                                    height: "32px",
+                                    border: "none",
+                                    background: "transparent",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    color: "#64748b",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {isMaximized
+                                    ? <Minimize2 size={18} aria-hidden="true" />
+                                    : <Maximize2 size={18} aria-hidden="true" />}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleClose}
+                                aria-label="Close"
+                                title="Close"
+                                style={{
+                                    width: "32px",
+                                    height: "32px",
+                                    border: "none",
+                                    background: "transparent",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    color: "#64748b",
+                                    fontSize: "24px",
+                                    lineHeight: "28px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
                     </div>
 
                     {/* =================================================
@@ -7702,6 +1919,16 @@ export default function ExpenseCategoryDrillDownModal({
                             selectedValues={viewAllFilters.year}
                             onChange={(vals) => handleFilterChange("year", vals)}
                         />
+
+                        {/* Legal Group Filter: scoped to this modal and RBAC visibility prop */}
+                        {showLegalGroupFilter && (
+                            <MultiSelectDropdown
+                                label="Legal Group"
+                                options={legalGroupOptions}
+                                selectedValues={viewAllFilters.legal_group}
+                                onChange={(vals) => handleFilterChange("legal_group", vals)}
+                            />
+                        )}
 
                         {/* Legal Entity Filter */}
                         <MultiSelectDropdown
@@ -7734,6 +1961,12 @@ export default function ExpenseCategoryDrillDownModal({
                             selectedValues={viewAllFilters.period}
                             onChange={(vals) => handleFilterChange("period", vals)}
                         />
+
+                        {viewAllOptionsLoading && (
+                            <span style={{ fontSize: "11px", color: "#64748b", alignSelf: "center" }}>
+                                Loading dependent filters…
+                            </span>
+                        )}
 
                         {/* AED / AED MILLIONS DISPLAY TOGGLE */}
                         <div
@@ -8313,9 +2546,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                         ];
 
                                                     const accounts =
-                                                        (Array.isArray(detailData[category]) && detailData[category].length > 0)
+                                                        Array.isArray(detailData[category])
                                                             ? detailData[category]
-                                                            : (row ? deriveCategoryNaturalAccounts(row, category) : []);
+                                                            : [];
 
                                                     return (
                                                         <React.Fragment
@@ -8442,7 +2675,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
+                                                                    <span style={{ color: getVarianceColor(variancePTD) }}>{formatDisplayNumber(variancePTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8461,7 +2694,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(variancePTDPercent) }}>{formatPercentage(variancePTDPercent)}</span>
+                                                                    <span style={{ color: getVarianceColor(variancePTDPercent) }}>{formatPercentage(variancePTDPercent)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8512,7 +2745,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
+                                                                    <span style={{ color: getVarianceColor(varianceYTD) }}>{formatDisplayNumber(varianceYTD)}</span>
                                                                 </td>
 
                                                                 <td
@@ -8529,7 +2762,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                                             "nowrap",
                                                                     }}
                                                                 >
-                                                                    <span style={{ color: getNumberColor(varianceYTDPercent) }}>{formatPercentage(varianceYTDPercent)}</span>
+                                                                    <span style={{ color: getVarianceColor(varianceYTDPercent) }}>{formatPercentage(varianceYTDPercent)}</span>
                                                                 </td>
                                                             </tr>
 
@@ -8747,7 +2980,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getNumberColor(getValue(account, ["target_ptd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["target_ptd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8764,7 +2999,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ptd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["variance_ptd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8783,7 +3020,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ptd_pct"]), "#475569") }}>
+                                                                                    {formatPercentage(getValue(account, ["variance_ptd_pct"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8836,7 +3075,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getNumberColor(getValue(account, ["target_ytd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["target_ytd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8853,7 +3094,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ytd"]), "#475569") }}>
+                                                                                    {formatDisplayNumber(getValue(account, ["variance_ytd"]))}
+                                                                                </span>
                                                                             </td>
 
                                                                             <td
@@ -8870,7 +3113,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                                                         "#94a3b8",
                                                                                 }}
                                                                             >
-                                                                                —
+                                                                                <span style={{ color: getVarianceColor(getValue(account, ["variance_ytd_pct"]), "#475569") }}>
+                                                                                    {formatPercentage(getValue(account, ["variance_ytd_pct"]))}
+                                                                                </span>
                                                                             </td>
                                                                         </tr>
                                                                     )
@@ -8999,7 +3244,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
+                                                    <span style={{ color: getVarianceColor(totals.variancePTD, "#0f172a") }}>{formatDisplayNumber(totals.variancePTD)}</span>
                                                 </td>
 
                                                 <td
@@ -9020,7 +3265,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totalVariancePTDPercent, "#0f172a") }}>{formatPercentage(totalVariancePTDPercent)}</span>
+                                                    <span style={{ color: getVarianceColor(totalVariancePTDPercent, "#0f172a") }}>{formatPercentage(totalVariancePTDPercent)}</span>
                                                 </td>
 
                                                 <td
@@ -9077,7 +3322,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
+                                                    <span style={{ color: getVarianceColor(totals.varianceYTD, "#0f172a") }}>{formatDisplayNumber(totals.varianceYTD)}</span>
                                                 </td>
 
                                                 <td
@@ -9096,7 +3341,7 @@ export default function ExpenseCategoryDrillDownModal({
                                                             700,
                                                     }}
                                                 >
-                                                    <span style={{ color: getNumberColor(totalVarianceYTDPercent, "#0f172a") }}>{formatPercentage(totalVarianceYTDPercent)}</span>
+                                                    <span style={{ color: getVarianceColor(totalVarianceYTDPercent, "#0f172a") }}>{formatPercentage(totalVarianceYTDPercent)}</span>
                                                 </td>
                                             </tr>
                                         </tbody>

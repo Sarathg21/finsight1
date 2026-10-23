@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState, } from "react";
+import { useAuth } from "../context/AuthContext";
+import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 
 import ExportButtons from "../components/Common/ExportButtons";
 import FooterNote from "../components/FooterNote";
 import Filters from "../components/Filters/Filters";
-import { useAuth } from "../context/AuthContext";
 
 import ActualVsTargetChart from "../components/Charts/ActualvsTargetChart";
 import OpexCompositionChart from "../components/Charts/OpexCompositionChart";
@@ -32,7 +33,60 @@ import {
     exportOpexCategoryComparison,
     exportOpexCategoryBreakdown, getOpexReconciliation,
 } from "../api/opexApi";
-import { getApiRoot } from "../utils/apiBase";
+
+/* =========================================================
+   OPEX FILTER-OPTIONS REQUEST DEDUPLICATION
+
+   Keep the request registry on window so identical requests are
+   shared even if React mounts this page more than once, StrictMode
+   replays effects, or the module is evaluated by more than one bundle.
+   Only successful responses are cached briefly; failures can retry.
+   The API and response shape are unchanged.
+========================================================= */
+
+const OPEX_FILTER_OPTIONS_CACHE_TTL_MS = 60 * 1000;
+const OPEX_FILTER_OPTIONS_REGISTRY_KEY = "__finsightOpexFilterOptionsRequests_v1";
+
+const getOpexFilterOptionsOnce = async () => {
+    // Preserve the existing API helper invocation and its AED default.
+    const requestKey = "reporting_currency=AED";
+    const host = typeof window !== "undefined" ? window : globalThis;
+
+    if (!host[OPEX_FILTER_OPTIONS_REGISTRY_KEY]) {
+        host[OPEX_FILTER_OPTIONS_REGISTRY_KEY] = {
+            cache: new Map(),
+            inFlight: new Map(),
+        };
+    }
+
+    const registry = host[OPEX_FILTER_OPTIONS_REGISTRY_KEY];
+    const now = Date.now();
+    const cached = registry.cache.get(requestKey);
+
+    if (cached && now - cached.timestamp < OPEX_FILTER_OPTIONS_CACHE_TTL_MS) {
+        return cached.data;
+    }
+
+    const pending = registry.inFlight.get(requestKey);
+    if (pending) return pending;
+
+    const request = Promise.resolve()
+        .then(() => getOpexFilterOptions())
+        .then((response) => {
+            const data = response || {};
+            registry.cache.set(requestKey, { timestamp: Date.now(), data });
+            return data;
+        })
+        .finally(() => {
+            // Do not clear a newer request registered under the same key.
+            if (registry.inFlight.get(requestKey) === request) {
+                registry.inFlight.delete(requestKey);
+            }
+        });
+
+    registry.inFlight.set(requestKey, request);
+    return request;
+};
 
 /* =========================================================
    GET OPTION VALUE
@@ -302,7 +356,7 @@ const operatingAnalysisUniformStyles = `
 
         width: 100%;
         min-height: 100%;
-        padding: 0 0 24px;
+        padding: 20px 0 32px;
         margin: 0;
         overflow-x: hidden;
 
@@ -1091,8 +1145,89 @@ const operatingAnalysisUniformStyles = `
 ========================================================= */
 
 export default function OperatingAnalysis() {
-    const { canExport } = useAuth();
-    const canExportOpex = Boolean(canExport?.('OPERATING_EXPENSES'));
+    /* =====================================================
+       OPEX ACCESS / RBAC — aligned with Receivables
+       access/me controls hierarchy filter visibility.
+       Role permissions are loaded for the signed-in user's role.
+       AuthContext controls export permission checks.
+    ===================================================== */
+    const OPEX_ACCESS_MODULE = "OPERATING_EXPENSES";
+    const { hasExportRight } = useAuth();
+    const canExportOpex = typeof hasExportRight === "function"
+        ? hasExportRight(OPEX_ACCESS_MODULE)
+        : false;
+    const [userAccess, setUserAccess] = useState(null);
+    const [permissions, setPermissions] = useState([]);
+
+    const findOpexAccessScopeValue = (source, aliases) => {
+        const visited = new Set();
+        const queue = [source];
+        while (queue.length) {
+            const current = queue.shift();
+            if (!current || typeof current !== "object" || visited.has(current)) continue;
+            visited.add(current);
+            if (Array.isArray(current)) {
+                current.forEach((item) => queue.push(item));
+                continue;
+            }
+            for (const alias of aliases) {
+                if (Object.prototype.hasOwnProperty.call(current, alias)) {
+                    const value = current[alias];
+                    if (value !== null && value !== undefined && String(value).trim() !== "") {
+                        return value;
+                    }
+                }
+            }
+            Object.values(current).forEach((value) => {
+                if (value && typeof value === "object") queue.push(value);
+            });
+        }
+        return null;
+    };
+
+    const normalizeOpexPermissions = (response) => {
+        if (Array.isArray(response)) return response;
+        if (response && Array.isArray(response.data)) return response.data;
+        if (response && Array.isArray(response.permissions)) return response.permissions;
+        if (response && typeof response === "object") return [response];
+        return [];
+    };
+
+    const legalGroupScopeValue = findOpexAccessScopeValue(userAccess ?? {}, [
+        "legal_group_code", "legal_group_name", "legal_group",
+        "legalGroupCode", "legalGroupName", "legalGroup",
+    ]);
+    const legalEntityScopeValue = findOpexAccessScopeValue(userAccess ?? {}, [
+        "legal_entity_name", "legal_entity_code", "legal_entity",
+        "legalEntityName", "legalEntityCode", "legalEntity",
+    ]);
+    const showLegalGroupFilter = legalGroupScopeValue !== null;
+    const showLegalEntityFilter = legalEntityScopeValue !== null;
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchAccessMe()
+            .then((data) => {
+                if (cancelled) return;
+                setUserAccess(data);
+                if (data?.role_code) {
+                    return fetchRolePermissions(data.role_code)
+                        .then((result) => {
+                            if (!cancelled) setPermissions(normalizeOpexPermissions(result));
+                        })
+                        .catch(() => {
+                            if (!cancelled) setPermissions([]);
+                        });
+                }
+                return null;
+            })
+            .catch((err) => {
+                if (!cancelled) console.warn("Failed to fetch OPEX user access:", err);
+            });
+        return () => { cancelled = true; };
+    }, []);
+
+
 
     /* =====================================================
        DATA AS OF
@@ -1280,7 +1415,7 @@ export default function OperatingAnalysis() {
         format
     ) => {
         if (!canExportOpex) {
-            setError("You do not have permission to export operating expenses data.");
+            setError("You do not have permission to export OPEX reports.");
             return;
         }
 
@@ -1378,7 +1513,7 @@ export default function OperatingAnalysis() {
 
     const handleFullOpexExport = async (format) => {
         if (!canExportOpex) {
-            setError("You do not have permission to export operating expenses data.");
+            setError("You do not have permission to export OPEX reports.");
             return;
         }
         const hasSelectedPeriod =
@@ -1521,7 +1656,19 @@ export default function OperatingAnalysis() {
              * Match the existing Month-on-Month API URL pattern,
              * including support for VITE_API_BASE_URL.
              */
-            const apiUrl = `${getApiRoot()}/opex/monthly/export`;
+            const configuredBaseUrl =
+                (
+                    import.meta.env.VITE_API_BASE_URL ||
+                    ""
+                ).replace(
+                    /\/+$/,
+                    ""
+                );
+
+            const apiUrl =
+                configuredBaseUrl.endsWith("/api")
+                    ? `${configuredBaseUrl}/opex/monthly/export`
+                    : `${configuredBaseUrl}/api/opex/monthly/export`;
 
             const token =
                 localStorage.getItem(
@@ -2546,7 +2693,7 @@ Only the View All API is refreshed.
     const handleExpenseCategoryExport =
         async (format) => {
             if (!canExportOpex) {
-                setError("You do not have permission to export operating expenses data.");
+                setError("You do not have permission to export OPEX reports.");
                 return;
             }
 
@@ -2964,11 +3111,10 @@ Only the View All API is refreshed.
 
                 setError("");
 
-                const response =
-                    await getOpexFilterOptions();
-
-                const data =
-                    response || {};
+                // Deduplicated by normalized filter state (currently
+                // the initial/default state: reporting_currency=AED).
+                // Concurrent callers share one promise.
+                const data = await getOpexFilterOptionsOnce();
 
                 const periods =
                     data.periods || [];
@@ -3460,7 +3606,7 @@ Only the View All API is refreshed.
     ===================================================== */
 
     return (
-        <div className="relative operating-analysis-page">
+        <div className="page-content relative operating-analysis-page">
             <style>{operatingAnalysisUniformStyles}</style>
 
             <div className="oa-header-wrap">
@@ -3489,20 +3635,18 @@ Only the View All API is refreshed.
                         </div>
                     </div>
 
-                    {canExportOpex && (
-                        <div className="oa-direct-header-actions">
-                            <ExportButtons
-                                exporting={
-                                    exporting === "expense-category-excel"
-                                        ? "excel"
-                                        : exporting === "expense-category-pdf"
-                                            ? "pdf"
-                                            : null
-                                }
-                                handleExport={handleExpenseCategoryExport}
-                            />
-                        </div>
-                    )}
+                    <div className="oa-direct-header-actions">
+                        {canExportOpex && <ExportButtons
+                            exporting={
+                                exporting === "expense-category-excel"
+                                    ? "excel"
+                                    : exporting === "expense-category-pdf"
+                                        ? "pdf"
+                                        : null
+                            }
+                            handleExport={handleExpenseCategoryExport}
+                        />}
+                    </div>
                 </div>
             </div>
 
@@ -3544,9 +3688,11 @@ Only the View All API is refreshed.
                                 );
                             }}
 
-                            isOperatingExpenses={
-                                true
-                            }
+                            isOperatingExpenses={true}
+                            showLegalGroupFilter={showLegalGroupFilter}
+                            showLegalEntityFilter={showLegalEntityFilter}
+                            accessScope={userAccess}
+                            permissions={permissions}
                         />
 
                     </div>
@@ -3643,11 +3789,11 @@ Only the View All API is refreshed.
                                     }
 
                                     onExportExcel={
-                                        handleActualVsTargetExportExcel
+                                        canExportOpex ? handleActualVsTargetExportExcel : undefined
                                     }
 
                                     onExportPdf={
-                                        handleActualVsTargetExportPdf
+                                        canExportOpex ? handleActualVsTargetExportPdf : undefined
                                     }
 
                                     exporting={
@@ -3686,11 +3832,11 @@ Only the View All API is refreshed.
                                     }
 
                                     onExportExcel={
-                                        handleCompositionExportExcel
+                                        canExportOpex ? handleCompositionExportExcel : undefined
                                     }
 
                                     onExportPdf={
-                                        handleCompositionExportPdf
+                                        canExportOpex ? handleCompositionExportPdf : undefined
                                     }
 
                                     exporting={
@@ -3883,15 +4029,19 @@ Only the View All API is refreshed.
                 }
 
                 onExportExcel={
-                    viewAllType === "actual-vs-target"
-                        ? handleActualVsTargetExportExcel
-                        : handleCompositionExportExcel
+                    canExportOpex
+                        ? (viewAllType === "actual-vs-target"
+                            ? handleActualVsTargetExportExcel
+                            : handleCompositionExportExcel)
+                        : undefined
                 }
 
                 onExportPdf={
-                    viewAllType === "actual-vs-target"
-                        ? handleActualVsTargetExportPdf
-                        : handleCompositionExportPdf
+                    canExportOpex
+                        ? (viewAllType === "actual-vs-target"
+                            ? handleActualVsTargetExportPdf
+                            : handleCompositionExportPdf)
+                        : undefined
                 }
 
                 exporting={

@@ -12,12 +12,11 @@
 
 // Keep ?? (not ||) — empty string means relative paths (Vite proxy), not fallback to default
 import { LEGAL_ENTITIES } from '../data/masterData';
-import { getApiBaseUrl } from '../utils/apiBase';
-const API_BASE = getApiBaseUrl();
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /* ── Auth headers ───────────────────────────────────────────────── */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
+  const token = localStorage.getItem('finsight_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -129,13 +128,9 @@ const MOCK_TREND = [
   { period_name: 'Jan-26', total_revenue: 12500000, gross_profit: 3875000, ebitda: 2000000, net_profit: 1313000 },
   { period_name: 'Feb-26', total_revenue: 13100000, gross_profit: 3930000, ebitda: 2031000, net_profit: 1376000 },
   { period_name: 'Mar-26', total_revenue: 13500000, gross_profit: 4185000, ebitda: 2160000, net_profit: 1418000 },
-  { period_name: 'Apr-26', total_revenue: 14100000, gross_profit: 4371000, ebitda: 2256000, net_profit: 1800000 },
-  { period_name: 'May-26', total_revenue: 13800000, gross_profit: 4278000, ebitda: 2208000, net_profit: 4100000 },
-  { period_name: 'Jun-26', total_revenue: 14250000, gross_profit: 4462500, ebitda: 2307500, net_profit: 5000000 },
-  { period_name: 'Jul-26', total_revenue: 13600000, gross_profit: 4100000, ebitda: 2100000, net_profit: 1100000 },
-  { period_name: 'Aug-26', total_revenue: 15800000, gross_profit: 5200000, ebitda: 3100000, net_profit: 9000000 },
-  { period_name: 'Sep-26', total_revenue: 14500000, gross_profit: 4500000, ebitda: 2400000, net_profit: 3900000 },
-  { period_name: 'Oct-26', total_revenue: 14200000, gross_profit: 4400000, ebitda: 2300000, net_profit: 2340000 },
+  { period_name: 'Apr-26', total_revenue: 14100000, gross_profit: 4371000, ebitda: 2256000, net_profit: 1494000 },
+  { period_name: 'May-26', total_revenue: 13800000, gross_profit: 4278000, ebitda: 2208000, net_profit: 1463000 },
+  { period_name: 'Jun-26', total_revenue: 14250000, gross_profit: 4462500, ebitda: 2307500, net_profit: 1510650 },
 ];
 
 const MOCK_COMPARISON = [
@@ -247,133 +242,274 @@ function getMockDataForPath(path, params = {}) {
 
   return {};
 }
+
 /* ══════════════════════════════════════════════════════════════════
    CORE FETCH WRAPPER
+   Deduplicates identical concurrent GET requests only.
 ══════════════════════════════════════════════════════════════════ */
 
 const apiCache = new Map();
 
 /**
- * Central request handler — identical pattern to salesRevenueApi.js
- * @param {string} path    e.g. '/api/pl/summary'
- * @param {object} params  query-string key/value pairs (filters)
- * @returns {Promise<any>} parsed JSON response
+ * Central request handler.
+ *
+ * - Deduplicates identical concurrent requests.
+ * - Includes the authentication token in the request key.
+ * - Preserves query parameters and comparison periods.
+ * - Removes settled requests from the cache.
+ * - Allows failed requests to be retried.
+ * - Preserves existing mock-data fallback behavior.
+ *
+ * @param {string} path
+ * @param {object} params
+ * @returns {Promise<any>}
  */
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
+  const token = localStorage.getItem('finsight_token');
 
-  // Demo mode fallback — no token present
+  // Preserve existing demo-mode behavior.
   if (!token) {
-    console.warn(`[plApi] Token missing. Returning mock fallback for: ${path}`);
+    console.warn(
+      `[plApi] Token missing. Returning mock fallback for: ${path}`
+    );
+
     return new Promise((resolve) => {
-      setTimeout(() => resolve(getMockDataForPath(path, params)), 300);
+      setTimeout(() => {
+        resolve(getMockDataForPath(path, params));
+      }, 300);
     });
   }
 
+  // Build the URL using the existing parameter conventions.
   const urlParams = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
-    if (Array.isArray(v)) {
-      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
-      v.forEach(item => {
-        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+
+  for (const [key, value] of Object.entries(params)) {
+    if (
+      value === undefined ||
+      value === null ||
+      value === '' ||
+      value === 'All' ||
+      value === 'all'
+    ) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      if (
+        value.length === 0 ||
+        (value.length === 1 &&
+          (value[0] === 'All' || value[0] === 'all'))
+      ) {
+        continue;
+      }
+
+      value.forEach((item) => {
+        if (
+          item !== undefined &&
+          item !== null &&
+          item !== '' &&
+          item !== 'All' &&
+          item !== 'all'
+        ) {
+          urlParams.append(key, String(item));
+        }
       });
     } else {
-      urlParams.append(k, v);
+      urlParams.append(key, String(value));
     }
   }
-  const qs = urlParams.toString();
 
-  const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
+  const queryString = urlParams.toString();
 
-  // Dedup concurrent identical requests (React Strict Mode double-renders)
-  if (apiCache.has(url)) return apiCache.get(url);
+  const url = `${API_BASE}${path}${queryString ? `?${queryString}` : ''
+    }`;
 
-  const fetchPromise = (async () => {
-    let res;
+  // Different URLs or authentication tokens must remain separate.
+  const requestKey = `${token}::${url}`;
+
+  // Reuse an identical request only while it is in flight.
+  const existingRequest = apiCache.get(requestKey);
+
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  /*
+   * Defer execution by one microtask so the promise is inserted into
+   * the cache before the request starts.
+   */
+  const requestPromise = Promise.resolve().then(async () => {
     try {
-      res = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-    } catch (networkErr) {
-      const err = { status: 0, message: `Network error: ${networkErr.message}` };
-      console.error('[plApi] Network error on', url, networkErr);
-      throw err;
-    }
+      let response;
 
-    if (!res.ok) {
-      if (res.status === 401) {
-        console.warn('[plApi] 401 Unauthorized. Clearing token → mock fallback.');
+      try {
+        response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (networkErr) {
+        const err = {
+          status: 0,
+          message: `Network error: ${networkErr.message}`,
+        };
+
+        console.error(
+          '[plApi] Network error on',
+          url,
+          networkErr
+        );
+
+        throw err;
+      }
+
+      // Preserve the existing unauthorized fallback.
+      if (response.status === 401) {
+        console.warn(
+          '[plApi] 401 Unauthorized. Clearing token → mock fallback.'
+        );
+
         localStorage.removeItem('finsight_token');
+
         return getMockDataForPath(path, params);
       }
 
-      if (res.status >= 500) {
-        console.warn(`[plApi] ${res.status} server error on ${url} → mock fallback.`);
+      // Preserve the existing server-error fallback.
+      if (response.status >= 500) {
+        console.warn(
+          `[plApi] ${response.status} server error on ${url} → mock fallback.`
+        );
+
         return getMockDataForPath(path, params);
       }
 
-      const rawBody = await res.text().catch(() => '');
-      let body = {};
-      try { body = JSON.parse(rawBody); } catch { /* non-JSON */ }
+      if (!response.ok) {
+        const rawBody = await response.text().catch(() => '');
 
-      let message = body?.error?.message || body?.message;
-      if (!message && body?.detail) {
-        message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? body.detail.map(d => typeof d === 'object' ? (d.msg || JSON.stringify(d)) : String(d)).join(', ') : JSON.stringify(body.detail);
+        let body = {};
+
+        try {
+          body = JSON.parse(rawBody);
+        } catch {
+          // Response body is not JSON.
+        }
+
+        let message =
+          body?.error?.message ||
+          body?.message;
+
+        if (!message && body?.detail) {
+          message =
+            typeof body.detail === 'string'
+              ? body.detail
+              : Array.isArray(body.detail)
+                ? body.detail
+                  .map((item) =>
+                    typeof item === 'object'
+                      ? item.msg || JSON.stringify(item)
+                      : String(item)
+                  )
+                  .join(', ')
+                : JSON.stringify(body.detail);
+        }
+
+        if (
+          !message &&
+          body?.error &&
+          typeof body.error === 'string'
+        ) {
+          message = body.error;
+        }
+
+        if (!message) {
+          message =
+            rawBody.slice(0, 120) ||
+            response.statusText ||
+            'Error occurred';
+        }
+
+        console.error(
+          `[plApi] ${response.status} on ${url}\nBody:`,
+          rawBody.slice(0, 500)
+        );
+
+        throw {
+          status: response.status,
+          message: String(message),
+          rawBody: rawBody.slice(0, 300),
+        };
       }
-      if (!message && body?.error && typeof body.error === 'string') message = body.error;
-      if (!message) message = rawBody.slice(0, 120) || res.statusText || 'Error occurred';
 
-      console.error(`[plApi] ${res.status} on ${url}\nBody:`, rawBody.slice(0, 500));
-      throw { status: res.status, message: String(message), rawBody: rawBody.slice(0, 300) };
+      let json = await response.json();
+
+      // Convert formatted numeric strings into numbers.
+      json = cleanNumbers(json);
+
+      // Normalize direct arrays while preserving the existing API shape.
+      if (Array.isArray(json)) {
+        return { data: json };
+      }
+
+      return json;
+    } finally {
+      /*
+       * Remove only this request's cache entry.
+       * A newer request must never be removed by an older request.
+       */
+      if (apiCache.get(requestKey) === requestPromise) {
+        apiCache.delete(requestKey);
+      }
     }
+  });
 
-    let json = await res.json();
+  // Cache the pending promise before another identical call can start.
+  apiCache.set(requestKey, requestPromise);
 
-    // The backend returns values as formatted strings (e.g. "2,568,396,862") 
-    // which breaks Recharts BarChart and local formatting. We must deep clean them.
-    json = cleanNumbers(json);
-
-    // Normalize: if backend returns a direct array, wrap it
-    if (Array.isArray(json)) return { data: json };
-
-    return json;
-  })();
-
-  apiCache.set(url, fetchPromise);
-  setTimeout(() => apiCache.delete(url), 500);
-
-  return fetchPromise;
+  return requestPromise;
 }
 
 /**
- * Deep walks API responses and converts formatted string numbers (e.g. "1,234,567.89")
- * into pure JS Numbers. This fixes Recharts BarCharts rejecting NaN and dropping bars.
+ * Deeply converts formatted numeric strings such as:
+ * "1,234,567.89" → 1234567.89
+ *
+ * This supports chart components that require numeric values.
  */
 function cleanNumbers(obj) {
   if (Array.isArray(obj)) {
     return obj.map(cleanNumbers);
-  } else if (obj !== null && typeof obj === 'object') {
+  }
+
+  if (obj !== null && typeof obj === 'object') {
     const cleaned = {};
-    for (const [k, v] of Object.entries(obj)) {
-      cleaned[k] = cleanNumbers(v);
+
+    for (const [key, value] of Object.entries(obj)) {
+      cleaned[key] = cleanNumbers(value);
     }
+
     return cleaned;
-  } else if (typeof obj === 'string') {
-    // Match anything that looks like a number with commas, e.g. "-1,234,567.89" or "45.0"
+  }
+
+  if (typeof obj === 'string') {
+    // Match integers and decimals, with optional comma separators.
     if (/^-?[\d,]+(\.\d+)?$/.test(obj)) {
       const stripped = obj.replace(/,/g, '');
+
       if (stripped.length > 0 && stripped !== '-') {
         const parsed = Number(stripped);
-        if (!isNaN(parsed)) return parsed;
+
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
       }
     }
+
     return obj;
   }
+
   return obj;
 }
-
 /* ══════════════════════════════════════════════════════════════════
    FILTER PARAMS BUILDER
 ══════════════════════════════════════════════════════════════════ */
@@ -417,10 +553,10 @@ function buildPLParams(filters = {}) {
   };
 
   return {
-    legal_group_id: activeStrings(filters.legalGroupId),
-    legal_entity_id: activeStrings(filters.legalEntityId),
-    parent_division_id: activeStrings(filters.parentDivisionId),
-    subdivision_id: activeStrings(filters.subdivisionId),
+    legal_group_id: activeIds(filters.legalGroupId),
+    legal_entity_id: activeIds(filters.legalEntityId),
+    parent_division_id: activeIds(filters.parentDivisionId),
+    subdivision_id: activeIds(filters.subdivisionId),
 
     year: active(filters.year),
 
@@ -1457,7 +1593,6 @@ export async function fetchPLDirectCostDetailMonthly(
 
   return normalizeCostStructureResponse(response);
 }
-
 
 
 

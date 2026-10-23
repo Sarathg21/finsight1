@@ -26,6 +26,7 @@ export const CANONICAL_ROUTE_REGISTRY = Object.freeze({
   '/inventory': 'INVENTORY',
   '/WorkingCapital': 'WORKING_CAPITAL',
   '/financial-position': 'FINANCIAL_POSITION',
+  '/manufacturing-cost': 'OPERATING_EXPENSES',
 });
 
 // Normalized lookup map for URL variations (trailing slashes, case normalization)

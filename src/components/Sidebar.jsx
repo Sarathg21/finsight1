@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
   FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase, WalletCards,
-  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign,
+  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign, Factory,
 } from 'lucide-react';
 
 /* â”€â”€ Icon map per route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -15,6 +15,7 @@ const ROUTE_ICON = {
   '/dashboard': LayoutDashboard,
   '/pl': FileText,
   '/financial-position': CircleDollarSign,
+  '/manufacturing-cost': Factory,
   '/balance-sheet': BookOpen,
   '/operating-expenses': BarChart2,
   '/revenue': DollarSign,
@@ -54,6 +55,7 @@ const MASTER_NAV_CATALOG = [
   { to: '/inventory',           label: 'Inventory Overview',                 group: 'Financial Reports'  },
   { to: '/WorkingCapital',      label: 'Working Capital Report',             group: 'Financial Reports'  },
   { to: '/financial-position',  label: 'Financial Position',                 group: 'Financial Reports'  },
+  { to: '/manufacturing-cost',  label: 'Manufacturing Cost',                 group: 'Financial Reports'  },
 
   // Admin
   { to: '/admin/dashboard',     label: 'Dashboard',                          group: 'Admin'              },

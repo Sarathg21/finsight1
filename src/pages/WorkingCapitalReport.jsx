@@ -1,5 +1,9 @@
 
+
+
 // import React, { useEffect, useMemo, useRef, useState } from "react";
+// import { useAuth } from "../context/AuthContext";
+// import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 // import { createPortal } from "react-dom";
 // import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
 // import {
@@ -12,7 +16,6 @@
 //     getWorkingCapitalAssetsVsLiabilities,
 //     getWorkingCapitalCashConversionCycle,
 //     getWorkingCapitalTrend,
-//     getWorkingCapitalCccTrend,
 //     getWorkingCapitalTradeTrend,
 //     getWorkingCapitalCurrentAssetsViewAll,
 //     getWorkingCapitalCurrentLiabilitiesViewAll,
@@ -193,20 +196,29 @@
 //                 item?.id ??
 //                 item?.value ??
 //                 item?.key ??
-//                 item?.code ??
 //                 item?.legal_group_id ??
 //                 item?.legal_entity_id ??
 //                 item?.parent_division_id ??
-//                 item?.subdivision_id;
+//                 item?.subdivision_id ??
+//                 item?.sub_division_id ??
+//                 item?.code ??
+//                 item?.parent_division ??
+//                 item?.subdivision ??
+//                 item?.sub_division_id;
 
 //             const label =
 //                 item?.label ??
 //                 item?.name ??
 //                 item?.display_name ??
 //                 item?.legal_group_name ??
+//                 item?.legal_group_code ??
 //                 item?.legal_entity_name ??
+//                 item?.legal_entity_code ??
 //                 item?.parent_division_name ??
+//                 item?.parent_division ??
 //                 item?.subdivision_name ??
+//                 item?.sub_division_name ??
+//                 item?.subdivision ??
 //                 item?.value;
 
 //             return {
@@ -216,7 +228,9 @@
 //                     item?.legal_group_ids,
 //                     item?.legalGroupIds,
 //                     item?.legal_group_id,
-//                     item?.legalGroupId
+//                     item?.legalGroupId,
+//                     item?.legal_group_code,
+//                     item?.legalGroupCode
 //                 ),
 //                 legalEntityIds: normalizeIds(
 //                     item?.legal_entity_ids,
@@ -235,6 +249,223 @@
 //         .filter((item) => item.id && item.label);
 // }
 
+
+
+// function hasScopeValue(value) {
+//     if (Array.isArray(value)) return value.some(hasScopeValue);
+//     if (value && typeof value === "object") {
+//         return Object.values(value).some(hasScopeValue);
+//     }
+//     return value !== null && value !== undefined && String(value).trim() !== "";
+// }
+
+// function collectAccessScopeRows(access) {
+//     const rows = [];
+//     const seen = new Set();
+//     const queue = [access];
+//     while (queue.length) {
+//         const current = queue.shift();
+//         if (!current || typeof current !== "object" || seen.has(current)) continue;
+//         seen.add(current);
+//         if (Array.isArray(current)) {
+//             current.forEach((item) => queue.push(item));
+//             continue;
+//         }
+//         for (const key of [
+//             "access_scopes", "accessScopes", "scope_assignments",
+//             "scopeAssignments", "scopes", "module_scopes", "moduleScopes",
+//         ]) {
+//             if (Array.isArray(current[key])) {
+//                 current[key].forEach((row) => {
+//                     if (row && typeof row === "object") rows.push(row);
+//                 });
+//             }
+//         }
+//         Object.values(current).forEach((value) => {
+//             if (value && typeof value === "object") queue.push(value);
+//         });
+//     }
+//     return rows;
+// }
+
+// function getScopedLegalEntityOptions(access) {
+//     const rows = collectAccessScopeRows(access);
+//     const result = [];
+//     const seen = new Set();
+
+//     const add = (idValue, labelValue, row = {}) => {
+//         const id = idValue == null ? "" : String(idValue).trim();
+//         const label = labelValue == null ? "" : String(labelValue).trim();
+//         if (!label) return;
+//         // Prefer a backend entity ID. When the access payload omits one,
+//         // use its stable entity code/name so the assigned scope remains visible.
+//         const optionId = id || String(
+//             row.legal_entity_code ?? row.legalEntityCode ?? label
+//         ).trim();
+//         if (!optionId) return;
+//         const key = `${optionId.toLowerCase()}::${label.toLowerCase()}`;
+//         if (seen.has(key)) return;
+//         seen.add(key);
+//         const toIds = (...values) => values
+//             .flatMap((value) => Array.isArray(value) ? value : [value])
+//             .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+//             .map(String);
+//         result.push({
+//             id: optionId,
+//             label,
+//             legalGroupIds: toIds(
+//                 row.legal_group_id, row.legalGroupId,
+//                 row.legal_group_ids, row.legalGroupIds
+//             ),
+//             legalEntityIds: [optionId],
+//             parentDivisionIds: toIds(
+//                 row.parent_division_id, row.parentDivisionId,
+//                 row.parent_division_ids, row.parentDivisionIds
+//             ),
+//         });
+//     };
+
+//     rows.forEach((row) => {
+//         const type = String(
+//             row.scope_type ?? row.scopeType ?? row.scope_level ??
+//             row.scopeLevel ?? row.entity_type ?? row.entityType ?? ""
+//         ).toLowerCase().replace(/[-\s]/g, "_");
+//         const entityLabel = getValue(
+//             row,
+//             "legal_entity_name", "legalEntityName",
+//             "entity_name", "entityName"
+//         );
+//         const entityId = getValue(
+//             row,
+//             "legal_entity_id", "legalEntityId",
+//             "entity_id", "entityId", "legal_entity_code", "legalEntityCode"
+//         );
+//         const entityCode = getValue(row, "legal_entity_code", "legalEntityCode");
+//         const looksLikeEntityScope =
+//             type.includes("legal_entity") ||
+//             type === "entity" ||
+//             hasScopeValue(entityLabel) ||
+//             hasScopeValue(entityId);
+//         if (looksLikeEntityScope) {
+//             add(entityId ?? entityCode, entityLabel ?? entityCode ?? entityId, row);
+//         }
+//     });
+
+//     // Some /access/me versions expose scope fields directly rather than rows.
+//     const directLabel = findValueInObject(access, [
+//         "legal_entity_name", "legalEntityName", "entity_name", "entityName",
+//     ]);
+//     const directId = findValueInObject(access, [
+//         "legal_entity_id", "legalEntityId", "entity_id", "entityId",
+//         "legal_entity_code", "legalEntityCode",
+//     ]);
+//     if (hasScopeValue(directLabel) || hasScopeValue(directId)) {
+//         const labels = Array.isArray(directLabel) ? directLabel : [directLabel];
+//         const ids = Array.isArray(directId) ? directId : [directId];
+//         labels.forEach((label, index) => add(ids[index] ?? ids[0] ?? label, label));
+//     }
+//     return result;
+// }
+
+// function findValueInObject(source, aliases) {
+//     const visited = new Set();
+//     const queue = [source];
+//     while (queue.length) {
+//         const current = queue.shift();
+//         if (!current || typeof current !== "object" || visited.has(current)) continue;
+//         visited.add(current);
+//         if (Array.isArray(current)) {
+//             current.forEach((item) => queue.push(item));
+//             continue;
+//         }
+//         for (const alias of aliases) {
+//             if (Object.prototype.hasOwnProperty.call(current, alias) && hasScopeValue(current[alias])) {
+//                 return current[alias];
+//             }
+//         }
+//         Object.values(current).forEach((value) => {
+//             if (value && typeof value === "object") queue.push(value);
+//         });
+//     }
+//     return null;
+// }
+
+// function getScopedLegalGroupOptions(access) {
+//     const rows = collectAccessScopeRows(access);
+//     const result = [];
+//     const seen = new Set();
+//     const add = (idValue, labelValue, row = {}) => {
+//         const label = labelValue == null ? "" : String(labelValue).trim();
+//         if (!label) return;
+//         const id = String(idValue ?? row.legal_group_code ?? row.legalGroupCode ?? label).trim();
+//         if (!id) return;
+//         const key = `${id.toLowerCase()}::${label.toLowerCase()}`;
+//         if (seen.has(key)) return;
+//         seen.add(key);
+//         result.push({ id, label, legalGroupIds: [id], legalEntityIds: [], parentDivisionIds: [] });
+//     };
+//     rows.forEach((row) => {
+//         const label = getValue(row, "legal_group_name", "legalGroupName", "group_name", "groupName");
+//         const id = getValue(row, "legal_group_id", "legalGroupId", "group_id", "groupId", "legal_group_code", "legalGroupCode");
+//         const type = String(row.scope_type ?? row.scopeType ?? row.scope_level ?? row.scopeLevel ?? "").toLowerCase();
+//         if (label && (type.includes("legal_group") || type === "group" || id != null)) add(id, label, row);
+//     });
+//     const directLabel = findValueInObject(access, ["legal_group_name", "legalGroupName", "group_name", "groupName"]);
+//     const directId = findValueInObject(access, ["legal_group_id", "legalGroupId", "group_id", "groupId", "legal_group_code", "legalGroupCode"]);
+//     if (directLabel) {
+//         (Array.isArray(directLabel) ? directLabel : [directLabel]).forEach((label, index) => {
+//             const ids = Array.isArray(directId) ? directId : [directId];
+//             add(ids[index] ?? ids[0] ?? label, label);
+//         });
+//     }
+//     return result;
+// }
+
+// function mergeScopedLegalGroups(options, access) {
+//     const current = options?.legalGroups || [];
+//     const scoped = getScopedLegalGroupOptions(access);
+//     const merged = [...current];
+//     const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+//     scoped.forEach((item) => {
+//         const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+//         if (!keys.has(key)) { keys.add(key); merged.push(item); }
+//     });
+//     return { ...options, legalGroups: merged };
+// }
+
+
+// function annotateOptionsWithGroupScope(options, groupIds) {
+//     const scopeIds = (Array.isArray(groupIds) ? groupIds : [groupIds])
+//         .filter((id) => id !== null && id !== undefined && String(id).trim() !== "")
+//         .map(String);
+//     if (!scopeIds.length || !Array.isArray(options)) return Array.isArray(options) ? options : [];
+//     return options.map((option) => ({
+//         ...option,
+//         // A scoped API response is authoritative for the selected group even
+//         // when its metadata contains a group code/name instead of the group ID.
+//         legalGroupIds: [...new Set([
+//             ...(Array.isArray(option?.legalGroupIds) ? option.legalGroupIds.map(String) : []),
+//             ...scopeIds,
+//         ])],
+//     }));
+// }
+
+// function mergeScopedLegalEntities(options, access) {
+//     const current = options?.legalEntities || [];
+//     const scoped = getScopedLegalEntityOptions(access);
+//     const byId = new Map(current.map((item) => [String(item.id).toLowerCase(), item]));
+//     const byLabel = new Map(current.map((item) => [String(item.label).toLowerCase(), item]));
+//     const merged = [...current];
+//     scoped.forEach((item) => {
+//         const existing = byId.get(String(item.id).toLowerCase()) ||
+//             byLabel.get(String(item.label).toLowerCase());
+//         if (existing) return;
+//         merged.push(item);
+//         byId.set(String(item.id).toLowerCase(), item);
+//         byLabel.set(String(item.label).toLowerCase(), item);
+//     });
+//     return { ...options, legalEntities: merged };
+// }
 
 // function getFilterOptionsPayload(payload) {
 //     const data = unwrapApiResponse(payload);
@@ -255,11 +486,6 @@
 //         data.balance_sheet_periods ??
 //         data.balanceSheetPeriods ??
 //         [];
-
-//     const rawAgingBases =
-//         data.aging_bases ??
-//         data.agingBases ??
-//         ["DUE_DATE"];
 
 //     return {
 //         legalGroups: optionList(
@@ -312,17 +538,6 @@
 //                 }))
 //                 .filter((item) => item.value)
 //             : [],
-//         agingBases: Array.isArray(rawAgingBases)
-//             ? rawAgingBases
-//                 .map((item) =>
-//                     typeof item === "string"
-//                         ? item
-//                         : item?.value ??
-//                         item?.code ??
-//                         item?.name
-//                 )
-//                 .filter(Boolean)
-//             : ["DUE_DATE"],
 //         reportingCurrency:
 //             data.reporting_currency ??
 //             data.reportingCurrency ??
@@ -335,17 +550,60 @@
 // }
 
 // function selectedIds(options, selectedValues) {
-//     const selected = Array.isArray(selectedValues)
-//         ? selectedValues
-//         : [];
+//     /*
+//      * Preserve the exact selected hierarchy IDs when building API requests.
+//      * Previously this function intersected selections with the option list.
+//      * That silently dropped valid backend IDs whenever an option's ID was
+//      * represented as a number/code or was absent from the current option set,
+//      * making main-dashboard and View-All hierarchy filters appear ineffective.
+//      * The dropdowns already constrain what users can select, so serialize the
+//      * selected values directly and consistently as strings.
+//      */
+//     return (Array.isArray(selectedValues) ? selectedValues : [])
+//         .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+//         .map(String);
+// }
 
-//     return options
-//         .filter((option) => selected.includes(option.id))
-//         .map((option) => option.id);
+// function hierarchyCacheKey(legalGroups = [], legalEntities = [], parentDivisions = []) {
+//     const normalize = (values) => (Array.isArray(values) ? values : [])
+//         .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+//         .map(String)
+//         .sort()
+//         .join(",");
+//     return `${normalize(legalGroups)}::${normalize(legalEntities)}::${normalize(parentDivisions)}`;
+// }
+
+// function annotateOptionsWithHierarchyScope(options, legalGroups = [], legalEntities = [], parentDivisions = []) {
+//     const groups = (Array.isArray(legalGroups) ? legalGroups : []).map(String);
+//     const entities = (Array.isArray(legalEntities) ? legalEntities : []).map(String);
+//     const parents = (Array.isArray(parentDivisions) ? parentDivisions : []).map(String);
+//     return (Array.isArray(options) ? options : []).map((option) => ({
+//         ...option,
+//         legalGroupIds: [...new Set([
+//             ...(Array.isArray(option?.legalGroupIds) ? option.legalGroupIds.map(String) : []),
+//             ...groups,
+//         ])],
+//         legalEntityIds: [...new Set([
+//             ...(Array.isArray(option?.legalEntityIds) ? option.legalEntityIds.map(String) : []),
+//             ...entities,
+//         ])],
+//         parentDivisionIds: [...new Set([
+//             ...(Array.isArray(option?.parentDivisionIds) ? option.parentDivisionIds.map(String) : []),
+//             ...parents,
+//         ])],
+//     }));
+// }
+
+// const WORKING_CAPITAL_CURRENCIES = ["AED", "USD", "SAR", "OMR", "QAR", "INR"];
+
+// function normalizeReportingCurrency(value) {
+//     const currency = String(value ?? "AED").trim().toUpperCase();
+//     return WORKING_CAPITAL_CURRENCIES.includes(currency) ? currency : "AED";
 // }
 
 // function buildApiFilters(filters, options) {
 //     const apiFilters = {
+//         reporting_currency: normalizeReportingCurrency(filters?.reportingCurrency),
 //         // These remain arrays so the existing API service can serialize them
 //         // as repeated query parameters:
 //         // ?legal_entity_id=1&legal_entity_id=2&subdivision_id=15
@@ -369,16 +627,10 @@
 //         as_on_date:
 //             filters.asOnDate || undefined,
 
-//         // Keep the approved backend default unless the user selects
-//         // another basis explicitly provided by filter-options.
-//         aging_basis:
-//             filters.agingBasis ||
-//             "DUE_DATE",
 //     };
 
 //     // Balance Sheet Period is intentionally not exposed on this page.
-//     // Keep the operational aging basis at the backend default without
-//     // rendering an Aging Basis control.
+//     // Only the supported hierarchy/date filters are returned.
 //     return apiFilters;
 // }
 
@@ -388,12 +640,19 @@
 //  */
 // function getWorkingCapitalDefaultFilters(filterOptions) {
 //     const options = filterOptions || {};
+//     // FJ Group is the required default on initial load and every Reset.
+//     // Resolve its real backend ID from the current options; never hardcode an ID.
+//     const fjGroup = (options.legalGroups || []).find((option) =>
+//         /\bfj\s*group\b/i.test(
+//             `${String(option?.label ?? "").trim()} ${String(option?.id ?? "").trim()}`
+//         )
+//     );
 //     return {
-//         legalGroups: [],
+//         legalGroups: fjGroup ? [String(fjGroup.id)] : [],
 //         legalEntities: [],
 //         parentDivisions: [],
 //         subDivisions: [],
-//         agingBasis: options.agingBases?.[0] || "DUE_DATE",
+//         reportingCurrency: "AED",
 //         asOnDate:
 //             options.operationalAsOnDate ||
 //             options.asOnDates?.[0] ||
@@ -415,6 +674,7 @@
 //     const source = filters || {};
 
 //     return {
+//         reporting_currency: normalizeReportingCurrency(source.reportingCurrency),
 //         legal_group_id: selectedIds(
 //             options.legalGroups,
 //             source.legalGroups
@@ -431,7 +691,6 @@
 //             options.subDivisions,
 //             source.subDivisions
 //         ),
-//         aging_basis: source.agingBasis || "DUE_DATE",
 //         as_on_date: source.asOnDate || undefined,
 //     };
 // }
@@ -465,7 +724,7 @@
 //     return getRows(payload)
 //         .map((row) => {
 //             const asOnDate = getValue(row, "as_on_date", "snapshot_date", "date", "period_end");
-//             const rawPeriod = getValue(row, "month", "period", "period_name", "label");
+//             const rawPeriod = getValue(row, "month_label", "month", "period", "period_name", "label");
 //             return {
 //                 period: formatMonthLabel(asOnDate ?? rawPeriod),
 //                 asOnDate: asOnDate ?? null,
@@ -478,9 +737,49 @@
 //                         "value"
 //                     )
 //                 ),
+//                 // The TWC Trend endpoint also supplies the CCC-series metrics.
+//                 // Keep the values exactly as returned by the backend; do not
+//                 // recalculate DSO, DIO, DPO, or CCC in the frontend.
+//                 dso: toNumber(getValue(row, "dso_days", "dso")),
+//                 dio: toNumber(getValue(row, "dio_days", "dio")),
+//                 dpo: toNumber(getValue(row, "dpo_days", "dpo")),
+//                 ccc: toNumber(getValue(row, "cash_conversion_cycle_days", "ccc_days", "ccc", "cash_conversion_cycle")),
+//                 status: getValue(row, "status", "ccc_status") ?? null,
 //             };
 //         })
-//         .filter((row) => row.value !== null);
+//         .filter((row) => row.value !== null || row.dso !== null || row.dio !== null || row.dpo !== null || row.ccc !== null || row.status !== null);
+// }
+
+// function normalizeYearMonthKey(value, yearValue, monthValue) {
+//     const raw = value == null ? "" : String(value).trim();
+//     const match = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?/);
+//     if (match) return `${match[1]}-${String(match[2]).padStart(2, "0")}`;
+
+//     const year = Number(yearValue);
+//     const monthFromRaw = Number(raw);
+//     const month = Number(monthValue ?? monthFromRaw);
+//     if (Number.isInteger(year) && year >= 1900 && Number.isInteger(month) && month >= 1 && month <= 12) {
+//         return `${year}-${String(month).padStart(2, "0")}`;
+//     }
+
+//     const labelMatch = raw.match(/^([A-Za-z]{3,9})[\s-]+(\d{2}|\d{4})$/);
+//     if (labelMatch) {
+//         const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+//         const monthIndex = monthNames.indexOf(labelMatch[1].slice(0, 3).toLowerCase());
+//         if (monthIndex >= 0) return `${labelMatch[2].length === 2 ? `20${labelMatch[2]}` : labelMatch[2]}-${String(monthIndex + 1).padStart(2, "0")}`;
+//     }
+//     return raw || "";
+// }
+
+// function formatMonthYearHeader(value) {
+//     const raw = String(value ?? "").trim();
+//     const match = raw.match(/^(\d{4})-(\d{1,2})$/);
+//     if (match) {
+//         const month = new Date(Number(match[1]), Number(match[2]) - 1, 1)
+//             .toLocaleDateString("en-US", { month: "short" });
+//         return `${month}-${match[1].slice(-2)}`;
+//     }
+//     return formatMonthLabel(raw);
 // }
 
 // function normalizeHierarchyTrendRows(payload, level = "parent") {
@@ -539,6 +838,9 @@
 //             name: String(
 //                 getValue(row, ...nameKeys) ?? "—"
 //             ),
+//             // Keep a year-aware key for table grouping so Jan-2025 and Jan-2026
+//             // cannot collapse into the same month. Preserve the existing period
+//             // label for other dashboard consumers.
 //             period: formatMonthLabel(
 //                 getValue(
 //                     row,
@@ -553,6 +855,11 @@
 //                     "label"
 //                 )
 //             ),
+//             periodKey: normalizeYearMonthKey(
+//                 getValue(row, "month_label", "period", "period_name", "as_on_date", "snapshot_date", "date", "period_end", "label"),
+//                 getValue(row, "year"),
+//                 getValue(row, "month")
+//             ),
 //             value: toNumber(
 //                 getValue(
 //                     row,
@@ -563,6 +870,9 @@
 //                     "amount"
 //                 )
 //             ),
+//             dso: toNumber(getValue(row, "dso_days", "dso")),
+//             dio: toNumber(getValue(row, "dio_days", "dio")),
+//             dpo: toNumber(getValue(row, "dpo_days", "dpo")),
 //             ccc: toNumber(
 //                 getValue(
 //                     row,
@@ -575,8 +885,8 @@
 //         }))
 //         .filter(
 //             (row) =>
-//                 row.value !== null &&
-//                 row.name !== "—"
+//                 row.name !== "—" &&
+//                 (row.value !== null || row.dso !== null || row.dio !== null || row.dpo !== null || row.ccc !== null)
 //         );
 // }
 
@@ -591,9 +901,9 @@
 //                 : [];
 
 //     /*
-//      * Common Parent Division / Sub-Division View All table.
-//      * DSO, DPO, DIO and CCC are intentionally null for now.
-//      * Never derive these values in the frontend.
+//      * Map the four backend-provided ratios directly. These values are
+//      * authoritative: do not recalculate them in the frontend.
+//      * Null/empty ratio values remain null and render as N/A in the table.
 //      */
 //     return rawRows.map((row) => ({
 //         legalEntity:
@@ -632,7 +942,7 @@
 //                 "receivables"
 //             )
 //         ),
-//         dso: null,
+//         dso: toNumber(getValue(row, "dso_days", "dso")),
 //         tradePayables: toNumber(
 //             getValue(
 //                 row,
@@ -641,11 +951,11 @@
 //                 "payables"
 //             )
 //         ),
-//         dpo: null,
+//         dpo: toNumber(getValue(row, "dpo_days", "dpo")),
 //         inventory: toNumber(
 //             getValue(row, "inventory", "total_inventory")
 //         ),
-//         dio: null,
+//         dio: toNumber(getValue(row, "dio_days", "dio")),
 //         tradeWorkingCapital: toNumber(
 //             getValue(
 //                 row,
@@ -654,58 +964,62 @@
 //                 "working_capital"
 //             )
 //         ),
-//         ccc: null,
+//         ccc: toNumber(getValue(row, "cash_conversion_cycle_days", "ccc_days", "ccc", "cash_conversion_cycle")),
 //     }));
 // }
 
 // function normalizeCccTrendRows(payload) {
 //     return getRows(payload)
-//         .map((row) => ({
-//             period:
-//                 getValue(
-//                     row,
-//                     "month_label",
-//                     "month",
-//                     "period",
-//                     "period_name",
-//                     "label"
-//                 ) ?? "—",
-//             dso: toNumber(
-//                 getValue(row, "dso_days", "dso")
-//             ),
-//             dio: toNumber(
-//                 getValue(row, "dio_days", "dio")
-//             ),
-//             dpo: toNumber(
-//                 getValue(row, "dpo_days", "dpo")
-//             ),
-//             // IMPORTANT:
-//             // CCC is always taken directly from the backend response.
-//             // Never derive CCC in the frontend from DSO + DIO - DPO.
-//             ccc: toNumber(
-//                 getValue(
-//                     row,
-//                     "cash_conversion_cycle_days",
-//                     "ccc_days",
-//                     "ccc",
-//                     "value"
-//                 )
-//             ),
-//             status:
-//                 getValue(
-//                     row,
-//                     "status",
-//                     "ccc_status"
-//                 ) ?? null,
-//         }))
-//         .filter(
-//             (row) =>
-//                 row.dso !== null ||
-//                 row.dio !== null ||
-//                 row.dpo !== null ||
-//                 row.ccc !== null ||
-//                 row.status !== null
+//         .map((row) => {
+//             const rawPeriod = getValue(
+//                 row,
+//                 "month_label",
+//                 "month",
+//                 "period",
+//                 "period_name",
+//                 "label",
+//                 "as_on_date",
+//                 "snapshot_date",
+//                 "date",
+//                 "period_end"
+//             );
+//             return {
+//                 period: formatCccPeriod(rawPeriod ?? "—"),
+//                 dso: toNumber(getValue(row, "dso_days", "dso")),
+//                 dio: toNumber(getValue(row, "dio_days", "dio")),
+//                 dpo: toNumber(getValue(row, "dpo_days", "dpo")),
+//                 // CCC is read directly from the TWC Trend backend response.
+//                 // Never derive CCC in the frontend from DSO + DIO - DPO.
+//                 ccc: toNumber(getValue(row, "cash_conversion_cycle_days", "ccc_days", "ccc", "cash_conversion_cycle")),
+//                 status: getValue(row, "status", "ccc_status") ?? null,
+//             };
+//         })
+//         .filter((row) => row.dso !== null || row.dio !== null || row.dpo !== null || row.ccc !== null || row.status !== null);
+// }
+
+// function formatCccPeriod(value) {
+//     if (value === null || value === undefined || value === "") return "—";
+//     const raw = String(value).trim();
+//     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+//     // Format monthly keys (YYYY-MM, YYYY-M) and ISO dates for display only.
+//     const match = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+//     if (match) {
+//         const monthIndex = Number(match[2]) - 1;
+//         if (monthIndex >= 0 && monthIndex < 12) {
+//             return `${monthNames[monthIndex]}-${match[1].slice(-2)}`;
+//         }
+//     }
+
+//     // Normalize labels such as "Jan 2026" or "January 2026".
+//     const labelMatch = raw.match(/^([A-Za-z]{3,9})[\s-]+(\d{2}|\d{4})$/);
+//     if (labelMatch) {
+//         const monthIndex = monthNames.findIndex((month) =>
+//             month.toLowerCase() === labelMatch[1].slice(0, 3).toLowerCase()
 //         );
+//         if (monthIndex >= 0) return `${monthNames[monthIndex]}-${labelMatch[2].slice(-2)}`;
+//     }
+//     return raw;
 // }
 
 // function normalizeBreakdownRows(payload) {
@@ -830,7 +1144,7 @@
 //         borderRadius: "var(--radius-md)",
 //         padding: "10px 14px",
 //         display: "grid",
-//         gridTemplateColumns: "118px 118px 118px 118px 118px 112px 130px 70px 60px",
+//         gridTemplateColumns: "118px 118px 118px 118px 112px 130px 70px 60px",
 //         gap: "10px 6px",
 //         alignItems: "end",
 //         marginBottom: "16px",
@@ -870,12 +1184,12 @@
 //     },
 //     card: {
 //         background: "var(--clr-surface)",
-//         border: "none",
-//         borderRadius: "var(--radius-md)",
-//         minHeight: "84px",
-//         padding: S.cardPad,
+//         border: "1px solid rgba(226, 232, 240, .55)",
+//         borderRadius: "13px",
+//         minHeight: "82px",
+//         padding: "11px",
 //         boxSizing: "border-box",
-//         boxShadow: SHADOW.card,
+//         boxShadow: "0 2px 8px rgba(15, 23, 42, .025)",
 //         overflow: "hidden",
 //         position: "relative",
 //         transition: "transform var(--tr-base), box-shadow var(--tr-base)",
@@ -909,7 +1223,7 @@
 // }
 
 // .wc-sales-page .wc-filter-grid {
-//     grid-template-columns: 118px 118px 118px 118px 118px 112px 130px 70px 60px !important;
+//     grid-template-columns: 118px 118px 118px 118px 112px 130px 70px 60px !important;
 //     gap: 10px 6px !important;
 //     align-items: end !important;
 // }
@@ -972,8 +1286,8 @@
 //             <div
 //                 style={{
 //                     display: "grid",
-//                     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-//                     gap: "16px",
+//                     gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+//                     gap: "10px",
 //                     marginBottom: "16px",
 //                 }}
 //             >
@@ -982,7 +1296,7 @@
 //                         key={index}
 //                         style={{
 //                             ...styles.card,
-//                             minHeight: "84px",
+//                             minHeight: "100px",
 //                         }}
 //                     >
 //                         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -1119,12 +1433,69 @@
 //     );
 // }
 
-// function KpiCard({ title, value, subtitle, icon }) {
+// function KpiCardSkeletonGrid({ count = 10 }) {
+//     return (
+//         <div className="wc-sales-kpis kpi-grid wc-kpi-skeleton-grid" aria-label="Loading KPI cards" aria-busy="true">
+//             {Array.from({ length: count }).map((_, index) => (
+//                 <div key={index} className="wc-kpi-skeleton-card" aria-hidden="true">
+//                     <div className="wc-kpi-skeleton-heading">
+//                         <div className="wc-skeleton-line wc-kpi-skeleton-icon" />
+//                         <div className="wc-kpi-skeleton-copy">
+//                             <div className="wc-skeleton-line" />
+//                             <div className="wc-skeleton-line" />
+//                         </div>
+//                     </div>
+//                     <div className="wc-kpi-skeleton-comparisons">
+//                         <div className="wc-skeleton-line" />
+//                         <div className="wc-skeleton-line" />
+//                     </div>
+//                 </div>
+//             ))}
+//         </div>
+//     );
+// }
+
+// function ChartPanelSkeleton({ title }) {
+//     return (
+//         <section className="wc-panel-animate wc-chart-panel-skeleton" aria-label={`Loading ${title}`} aria-busy="true">
+//             <div className="wc-skeleton-line wc-chart-skeleton-title" />
+//             <div className="wc-skeleton-line wc-chart-skeleton-subtitle" />
+//             <div className="wc-skeleton-chart" />
+//         </section>
+//     );
+// }
+
+// function KpiCard({ title, value, subtitle, icon, metricLine, showComparisons = false, comparisonTarget = "—", comparisonLastMonth = "—" }) {
 //     const palettes = {
 //         "Trade Working Capital": {
 //             bg: "#EEF4FF",
-//             iconBg: "#DCE9FF",
+//             iconBg: "#DCEBFF",
 //             accent: "#2563EB",
+//         },
+//         "Trade Receivables": {
+//             bg: "#F5F2FF",
+//             iconBg: "#E7DEFF",
+//             accent: "#7C3AED",
+//         },
+//         "Inventory": {
+//             bg: "#EFFCF4",
+//             iconBg: "#DCFCE7",
+//             accent: "#16A34A",
+//         },
+//         "Trade Payables": {
+//             bg: "#FFF6EA",
+//             iconBg: "#FFEDD5",
+//             accent: "#D97706",
+//         },
+//         "Working Capital Ratio": {
+//             bg: "#F5F1FF",
+//             iconBg: "#E9DEFF",
+//             accent: "#7C3AED",
+//         },
+//         "Trade Working Capital Ratio": {
+//             bg: "#F5F1FF",
+//             iconBg: "#E9DEFF",
+//             accent: "#7C3AED",
 //         },
 //         "Net Working Capital": {
 //             bg: "#EEF2FF",
@@ -1147,14 +1518,14 @@
 //             accent: "#EA8A00",
 //         },
 //         "DSO": {
-//             bg: "#ECFBFF",
-//             iconBg: "#D5F3FA",
-//             accent: "#0891B2",
+//             bg: "#FFF6EA",
+//             iconBg: "#FFE6D2",
+//             accent: "#D97706",
 //         },
 //         "DIO": {
-//             bg: "#F0FDF4",
-//             iconBg: "#DCFCE7",
-//             accent: "#16A34A",
+//             bg: "#EEF6FF",
+//             iconBg: "#DCEBFF",
+//             accent: "#155EEF",
 //         },
 //         "DPO": {
 //             bg: "#FFF1F2",
@@ -1162,7 +1533,7 @@
 //             accent: "#DC2626",
 //         },
 //         "CCC": {
-//             bg: "#FDF2F8",
+//             bg: "#FFF0F7",
 //             iconBg: "#FCE0EE",
 //             accent: "#DB2777",
 //         },
@@ -1170,6 +1541,21 @@
 //             bg: "#F0F9FF",
 //             iconBg: "#DDF3FF",
 //             accent: "#0284C7",
+//         },
+//         "CCC (Cash Conversion Cycle)": {
+//             bg: "#FDF2F8",
+//             iconBg: "#FCE0EE",
+//             accent: "#DB2777",
+//         },
+//         "Target DSO": {
+//             bg: "#F0F9FF",
+//             iconBg: "#DDF3FF",
+//             accent: "#0284C7",
+//         },
+//         "Working Capital Turnover": {
+//             bg: "#ECFDF3",
+//             iconBg: "#D9F7E5",
+//             accent: "#16865B",
 //         },
 //     };
 
@@ -1190,6 +1576,11 @@
 //             className="sales-style-kpi"
 //             style={{
 //                 ...styles.card,
+//                 display: "flex",
+//                 flexDirection: "column",
+//                 justifyContent: "space-between",
+//                 gap: "6px",
+//                 minHeight: showComparisons ? "100px" : styles.card.minHeight,
 //                 background: palette.bg,
 //                 transform: hover ? "translateY(-2px)" : "translateY(0)",
 //                 boxShadow: hover
@@ -1203,16 +1594,18 @@
 //                 style={{
 //                     display: "flex",
 //                     alignItems: "center",
-//                     gap: "9px",
-//                     height: "100%",
+//                     gap: "8px",
+//                     minHeight: "35px",
+//                     height: "35px",
 //                     minWidth: 0,
 //                 }}
 //             >
 //                 <div
+//                     className="wc-kpi-icon"
 //                     style={{
-//                         width: "34px",
-//                         height: "34px",
-//                         minWidth: "34px",
+//                         width: "30px",
+//                         height: "30px",
+//                         minWidth: "30px",
 //                         borderRadius: "50%",
 //                         background: palette.iconBg,
 //                         display: "flex",
@@ -1238,14 +1631,19 @@
 //                     }}
 //                 >
 //                     <div
+//                         className="wc-kpi-title"
 //                         style={{
 //                             color: palette.accent,
-//                             fontSize: "0.68rem",
-//                             lineHeight: 1.15,
+//                             fontSize: "10px",
+//                             lineHeight: 1.12,
+//                             letterSpacing: "-0.01em",
 //                             fontWeight: 700,
-//                             whiteSpace: "nowrap",
+//                             whiteSpace: "normal",
+//                             display: "-webkit-box",
+//                             WebkitLineClamp: 2,
+//                             WebkitBoxOrient: "vertical",
 //                             overflow: "hidden",
-//                             textOverflow: "ellipsis",
+//                             overflowWrap: "anywhere",
 //                         }}
 //                         title={title}
 //                     >
@@ -1253,20 +1651,49 @@
 //                     </div>
 
 //                     <div
+//                         className="wc-kpi-value"
 //                         style={{
 //                             color: "#0F172A",
-//                             fontSize: "1.02rem",
-//                             lineHeight: 1.05,
+//                             fontSize: "clamp(13px, 1vw, 16px)",
+//                             lineHeight: 1.12,
 //                             fontWeight: 800,
 //                             letterSpacing: "-0.02em",
-//                             whiteSpace: "nowrap",
-//                             overflow: "hidden",
-//                             textOverflow: "ellipsis",
+//                             whiteSpace: "normal",
+//                             overflow: "visible",
+//                             textOverflow: "clip",
+//                             overflowWrap: "anywhere",
 //                         }}
 //                         title={String(value)}
 //                     >
 //                         <AnimatedKpiValue value={value} />
 //                     </div>
+
+//                     {metricLine && (
+//                         <div
+//                             className="wc-kpi-metric-line"
+//                             style={{
+//                                 display: "inline-flex",
+//                                 alignSelf: "flex-start",
+//                                 alignItems: "center",
+//                                 width: "fit-content",
+//                                 maxWidth: "100%",
+//                                 marginTop: "3px",
+//                                 padding: "2px 6px",
+//                                 borderRadius: "5px",
+//                                 background: "rgba(255,255,255,.68)",
+//                                 color: "#475569",
+//                                 fontSize: "0.60rem",
+//                                 lineHeight: 1.2,
+//                                 fontWeight: 700,
+//                                 whiteSpace: "nowrap",
+//                                 overflow: "hidden",
+//                                 textOverflow: "ellipsis",
+//                             }}
+//                             title={metricLine}
+//                         >
+//                             {metricLine}
+//                         </div>
+//                     )}
 
 //                     {subtitle && (
 //                         <div
@@ -1276,7 +1703,7 @@
 //                                 marginTop: "2px",
 //                                 padding: "2px 6px",
 //                                 borderRadius: "5px",
-//                                 background: "rgba(255,255,255,.58)",
+//                                 background: "rgba(255,255,255,.72)",
 //                                 color: isInsufficientHistory
 //                                     ? "#64748B"
 //                                     : "#64748B",
@@ -1294,6 +1721,79 @@
 //                     )}
 //                 </div>
 //             </div>
+//             {showComparisons && (
+//                 <div className="wc-kpi-comparison-panel wc-kpi-comparison-panel-left" style={{
+//                     width: "100%",
+//                     boxSizing: "border-box",
+//                     padding: "5px 8px",
+//                     borderRadius: "9px",
+//                     background: "rgba(255,255,255,.62)",
+//                     display: "flex",
+//                     flexDirection: "column",
+//                     alignItems: "stretch",
+//                     gap: "3px",
+//                     fontSize: "9px",
+//                     lineHeight: 1.12,
+//                     textAlign: "left",
+//                 }}>
+//                     <div className="wc-kpi-comparison-row wc-kpi-comparison-row-left" style={{
+//                         display: "flex",
+//                         flexDirection: "row",
+//                         justifyContent: "space-between",
+//                         alignItems: "center",
+//                         width: "100%",
+//                         minWidth: 0,
+//                         textAlign: "left",
+//                         gap: "6px",
+//                     }}>
+//                         <label className="wc-kpi-comparison-label wc-kpi-comparison-label-left" style={{
+//                             display: "block",
+//                             flex: "1 1 auto",
+//                             minWidth: 0,
+//                             margin: 0,
+//                             padding: 0,
+//                             textAlign: "left",
+//                             whiteSpace: "nowrap",
+//                         }}>vs Target</label>
+//                         <output className="wc-kpi-comparison-value wc-kpi-comparison-value-right" style={{
+//                             display: "block",
+//                             flex: "0 0 auto",
+//                             margin: "0 0 0 auto",
+//                             padding: 0,
+//                             textAlign: "right",
+//                             whiteSpace: "nowrap",
+//                         }}>{comparisonTarget ?? "—"}</output>
+//                     </div>
+//                     <div className="wc-kpi-comparison-row wc-kpi-comparison-row-left" style={{
+//                         display: "flex",
+//                         flexDirection: "row",
+//                         justifyContent: "space-between",
+//                         alignItems: "center",
+//                         width: "100%",
+//                         minWidth: 0,
+//                         textAlign: "left",
+//                         gap: "6px",
+//                     }}>
+//                         <label className="wc-kpi-comparison-label wc-kpi-comparison-label-left" style={{
+//                             display: "block",
+//                             flex: "1 1 auto",
+//                             minWidth: 0,
+//                             margin: 0,
+//                             padding: 0,
+//                             textAlign: "left",
+//                             whiteSpace: "nowrap",
+//                         }}>vs Last Month</label>
+//                         <output className="wc-kpi-comparison-value wc-kpi-comparison-value-right" style={{
+//                             display: "block",
+//                             flex: "0 0 auto",
+//                             margin: "0 0 0 auto",
+//                             padding: 0,
+//                             textAlign: "right",
+//                             whiteSpace: "nowrap",
+//                         }}>{comparisonLastMonth ?? "—"}</output>
+//                     </div>
+//                 </div>
+//             )}
 //         </div>
 //     );
 // }
@@ -3082,9 +3582,12 @@
 //     const dso = dsoRaw !== undefined ? toNumber(dsoRaw) : toNumber(kpis?.dso_days);
 //     const dio = dioRaw !== undefined ? toNumber(dioRaw) : toNumber(kpis?.dio_days);
 //     const dpo = dpoRaw !== undefined ? toNumber(dpoRaw) : toNumber(kpis?.dpo_days);
-//     const ccc = cccRaw !== undefined
-//         ? toNumber(cccRaw)
-//         : toNumber(kpis?.cash_conversion_cycle_days);
+//     // The visual explicitly represents CCC = DSO + DIO - DPO.
+//     // Calculate it only when all three backend component values are available;
+//     // do not substitute zero for a missing component.
+//     const ccc = dso !== null && dio !== null && dpo !== null
+//         ? dso + dio - dpo
+//         : null;
 
 //     const status =
 //         getValue(cccPayload, "status", "ccc_status") ??
@@ -3213,9 +3716,9 @@
 //                 }}
 //             >
 //                 {renderCard(cards[0])}
-//                 <div style={{ color: "#334155", fontSize: "18px", fontWeight: 800, textAlign: "center" }}>−</div>
+//                 <div aria-label="plus" style={{ color: "#22BDEB", fontSize: "22px", fontWeight: 900, textAlign: "center" }}>+</div>
 //                 {renderCard(cards[1])}
-//                 <div style={{ color: "#334155", fontSize: "18px", fontWeight: 800, textAlign: "center" }}>+</div>
+//                 <div aria-label="minus" style={{ color: "#22BDEB", fontSize: "22px", fontWeight: 900, textAlign: "center" }}>−</div>
 //                 {renderCard(cards[2])}
 //                 <div style={{ color: "#334155", fontSize: "18px", fontWeight: 800, textAlign: "center" }}>=</div>
 //                 {renderCard(cards[3])}
@@ -3571,10 +4074,7 @@
 //                     zIndex: 3,
 //                 }}
 //             >
-//                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-//                     <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-//                     <path d="M7 3.5V7M17 3.5V7M3.5 9.5H20.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-//                 </svg>
+//                 <span style={{ fontSize: "14px", lineHeight: 1 }} aria-hidden="true">📅</span>
 //             </span>
 //             <input
 //                 ref={inputRef}
@@ -3810,6 +4310,7 @@
 // function ViewAllMultiSelect({
 //     label,
 //     options = [],
+//     allOptions = options,
 //     value = [],
 //     onChange,
 //     width = 118,
@@ -3844,10 +4345,17 @@
 //         );
 //     };
 
+//     // Resolve selected labels against the complete option list, not only the
+//     // cascaded visible list. A selected Parent/Sub-Division can temporarily be
+//     // absent from the narrowed list; looking only in `options` displayed the
+//     // fallback "1 selected" instead of the actual name.
+//     const labelOptions = Array.isArray(allOptions) ? allOptions : options;
 //     const display = selected.length === 0
 //         ? "All"
 //         : selected.length === 1
-//             ? options.find((o) => String(o.id) === selected[0])?.label || "1 selected"
+//             ? labelOptions.find((o) => String(o.id) === selected[0])?.label ||
+//             options.find((o) => String(o.id) === selected[0])?.label ||
+//             selected[0]
 //             : `${selected.length} selected`;
 
 //     return (
@@ -4037,19 +4545,31 @@
 //                     transition: "all 0.15s ease",
 //                     outline: "none",
 //                 }}
-//                 title={`Display in ${currency} Million`}
+//                 title={`Display in ${currency} Millions`}
 //             >
-//                 {currency} Million
+//                 {currency} Millions
 //             </button>
 //         </div>
 //     );
 // }
 
-// function cascadeViewAllOptions(filterOptions, localFilters) {
+// function cascadeViewAllOptions(
+//     filterOptions,
+//     localFilters,
+//     legalEntityOptionsOverride = null,
+//     parentDivisionOptionsOverride = null,
+//     subDivisionOptionsOverride = null
+// ) {
 //     const groups = filterOptions?.legalGroups || [];
-//     const entities = filterOptions?.legalEntities || [];
-//     const parents = filterOptions?.parentDivisions || [];
-//     const subs = filterOptions?.subDivisions || [];
+//     const entities = Array.isArray(legalEntityOptionsOverride)
+//         ? legalEntityOptionsOverride
+//         : (filterOptions?.legalEntities || []);
+//     const parents = Array.isArray(parentDivisionOptionsOverride)
+//         ? parentDivisionOptionsOverride
+//         : (filterOptions?.parentDivisions || []);
+//     const subs = Array.isArray(subDivisionOptionsOverride)
+//         ? subDivisionOptionsOverride
+//         : (filterOptions?.subDivisions || []);
 
 //     const groupIds = (localFilters.legalGroups || []).map(String);
 //     const entityIds = (localFilters.legalEntities || []).map(String);
@@ -4057,7 +4577,11 @@
 
 //     const matches = (item, keys, selected) => {
 //         if (!selected.length) return true;
-//         const ids = (keys || []).map(String);
+//         const ids = (Array.isArray(keys) ? keys : keys == null ? [] : [keys])
+//             .filter((id) => id !== null && id !== undefined && String(id).trim() !== "")
+//             .map(String);
+//         // If an option has no relationship metadata, keep it visible; the
+//         // selected hierarchy IDs are still sent to the backend on Apply.
 //         return !ids.length || ids.some((id) => selected.includes(id));
 //     };
 
@@ -4313,7 +4837,7 @@
 //     const periods = Array.from(
 //         new Set(
 //             safeRows
-//                 .map((row) => String(row?.period ?? ""))
+//                 .map((row) => String(row?.periodKey ?? row?.period ?? ""))
 //                 .filter(Boolean)
 //         )
 //     );
@@ -4329,7 +4853,7 @@
 //     const lookup = new Map();
 //     safeRows.forEach((row) => {
 //         const name = String(row?.name ?? "—");
-//         const period = String(row?.period ?? "");
+//         const period = String(row?.periodKey ?? row?.period ?? "");
 //         if (!name || name === "—" || !period) return;
 //         lookup.set(`${name}__${period}`, row);
 //     });
@@ -4374,7 +4898,7 @@
 //             <table
 //                 style={{
 //                     width: "100%",
-//                     minWidth: Math.max(620, 190 + periods.length * 188),
+//                     minWidth: Math.max(620, 190 + periods.length * 166),
 //                     borderCollapse: "collapse",
 //                     tableLayout: "fixed",
 //                     fontFamily: "Inter, system-ui, sans-serif",
@@ -4385,7 +4909,7 @@
 //                     {periods.map((period) => (
 //                         <React.Fragment key={`col-${period}`}>
 //                             <col style={{ width: 94 }} />
-//                             <col style={{ width: 94 }} />
+//                             <col style={{ width: 72 }} />
 //                         </React.Fragment>
 //                     ))}
 //                 </colgroup>
@@ -4425,7 +4949,7 @@
 //                                     whiteSpace: "nowrap",
 //                                 }}
 //                             >
-//                                 {period}
+//                                 {formatMonthYearHeader(period)}
 //                             </th>
 //                         ))}
 //                     </tr>
@@ -4456,9 +4980,9 @@
 //                                 <th
 //                                     style={{
 //                                         ...thRight,
-//                                         width: 94,
-//                                         minWidth: 94,
-//                                         maxWidth: 94,
+//                                         width: 72,
+//                                         minWidth: 72,
+//                                         maxWidth: 72,
 //                                         textAlign: "center",
 //                                         background: "#FBFCFE",
 //                                         borderLeft: "1px solid #E2E8F0",
@@ -4522,10 +5046,10 @@
 //                                         <td
 //                                             style={{
 //                                                 ...tdRight,
-//                                                 width: 94,
-//                                                 minWidth: 94,
-//                                                 maxWidth: 94,
-//                                                 padding: "8px 5px",
+//                                                 width: 72,
+//                                                 minWidth: 72,
+//                                                 maxWidth: 72,
+//                                                 padding: "8px 4px",
 //                                                 fontSize: "0.67rem",
 //                                                 whiteSpace: "nowrap",
 //                                                 color: "#475569",
@@ -4533,7 +5057,7 @@
 //                                                 background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
 //                                             }}
 //                                         >
-//                                             {toNumber(ccc) === null ? "—" : `${Number(ccc).toFixed(2)}`}
+//                                             {toNumber(ccc) === null ? "N/A" : Number(ccc).toFixed(2)}
 //                                         </td>
 //                                     </React.Fragment>
 //                                 );
@@ -4605,21 +5129,94 @@
 //     const pageSize = 15;
 
 //     const [localFilters, setLocalFilters] = useState(() => ({
-//         legalGroups: baseFilters?.legalGroups || [],
+//         legalGroups: baseFilters?.legalGroups?.length
+//             ? baseFilters.legalGroups
+//             : getWorkingCapitalDefaultFilters(filterOptions).legalGroups,
 //         legalEntities: baseFilters?.legalEntities || [],
 //         parentDivisions: baseFilters?.parentDivisions || [],
 //         subDivisions: baseFilters?.subDivisions || [],
-//         agingBasis: baseFilters?.agingBasis || "DUE_DATE",
+//         reportingCurrency: normalizeReportingCurrency(baseFilters?.reportingCurrency || currency || "AED"),
 //         asOnDate: baseFilters?.asOnDate || "",
 //     }));
+//     const modalCurrency = normalizeReportingCurrency(localFilters.reportingCurrency || currency || "AED");
+//     const [modalFilterOptions, setModalFilterOptions] = useState(filterOptions);
+//     const [modalGroupSpecificLegalEntities, setModalGroupSpecificLegalEntities] = useState({});
+//     const [modalParentDivisionCache, setModalParentDivisionCache] = useState({});
+//     const [modalSubDivisionCache, setModalSubDivisionCache] = useState({});
+//     const modalOptionRequestRef = useRef(0);
+
+//     useEffect(() => {
+//         setModalFilterOptions(filterOptions);
+//     }, [filterOptions]);
+
+//     // Load the same group-scoped entity list used by the main page whenever
+//     // View All opens. This prevents FJ entities appearing for RKME and vice versa.
+//     useEffect(() => {
+//         const selectedGroups = baseFilters?.legalGroups?.length
+//             ? baseFilters.legalGroups
+//             : getWorkingCapitalDefaultFilters(filterOptions).legalGroups;
+//         const groupIds = selectedIds([], selectedGroups);
+//         if (!groupIds.length) return;
+//         const groupKey = groupIds.slice().sort().join("|");
+//         const requestId = ++modalOptionRequestRef.current;
+//         void getWorkingCapitalFilterOptions({ legal_group_id: groupIds, reporting_currency: normalizeReportingCurrency(localFilters?.reportingCurrency || currency) }).then((response) => {
+//             if (requestId !== modalOptionRequestRef.current) return;
+//             const normalized = normalizeFilterOptions(response);
+//             const scopedEntities = annotateOptionsWithGroupScope(normalized.legalEntities, groupIds);
+//             if (normalized.parentDivisions.length) {
+//                 setModalParentDivisionCache((previous) => ({
+//                     ...previous,
+//                     [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+//                         normalized.parentDivisions,
+//                         groupIds,
+//                         [],
+//                         []
+//                     ),
+//                 }));
+//             }
+//             if (normalized.subDivisions.length) {
+//                 setModalSubDivisionCache((previous) => ({
+//                     ...previous,
+//                     [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+//                         normalized.subDivisions,
+//                         groupIds,
+//                         [],
+//                         []
+//                     ),
+//                 }));
+//             }
+//             if (scopedEntities.length) {
+//                 setModalGroupSpecificLegalEntities((previous) => ({
+//                     ...previous,
+//                     [groupKey]: scopedEntities,
+//                 }));
+//                 setModalFilterOptions((previous) => {
+//                     const existing = previous.legalEntities || [];
+//                     const merged = [...existing];
+//                     const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+//                     scopedEntities.forEach((item) => {
+//                         const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+//                         if (!keys.has(key)) { keys.add(key); merged.push(item); }
+//                     });
+//                     return { ...previous, legalEntities: merged };
+//                 });
+//             }
+//         }).catch((error) => {
+//             console.error("Failed to load Working Capital View All Legal Entities:", error);
+//         });
+//         // View All is mounted for each opening; its current base filters are the initial scope.
+//         // eslint-disable-next-line react-hooks/exhaustive-deps
+//     }, []);
 
 //     useEffect(() => {
 //         setLocalFilters({
-//             legalGroups: baseFilters?.legalGroups || [],
+//             legalGroups: baseFilters
+//                 ? (baseFilters.legalGroups || [])
+//                 : getWorkingCapitalDefaultFilters(filterOptions).legalGroups,
 //             legalEntities: baseFilters?.legalEntities || [],
 //             parentDivisions: baseFilters?.parentDivisions || [],
 //             subDivisions: baseFilters?.subDivisions || [],
-//             agingBasis: baseFilters?.agingBasis || "DUE_DATE",
+//             reportingCurrency: normalizeReportingCurrency(baseFilters?.reportingCurrency || currency || "AED"),
 //             asOnDate: baseFilters?.asOnDate || "",
 //         });
 //         setSearch("");
@@ -4627,38 +5224,198 @@
 //         setCfoViewMode("detailed");
 //     }, [baseFilters, type]);
 
+//     const loadModalLegalEntities = (selectedGroups) => {
+//         const groupIds = selectedIds([], selectedGroups);
+//         if (!groupIds.length) {
+//             setModalGroupSpecificLegalEntities({});
+//             return;
+//         }
+//         const groupKey = groupIds.slice().sort().join("|");
+//         const requestId = ++modalOptionRequestRef.current;
+//         setModalGroupSpecificLegalEntities((previous) => ({
+//             ...previous,
+//             [groupKey]: [],
+//         }));
+//         void getWorkingCapitalFilterOptions({ legal_group_id: groupIds, reporting_currency: normalizeReportingCurrency(localFilters?.reportingCurrency || currency) }).then((response) => {
+//             if (requestId !== modalOptionRequestRef.current) return;
+//             const normalized = normalizeFilterOptions(response);
+//             const scopedEntities = annotateOptionsWithGroupScope(normalized.legalEntities, groupIds);
+//             if (normalized.parentDivisions.length) {
+//                 setModalParentDivisionCache((previous) => ({
+//                     ...previous,
+//                     [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+//                         normalized.parentDivisions,
+//                         groupIds,
+//                         [],
+//                         []
+//                     ),
+//                 }));
+//             }
+//             if (normalized.subDivisions.length) {
+//                 setModalSubDivisionCache((previous) => ({
+//                     ...previous,
+//                     [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+//                         normalized.subDivisions,
+//                         groupIds,
+//                         [],
+//                         []
+//                     ),
+//                 }));
+//             }
+//             if (scopedEntities.length) {
+//                 setModalGroupSpecificLegalEntities((previous) => ({
+//                     ...previous,
+//                     [groupKey]: scopedEntities,
+//                 }));
+//                 setModalFilterOptions((previous) => {
+//                     const merged = [...(previous.legalEntities || [])];
+//                     const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+//                     scopedEntities.forEach((item) => {
+//                         const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+//                         if (!keys.has(key)) { keys.add(key); merged.push(item); }
+//                     });
+//                     return { ...previous, legalEntities: merged };
+//                 });
+//             } else {
+//                 setModalGroupSpecificLegalEntities((previous) => {
+//                     const next = { ...previous };
+//                     delete next[groupKey];
+//                     return next;
+//                 });
+//             }
+//         }).catch((error) => {
+//             console.error("Failed to load Working Capital View All Legal Entities:", error);
+//             setModalGroupSpecificLegalEntities((previous) => {
+//                 const next = { ...previous };
+//                 delete next[groupKey];
+//                 return next;
+//             });
+//         });
+//     };
+
 //     const resetModalFilters = () => {
-//         const reset = getWorkingCapitalDefaultFilters(filterOptions);
+//         const reset = getWorkingCapitalDefaultFilters(modalFilterOptions);
 //         setLocalFilters(reset);
+//         setModalParentDivisionCache({});
+//         setModalSubDivisionCache({});
 //         setSearch("");
 //         setPage(0);
 //         setCfoViewMode("detailed");
+//         loadModalLegalEntities(reset.legalGroups);
 //         onApplyFilters?.(reset);
 //     };
 
+//     const modalGroupKey = (localFilters.legalGroups || []).map(String).sort().join("|");
+//     const modalHasScopedEntities = Boolean(modalGroupKey) &&
+//         Object.prototype.hasOwnProperty.call(modalGroupSpecificLegalEntities, modalGroupKey);
+//     const activeModalLegalEntities = modalHasScopedEntities
+//         ? (modalGroupSpecificLegalEntities[modalGroupKey] || [])
+//         : (modalFilterOptions.legalEntities || []);
+//     const modalParentKey = hierarchyCacheKey(
+//         localFilters.legalGroups,
+//         localFilters.legalEntities,
+//         []
+//     );
+//     const modalSubKey = hierarchyCacheKey(
+//         localFilters.legalGroups,
+//         localFilters.legalEntities,
+//         localFilters.parentDivisions
+//     );
+//     const activeModalParentDivisions = Object.prototype.hasOwnProperty.call(modalParentDivisionCache, modalParentKey)
+//         ? (modalParentDivisionCache[modalParentKey] || [])
+//         : (modalFilterOptions.parentDivisions || []);
+//     const activeModalSubDivisions = Object.prototype.hasOwnProperty.call(modalSubDivisionCache, modalSubKey)
+//         ? (modalSubDivisionCache[modalSubKey] || [])
+//         : (modalFilterOptions.subDivisions || []);
+
 //     const cascaded = useMemo(
-//         () => cascadeViewAllOptions(filterOptions, localFilters),
-//         [filterOptions, localFilters]
+//         () => cascadeViewAllOptions(
+//             modalFilterOptions,
+//             localFilters,
+//             activeModalLegalEntities,
+//             activeModalParentDivisions,
+//             activeModalSubDivisions
+//         ),
+//         [modalFilterOptions, localFilters, activeModalLegalEntities, activeModalParentDivisions, activeModalSubDivisions]
 //     );
 
 //     const updateCascade = (key, values) => {
-//         setLocalFilters((prev) => {
-//             const next = { ...prev, [key]: values };
-//             if (key === "legalGroups") {
-//                 next.legalEntities = [];
-//                 next.parentDivisions = [];
-//                 next.subDivisions = [];
-//             }
-//             if (key === "legalEntities") {
-//                 next.parentDivisions = [];
-//                 next.subDivisions = [];
-//             }
-//             if (key === "parentDivisions") {
-//                 next.subDivisions = [];
-//             }
-//             return next;
-//         });
+//         const nextFilters = {
+//             ...localFilters,
+//             [key]: Array.isArray(values) ? values : [],
+//         };
+//         if (key === "legalGroups") {
+//             nextFilters.legalEntities = [];
+//             nextFilters.parentDivisions = [];
+//             nextFilters.subDivisions = [];
+//             setModalParentDivisionCache({});
+//             setModalSubDivisionCache({});
+//         } else if (key === "legalEntities") {
+//             nextFilters.parentDivisions = [];
+//             nextFilters.subDivisions = [];
+//             setModalSubDivisionCache({});
+//         } else if (key === "parentDivisions") {
+//             nextFilters.subDivisions = [];
+//             setModalSubDivisionCache({});
+//         }
+//         setLocalFilters(nextFilters);
 //         setPage(0);
+
+//         if (key === "legalGroups") {
+//             loadModalLegalEntities(nextFilters.legalGroups);
+//             return;
+//         }
+
+//         const dependentByKey = {
+//             legalEntities: { optionKey: "parentDivisions" },
+//             parentDivisions: { optionKey: "subDivisions" },
+//         };
+//         const dependent = dependentByKey[key];
+//         if (!dependent) return;
+
+//         const requestId = ++modalOptionRequestRef.current;
+//         const apiFilters = {
+//             reporting_currency: normalizeReportingCurrency(nextFilters.reportingCurrency || currency),
+//             legal_group_id: selectedIds([], nextFilters.legalGroups),
+//             legal_entity_id: selectedIds([], nextFilters.legalEntities),
+//             parent_division_id: selectedIds([], nextFilters.parentDivisions),
+//             subdivision_id: selectedIds([], nextFilters.subDivisions),
+//             as_on_date: nextFilters.asOnDate || undefined,
+//         };
+//         void getWorkingCapitalFilterOptions(apiFilters).then((response) => {
+//             if (requestId !== modalOptionRequestRef.current) return;
+//             const normalized = normalizeFilterOptions(response);
+//             const nextOptions = normalized[dependent.optionKey];
+//             if (!Array.isArray(nextOptions)) return;
+
+//             const scopedOptions = annotateOptionsWithHierarchyScope(
+//                 nextOptions,
+//                 nextFilters.legalGroups,
+//                 key === "legalEntities" ? nextFilters.legalEntities : nextFilters.legalEntities,
+//                 key === "parentDivisions" ? nextFilters.parentDivisions : []
+//             );
+
+//             if (key === "legalEntities") {
+//                 const cacheKey = hierarchyCacheKey(nextFilters.legalGroups, nextFilters.legalEntities, []);
+//                 setModalParentDivisionCache((previous) => ({ ...previous, [cacheKey]: scopedOptions }));
+//             } else if (key === "parentDivisions") {
+//                 const cacheKey = hierarchyCacheKey(nextFilters.legalGroups, nextFilters.legalEntities, nextFilters.parentDivisions);
+//                 setModalSubDivisionCache((previous) => ({ ...previous, [cacheKey]: scopedOptions }));
+//             }
+
+//             setModalFilterOptions((previous) => {
+//                 const existing = previous[dependent.optionKey] || [];
+//                 const merged = [...existing];
+//                 const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+//                 scopedOptions.forEach((item) => {
+//                     const optionKey = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+//                     if (!keys.has(optionKey)) { keys.add(optionKey); merged.push(item); }
+//                 });
+//                 return { ...previous, [dependent.optionKey]: merged };
+//             });
+//         }).catch((error) => {
+//             console.error("Failed to load Working Capital View All hierarchy options:", error);
+//         });
 //     };
 
 //     const filtered = (Array.isArray(rows) ? rows : []).filter((row) => {
@@ -4701,7 +5458,7 @@
 
 //     if (!filterOptions) return null;
 
-//     return (
+//     return createPortal(
 //         <div
 //             role="dialog"
 //             aria-modal="true"
@@ -4712,10 +5469,11 @@
 //                 background: "rgba(15, 23, 42, 0.35)",
 //                 backdropFilter: "blur(6px)",
 //                 display: "flex",
-//                 alignItems: "center",
+//                 alignItems: "flex-start",
 //                 justifyContent: "center",
-//                 zIndex: 1000,
-//                 padding: 0,
+//                 zIndex: 10000,
+//                 padding: "8px 0",
+//                 boxSizing: "border-box",
 //             }}
 //         >
 //             <div
@@ -4723,7 +5481,8 @@
 //                 style={{
 //                     width: "96vw",
 //                     maxWidth: "1500px",
-//                     height: "100vh",
+//                     height: "calc(100vh - 16px)",
+//                     maxHeight: "calc(100vh - 16px)",
 //                     background: "#FFFFFF",
 //                     borderRadius: 16,
 //                     border: "1px solid #E2E8F0",
@@ -4753,7 +5512,7 @@
 //                             {isCfo ? (
 //                                 <>
 //                                     <span style={{ margin: "0 6px", color: "#CBD5E1" }}>•</span>
-//                                     Reporting currency: {currency}
+//                                     Reporting currency: {modalCurrency}
 //                                 </>
 //                             ) : null}
 //                         </div>
@@ -4807,8 +5566,15 @@
 //                                 </button>
 //                             </div>
 //                         )}
+//                         {/* Currency-unit controls apply only to monetary View All tables.
+//                             CCC Trend is measured in days, so it intentionally has no
+//                             AED / AED Millions toggle. */}
 //                         {!isCcc && (
-//                             <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
+//                             <UnitToggle
+//                                 unit={modalUnit}
+//                                 onToggle={setModalUnit}
+//                                 currency={modalCurrency}
+//                             />
 //                         )}
 //                         {showModalExports && (
 //                             <>
@@ -4833,55 +5599,20 @@
 //                     zIndex: 20,
 //                     flexShrink: 0,
 //                 }}>
-//                     <ViewAllMultiSelect label="Legal Group" options={cascaded.legalGroups} value={localFilters.legalGroups} onChange={(v) => updateCascade("legalGroups", v)} />
-//                     <ViewAllMultiSelect label="Legal Entity" options={cascaded.legalEntities} value={localFilters.legalEntities} onChange={(v) => updateCascade("legalEntities", v)} />
-//                     <ViewAllMultiSelect label="Parent Division" options={cascaded.parentDivisions} value={localFilters.parentDivisions} onChange={(v) => updateCascade("parentDivisions", v)} />
-//                     <ViewAllMultiSelect label="Sub-Division" options={cascaded.subDivisions} value={localFilters.subDivisions} onChange={(v) => updateCascade("subDivisions", v)} />
+//                     <ViewAllMultiSelect label="Legal Group" options={cascaded.legalGroups} allOptions={modalFilterOptions.legalGroups} value={localFilters.legalGroups} onChange={(v) => updateCascade("legalGroups", v)} />
+//                     <ViewAllMultiSelect label="Legal Entity" options={cascaded.legalEntities} allOptions={modalFilterOptions.legalEntities} value={localFilters.legalEntities} onChange={(v) => updateCascade("legalEntities", v)} />
+//                     <ViewAllMultiSelect label="Parent Division" options={cascaded.parentDivisions} allOptions={modalFilterOptions.parentDivisions} value={localFilters.parentDivisions} onChange={(v) => updateCascade("parentDivisions", v)} />
+//                     <ViewAllMultiSelect label="Sub-Division" options={cascaded.subDivisions} allOptions={modalFilterOptions.subDivisions} value={localFilters.subDivisions} onChange={(v) => updateCascade("subDivisions", v)} />
 
 //                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-//                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Reporting Currency</span>
-//                         <div
-//                             style={{
-//                                 width: 112,
-//                                 height: 32,
-//                                 border: "1px solid #CBD5E1",
-//                                 borderRadius: 7,
-//                                 background: "#FFFFFF",
-//                                 color: "#334155",
-//                                 padding: "0 9px",
-//                                 display: "flex",
-//                                 alignItems: "center",
-//                                 boxSizing: "border-box",
-//                                 fontSize: "0.72rem",
-//                                 fontWeight: 700,
-//                             }}
-//                         >
-//                             {currency || "AED"}
-//                         </div>
-//                     </div>
-
-//                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-//                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Aging Basis</span>
+//                         <label htmlFor="working-capital-viewall-reporting-currency" style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Reporting Currency</label>
 //                         <select
-//                             value={localFilters.agingBasis || "DUE_DATE"}
-//                             onChange={(event) => setLocalFilters((p) => ({ ...p, agingBasis: event.target.value }))}
-//                             style={{
-//                                 width: 120,
-//                                 height: 32,
-//                                 border: "1px solid #CBD5E1",
-//                                 borderRadius: 7,
-//                                 background: "#FFFFFF",
-//                                 color: "#334155",
-//                                 padding: "0 8px",
-//                                 fontSize: "0.72rem",
-//                                 cursor: "pointer",
-//                             }}
+//                             id="working-capital-viewall-reporting-currency"
+//                             value={modalCurrency}
+//                             onChange={(event) => { setLocalFilters((previous) => ({ ...previous, reportingCurrency: normalizeReportingCurrency(event.target.value) })); setPage(0); }}
+//                             style={{ width: 112, height: 32, border: "1px solid #CBD5E1", borderRadius: 7, background: "#FFFFFF", color: "#334155", padding: "0 9px", boxSizing: "border-box", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}
 //                         >
-//                             {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
-//                                 <option key={basis} value={basis}>
-//                                     {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
-//                                 </option>
-//                             ))}
+//                             {WORKING_CAPITAL_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
 //                         </select>
 //                     </div>
 
@@ -4903,7 +5634,7 @@
 
 //                 </div>
 
-//                 <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: "10px 16px 8px", background: "#FFFFFF", display: "flex", flexDirection: "column" }}>
+//                 <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: "10px 16px 8px", background: "#FFFFFF", display: "flex", flexDirection: "column", position: "relative" }}>
 //                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "0 2px 8px", flexShrink: 0 }}>
 //                         <input
 //                             value={search}
@@ -4917,7 +5648,7 @@
 //                     </div>
 
 //                     {isTrade ? (
-//                         <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(220px, 0.58fr) minmax(560px, 1.42fr)", gap: 10, overflow: "hidden" }}>
+//                         <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.75fr)", gap: 10, overflow: "hidden" }}>
 //                             <div className="wc-trade-view-all-table" style={{ minWidth: 0, minHeight: 0, overflow: "auto" }}>
 //                                 <table
 //                                     style={{
@@ -4927,7 +5658,7 @@
 //                                         minWidth: isCfo
 //                                             ? 980
 //                                             : isCcc
-//                                                 ? 650
+//                                                 ? 760
 //                                                 : isTrade
 //                                                     ? 0
 //                                                     : isTrend
@@ -4944,18 +5675,19 @@
 //                                                     <th style={cfoTh}>SUB-DIVISION</th>
 //                                                     <th style={cfoThRight}>TRADE RECEIVABLES</th>
 //                                                     <th style={cfoThRight}>DSO</th>
-//                                                     <th style={cfoThRight}>TRADE PAYABLES</th>
-//                                                     <th style={cfoThRight}>DPO</th>
 //                                                     <th style={cfoThRight}>INVENTORY</th>
 //                                                     <th style={cfoThRight}>DIO</th>
+//                                                     <th style={cfoThRight}>TRADE PAYABLES</th>
+//                                                     <th style={cfoThRight}>DPO</th>
 //                                                     <th style={{ ...cfoThRight, whiteSpace: "nowrap" }}>
-//                                                         TRADE WORKING CAPITAL ({currency})
+//                                                         TRADE WORKING CAPITAL ({modalCurrency})
 //                                                     </th>
 //                                                     <th style={cfoThRight}>CCC</th>
 //                                                 </>
 //                                             ) : isCcc ? (
 //                                                 <>
-//                                                     <th style={th}>PERIOD</th>
+//                                                     <th style={th}>METRIC / PERIOD</th>
+//                                                     <th style={thRight}>TARGET DAYS</th>
 //                                                     <th style={thRight}>DSO</th>
 //                                                     <th style={thRight}>DIO</th>
 //                                                     <th style={thRight}>DPO</th>
@@ -4966,7 +5698,7 @@
 //                                                     <th style={th}>PERIOD</th>
 //                                                     <th style={thRight}>
 //                                                         {isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}
-//                                                         {currency ? ` (${currency})` : ""}
+//                                                         {modalCurrency ? ` (${modalCurrency})` : ""}
 //                                                     </th>
 //                                                 </>
 //                                             ) : (
@@ -4991,9 +5723,9 @@
 //                                                         <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
 //                                                         <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
 //                                                         <td style={cfoTdRight}>—</td>
-//                                                         <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
-//                                                         <td style={cfoTdRight}>—</td>
 //                                                         <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
+//                                                         <td style={cfoTdRight}>—</td>
+//                                                         <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
 //                                                         <td style={cfoTdRight}>—</td>
 //                                                         <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
 //                                                         <td style={cfoTdRight}>—</td>
@@ -5003,7 +5735,8 @@
 
 //                                             if (isCcc) return (
 //                                                 <tr key={`${row.period}-${index}`}>
-//                                                     <td style={td}>{row.period}</td>
+//                                                     <td style={td}>{formatCccPeriod(row.period)}</td>
+//                                                     <td style={tdRight} title="Target days will be populated when the backend provides target values">—</td>
 //                                                     <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
 //                                                     <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
 //                                                     <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -5033,7 +5766,7 @@
 //                                                         isCfo
 //                                                             ? 11
 //                                                             : isCcc
-//                                                                 ? 5
+//                                                                 ? 6
 //                                                                 : isTrade || isTrend
 //                                                                     ? 2
 //                                                                     : 4
@@ -5052,10 +5785,53 @@
 //                                     </tbody>
 //                                 </table>
 //                             </div>
-//                             <TradeWorkingCapitalViewAllChart rows={filtered} currency={currency} unit={modalUnit} />
+//                             <TradeWorkingCapitalViewAllChart rows={filtered} currency={modalCurrency} unit={modalUnit} />
 //                         </div>
+//                     ) : isCcc ? (
+//                         (() => {
+//                             const monthRows = [...filtered].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+//                             const months = [...new Set(monthRows.map((row) => String(row.period ?? "—")))];
+//                             const metricRows = [
+//                                 { key: "dso", label: "DSO", target: "—", color: "#F59E0B", icon: "◷" },
+//                                 { key: "dio", label: "DIO", target: "—", color: "#0EA5E9", icon: "▦" },
+//                                 { key: "dpo", label: "DPO", target: "—", color: "#E11D48", icon: "⊖" },
+//                                 { key: "ccc", label: "CCC", target: "—", color: "#7C3AED", icon: "⟳" },
+//                             ];
+//                             return (
+//                                 <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #E5EDF7", borderRadius: 10 }}>
+//                                     <table style={{ width: "100%", minWidth: Math.max(760, 150 + months.length * 105), borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed", fontFamily: "Inter, system-ui, sans-serif" }}>
+//                                         <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+//                                             <tr>
+//                                                 <th style={{ ...th, minWidth: 150, width: 170, background: "#EFF6FF", textAlign: "left" }}>METRIC</th>
+//                                                 <th style={{ ...thRight, minWidth: 105, width: 115, background: "#EFF6FF", borderLeft: "3px solid #172554", borderRight: "3px solid #172554" }}>TARGET DAYS</th>
+//                                                 {months.map((month) => <th key={month} style={{ ...thRight, minWidth: 100, background: "#EFF6FF", textAlign: "center" }}>{formatCccPeriod(month)}</th>)}
+//                                             </tr>
+//                                         </thead>
+//                                         <tbody>
+//                                             {metricRows.map((metric) => (
+//                                                 <tr key={metric.key}>
+//                                                     <td style={{ ...td, background: `${metric.color}12`, fontWeight: 800, color: "#172554", whiteSpace: "nowrap" }}>
+//                                                         <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+//                                                             <span style={{ width: 30, height: 30, borderRadius: "50%", background: `${metric.color}20`, color: metric.color, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>{metric.icon}</span>
+//                                                             <span>{metric.label}<small style={{ display: "block", color: "#94A3B8", fontSize: 10, fontWeight: 500 }}>Days</small></span>
+//                                                         </span>
+//                                                     </td>
+//                                                     <td style={{ ...tdRight, textAlign: "center", borderLeft: "3px solid #172554", borderRight: "3px solid #172554", fontWeight: 700 }}>—</td>
+//                                                     {months.map((month) => {
+//                                                         const source = monthRows.find((row) => String(row.period ?? "—") === month);
+//                                                         const value = toNumber(source?.[metric.key]);
+//                                                         return <td key={`${metric.key}-${month}`} style={{ ...tdRight, textAlign: "center", background: "#FFFFFF" }}>{value === null ? "—" : value.toFixed(2)}</td>;
+//                                                     })}
+//                                                 </tr>
+//                                             ))}
+//                                             {!months.length && <tr><td colSpan={2 + months.length} style={{ padding: 30, textAlign: "center", color: "#94A3B8" }}>{loading ? "Loading..." : "No available history."}</td></tr>}
+//                                         </tbody>
+//                                     </table>
+//                                 </div>
+//                             );
+//                         })()
 //                     ) : isCfo && cfoViewMode === "month-on-month" ? (
-//                         <ParentDivisionMonthOnMonthTable rows={filteredMonthRows} currency={currency} unit={modalUnit} />
+//                         <ParentDivisionMonthOnMonthTable rows={filteredMonthRows} currency={modalCurrency} unit={modalUnit} />
 //                     ) : (
 //                         <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}>
 //                             <table
@@ -5066,7 +5842,7 @@
 //                                     minWidth: isCfo
 //                                         ? 980
 //                                         : isCcc
-//                                             ? 650
+//                                             ? 760
 //                                             : isTrade || isTrend
 //                                                 ? 520
 //                                                 : 760,
@@ -5081,10 +5857,10 @@
 //                                                 <th style={cfoTh}>SUB-DIVISION</th>
 //                                                 <th style={cfoThRight}>TRADE RECEIVABLES</th>
 //                                                 <th style={cfoThRight}>DSO</th>
-//                                                 <th style={cfoThRight}>TRADE PAYABLES</th>
-//                                                 <th style={cfoThRight}>DPO</th>
 //                                                 <th style={cfoThRight}>INVENTORY</th>
 //                                                 <th style={cfoThRight}>DIO</th>
+//                                                 <th style={cfoThRight}>TRADE PAYABLES</th>
+//                                                 <th style={cfoThRight}>DPO</th>
 //                                                 <th style={cfoThRight}>TRADE WORKING CAPITAL</th>
 //                                                 <th style={cfoThRight}>CCC</th>
 //                                             </>
@@ -5120,19 +5896,20 @@
 //                                                     <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
 //                                                     <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
 //                                                     <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
-//                                                     <td style={cfoTdRight}>—</td>
-//                                                     <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
-//                                                     <td style={cfoTdRight}>—</td>
+//                                                     <td style={cfoTdRight}>{row.dso == null ? "N/A" : Number(row.dso).toFixed(2)}</td>
 //                                                     <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
-//                                                     <td style={cfoTdRight}>—</td>
+//                                                     <td style={cfoTdRight}>{row.dio == null ? "N/A" : Number(row.dio).toFixed(2)}</td>
+//                                                     <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
+//                                                     <td style={cfoTdRight}>{row.dpo == null ? "N/A" : Number(row.dpo).toFixed(2)}</td>
 //                                                     <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
-//                                                     <td style={cfoTdRight}>—</td>
+//                                                     <td style={cfoTdRight}>{row.ccc == null ? "N/A" : Number(row.ccc).toFixed(2)}</td>
 //                                                 </tr>
 //                                             );
 //                                         }
 //                                         if (isCcc) return (
 //                                             <tr key={`${row.period}-${index}`}>
-//                                                 <td style={td}>{row.period}</td>
+//                                                 <td style={td}>{formatCccPeriod(row.period)}</td>
+//                                                 <td style={tdRight} title="Target days will be populated when the backend provides target values">—</td>
 //                                                 <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
 //                                                 <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
 //                                                 <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -5155,13 +5932,45 @@
 //                                         );
 //                                     }) : (
 //                                         <tr>
-//                                             <td colSpan={isCfo ? 11 : isCcc ? 5 : isTrade || isTrend ? 2 : 4} style={{ padding: 30, textAlign: "center", color: "#94A3B8", fontSize: "0.72rem" }}>
+//                                             <td colSpan={isCfo ? 11 : isCcc ? 6 : isTrade || isTrend ? 2 : 4} style={{ padding: 30, textAlign: "center", color: "#94A3B8", fontSize: "0.72rem" }}>
 //                                                 {loading ? "Loading..." : "No available history."}
 //                                             </td>
 //                                         </tr>
 //                                     )}
 //                                 </tbody>
 //                             </table>
+//                         </div>
+//                     )}
+//                     {loading && (
+//                         <div
+//                             role="status"
+//                             aria-label="Loading View All report"
+//                             aria-busy="true"
+//                             style={{
+//                                 position: "absolute",
+//                                 inset: 0,
+//                                 zIndex: 30,
+//                                 padding: "18px",
+//                                 background: "rgba(255,255,255,.94)",
+//                                 display: "flex",
+//                                 flexDirection: "column",
+//                                 gap: 14,
+//                             }}
+//                         >
+//                             <div className="wc-skeleton-line" style={{ width: "34%", height: 14 }} />
+//                             <div style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", gap: 9 }}>
+//                                 {Array.from({ length: 5 }).map((_, index) => (
+//                                     <div key={index} style={{ height: 54, border: "1px solid #E8EDF4", borderRadius: 9, padding: 8, background: "#F8FAFC" }}>
+//                                         <div className="wc-skeleton-line" style={{ width: "70%", height: 7 }} />
+//                                         <div className="wc-skeleton-line" style={{ width: "92%", height: 10, marginTop: 10 }} />
+//                                     </div>
+//                                 ))}
+//                             </div>
+//                             <div className="wc-skeleton-line" style={{ width: "100%", height: 32 }} />
+//                             {Array.from({ length: 7 }).map((_, index) => (
+//                                 <div key={index} className="wc-skeleton-line" style={{ width: index % 2 ? "96%" : "100%", height: 22 }} />
+//                             ))}
+//                             <span style={{ color: "#64748B", fontSize: 12, fontWeight: 600 }}>Loading report data…</span>
 //                         </div>
 //                     )}
 //                 </div>
@@ -5186,7 +5995,8 @@
 //                     </div>
 //                 </div>
 //             </div>
-//         </div>
+//         </div>,
+//         document.body
 //     );
 // }
 
@@ -5226,12 +6036,87 @@
 // ============================================================ */
 
 // export default function WorkingCapitalReport() {
+//     // RBAC follows the Receivables/Sales Revenue access contract:
+//     // /api/access/me is the authority for user scopes and role_code.
+//     // AuthContext is the authority for module-level export permission.
+//     const [userAccess, setUserAccess] = useState(null);
+//     const [permissions, setPermissions] = useState([]);
+//     const { hasExportRight } = useAuth();
+//     const canExportWorkingCapital =
+//         typeof hasExportRight === "function" &&
+//         hasExportRight("WORKING_CAPITAL");
+
+//     // /api/access/me is authoritative for assigned legal hierarchy scopes.
+//     // Ignore empty aliases so a blank top-level field cannot hide populated
+//     // legal_entity_name values in access_scopes rows.
+//     const findAccessScopeValue = (source, aliases) =>
+//         findValueInObject(source, aliases);
+
+//     const accessScopeRoot = userAccess ?? {};
+//     const legalGroupScopeValue = findAccessScopeValue(accessScopeRoot, [
+//         "legal_group_id", "legal_group_ids", "legal_group_code", "legal_group_name",
+//         "legal_group", "legalGroupId", "legalGroupIds", "legalGroupCode",
+//         "legalGroupName", "legalGroup",
+//     ]);
+//     const scopedEntityOptions = getScopedLegalEntityOptions(accessScopeRoot);
+//     const legalEntityScopeValue = findAccessScopeValue(accessScopeRoot, [
+//         "legal_entity_id", "legal_entity_ids", "legal_entity_name", "legal_entity_code",
+//         "legal_entity", "legalEntityId", "legalEntityIds", "legalEntityName",
+//         "legalEntityCode", "legalEntity",
+//     ]);
+//     const hasLegalGroupScope = hasScopeValue(legalGroupScopeValue);
+//     const hasLegalEntityScope = hasScopeValue(legalEntityScopeValue) ||
+//         scopedEntityOptions.length > 0;
+
+//     const normalizePermissions = (response) => {
+//         if (Array.isArray(response)) return response;
+//         if (response && Array.isArray(response.data)) return response.data;
+//         if (response && Array.isArray(response.permissions)) return response.permissions;
+//         if (response && typeof response === "object") return [response];
+//         return [];
+//     };
+
+//     useEffect(() => {
+//         let cancelled = false;
+//         fetchAccessMe()
+//             .then((data) => {
+//                 if (cancelled) return;
+//                 setUserAccess(data);
+//                 if (data && data.role_code) {
+//                     return fetchRolePermissions(data.role_code)
+//                         .then((response) => {
+//                             if (!cancelled) setPermissions(normalizePermissions(response));
+//                         })
+//                         .catch(() => {
+//                             if (!cancelled) setPermissions([]);
+//                         });
+//                 }
+//                 return null;
+//             })
+//             .catch((err) => {
+//                 if (!cancelled) console.warn("Failed to fetch Working Capital access:", err);
+//             });
+//         return () => { cancelled = true; };
+//     }, []);
+
+//     // Access data can arrive after the initial filter-options request. Merge its
+//     // assigned scope without replacing backend options or widening RBAC access.
+//     useEffect(() => {
+//         if (userAccess == null) return;
+//         setFilterOptions((previous) =>
+//             mergeScopedLegalEntities(
+//                 mergeScopedLegalGroups(previous, userAccess),
+//                 userAccess
+//             )
+//         );
+//     }, [userAccess]);
+
 //     const [filters, setFilters] = useState({
 //         legalGroups: [],
 //         legalEntities: [],
 //         parentDivisions: [],
 //         subDivisions: [],
-//         agingBasis: "DUE_DATE",
+//         reportingCurrency: "AED",
 //         asOnDate: "",
 //     });
 
@@ -5253,10 +6138,30 @@
 //             subDivisions: [],
 //             asOnDates: [],
 //             balanceSheetPeriods: [],
-//             agingBases: ["DUE_DATE"],
 //             reportingCurrency: "",
 //             operationalAsOnDate: "",
 //         });
+
+//     // Keep group-scoped Legal Entity options separate. The Working Capital
+//     // filter-options endpoint can return a different entity list for FJ and RKME;
+//     // one group's response must never replace or contaminate another group's list.
+//     const [groupSpecificLegalEntities, setGroupSpecificLegalEntities] = useState({});
+//     const [mainParentDivisionCache, setMainParentDivisionCache] = useState({});
+//     const [mainSubDivisionCache, setMainSubDivisionCache] = useState({});
+
+//     // If FJ Group was available only through /access/me, select it after that
+//     // scope has been merged. Do not override a deliberate user selection.
+//     useEffect(() => {
+//         if (!filterOptionsLoaded) return;
+//         const defaults = getWorkingCapitalDefaultFilters(filterOptions);
+//         if (!defaults.legalGroups.length) return;
+//         setFilters((previous) =>
+//             previous.legalGroups?.length ? previous : { ...previous, ...defaults }
+//         );
+//         setAppliedFilters((previous) =>
+//             previous?.legalGroups?.length ? previous : { ...defaults }
+//         );
+//     }, [filterOptions.legalGroups, filterOptionsLoaded]);
 
 //     const [kpis, setKpis] = useState(null);
 //     const [components, setComponents] =
@@ -5275,6 +6180,20 @@
 //         useState([]);
 //     const [cccTrend, setCccTrend] =
 //         useState([]);
+
+//     // Historical sections load independently when they approach the viewport.
+//     // The dashboard's initial KPI/visible-chart request is kept separate.
+//     const hierarchySectionRef = useRef(null);
+//     const cccSectionRef = useRef(null);
+//     const dashboardRequestCacheRef = useRef(new Map());
+//     const lazySectionRequestsRef = useRef(new Set());
+//     const lazyFilterKeyRef = useRef("");
+//     const [hierarchyLoading, setHierarchyLoading] = useState(false);
+//     const [hierarchyLoaded, setHierarchyLoaded] = useState(false);
+//     const [cccSectionLoading, setCccSectionLoading] = useState(false);
+//     const [cccSectionLoaded, setCccSectionLoaded] = useState(false);
+//     const [componentsLoading, setComponentsLoading] = useState(false);
+//     const [tradeTrendLoading, setTradeTrendLoading] = useState(false);
 
 //     const [parentDivisionTrend, setParentDivisionTrend] =
 //         useState([]);
@@ -5302,268 +6221,338 @@
 //     const viewAllInFlightRef = useRef(new Map());
 
 //     /* --------------------------------------------------------
-//        FILTER OPTIONS
+//        FILTER OPTIONS — FAST INITIALIZATION + BACKGROUND HIERARCHY
+//        The base option response initializes filters immediately. The scoped
+//        Legal Group hierarchy is hydrated in the background and must not delay
+//        KPI/chart requests. Requests are shared across effect reruns (including
+//        React StrictMode) to avoid duplicate network calls.
 //     -------------------------------------------------------- */
+//     const filterOptionsRequestCacheRef = useRef(new Map());
+//     const requestFilterOptionsOnce = (key, request) => {
+//         const cached = filterOptionsRequestCacheRef.current.get(key);
+//         if (cached) return cached;
+//         const promise = Promise.resolve().then(request);
+//         filterOptionsRequestCacheRef.current.set(key, promise);
+//         promise.catch(() => {
+//             if (filterOptionsRequestCacheRef.current.get(key) === promise) {
+//                 filterOptionsRequestCacheRef.current.delete(key);
+//             }
+//         });
+//         return promise;
+//     };
 
 //     useEffect(() => {
 //         let active = true;
 
+//         const mergeOptions = (existing = [], incoming = []) => {
+//             const result = [...existing];
+//             const keys = new Set(result.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+//             incoming.forEach((item) => {
+//                 const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+//                 if (!keys.has(key)) { keys.add(key); result.push(item); }
+//             });
+//             return result;
+//         };
+
+//         const hydrateScopedHierarchy = async (defaultGroupId, baseOptions) => {
+//             if (!defaultGroupId) return;
+//             const scopeKey = `working-capital-filter-options:group:${String(defaultGroupId)}:AED`;
+//             try {
+//                 const scopedResponse = await requestFilterOptionsOnce(
+//                     scopeKey,
+//                     () => getWorkingCapitalFilterOptions({
+//                         reporting_currency: "AED",
+//                         legal_group_id: [defaultGroupId],
+//                     })
+//                 );
+//                 if (!active) return;
+//                 const scopedOptions = normalizeFilterOptions(scopedResponse);
+//                 const scopedEntities = annotateOptionsWithGroupScope(scopedOptions.legalEntities, [defaultGroupId]);
+//                 const groupKey = hierarchyCacheKey([defaultGroupId], [], []);
+
+//                 if (scopedEntities.length) {
+//                     setGroupSpecificLegalEntities((previous) => ({
+//                         ...previous,
+//                         [String(defaultGroupId)]: scopedEntities,
+//                     }));
+//                 }
+//                 if (scopedOptions.parentDivisions.length) {
+//                     setMainParentDivisionCache((previous) => ({
+//                         ...previous,
+//                         [groupKey]: annotateOptionsWithHierarchyScope(scopedOptions.parentDivisions, [defaultGroupId], [], []),
+//                     }));
+//                 }
+//                 if (scopedOptions.subDivisions.length) {
+//                     setMainSubDivisionCache((previous) => ({
+//                         ...previous,
+//                         [groupKey]: annotateOptionsWithHierarchyScope(scopedOptions.subDivisions, [defaultGroupId], [], []),
+//                     }));
+//                 }
+
+//                 // Merge the scoped options without clearing or overriding the
+//                 // user's current selections, access scopes, or reporting currency.
+//                 setFilterOptions((previous) => ({
+//                     ...previous,
+//                     legalEntities: mergeOptions(previous.legalEntities, annotateOptionsWithGroupScope(scopedOptions.legalEntities, [defaultGroupId])),
+//                     parentDivisions: mergeOptions(previous.parentDivisions, annotateOptionsWithGroupScope(scopedOptions.parentDivisions, [defaultGroupId])),
+//                     subDivisions: mergeOptions(previous.subDivisions, annotateOptionsWithGroupScope(scopedOptions.subDivisions, [defaultGroupId])),
+//                 }));
+//             } catch (scopeError) {
+//                 // The base option response remains usable. A scoped-options
+//                 // failure must never block the dashboard's primary data requests.
+//                 console.warn("Unable to refresh default Legal Group hierarchy options:", scopeError);
+//             }
+//         };
+
 //         async function loadFilterOptions() {
 //             try {
-//                 /*
-//                  * Filter dropdowns are populated only from the backend.
-//                  * No hierarchy lists are hardcoded in the frontend.
-//                  *
-//                  * The API supports the standard hierarchy parameters plus
-//                  * aging_basis. On first load there are no hierarchy
-//                  * selections yet, so only the approved default aging basis
-//                  * is sent.
-//                  */
-//                 const response =
-//                     await getWorkingCapitalFilterOptions({
-//                         aging_basis: "DUE_DATE",
-//                     });
-
+//                 const response = await requestFilterOptionsOnce(
+//                     "working-capital-filter-options:base:AED",
+//                     () => getWorkingCapitalFilterOptions({ reporting_currency: "AED" })
+//                 );
 //                 if (!active) return;
 
-//                 const options =
-//                     normalizeFilterOptions(response);
-
-//                 setFilterOptions(options);
-
-//                 /*
-//                  * Set the backend-provided first available operational date
-//                  * as the initial UI date when available. This does NOT wait
-//                  * for the user to press Apply; it is the initial page-load
-//                  * filter used by the dashboard.
-//                  */
-//                 const nextFilters = {
-//                     ...filters,
-//                     asOnDate:
-//                         filters.asOnDate ||
-//                         options.operationalAsOnDate ||
-//                         options.asOnDates[0] ||
-//                         "",
-//                 };
-
-//                 setFilters(nextFilters);
-//                 setAppliedFilters((current) =>
-//                     current === null
-//                         ? { ...nextFilters }
-//                         : current
+//                 const backendOptions = normalizeFilterOptions(response);
+//                 const options = mergeScopedLegalEntities(
+//                     mergeScopedLegalGroups(backendOptions, userAccess),
+//                     userAccess
 //                 );
+//                 const defaults = getWorkingCapitalDefaultFilters(options);
+//                 const defaultGroupId = defaults.legalGroups[0];
 
+//                 // Set up usable filters immediately after the base response.
+//                 // Do not await the slower scoped hierarchy request before allowing
+//                 // KPI cards and the initial charts to start loading.
+//                 setFilterOptions(options);
+//                 setFilters((currentFilters) => {
+//                     const nextFilters = {
+//                         ...getWorkingCapitalDefaultFilters(options),
+//                         legalGroups: currentFilters.legalGroups?.length ? currentFilters.legalGroups : defaults.legalGroups,
+//                         legalEntities: currentFilters.legalGroups?.length ? currentFilters.legalEntities : [],
+//                         parentDivisions: currentFilters.legalGroups?.length ? currentFilters.parentDivisions : [],
+//                         subDivisions: currentFilters.legalGroups?.length ? currentFilters.subDivisions : [],
+//                         reportingCurrency: normalizeReportingCurrency(currentFilters.reportingCurrency || "AED"),
+//                         asOnDate: currentFilters.asOnDate || options.operationalAsOnDate || options.asOnDates[0] || "",
+//                     };
+//                     setAppliedFilters((currentApplied) => currentApplied === null ? { ...nextFilters } : currentApplied);
+//                     return nextFilters;
+//                 });
 //                 setFilterOptionsLoaded(true);
+
+//                 // Hydrate FJ/default-group child options after the dashboard has
+//                 // already been released to render and request its primary data.
+//                 void hydrateScopedHierarchy(defaultGroupId, options);
 //             } catch (err) {
 //                 if (active) {
 //                     setLoading(false);
 //                     setFilterOptionsLoaded(true);
-//                     setError(
-//                         err?.response?.data
-//                             ?.detail ||
-//                         err?.message ||
-//                         "Unable to load Working Capital filter options."
-//                     );
+//                     setError(err?.response?.data?.detail || err?.message || "Unable to load Working Capital filter options.");
 //                 }
 //             }
 //         }
 
-//         loadFilterOptions();
-
-//         return () => {
-//             active = false;
-//         };
-//     }, []);
+//         void loadFilterOptions();
+//         return () => { active = false; };
+//     }, [userAccess]);
 
 //     /* --------------------------------------------------------
-//        LOAD DASHBOARD
+//        LOAD DASHBOARD — PRIORITIZED INITIAL REQUESTS
+//        KPI cards and the initially visible Trade Working Capital chart load
+//        first. Historical hierarchy charts and CCC detail are deferred until
+//        their sections are visible. Each section handles its own request state.
 //     -------------------------------------------------------- */
 
 //     useEffect(() => {
-//         /*
-//          * Load all Working Capital dashboard components automatically after
-//          * the backend filter options are available. The user no longer needs
-//          * to press Apply just to see the initial dashboard.
-//          *
-//          * After that initial load, changing filter controls alone does not
-//          * trigger requests. Apply explicitly commits the selected filters.
-//          */
 //         if (!filterOptionsLoaded || !appliedFilters) return;
 
 //         let active = true;
+//         setLoading(true);
+//         setError("");
+//         setKpis(null);
+//         setComponents(null);
+//         setTradeTrend([]);
+//         setTrend([]);
+//         setCccTrend([]);
+//         setCcc(null);
+//         setParentDivisionTrend([]);
+//         setSubDivisionTrend([]);
+//         setHierarchyLoading(false);
+//         setCccSectionLoading(false);
+//         setComponentsLoading(true);
+//         setTradeTrendLoading(true);
 
-//         async function load() {
-//             setLoading(true);
-//             setError("");
-
-//             const apiFilters =
-//                 buildApiFilters(
-//                     appliedFilters,
-//                     filterOptions
-//                 );
-
-//             const dashboardFilters = {
-//                 ...apiFilters,
-//                 months: 6,
-//             };
-
-//             const results =
-//                 await Promise.allSettled([
-//                     getWorkingCapitalKpis(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalComponents(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalCurrentAssets(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalCurrentLiabilities(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalLiquidityRatios(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalAssetsVsLiabilities(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalCashConversionCycle(
-//                         apiFilters
-//                     ),
-//                     getWorkingCapitalTrend(
-//                         dashboardFilters
-//                     ),
-//                     getWorkingCapitalTradeTrend(
-//                         dashboardFilters
-//                     ),
-//                     getWorkingCapitalCccTrend(
-//                         dashboardFilters
-//                     ),
-//                     getWorkingCapitalParentDivisionTrend({
-//                         ...apiFilters,
-//                         months: 6,
-//                     }),
-//                     getWorkingCapitalSubDivisionTrend({
-//                         ...apiFilters,
-//                         months: 6,
-//                     }),
-//                 ]);
-
-//             if (!active) return;
-
-//             const value = (index) =>
-//                 results[index]?.status ===
-//                     "fulfilled"
-//                     ? unwrapApiResponse(
-//                         results[index]
-//                             .value
-//                     )
-//                     : null;
-
-//             const kpiPayload = value(0);
-//             const componentsPayload = value(1);
-//             const assetsPayload = value(2);
-//             const liabilitiesPayload = value(3);
-//             const ratiosPayload = value(4);
-//             const avlPayload = value(5);
-//             const cccPayload = value(6);
-//             const trendPayload = value(7);
-//             const tradePayload = value(8);
-//             const cccTrendPayload = value(9);
-
-//             setKpis(kpiPayload);
-//             setComponents(
-//                 componentsPayload
+//         const apiFilters = buildApiFilters(appliedFilters, filterOptions);
+//         const dashboardFilters = { ...apiFilters, months: 6 };
+//         const cacheKey = JSON.stringify(apiFilters);
+//         const requestOnce = (key, request) => {
+//             const existing = dashboardRequestCacheRef.current.get(key);
+//             if (existing) return existing;
+//             const promise = Promise.resolve().then(request);
+//             dashboardRequestCacheRef.current.set(key, promise);
+//             promise.then(
+//                 () => {
+//                     if (dashboardRequestCacheRef.current.get(key) === promise) {
+//                         dashboardRequestCacheRef.current.delete(key);
+//                     }
+//                 },
+//                 () => {
+//                     if (dashboardRequestCacheRef.current.get(key) === promise) {
+//                         dashboardRequestCacheRef.current.delete(key);
+//                     }
+//                 }
 //             );
-//             setCurrentAssets(
-//                 assetsPayload
-//             );
-//             setCurrentLiabilities(
-//                 liabilitiesPayload
-//             );
-//             setLiquidityRatios(
-//                 ratiosPayload
-//             );
-//             setAssetsVsLiabilities(
-//                 avlPayload
-//             );
-//             setCcc(cccPayload);
+//             return promise;
+//         };
 
-//             setTrend(
-//                 normalizeTrendRows(
-//                     trendPayload
-//                 )
-//             );
+//         const kpiRequest = requestOnce(`kpis:${cacheKey}`, () => getWorkingCapitalKpis(apiFilters));
+//         const componentsRequest = requestOnce(`components:${cacheKey}`, () => getWorkingCapitalComponents(apiFilters));
+//         // One TWC response powers both the TWC and CCC trend displays.
+//         const tradeTrendRequest = requestOnce(
+//             `twc-trend:${JSON.stringify(dashboardFilters)}`,
+//             () => getWorkingCapitalTradeTrend(dashboardFilters)
+//         );
 
-//             setTradeTrend(
-//                 normalizeTradeTrendRows(
-//                     tradePayload
-//                 )
-//             );
-
-//             setCccTrend(
-//                 normalizeCccTrendRows(
-//                     cccTrendPayload
-//                 )
-//             );
-
-//             const parentTrendPayload = value(10);
-//             const subDivisionTrendPayload = value(11);
-
-//             setParentDivisionTrend(
-//                 normalizeHierarchyTrendRows(
-//                     parentTrendPayload,
-//                     "parent"
-//                 )
-//             );
-
-//             setSubDivisionTrend(
-//                 normalizeHierarchyTrendRows(
-//                     subDivisionTrendPayload,
-//                     "sub"
-//                 )
-//             );
-
-//             const failed =
-//                 results.filter(
-//                     (item) =>
-//                         item.status ===
-//                         "rejected"
-//                 );
-
-//             if (
-//                 failed.length ===
-//                 results.length
-//             ) {
-//                 throw failed[0].reason;
-//             }
-//         }
-
-//         load()
+//         // KPI cards have their own completion path; slow chart endpoints never
+//         // hold the whole page behind the initial skeleton.
+//         kpiRequest
+//             .then((payload) => {
+//                 if (active) setKpis(unwrapApiResponse(payload));
+//             })
 //             .catch((err) => {
-//                 if (!active) return;
-
-//                 setError(
-//                     err?.response?.data
-//                         ?.detail ||
-//                     err?.message ||
-//                     "Unable to load Working Capital data."
-//                 );
+//                 if (active) setError(err?.response?.data?.detail || err?.message || "Unable to load Working Capital KPI data.");
 //             })
 //             .finally(() => {
-//                 if (active) {
-//                     setLoading(false);
-//                 }
+//                 if (active) setLoading(false);
 //             });
+
+//         // Components and the TWC/CCC trend settle independently. A failure in
+//         // one chart does not prevent the KPI cards or the other chart rendering.
+//         componentsRequest
+//             .then((payload) => {
+//                 if (active) setComponents(unwrapApiResponse(payload));
+//             })
+//             .catch((err) => {
+//                 if (active) setError((previous) => previous || err?.response?.data?.detail || err?.message || "Unable to load Working Capital components chart.");
+//             })
+//             .finally(() => {
+//                 if (active) setComponentsLoading(false);
+//             });
+
+//         tradeTrendRequest
+//             .then((payload) => {
+//                 if (!active) return;
+//                 const normalizedTradeTrend = normalizeTradeTrendRows(payload);
+//                 setTradeTrend(normalizedTradeTrend);
+//                 // Reuse the TWC endpoint's ratios for CCC trend; no overlapping
+//                 // second historical request is issued for the same series.
+//                 setCccTrend(normalizeCccTrendRows(payload));
+//             })
+//             .catch((err) => {
+//                 if (active) setError((previous) => previous || err?.response?.data?.detail || err?.message || "Unable to load Trade Working Capital trend.");
+//             })
+//             .finally(() => {
+//                 if (active) setTradeTrendLoading(false);
+//             });
+//         return () => { active = false; };
+//     }, [appliedFilters, filterOptionsLoaded]);
+
+//     /* --------------------------------------------------------
+//        LAZY HISTORICAL SECTIONS
+//        Parent/Sub-Division trends and the CCC insight API are requested only
+//        when their respective sections are scrolled into view. The observer is
+//        recreated for a new applied filter set, and stale responses are ignored.
+//     -------------------------------------------------------- */
+//     useEffect(() => {
+//         if (!filterOptionsLoaded || !appliedFilters || loading) return undefined;
+
+//         let active = true;
+//         const apiFilters = buildApiFilters(appliedFilters, filterOptions);
+//         const filterKey = JSON.stringify(apiFilters);
+//         // Reset lazy-section readiness only when the applied filter scope changes.
+//         // The effect can also rerun after unrelated option state updates; those
+//         // must not reset a section that has already loaded for the same filters.
+//         if (lazyFilterKeyRef.current !== filterKey) {
+//             lazyFilterKeyRef.current = filterKey;
+//             setHierarchyLoaded(false);
+//             setCccSectionLoaded(false);
+//             setParentDivisionTrend([]);
+//             setSubDivisionTrend([]);
+//             setCcc(null);
+//         }
+
+//         const loadHierarchy = async () => {
+//             const requestKey = `${filterKey}:hierarchy`;
+//             if (lazySectionRequestsRef.current.has(requestKey)) return;
+//             lazySectionRequestsRef.current.add(requestKey);
+//             setHierarchyLoading(true);
+//             try {
+//                 const [parentPayload, subPayload] = await Promise.all([
+//                     getWorkingCapitalParentDivisionTrend({ ...apiFilters, months: 6 }),
+//                     getWorkingCapitalSubDivisionTrend({ ...apiFilters, months: 6 }),
+//                 ]);
+//                 if (!active) return;
+//                 setParentDivisionTrend(normalizeHierarchyTrendRows(parentPayload, "parent"));
+//                 setSubDivisionTrend(normalizeHierarchyTrendRows(subPayload, "sub"));
+//             } catch (err) {
+//                 lazySectionRequestsRef.current.delete(requestKey);
+//                 if (active) setError(err?.response?.data?.detail || err?.message || "Unable to load hierarchy trend charts.");
+//             } finally {
+//                 if (active) {
+//                     setHierarchyLoading(false);
+//                     setHierarchyLoaded(true);
+//                 }
+//             }
+//         };
+
+//         const loadCcc = async () => {
+//             const requestKey = `${filterKey}:ccc`;
+//             if (lazySectionRequestsRef.current.has(requestKey)) return;
+//             lazySectionRequestsRef.current.add(requestKey);
+//             setCccSectionLoading(true);
+//             try {
+//                 const response = await getWorkingCapitalCashConversionCycle(apiFilters);
+//                 if (!active) return;
+//                 setCcc(unwrapApiResponse(response));
+//             } catch (err) {
+//                 lazySectionRequestsRef.current.delete(requestKey);
+//                 if (active) setError(err?.response?.data?.detail || err?.message || "Unable to load Cash Conversion Cycle details.");
+//             } finally {
+//                 if (active) {
+//                     setCccSectionLoading(false);
+//                     setCccSectionLoaded(true);
+//                 }
+//             }
+//         };
+
+//         let observer = null;
+//         if (typeof IntersectionObserver !== "undefined") {
+//             observer = new IntersectionObserver((entries) => {
+//                 entries.forEach((entry) => {
+//                     if (!entry.isIntersecting) return;
+//                     if (entry.target === hierarchySectionRef.current) {
+//                         loadHierarchy();
+//                         observer.unobserve(entry.target);
+//                     } else if (entry.target === cccSectionRef.current) {
+//                         loadCcc();
+//                         observer.unobserve(entry.target);
+//                     }
+//                 });
+//             }, { root: null, rootMargin: "240px 0px", threshold: 0.01 });
+
+//             if (hierarchySectionRef.current) observer.observe(hierarchySectionRef.current);
+//             if (cccSectionRef.current) observer.observe(cccSectionRef.current);
+//         } else {
+//             // Older/embedded browsers without IntersectionObserver still load
+//             // the sections independently rather than leaving skeletons forever.
+//             void loadHierarchy();
+//             void loadCcc();
+//         }
 
 //         return () => {
 //             active = false;
+//             observer?.disconnect();
 //         };
-//     }, [
-//         appliedFilters,
-//         filterOptions,
-//         filterOptionsLoaded,
-//     ]);
+//     }, [appliedFilters, filterOptionsLoaded, loading]);
 
 //     /* --------------------------------------------------------
 //        DERIVED DISPLAY VALUES
@@ -5571,11 +6560,14 @@
 //        These are backend values only.
 //     -------------------------------------------------------- */
 
-//     const currency =
+//     const currency = normalizeReportingCurrency(
+//         appliedFilters?.reportingCurrency ||
+//         filters?.reportingCurrency ||
 //         kpis?.reporting_currency ||
 //         currentAssets?.reporting_currency ||
 //         currentLiabilities?.reporting_currency ||
-//         "—";
+//         "AED"
+//     );
 
 //     const operationalDate =
 //         kpis?.operational_as_on_date ??
@@ -5672,19 +6664,26 @@
 //         const selectedParents = Array.isArray(filters.parentDivisions)
 //             ? filters.parentDivisions.map(String)
 //             : [];
+//         const groupKey = selectedGroups.slice().sort().join("|");
+
+//         // Prefer the exact entity list returned for the selected group set.
+//         // Fall back to the unscoped backend list only when no scoped response
+//         // has been received for that group set yet.
+//         const hasScopedEntities = Boolean(groupKey) &&
+//             Object.prototype.hasOwnProperty.call(groupSpecificLegalEntities, groupKey);
+//         const groupEntities = hasScopedEntities
+//             ? (groupSpecificLegalEntities[groupKey] || [])
+//             : filterOptions.legalEntities;
 
 //         const matches = (option, selected, relationKey) => {
 //             if (!selected.length) return true;
-
 //             const related = Array.isArray(option?.[relationKey])
-//                 ? option[relationKey]
+//                 ? option[relationKey].map(String)
 //                 : [];
-
-//             return !related.length ||
-//                 related.some((id) => selected.includes(String(id)));
+//             return !related.length || related.some((id) => selected.includes(id));
 //         };
 
-//         const legalEntities = filterOptions.legalEntities.filter((option) =>
+//         const legalEntities = groupEntities.filter((option) =>
 //             matches(option, selectedGroups, "legalGroupIds")
 //         );
 
@@ -5693,8 +6692,12 @@
 //                 ? selectedEntities
 //                 : legalEntities.map((option) => String(option.id))
 //         );
-
-//         const parentDivisions = filterOptions.parentDivisions.filter((option) =>
+//         const parentKey = hierarchyCacheKey(selectedGroups, selectedEntities, []);
+//         const hasScopedParents = Object.prototype.hasOwnProperty.call(mainParentDivisionCache, parentKey);
+//         const parentSource = hasScopedParents
+//             ? (mainParentDivisionCache[parentKey] || [])
+//             : filterOptions.parentDivisions;
+//         const parentDivisions = parentSource.filter((option) =>
 //             matches(option, selectedGroups, "legalGroupIds") &&
 //             matches(option, [...visibleEntityIds], "legalEntityIds")
 //         );
@@ -5704,8 +6707,12 @@
 //                 ? selectedParents
 //                 : parentDivisions.map((option) => String(option.id))
 //         );
-
-//         const subDivisions = filterOptions.subDivisions.filter((option) =>
+//         const subKey = hierarchyCacheKey(selectedGroups, selectedEntities, selectedParents);
+//         const hasScopedSubs = Object.prototype.hasOwnProperty.call(mainSubDivisionCache, subKey);
+//         const subSource = hasScopedSubs
+//             ? (mainSubDivisionCache[subKey] || [])
+//             : filterOptions.subDivisions;
+//         const subDivisions = subSource.filter((option) =>
 //             matches(option, selectedGroups, "legalGroupIds") &&
 //             matches(option, [...visibleEntityIds], "legalEntityIds") &&
 //             matches(option, [...visibleParentIds], "parentDivisionIds")
@@ -5722,34 +6729,173 @@
 //         filters.legalGroups,
 //         filters.legalEntities,
 //         filters.parentDivisions,
+//         groupSpecificLegalEntities,
+//         mainParentDivisionCache,
+//         mainSubDivisionCache,
 //     ]);
 
 //     /* --------------------------------------------------------
 //        FILTER ACTIONS
 //     -------------------------------------------------------- */
 
-//     function updateFilter(
-//         key,
-//         value
-//     ) {
-//         setFilters((previous) => {
-//             const next = {
+//     const filterOptionRequestRef = useRef(0);
+
+//     function updateFilter(key, value) {
+//         const nextFilters = {
+//             ...filters,
+//             [key]: value,
+//         };
+//         if (key === "legalGroups") {
+//             nextFilters.legalEntities = [];
+//             nextFilters.parentDivisions = [];
+//             nextFilters.subDivisions = [];
+//             setMainParentDivisionCache({});
+//             setMainSubDivisionCache({});
+//         } else if (key === "legalEntities") {
+//             nextFilters.parentDivisions = [];
+//             nextFilters.subDivisions = [];
+//             setMainSubDivisionCache({});
+//         } else if (key === "parentDivisions") {
+//             nextFilters.subDivisions = [];
+//             setMainSubDivisionCache({});
+//         }
+//         setFilters(nextFilters);
+
+//         const dependentByKey = {
+//             legalGroups: "legalEntities",
+//             legalEntities: "parentDivisions",
+//             parentDivisions: "subDivisions",
+//         };
+//         const dependentKey = dependentByKey[key];
+//         if (!dependentKey) return;
+
+//         const requestId = ++filterOptionRequestRef.current;
+//         const selectedGroupIds = selectedIds([], nextFilters.legalGroups);
+//         const groupKey = selectedGroupIds.slice().sort().join("|");
+//         if (key === "legalGroups" && groupKey) {
+//             // Mark this group as pending so the previous group's entities cannot
+//             // appear while the selected group's options are being fetched.
+//             setGroupSpecificLegalEntities((previous) => ({
 //                 ...previous,
-//                 [key]: value,
-//             };
-
-//             if (key === "legalGroups") {
-//                 next.legalEntities = [];
-//                 next.parentDivisions = [];
-//                 next.subDivisions = [];
+//                 [groupKey]: [],
+//             }));
+//         }
+//         const optionFilters = {
+//             reporting_currency: normalizeReportingCurrency(nextFilters.reportingCurrency || filters.reportingCurrency),
+//             legal_group_id: selectedGroupIds,
+//             legal_entity_id: selectedIds([], nextFilters.legalEntities),
+//             parent_division_id: selectedIds([], nextFilters.parentDivisions),
+//             subdivision_id: selectedIds([], nextFilters.subDivisions),
+//             as_on_date: nextFilters.asOnDate || undefined,
+//         };
+//         if (key === "legalGroups" && !selectedGroupIds.length) {
+//             // Clearing Legal Group restores the full backend entity inventory.
+//             setGroupSpecificLegalEntities({});
+//         }
+//         void getWorkingCapitalFilterOptions(optionFilters).then((response) => {
+//             if (requestId !== filterOptionRequestRef.current) return;
+//             const normalized = normalizeFilterOptions(response);
+//             const nextOptions = normalized[dependentKey];
+//             if (!Array.isArray(nextOptions)) return;
+//             if (key === "legalGroups" && groupKey) {
+//                 const scopedEntities = annotateOptionsWithGroupScope(nextOptions, selectedGroupIds);
+//                 if (scopedEntities.length) {
+//                     setGroupSpecificLegalEntities((previous) => ({
+//                         ...previous,
+//                         [groupKey]: scopedEntities,
+//                     }));
+//                 } else {
+//                     // Empty scoped responses should not permanently hide entities
+//                     // that are already present in the backend's full option list.
+//                     setGroupSpecificLegalEntities((previous) => {
+//                         const next = { ...previous };
+//                         delete next[groupKey];
+//                         return next;
+//                     });
+//                 }
+//                 if (normalized.parentDivisions.length) {
+//                     setMainParentDivisionCache((previous) => ({
+//                         ...previous,
+//                         [hierarchyCacheKey(nextFilters.legalGroups, [], [])]: annotateOptionsWithHierarchyScope(
+//                             normalized.parentDivisions,
+//                             nextFilters.legalGroups,
+//                             [],
+//                             []
+//                         ),
+//                     }));
+//                 }
+//                 if (normalized.subDivisions.length) {
+//                     setMainSubDivisionCache((previous) => ({
+//                         ...previous,
+//                         [hierarchyCacheKey(nextFilters.legalGroups, [], [])]: annotateOptionsWithHierarchyScope(
+//                             normalized.subDivisions,
+//                             nextFilters.legalGroups,
+//                             [],
+//                             []
+//                         ),
+//                     }));
+//                 }
 //             } else if (key === "legalEntities") {
-//                 next.parentDivisions = [];
-//                 next.subDivisions = [];
+//                 const cacheKey = hierarchyCacheKey(
+//                     nextFilters.legalGroups,
+//                     nextFilters.legalEntities,
+//                     []
+//                 );
+//                 const scopedParents = annotateOptionsWithHierarchyScope(
+//                     nextOptions,
+//                     nextFilters.legalGroups,
+//                     nextFilters.legalEntities,
+//                     []
+//                 );
+//                 setMainParentDivisionCache((previous) => ({
+//                     ...previous,
+//                     [cacheKey]: scopedParents,
+//                 }));
 //             } else if (key === "parentDivisions") {
-//                 next.subDivisions = [];
+//                 const cacheKey = hierarchyCacheKey(
+//                     nextFilters.legalGroups,
+//                     nextFilters.legalEntities,
+//                     nextFilters.parentDivisions
+//                 );
+//                 const scopedSubs = annotateOptionsWithHierarchyScope(
+//                     nextOptions,
+//                     nextFilters.legalGroups,
+//                     nextFilters.legalEntities,
+//                     nextFilters.parentDivisions
+//                 );
+//                 setMainSubDivisionCache((previous) => ({
+//                     ...previous,
+//                     [cacheKey]: scopedSubs,
+//                 }));
 //             }
-
-//             return next;
+//             setFilterOptions((previous) => {
+//                 // Keep the complete option inventory and merge refreshed child
+//                 // options by stable ID/label. Some API responses are scoped to
+//                 // the selected group (FJ/RKME); replacing the array outright
+//                 // made other valid groups/entities disappear after one selection.
+//                 const mergeOptions = (existing = [], incoming = []) => {
+//                     const result = [...existing];
+//                     const keys = new Set(result.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+//                     incoming.forEach((item) => {
+//                         const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+//                         if (!keys.has(key)) { keys.add(key); result.push(item); }
+//                     });
+//                     return result;
+//                 };
+//                 const scopedIncoming = annotateOptionsWithGroupScope(
+//                     nextOptions,
+//                     nextFilters.legalGroups
+//                 );
+//                 const merged = {
+//                     ...previous,
+//                     [dependentKey]: mergeOptions(previous[dependentKey], scopedIncoming),
+//                 };
+//                 return dependentKey === "legalEntities"
+//                     ? mergeScopedLegalEntities(merged, userAccess)
+//                     : merged;
+//             });
+//         }).catch((error) => {
+//             console.error("Failed to load Working Capital hierarchy options:", error);
 //         });
 //     }
 
@@ -5794,6 +6940,8 @@
 //         overrideFilters = null,
 //         overrideRows = null
 //     ) {
+//         if (!canExportWorkingCapital) return;
+
 //         setExporting(true);
 //         setError("");
 
@@ -5846,34 +6994,23 @@
 //                     response,
 //                     fallback
 //                 );
-//             } else if (section === "trend") {
-//                 if (type === "excel") {
-//                     exportTrendToExcel(
-//                         overrideRows || trend,
-//                         "Net Working Capital",
-//                         currency,
-//                         "Net Working Capital"
-//                     );
-//                 } else {
-//                     exportTrendToPdf(
-//                         overrideRows || trend,
-//                         "Net Working Capital",
-//                         currency,
-//                         "Net Working Capital"
-//                     );
-//                 }
-//             } else if (section === "liquidity") {
-//                 if (type === "excel") {
-//                     exportLiquidityRatioToExcel(
-//                         ratioValue,
-//                         balanceSheetPeriod
-//                     );
-//                 } else {
-//                     exportLiquidityRatioToPdf(
-//                         ratioValue,
-//                         balanceSheetPeriod
-//                     );
-//                 }
+//             } else {
+//                 // Use the backend's supported common export endpoint for
+//                 // sections that do not have their own export endpoint.
+//                 // The same hierarchy/date filters are sent as View All.
+//                 const commonFilters = buildCfoViewAllApiFilters(
+//                     activeFilters,
+//                     filterOptions
+//                 );
+//                 response =
+//                     type === "excel"
+//                         ? await exportWorkingCapitalViewAllExcel(commonFilters)
+//                         : await exportWorkingCapitalViewAllPdf(commonFilters);
+//                 fallback =
+//                     type === "excel"
+//                         ? `working-capital-${String(section || "view-all").toLowerCase()}-export.xlsx`
+//                         : `working-capital-${String(section || "view-all").toLowerCase()}-export.pdf`;
+//                 downloadWorkingCapitalFile(response, fallback);
 //             }
 //         } catch (err) {
 //             setError(
@@ -5903,6 +7040,7 @@
 //         _section,
 //         overrideFilters = null
 //     ) {
+//         if (!canExportWorkingCapital) return;
 //         setExporting(true);
 //         setError("");
 
@@ -5948,21 +7086,34 @@
 //     }
 
 //     async function handleHeaderExport(format) {
+//         if (!canExportWorkingCapital) return;
 //         if (exporting) return;
 //         setExporting(true);
+//         setError("");
 //         try {
-//             const kpisRows = kpis ? Object.entries(kpis).map(([key, value]) => ({ metric: key, value })) : [];
-//             const componentsRows = [
-//                 { label: "Receivables", value: getValue(components, "receivables", "total_receivables"), type: "positive" },
-//                 { label: "Inventory", value: getValue(components, "inventory", "total_inventory"), type: "positive" },
-//                 { label: "(-) Payables", value: getValue(components, "payables", "total_payables"), type: "negative" },
-//                 { label: "Trade Working Capital", value: getValue(components, "trade_working_capital", "trade_working_capital_value", "working_capital"), type: "total" },
-//             ];
-//             const payload = { kpisRows, trend, tradeTrend, componentsRows, assetRows, liabilityRows, avlRows, cccTrend };
-//             if (format === "excel") exportWorkingCapitalAllToExcel(payload, currency);
-//             else exportWorkingCapitalAllToPdf(payload, currency);
+//             // Use the available backend export API instead of generating a
+//             // client-side workbook/PDF from whatever data happens to be loaded.
+//             const activeFilters = appliedFilters || filters;
+//             const apiFilters = buildCfoViewAllApiFilters(
+//                 activeFilters,
+//                 filterOptions
+//             );
+//             const response =
+//                 format === "excel"
+//                     ? await exportWorkingCapitalViewAllExcel(apiFilters)
+//                     : await exportWorkingCapitalViewAllPdf(apiFilters);
+//             downloadWorkingCapitalFile(
+//                 response,
+//                 format === "excel"
+//                     ? "working-capital-dashboard.xlsx"
+//                     : "working-capital-dashboard.pdf"
+//             );
 //         } catch (err) {
-//             setError(err?.message || `Working Capital ${format} export failed.`);
+//             setError(
+//                 err?.response?.data?.detail ||
+//                 err?.message ||
+//                 `Working Capital ${format} export failed.`
+//             );
 //         } finally {
 //             setExporting(false);
 //         }
@@ -5988,6 +7139,14 @@
 //          */
 //         if (type === "components") {
 //             setViewAllLoading(true);
+//             setViewAll({
+//                 type,
+//                 cfoViewLabel,
+//                 title: "Working Capital Components Detailed View",
+//                 rows: [],
+//                 monthOnMonthRows: [],
+//                 filters: { ...activeFilters },
+//             });
 //             setError("");
 
 //             try {
@@ -6066,6 +7225,23 @@
 //         }
 
 //         setViewAllLoading(true);
+//         const pendingTitles = {
+//             assets: `Current Assets — Full History (${currency})`,
+//             liabilities: `Current Liabilities — Full History (${currency})`,
+//             trend: `Net Working Capital — Full History (${currency})`,
+//             cfo: `Working Capital - ${cfoViewLabel || "Detailed"} - Detailed View`,
+//             trade: "Trade Working Capital Detailed View",
+//             ccc: "Cash Conversion Cycle Detailed View",
+//             liquidity: "Key Liquidity Ratio",
+//         };
+//         setViewAll({
+//             type,
+//             cfoViewLabel,
+//             title: pendingTitles[type] || "Working Capital Detailed View",
+//             rows: [],
+//             monthOnMonthRows: [],
+//             filters: { ...activeFilters },
+//         });
 //         setError("");
 
 //         const requestPromise = (async () => {
@@ -6262,6 +7438,217 @@
 //             <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
 //             <style>{workingCapitalFilterResponsiveCss}</style>
 //             <style>{`
+//                 /* Sales Revenue visual language — scoped to Working Capital only. */
+//                 .wc-sales-page,
+//                 .wc-sales-page * {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+//                 .wc-sales-page {
+//                     background: #F7F9FC !important;
+//                     color: #1E293B !important;
+//                 }
+//                 .wc-sales-page .page-header {
+//                     margin: 0 0 16px !important;
+//                     gap: 14px !important;
+//                 }
+//                 .wc-sales-page .page-header-title,
+//                 .wc-sales-page .wc-page-title {
+//                     color: #1E1B4B !important;
+//                     font-size: 1.45rem !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -0.025em !important;
+//                     line-height: 1.2 !important;
+//                 }
+//                 .wc-sales-page .page-header-subtitle {
+//                     color: #64748B !important;
+//                     font-size: 0.76rem !important;
+//                     font-weight: 500 !important;
+//                     line-height: 1.45 !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid {
+//                     background: #FFFFFF !important;
+//                     border: 1px solid #E8EDF4 !important;
+//                     border-radius: 14px !important;
+//                     padding: 9px 11px !important;
+//                     margin-bottom: 12px !important;
+//                     box-shadow: 0 3px 12px rgba(15, 23, 42, .035) !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid label,
+//                 .wc-sales-page .wc-filter-grid > div > label,
+//                 .wc-sales-page .wc-filter-grid > div > span {
+//                     color: #334155 !important;
+//                     font-size: 0.70rem !important;
+//                     font-weight: 700 !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid select,
+//                 .wc-sales-page .wc-filter-grid input,
+//                 .wc-sales-page .wc-filter-grid button {
+//                     border-radius: 8px !important;
+//                     font-size: 0.72rem !important;
+//                     font-weight: 600 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis {
+//                     gap: 8px !important;
+//                     margin: 0 0 12px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi {
+//                     border: 1px solid rgba(226, 232, 240, .55) !important;
+//                     border-radius: 13px !important;
+//                     min-height: 64px !important;
+//                     padding: 8px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                     transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+//                 .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
+//                 .wc-sales-page .sales-style-kpi:hover {
+//                     transform: translateY(-2px) !important;
+//                     box-shadow: 0 9px 22px rgba(15, 23, 42, .08) !important;
+//                 }
+//                 .wc-sales-page .wc-panel-animate,
+//                 .wc-sales-page .wc-hierarchy-exposure-panel {
+//                     background: #FFFFFF !important;
+//                     border: 1px solid rgba(226, 232, 240, .62) !important;
+//                     border-radius: 16px !important;
+//                     box-shadow: 0 4px 20px rgba(15, 23, 42, .035), 0 1px 3px rgba(15, 23, 42, .025) !important;
+//                     transition: transform .22s ease, box-shadow .22s ease !important;
+//                 }
+//                 .wc-sales-page .wc-panel-animate:hover,
+//                 .wc-sales-page .wc-hierarchy-exposure-panel:hover {
+//                     transform: translateY(-1px);
+//                     box-shadow: 0 8px 24px rgba(15, 23, 42, .065) !important;
+//                 }
+//                 .wc-sales-page h2,
+//                 .wc-sales-page h3,
+//                 .wc-sales-page .wc-panel-title {
+//                     color: #1E1B4B !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.018em !important;
+//                 }
+//                 .wc-sales-page .recharts-cartesian-axis-tick-value,
+//                 .wc-sales-page .recharts-label,
+//                 .wc-sales-page .recharts-legend-item-text {
+//                     font-family: Inter, system-ui, sans-serif !important;
+//                     font-size: 10px !important;
+//                     font-weight: 600 !important;
+//                     fill: #94A3B8 !important;
+//                 }
+//                 .wc-sales-page .recharts-cartesian-grid-horizontal line,
+//                 .wc-sales-page .recharts-cartesian-grid-vertical line {
+//                     stroke: #E8EDF5 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table,
+//                 .wc-sales-page table {
+//                     font-family: Inter, system-ui, sans-serif !important;
+//                     border-collapse: separate;
+//                     border-spacing: 0;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table th,
+//                 .wc-sales-page table thead th {
+//                     background: #F5F7FB !important;
+//                     color: #334155 !important;
+//                     font-size: 0.68rem !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: .01em !important;
+//                     border-bottom: 1px solid #E2E8F0 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table td,
+//                 .wc-sales-page table tbody td {
+//                     color: #334155;
+//                     font-size: 0.72rem;
+//                     font-weight: 500;
+//                     border-bottom-color: #EEF2F7 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-data-table tbody tr:hover td,
+//                 .wc-sales-page table tbody tr:hover td {
+//                     background: #F8FAFF !important;
+//                 }
+//                 .wc-sales-page button {
+//                     transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+//                 }
+//                 .wc-sales-page button:hover:not(:disabled) {
+//                     transform: translateY(-1px);
+//                 }
+//                 .wc-sales-view-all-overlay,
+//                 .wc-sales-view-all-overlay * {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+//                 .wc-sales-view-all-modal {
+//                     animation: wcSalesModalIn .22s ease-out both;
+//                     border-radius: 14px !important;
+//                     box-shadow: 0 24px 70px rgba(15, 23, 42, .20) !important;
+//                 }
+//                 .wc-sales-view-all-modal table thead th {
+//                     background: #F5F7FB !important;
+//                     color: #334155 !important;
+//                     font-size: 0.68rem !important;
+//                     font-weight: 800 !important;
+//                     border-bottom: 1px solid #DDE5EF !important;
+//                     padding: 9px 10px !important;
+//                 }
+//                 .wc-sales-view-all-modal table tbody td {
+//                     font-size: 0.72rem !important;
+//                     color: #334155 !important;
+//                     padding: 9px 10px !important;
+//                     border-bottom: 1px solid #EEF2F7 !important;
+//                 }
+//                 .wc-sales-view-all-modal table tbody tr:nth-child(even) td {
+//                     background: #FBFCFE;
+//                 }
+//                 .wc-sales-view-all-modal table tbody tr:hover td {
+//                     background: #F1F5FF !important;
+//                 }
+//                 @keyframes wcSalesModalIn {
+//                     from { opacity: 0; transform: translateY(5px) scale(.995); }
+//                     to { opacity: 1; transform: translateY(0) scale(1); }
+//                 }
+//                 @media (max-width: 900px) {
+//                     .wc-sales-page .wc-sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+//                 }
+//                 @media (max-width: 600px) {
+//                     .wc-sales-page .wc-sales-kpis { grid-template-columns: 1fr !important; }
+//                     .wc-sales-view-all-modal { width: 100vw !important; height: 100dvh !important; border-radius: 0 !important; }
+//                 }
+//                 /* KPI comparison rows: keep labels flush-left and values flush-right,
+//                    overriding inherited Sales-page centering rules only in these cards. */
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel,
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > div {
+//                     text-align: left !important;
+//                     width: 100% !important;
+//                     box-sizing: border-box !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > .wc-kpi-comparison-row {
+//                     display: flex !important;
+//                     flex-direction: row !important;
+//                     align-items: center !important;
+//                     justify-content: space-between !important;
+//                     gap: 6px !important;
+//                     min-width: 0 !important;
+//                     margin: 0 !important;
+//                     padding: 0 !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > .wc-kpi-comparison-row > .wc-kpi-comparison-label {
+//                     display: block !important;
+//                     flex: 1 1 auto !important;
+//                     width: auto !important;
+//                     min-width: 0 !important;
+//                     margin: 0 auto 0 0 !important;
+//                     padding: 0 !important;
+//                     text-align: left !important;
+//                     align-self: center !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > .wc-kpi-comparison-row > .wc-kpi-comparison-value {
+//                     display: block !important;
+//                     flex: 0 0 auto !important;
+//                     width: auto !important;
+//                     margin: 0 0 0 auto !important;
+//                     padding: 0 !important;
+//                     text-align: right !important;
+//                     white-space: nowrap !important;
+//                 }
+//             `}</style>
+//             <style>{`
 //                 .wc-trade-view-all-table table th,
 //                 .wc-trade-view-all-table table td {
 //                     padding: 5px 6px !important;
@@ -6270,10 +7657,16 @@
 //                 .wc-trade-view-all-table table th {
 //                     white-space: nowrap;
 //                 }
+//                 .wc-trade-view-all-grid > .wc-trade-view-all-table {
+//                     min-width: 0;
+//                 }
+//                 .wc-trade-view-all-grid > .wc-trade-view-all-table table {
+//                     min-width: 0 !important;
+//                 }
 //                 @media (max-width: 1050px) {
 //                     .wc-trade-view-all-grid {
-//                         grid-template-columns: 1fr !important;
-//                         grid-template-rows: minmax(300px, 1fr) minmax(300px, 0.9fr) !important;
+//                         grid-template-columns: minmax(0, 1fr) !important;
+//                         grid-template-rows: minmax(220px, 1fr) minmax(240px, 0.8fr) !important;
 //                     }
 //                 }
 //             `}</style>
@@ -6698,14 +8091,53 @@
 //                 }
 
 //                 .wc-sales-page .sales-style-kpi {
-//                     border: none !important;
-//                     border-radius: 12px !important;
-//                     padding: 10px !important;
-//                     min-height: 74px !important;
-//                     box-shadow: none !important;
-//                     transition: all .25s cubic-bezier(.4,0,.2,1) !important;
+//                     box-sizing: border-box !important;
+//                     border: 1px solid rgba(226, 232, 240, .55) !important;
+//                     border-radius: 13px !important;
+//                     padding: 11px !important;
+//                     min-height: 82px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                     overflow: hidden !important;
+//                     transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
 //                 }
 
+//                 .wc-sales-page .sales-style-kpi > div {
+//                     align-items: center !important;
+//                     gap: 8px !important;
+//                 }
+
+//                 .wc-sales-page .sales-style-kpi > div > div:first-child {
+//                     flex: 0 0 34px !important;
+//                     width: 34px !important;
+//                     height: 34px !important;
+//                     min-width: 34px !important;
+//                     border-radius: 50% !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+//                 .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
+//                 .wc-sales-page .sales-style-kpi:hover {
+//                     box-shadow: 0 8px 18px rgba(79, 70, 229, .10) !important;
+//                 }
+
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+//                     display: inline-flex !important;
+//                     align-self: flex-start !important;
+//                     align-items: center !important;
+//                     width: fit-content !important;
+//                     max-width: 100% !important;
+//                     margin-top: 3px !important;
+//                     padding: 2px 6px !important;
+//                     border-radius: 5px !important;
+//                     background: rgba(255,255,255,.68) !important;
+//                     color: #475569 !important;
+//                     font-size: .60rem !important;
+//                     line-height: 1.2 !important;
+//                     font-weight: 700 !important;
+//                     letter-spacing: 0 !important;
+//                 }
+
+//                 .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+//                 .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
 //                 .wc-sales-page .sales-style-kpi:hover {
 //                     box-shadow: 0 8px 24px rgba(37,99,235,.10) !important;
 //                     transform: translateY(-2px) !important;
@@ -6787,6 +8219,142 @@
 //                 @media (max-width: 600px) {
 //                     .wc-sales-page .wc-sales-kpis {
 //                         grid-template-columns: 1fr !important;
+//                     }
+//                 }
+//                 /* Cycle KPI metrics are independent cards, styled exactly like the
+//                    Sales-style KPI cards above; responsive only at smaller widths. */
+//                 .wc-sales-page .wc-cycle-kpis {
+//                     display: grid !important;
+//                     width: 100% !important;
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 10px !important;
+//                     margin-top: 0 !important;
+//                     margin-bottom: 16px !important;
+//                     align-items: stretch !important;
+//                 }
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+//                     box-sizing: border-box !important;
+//                     min-height: 116px !important;
+//                     border: 1px solid rgba(226, 232, 240, .55) !important;
+//                     border-radius: 13px !important;
+//                     padding: 11px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                 }
+//                 @media (max-width: 1200px) {
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+//                     }
+//                 }
+//                 @media (max-width: 600px) {
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: 1fr !important;
+//                     }
+//                 }
+
+//                 /* Reference-matched Working Capital KPI cards. Scoped only to this page. */
+//                 .wc-sales-page .wc-sales-kpis {
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 14px !important;
+//                     align-items: stretch !important;
+//                     margin-bottom: 14px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi {
+//                     min-height: 194px !important;
+//                     height: 194px !important;
+//                     padding: 14px !important;
+//                     box-sizing: border-box !important;
+//                     border: 1px solid rgba(255,255,255,.9) !important;
+//                     border-radius: 16px !important;
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     justify-content: space-between !important;
+//                     gap: 8px !important;
+//                     overflow: hidden !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:first-child {
+//                     display: flex !important;
+//                     align-items: center !important;
+//                     gap: 14px !important;
+//                     min-height: 92px !important;
+//                     flex: 1 1 auto !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div > div.wc-kpi-icon {
+//                     width: 66px !important;
+//                     height: 66px !important;
+//                     min-width: 66px !important;
+//                     flex: 0 0 66px !important;
+//                     border-radius: 50% !important;
+//                     font-size: 30px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-title {
+//                     font-size: 0.86rem !important;
+//                     line-height: 1.25 !important;
+//                     font-weight: 750 !important;
+//                     letter-spacing: -.015em !important;
+//                     margin-bottom: 4px !important;
+//                     overflow-wrap: normal !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-value {
+//                     color: #101936 !important;
+//                     font-size: 1.48rem !important;
+//                     line-height: 1.12 !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.025em !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+//                     font-size: .68rem !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) {
+//                     width: 100% !important;
+//                     box-sizing: border-box !important;
+//                     padding: 12px 16px !important;
+//                     border-radius: 14px !important;
+//                     background: rgba(255,255,255,.72) !important;
+//                     display: grid !important;
+//                     gap: 8px !important;
+//                     font-size: .82rem !important;
+//                     line-height: 1.3 !important;
+//                     flex: 0 0 auto !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div {
+//                     display: flex !important;
+//                     align-items: center !important;
+//                     justify-content: space-between !important;
+//                     gap: 8px !important;
+//                     width: 100% !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) strong {
+//                     font-size: .88rem !important;
+//                     font-weight: 700 !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 .wc-sales-page .wc-cycle-kpis {
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 14px !important;
+//                 }
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+//                     min-height: 202px !important;
+//                     height: 202px !important;
+//                 }
+//                 @media (max-width: 1200px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+//                     }
+//                     .wc-sales-page .sales-style-kpi {
+//                         min-height: 194px !important;
+//                         height: 194px !important;
+//                     }
+//                 }
+//                 @media (max-width: 600px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: 1fr !important;
+//                     }
+//                     .wc-sales-page .sales-style-kpi {
+//                         height: auto !important;
+//                         min-height: 194px !important;
 //                     }
 //                 }
 //             `}</style>
@@ -6874,11 +8442,830 @@
 //                 }
 //             `}</style>
 
+//             <style>{`
+//                 /* ==========================================================
+//                    SALES REVENUE PAGE VISUAL MATCH — WORKING CAPITAL ONLY
+//                    Typography, spacing, controls, panels and tables only.
+//                    Existing API calls, RBAC, filter state and KPI data stay intact.
+//                 ========================================================== */
+//                 .wc-sales-page,
+//                 .wc-sales-page * {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     box-sizing: border-box;
+//                 }
+//                 .wc-sales-page {
+//                     color: #1e293b !important;
+//                     padding: 12px 0 8px !important;
+//                     font-size: 12px !important;
+//                     line-height: 1.4 !important;
+//                 }
+//                 .wc-sales-page .page-header {
+//                     align-items: center !important;
+//                     gap: 12px !important;
+//                     margin-bottom: 12px !important;
+//                 }
+//                 .wc-sales-page .page-header-title,
+//                 .wc-sales-page .wc-page-title {
+//                     color: #172554 !important;
+//                     font-size: 1.45rem !important;
+//                     line-height: 1.2 !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.035em !important;
+//                 }
+//                 .wc-sales-page .page-header-subtitle {
+//                     color: #64748b !important;
+//                     font-size: .76rem !important;
+//                     line-height: 1.45 !important;
+//                     font-weight: 500 !important;
+//                     margin-top: 4px !important;
+//                 }
+//                 .wc-sales-page .page-header-subtitle span {
+//                     font-size: .72rem !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid {
+//                     display: grid !important;
+//                     grid-template-columns: repeat(6, minmax(100px, 1fr)) auto auto !important;
+//                     align-items: end !important;
+//                     gap: 9px 7px !important;
+//                     margin: 0 0 14px !important;
+//                     padding: 10px 12px !important;
+//                     background: #fff !important;
+//                     border: 1px solid #edf0f5 !important;
+//                     border-radius: 14px !important;
+//                     box-shadow: 0 3px 12px rgba(15, 23, 42, .035) !important;
+//                     overflow: visible !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid label,
+//                 .wc-sales-page .wc-filter-grid > div > label {
+//                     color: #1e3a8a !important;
+//                     font-size: .67rem !important;
+//                     line-height: 1.2 !important;
+//                     font-weight: 700 !important;
+//                     letter-spacing: -.01em !important;
+//                     margin-bottom: 4px !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid input,
+//                 .wc-sales-page .wc-filter-grid select,
+//                 .wc-sales-page .wc-filter-grid > div > div {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     font-size: .72rem !important;
+//                     color: #334155 !important;
+//                     border-color: #dbe2ea !important;
+//                     border-radius: 7px !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid input:focus,
+//                 .wc-sales-page .wc-filter-grid select:focus {
+//                     border-color: #93b4ff !important;
+//                     box-shadow: 0 0 0 3px rgba(37, 99, 235, .10) !important;
+//                     outline: none !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid > button:first-of-type {
+//                     background: #2563eb !important;
+//                     color: #fff !important;
+//                     border: 1px solid #2563eb !important;
+//                     border-radius: 7px !important;
+//                     min-width: 68px !important;
+//                     box-shadow: 0 2px 5px rgba(37, 99, 235, .14) !important;
+//                     font-size: .72rem !important;
+//                     font-weight: 750 !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid > button:last-of-type {
+//                     color: #64748b !important;
+//                     font-size: .70rem !important;
+//                     font-weight: 650 !important;
+//                     border-radius: 7px !important;
+//                 }
+//                 .wc-sales-page .wc-filter-grid button:hover {
+//                     filter: brightness(.985);
+//                 }
+//                 .wc-sales-page .wc-sales-kpis,
+//                 .wc-sales-page .wc-cycle-kpis {
+//                     gap: 10px !important;
+//                     margin-bottom: 14px !important;
+//                 }
+//                 /* Preserve the requested 5-card rows and pastel KPI design. */
+//                 .wc-sales-page .sales-style-kpi {
+//                     border: 1px solid rgba(226, 232, 240, .48) !important;
+//                     border-radius: 13px !important;
+//                     box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     transition: transform .22s ease, box-shadow .22s ease !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+//                 .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
+//                 .wc-sales-page .sales-style-kpi:hover {
+//                     box-shadow: 0 7px 20px rgba(37, 99, 235, .09) !important;
+//                     transform: translateY(-2px) !important;
+//                 }
+//                 .wc-sales-page .wc-kpi-title {
+//                     letter-spacing: -.015em !important;
+//                     font-weight: 750 !important;
+//                 }
+//                 .wc-sales-page .wc-kpi-value {
+//                     color: #111b36 !important;
+//                     letter-spacing: -.03em !important;
+//                     font-weight: 800 !important;
+//                 }
+//                 .wc-sales-page .wc-panel-animate {
+//                     background: #fff !important;
+//                     border: 1px solid #edf0f5 !important;
+//                     border-radius: 15px !important;
+//                     box-shadow: 0 3px 14px rgba(15, 23, 42, .035) !important;
+//                     padding: 14px !important;
+//                 }
+//                 .wc-sales-page .wc-panel-animate h3,
+//                 .wc-sales-page .wc-panel-animate h2 {
+//                     color: #1e293b !important;
+//                     font-size: .9rem !important;
+//                     line-height: 1.3 !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.02em !important;
+//                 }
+//                 .wc-sales-page .wc-sales-main-grid,
+//                 .wc-sales-page .wc-sales-three-grid {
+//                     gap: 10px !important;
+//                     margin-bottom: 10px !important;
+//                 }
+//                 .wc-sales-page table {
+//                     border-collapse: separate !important;
+//                     border-spacing: 0 !important;
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+//                 .wc-sales-page table thead th {
+//                     background: #f8fafc !important;
+//                     color: #1e3a8a !important;
+//                     border-bottom: 1px solid #e2e8f0 !important;
+//                     font-size: .70rem !important;
+//                     line-height: 1.3 !important;
+//                     font-weight: 750 !important;
+//                     padding: 10px 12px !important;
+//                 }
+//                 .wc-sales-page table tbody td {
+//                     color: #334155 !important;
+//                     font-size: .72rem !important;
+//                     line-height: 1.35 !important;
+//                     padding: 9px 12px !important;
+//                     border-bottom: 1px solid #f1f5f9 !important;
+//                 }
+//                 .wc-sales-page table tbody tr:hover td {
+//                     background: #f8fbff !important;
+//                 }
+//                 .wc-sales-page button,
+//                 .wc-sales-page input,
+//                 .wc-sales-page select {
+//                     transition: border-color .16s ease, box-shadow .16s ease, background .16s ease !important;
+//                 }
+//                 @media (max-width: 1400px) {
+//                     .wc-sales-page .wc-filter-grid {
+//                         grid-template-columns: repeat(4, minmax(110px, 1fr)) !important;
+//                     }
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     }
+//                 }
+//                 @media (max-width: 1100px) {
+//                     .wc-sales-page .wc-filter-grid {
+//                         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+//                     }
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+//                     }
+//                     .wc-sales-page .wc-sales-main-grid,
+//                     .wc-sales-page .wc-sales-three-grid {
+//                         grid-template-columns: 1fr !important;
+//                     }
+//                 }
+//                 @media (max-width: 600px) {
+//                     .wc-sales-page .page-header-title,
+//                     .wc-sales-page .wc-page-title {
+//                         font-size: 1.2rem !important;
+//                     }
+//                     .wc-sales-page .wc-filter-grid,
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis {
+//                         grid-template-columns: 1fr !important;
+//                     }
+//                     .wc-sales-page .sales-style-kpi {
+//                         height: auto !important;
+//                         min-height: 194px !important;
+//                     }
+//                 }
+//             `}</style>
+
+//             <style>{`
+//                 /* Compact Working Capital KPI layout — scoped to this page only. */
+//                 .wc-sales-page .wc-sales-kpis {
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 7px !important;
+//                     margin-bottom: 10px !important;
+//                     align-items: stretch !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi {
+//                     height: 150px !important;
+//                     min-height: 150px !important;
+//                     max-height: 150px !important;
+//                     padding: 8px !important;
+//                     gap: 4px !important;
+//                     overflow: hidden !important;
+//                     box-sizing: border-box !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:first-child {
+//                     min-height: 42px !important;
+//                     height: auto !important;
+//                     gap: 7px !important;
+//                     align-items: center !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-icon {
+//                     width: 34px !important;
+//                     height: 34px !important;
+//                     min-width: 34px !important;
+//                     flex: 0 0 34px !important;
+//                     font-size: 17px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-title {
+//                     font-size: 0.70rem !important;
+//                     line-height: 1.12 !important;
+//                     display: -webkit-box !important;
+//                     -webkit-line-clamp: 2 !important;
+//                     -webkit-box-orient: vertical !important;
+//                     overflow: hidden !important;
+//                     overflow-wrap: anywhere !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-value {
+//                     min-width: 0 !important;
+//                     max-width: 100% !important;
+//                     font-size: clamp(0.78rem, 0.92vw, 1.02rem) !important;
+//                     line-height: 1.12 !important;
+//                     white-space: normal !important;
+//                     overflow: visible !important;
+//                     text-overflow: clip !important;
+//                     overflow-wrap: anywhere !important;
+//                     word-break: normal !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-metric-line,
+//                 .wc-sales-page .sales-style-kpi > div:first-child > div > div[title] {
+//                     max-width: 100% !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child {
+//                     padding: 5px 7px !important;
+//                     border-radius: 8px !important;
+//                     gap: 2px !important;
+//                     font-size: 0.65rem !important;
+//                     line-height: 1.15 !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child > div {
+//                     min-width: 0 !important;
+//                     gap: 5px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child span,
+//                 .wc-sales-page .sales-style-kpi > div:last-child strong {
+//                     font-size: 0.65rem !important;
+//                     line-height: 1.15 !important;
+//                 }
+//                 @media (max-width: 1250px) {
+//                     .wc-sales-page .wc-sales-kpis {
+//                         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+//                     }
+//                     .wc-sales-page .wc-sales-kpis > .sales-style-kpi {
+//                         height: 146px !important;
+//                         min-height: 146px !important;
+//                         max-height: 146px !important;
+//                     }
+//                 }
+//                 @media (max-width: 760px) {
+//                     .wc-sales-page .wc-sales-kpis {
+//                         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+//                     }
+//                 }
+//                 @media (max-width: 480px) {
+//                     .wc-sales-page .wc-sales-kpis {
+//                         grid-template-columns: 1fr !important;
+//                     }
+//                 }
+//             `}</style>
+
+
+//             <style>{`
+//                 /* Compact Payables-reference KPI styling, scoped to Working Capital only. */
+//                 .wc-sales-page .wc-sales-kpis {
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 10px !important;
+//                     margin-bottom: 10px !important;
+//                     align-items: stretch !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+//                     height: 100px !important;
+//                     min-height: 100px !important;
+//                     max-height: 100px !important;
+//                     padding: 8px 10px !important;
+//                     gap: 4px !important;
+//                     border: 1px solid rgba(226,232,240,.65) !important;
+//                     border-radius: 14px !important;
+//                     box-shadow: 0 2px 7px rgba(15,23,42,.035) !important;
+//                     box-sizing: border-box !important;
+//                     overflow: hidden !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:first-child {
+//                     min-height: 35px !important;
+//                     height: 35px !important;
+//                     flex: 0 0 35px !important;
+//                     gap: 8px !important;
+//                     align-items: center !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-icon {
+//                     width: 30px !important;
+//                     height: 30px !important;
+//                     min-width: 30px !important;
+//                     flex: 0 0 30px !important;
+//                     font-size: 16px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-title {
+//                     font-size: 10px !important;
+//                     line-height: 1.12 !important;
+//                     font-weight: 750 !important;
+//                     letter-spacing: -.01em !important;
+//                     margin-bottom: 2px !important;
+//                     -webkit-line-clamp: 2 !important;
+//                     overflow-wrap: anywhere !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-value {
+//                     font-size: clamp(13px, 1vw, 16px) !important;
+//                     line-height: 1.1 !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.025em !important;
+//                     white-space: nowrap !important;
+//                     overflow: hidden !important;
+//                     text-overflow: ellipsis !important;
+//                     overflow-wrap: normal !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+//                     font-size: 9px !important;
+//                     line-height: 1.1 !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) {
+//                     padding: 5px 8px !important;
+//                     border-radius: 9px !important;
+//                     gap: 3px !important;
+//                     font-size: 9px !important;
+//                     line-height: 1.12 !important;
+//                     background: rgba(255,255,255,.72) !important;
+//                     flex: 0 0 auto !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div {
+//                     gap: 6px !important;
+//                     min-width: 0 !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) span,
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) strong {
+//                     font-size: 9px !important;
+//                     line-height: 1.1 !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 @media (max-width: 1200px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+//                 }
+//                 @media (max-width: 760px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+//                 }
+//                 @media (max-width: 480px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis { grid-template-columns: 1fr !important; }
+//                 }
+//             `}</style>
+
+//             <style>{`
+//                 /* Final authoritative Working Capital KPI sizing. Keep the two
+//                    comparison values on separate compact rows and prevent the
+//                    large legacy icon styles from expanding the cards. */
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div {
+//                     justify-content: flex-start !important;
+//                     text-align: left !important;
+//                     width: 100% !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > span,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > span {
+//                     text-align: left !important;
+//                     margin-right: auto !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > strong,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > strong {
+//                     text-align: right !important;
+//                     margin-left: auto !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis,
+//                 .wc-sales-page .wc-cycle-kpis {
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 10px !important;
+//                     margin-bottom: 10px !important;
+//                     align-items: stretch !important;
+//                 }
+//                 /* Highest-specificity KPI rules: override older legacy card rules above. */
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+//                     height: 100px !important;
+//                     min-height: 100px !important;
+//                     max-height: 100px !important;
+//                     padding: 8px 10px !important;
+//                     gap: 4px !important;
+//                     box-sizing: border-box !important;
+//                     overflow: hidden !important;
+//                     border: 1px solid rgba(226,232,240,.65) !important;
+//                     border-radius: 14px !important;
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     justify-content: space-between !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:first-child,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:first-child {
+//                     min-height: 35px !important;
+//                     height: 35px !important;
+//                     flex: 0 0 35px !important;
+//                     gap: 8px !important;
+//                     align-items: center !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:first-child > div.wc-kpi-icon,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:first-child > div.wc-kpi-icon {
+//                     width: 30px !important;
+//                     height: 30px !important;
+//                     min-width: 30px !important;
+//                     max-width: 30px !important;
+//                     flex: 0 0 30px !important;
+//                     font-size: 16px !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi .wc-kpi-title,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi .wc-kpi-title {
+//                     font-size: 10px !important;
+//                     line-height: 1.12 !important;
+//                     font-weight: 750 !important;
+//                     letter-spacing: -.01em !important;
+//                     margin-bottom: 2px !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi .wc-kpi-value,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi .wc-kpi-value {
+//                     font-size: clamp(13px, 1vw, 16px) !important;
+//                     line-height: 1.1 !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.025em !important;
+//                     white-space: nowrap !important;
+//                     overflow: hidden !important;
+//                     text-overflow: ellipsis !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child),
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) {
+//                     width: 100% !important;
+//                     box-sizing: border-box !important;
+//                     padding: 5px 8px !important;
+//                     border-radius: 9px !important;
+//                     display: grid !important;
+//                     gap: 3px !important;
+//                     font-size: 9px !important;
+//                     line-height: 1.12 !important;
+//                     background: rgba(255,255,255,.72) !important;
+//                     flex: 0 0 auto !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div {
+//                     display: flex !important;
+//                     justify-content: space-between !important;
+//                     align-items: center !important;
+//                     gap: 6px !important;
+//                     min-width: 0 !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) span,
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) strong,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) span,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) strong {
+//                     font-size: 9px !important;
+//                     line-height: 1.1 !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 @media (max-width: 1200px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+//                 }
+//                 @media (max-width: 760px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+//                 }
+//                 @media (max-width: 480px) {
+//                     .wc-sales-page .wc-sales-kpis,
+//                     .wc-sales-page .wc-cycle-kpis { grid-template-columns: 1fr !important; }
+//                 }
+//             `}</style>
+
+//             <style>{`
+//                 /* Final Payables-reference styling: scoped to Working Capital only. */
+//                 .wc-sales-page .wc-sales-kpis,
+//                 .wc-sales-page .wc-cycle-kpis {
+//                     display: grid !important;
+//                     width: 100% !important;
+//                     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+//                     gap: 10px !important;
+//                     margin-top: 0 !important;
+//                     margin-bottom: 10px !important;
+//                     align-items: stretch !important;
+//                 }
+//                 .wc-sales-page .wc-sales-kpis > .sales-style-kpi,
+//                 .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+//                     height: 100px !important;
+//                     min-height: 100px !important;
+//                     max-height: 100px !important;
+//                     padding: 7px 9px !important;
+//                     gap: 3px !important;
+//                     box-sizing: border-box !important;
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     justify-content: space-between !important;
+//                     overflow: hidden !important;
+//                     border: 1px solid rgba(226,232,240,.65) !important;
+//                     border-radius: 14px !important;
+//                     box-shadow: 0 2px 7px rgba(15,23,42,.035) !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:first-child {
+//                     display: flex !important;
+//                     align-items: center !important;
+//                     gap: 8px !important;
+//                     height: 30px !important;
+//                     min-height: 30px !important;
+//                     max-height: 30px !important;
+//                     flex: 0 0 30px !important;
+//                     min-width: 0 !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-icon {
+//                     width: 30px !important;
+//                     height: 30px !important;
+//                     min-width: 30px !important;
+//                     max-width: 30px !important;
+//                     flex: 0 0 30px !important;
+//                     border-radius: 50% !important;
+//                     font-size: 16px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-title {
+//                     font-size: 10px !important;
+//                     line-height: 1.12 !important;
+//                     font-weight: 750 !important;
+//                     letter-spacing: -.01em !important;
+//                     margin: 0 0 2px !important;
+//                     max-width: 100% !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-value {
+//                     color: #0F172A !important;
+//                     font-size: clamp(13px, 1vw, 16px) !important;
+//                     line-height: 1.1 !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.025em !important;
+//                     min-width: 0 !important;
+//                     max-width: 100% !important;
+//                     white-space: nowrap !important;
+//                     overflow: hidden !important;
+//                     text-overflow: ellipsis !important;
+//                     overflow-wrap: normal !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-metric-line { font-size: 9px !important; }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) {
+//                     width: 100% !important;
+//                     height: 42px !important;
+//                     min-height: 42px !important;
+//                     max-height: 42px !important;
+//                     flex: 0 0 42px !important;
+//                     box-sizing: border-box !important;
+//                     padding: 4px 8px !important;
+//                     margin: 0 !important;
+//                     border-radius: 9px !important;
+//                     background: rgba(255,255,255,.72) !important;
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     align-items: stretch !important;
+//                     justify-content: center !important;
+//                     text-align: left !important;
+//                     gap: 2px !important;
+//                     font-size: 9px !important;
+//                     line-height: 1.1 !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div {
+//                     display: flex !important;
+//                     flex: 0 0 14px !important;
+//                     min-height: 14px !important;
+//                     height: 14px !important;
+//                     width: 100% !important;
+//                     align-items: center !important;
+//                     justify-content: space-between !important;
+//                     gap: 6px !important;
+//                     min-width: 0 !important;
+//                     text-align: left !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div > span {
+//                     display: block !important;
+//                     flex: 1 1 auto !important;
+//                     margin: 0 auto 0 0 !important;
+//                     text-align: left !important;
+//                     align-self: flex-start !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div > strong {
+//                     flex: 0 0 auto !important;
+//                     margin-left: auto !important;
+//                     text-align: right !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) span,
+//                 .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) strong {
+//                     font-size: 9px !important;
+//                     line-height: 1.1 !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 .wc-sales-page .wc-kpi-skeleton-grid { margin-bottom: 10px !important; }
+//                 .wc-sales-page .wc-kpi-skeleton-card {
+//                     height: 100px; min-height: 100px; box-sizing: border-box; padding: 7px 9px;
+//                     border: 1px solid #E6ECF5; border-radius: 14px; background: #F8FAFC;
+//                     display: flex; flex-direction: column; justify-content: space-between; gap: 3px;
+//                 }
+//                 .wc-sales-page .wc-kpi-skeleton-heading { display: flex; align-items: center; gap: 8px; height: 30px; }
+//                 .wc-sales-page .wc-kpi-skeleton-icon { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; }
+//                 .wc-sales-page .wc-kpi-skeleton-copy { display: flex; flex: 1; flex-direction: column; gap: 6px; }
+//                 .wc-sales-page .wc-kpi-skeleton-copy .wc-skeleton-line:first-child { width: 62%; height: 7px; }
+//                 .wc-sales-page .wc-kpi-skeleton-copy .wc-skeleton-line:last-child { width: 82%; height: 13px; }
+//                 .wc-sales-page .wc-kpi-skeleton-comparisons {
+//                     height: 42px; box-sizing: border-box; padding: 5px 8px; border-radius: 9px;
+//                     background: rgba(255,255,255,.8); display: flex; flex-direction: column; justify-content: space-between;
+//                 }
+//                 .wc-sales-page .wc-kpi-skeleton-comparisons .wc-skeleton-line { width: 90%; height: 5px; }
+//                 .wc-sales-page .wc-chart-panel-skeleton {
+//                     min-width: 0; min-height: 270px; box-sizing: border-box; padding: 16px;
+//                     background: #FFFFFF; border: 1px solid #E6ECF5; border-radius: 14px;
+//                 }
+//                 .wc-sales-page .wc-chart-skeleton-title { width: 46%; height: 12px; margin-bottom: 9px; }
+//                 .wc-sales-page .wc-chart-skeleton-subtitle { width: 58%; height: 7px; margin-bottom: 18px; }
+//                 .wc-sales-page .wc-chart-panel-skeleton .wc-skeleton-chart { min-height: 185px; }
+//                 @media (max-width: 1200px) {
+//                     .wc-sales-page .wc-sales-kpis, .wc-sales-page .wc-cycle-kpis,
+//                     .wc-sales-page .wc-kpi-skeleton-grid { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
+//                 }
+//                 @media (max-width: 760px) {
+//                     .wc-sales-page .wc-sales-kpis, .wc-sales-page .wc-cycle-kpis,
+//                     .wc-sales-page .wc-kpi-skeleton-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+//                 }
+//                 @media (max-width: 480px) {
+//                     .wc-sales-page .wc-sales-kpis, .wc-sales-page .wc-cycle-kpis,
+//                     .wc-sales-page .wc-kpi-skeleton-grid { grid-template-columns: 1fr !important; }
+//                 }
+//                 /* Explicitly pin comparison labels to the left and values to the right. */
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel {
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     align-items: stretch !important;
+//                     text-align: left !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-row {
+//                     display: flex !important;
+//                     flex-direction: row !important;
+//                     justify-content: space-between !important;
+//                     align-items: center !important;
+//                     width: 100% !important;
+//                     min-width: 0 !important;
+//                     text-align: left !important;
+//                     gap: 6px !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-label {
+//                     display: block !important;
+//                     flex: 1 1 auto !important;
+//                     width: auto !important;
+//                     min-width: 0 !important;
+//                     margin: 0 auto 0 0 !important;
+//                     padding: 0 !important;
+//                     justify-self: auto !important;
+//                     align-self: center !important;
+//                     text-align: left !important;
+//                     white-space: nowrap !important;
+//                     transform: none !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-value {
+//                     display: block !important;
+//                     flex: 0 0 auto !important;
+//                     margin: 0 0 0 auto !important;
+//                     padding: 0 !important;
+//                     text-align: right !important;
+//                     white-space: nowrap !important;
+//                 }
+//             `}</style>
+
+//             <style>{`
+//                 /* Final, narrowly scoped override for Working Capital KPI comparison alignment. */
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left {
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     align-items: stretch !important;
+//                     justify-content: center !important;
+//                     width: 100% !important;
+//                     min-width: 0 !important;
+//                     box-sizing: border-box !important;
+//                     text-align: left !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left {
+//                     display: grid !important;
+//                     grid-template-columns: minmax(0, 1fr) max-content !important;
+//                     flex: 0 0 auto !important;
+//                     align-items: center !important;
+//                     justify-content: initial !important;
+//                     justify-items: stretch !important;
+//                     width: 100% !important;
+//                     min-width: 0 !important;
+//                     max-width: 100% !important;
+//                     box-sizing: border-box !important;
+//                     margin: 0 !important;
+//                     padding: 0 !important;
+//                     gap: 6px !important;
+//                     text-align: left !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-label-left {
+//                     display: block !important;
+//                     position: static !important;
+//                     justify-self: start !important;
+//                     align-self: center !important;
+//                     width: auto !important;
+//                     min-width: 0 !important;
+//                     max-width: 100% !important;
+//                     flex: initial !important;
+//                     margin: 0 !important;
+//                     padding: 0 !important;
+//                     text-align: left !important;
+//                     text-indent: 0 !important;
+//                     transform: none !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-value-right {
+//                     display: block !important;
+//                     position: static !important;
+//                     justify-self: end !important;
+//                     align-self: center !important;
+//                     width: auto !important;
+//                     min-width: 0 !important;
+//                     flex: initial !important;
+//                     margin: 0 !important;
+//                     padding: 0 !important;
+//                     text-align: right !important;
+//                     white-space: nowrap !important;
+//                     transform: none !important;
+//                 }
+//                 /* FINAL KPI-ONLY alignment override: keep both comparison labels on
+//                    the same left edge and their values flush to the right edge. */
+//                 #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left {
+//                     display: flex !important;
+//                     flex-direction: column !important;
+//                     align-items: stretch !important;
+//                     width: 100% !important;
+//                     box-sizing: border-box !important;
+//                     text-align: left !important;
+//                 }
+//                 #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left {
+//                     display: grid !important;
+//                     grid-template-columns: minmax(0, 1fr) max-content !important;
+//                     align-items: center !important;
+//                     justify-content: initial !important;
+//                     width: 100% !important;
+//                     min-width: 0 !important;
+//                     gap: 6px !important;
+//                 }
+//                 #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-label-left {
+//                     grid-column: 1 !important;
+//                     justify-self: start !important;
+//                     width: 100% !important;
+//                     margin: 0 !important;
+//                     text-align: left !important;
+//                     white-space: nowrap !important;
+//                 }
+//                 #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-value-right {
+//                     grid-column: 2 !important;
+//                     justify-self: end !important;
+//                     margin: 0 !important;
+//                     text-align: right !important;
+//                     white-space: nowrap !important;
+//                 }
+
+//                 #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-label-left {
+//                     display: block !important;
+//                     position: static !important;
+//                     justify-self: start !important;
+//                     text-align: left !important;
+//                     transform: none !important;
+//                 }
+//                 #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-value-right {
+//                     display: block !important;
+//                     justify-self: end !important;
+//                     text-align: right !important;
+//                     font-style: normal !important;
+//                 }
+// `}</style>
+
 //             <div className="wc-sales-page animate-in" style={{ paddingTop: "16px", paddingBottom: "8px" }}>
 //                 <div className="page-header" style={{ marginBottom: "16px", paddingTop: "0", gap: "16px" }}>
 //                     <div>
 //                         <h1 className="page-header-title wc-page-title" style={{ fontSize: "1.45rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-//                             <span style={{ fontSize: "1.3rem" }}>📈</span> Working Capital Report
+//                             <span style={{ fontSize: "1.3rem" }}>📈</span> Trade Working Capital Report
 //                         </h1>
 
 //                         <p className="page-header-subtitle">
@@ -6964,19 +9351,23 @@
 //                             Loading Working Capital filter options...
 //                         </div>
 //                     )}
-//                     <MultiSelectField
-//                         label="Legal Group"
-//                         values={filters.legalGroups}
-//                         options={cascadingFilterOptions.legalGroups}
-//                         onChange={(value) => updateFilter("legalGroups", value)}
-//                     />
+//                     {hasLegalGroupScope && (
+//                         <MultiSelectField
+//                             label="Legal Group"
+//                             values={filters.legalGroups}
+//                             options={cascadingFilterOptions.legalGroups}
+//                             onChange={(value) => updateFilter("legalGroups", value)}
+//                         />
+//                     )}
 
-//                     <MultiSelectField
-//                         label="Legal Entity"
-//                         values={filters.legalEntities}
-//                         options={cascadingFilterOptions.legalEntities}
-//                         onChange={(value) => updateFilter("legalEntities", value)}
-//                     />
+//                     {hasLegalEntityScope && (
+//                         <MultiSelectField
+//                             label="Legal Entity"
+//                             values={filters.legalEntities}
+//                             options={cascadingFilterOptions.legalEntities}
+//                             onChange={(value) => updateFilter("legalEntities", value)}
+//                         />
+//                     )}
 
 //                     <MultiSelectField
 //                         label="Parent Division"
@@ -6993,39 +9384,14 @@
 //                     />
 
 //                     <div style={{ minWidth: 0 }}>
-//                         <label style={styles.filterLabel}>Reporting Currency</label>
-//                         <div
-//                             style={{
-//                                 ...styles.filterInput,
-//                                 height: "32px",
-//                                 display: "flex",
-//                                 alignItems: "center",
-//                                 color: "#334155",
-//                                 fontWeight: 700,
-//                                 background: "#FFFFFF",
-//                                 cursor: "default",
-//                             }}
-//                         >
-//                             {filterOptions.reportingCurrency || "AED"}
-//                         </div>
-//                     </div>
-
-//                     <div style={{ minWidth: 0 }}>
-//                         <label style={styles.filterLabel}>Aging Basis</label>
+//                         <label style={styles.filterLabel} htmlFor="working-capital-reporting-currency">Reporting Currency</label>
 //                         <select
-//                             value={filters.agingBasis || "DUE_DATE"}
-//                             onChange={(event) => updateFilter("agingBasis", event.target.value)}
-//                             style={{
-//                                 ...styles.filterInput,
-//                                 height: "32px",
-//                                 cursor: "pointer",
-//                             }}
+//                             id="working-capital-reporting-currency"
+//                             value={normalizeReportingCurrency(filters.reportingCurrency)}
+//                             onChange={(event) => updateFilter("reportingCurrency", normalizeReportingCurrency(event.target.value))}
+//                             style={{ ...styles.filterInput, height: "32px", fontWeight: 700, cursor: "pointer" }}
 //                         >
-//                             {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
-//                                 <option key={basis} value={basis}>
-//                                     {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
-//                                 </option>
-//                             ))}
+//                             {WORKING_CAPITAL_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
 //                         </select>
 //                     </div>
 
@@ -7063,7 +9429,7 @@
 //                             height: "32px",
 //                             border: "none",
 //                             background: "transparent",
-//                             color: "#263BD4",
+//                             color: "#6B7280",
 //                             fontSize: "11px",
 //                             fontWeight: 600,
 //                             cursor: "pointer",
@@ -7087,7 +9453,7 @@
 //                     </div>
 //                 )}
 
-//                 {loading && <PageSkeleton />}
+//                 {(!filterOptionsLoaded || !appliedFilters) && <PageSkeleton />}
 
 //                 {viewAllLoading && (
 //                     <div
@@ -7102,87 +9468,102 @@
 //                     </div>
 //                 )}
 
-//                 {!loading && (
+//                 {filterOptionsLoaded && appliedFilters && (
 //                     <>
 //                         {/* ==================================================
 //                         KPI CARDS
 //                     ================================================== */}
 
-//                         <div className="wc-sales-kpis kpi-grid">
-//                             <KpiCard
-//                                 title="Trade Working Capital"
-//                                 value={formatAmount(kpis?.trade_working_capital, currency)}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="↗"
-//                             />
-//                             <KpiCard
-//                                 title="Trade Receivables"
-//                                 value={formatAmount(kpis?.total_receivables, currency)}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◔"
-//                             />
-//                             <KpiCard
-//                                 title="Inventory"
-//                                 value={formatAmount(kpis?.total_inventory, currency)}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="▦"
-//                             />
-//                             <KpiCard
-//                                 title="Trade Payables"
-//                                 value={formatAmount(kpis?.total_payables, currency)}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◒"
-//                             />
-//                             <KpiCard
-//                                 title="Working Capital Ratio"
-//                                 value={toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio) === null ? "—" : toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio).toFixed(2)}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◔"
-//                             />
-//                             <KpiCard
-//                                 title="DSO"
-//                                 value={toNumber(kpis?.dso_days) === null ? "—" : `${toNumber(kpis.dso_days).toFixed(2)} Days`}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◷"
-//                             />
-//                             <KpiCard
-//                                 title="DIO"
-//                                 value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} Days`}
-//                                 subtitle={toNumber(kpis?.dio_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="▦"
-//                             />
-//                             <KpiCard
-//                                 title="DPO"
-//                                 value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} Days`}
-//                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◒"
-//                             />
-//                             <KpiCard
-//                                 title="CCC"
-//                                 value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} Days`}
-//                                 subtitle={toNumber(kpis?.cash_conversion_cycle_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-//                                 icon="◴"
-//                             />
-//                             <KpiCard
-//                                 title="Target CCC"
-//                                 value={(() => {
-//                                     const target = toNumber(
-//                                         getValue(
-//                                             kpis,
-//                                             "target_ccc_days",
-//                                             "target_cash_conversion_cycle_days",
-//                                             "target_cash_conversion_cycle",
-//                                             "ccc_target_days",
-//                                             "ccc_target",
-//                                             "target_ccc"
-//                                         )
-//                                     );
-//                                     return target === null ? "—" : `${target.toFixed(2)} Days`;
-//                                 })()}
-//                                 subtitle="Backend target"
-//                                 icon="◎"
-//                             />
-//                         </div>
+//                         {loading ? (
+//                             <KpiCardSkeletonGrid count={10} />
+//                         ) : (
+//                             <>
+//                                 <div className="wc-sales-kpis kpi-grid">
+//                                     <KpiCard
+//                                         title="Trade Working Capital"
+//                                         value={formatAmount(kpis?.trade_working_capital, currency)}
+//                                         icon="↗"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="Trade Receivables"
+//                                         value={formatAmount(kpis?.total_receivables, currency)}
+//                                         icon="◔"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="Inventory"
+//                                         value={formatAmount(kpis?.total_inventory, currency)}
+//                                         icon="▦"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="Trade Payables"
+//                                         value={formatAmount(kpis?.total_payables, currency)}
+//                                         icon="◒"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="Trade Working Capital to Revenue Ratio"
+//                                         value={
+//                                             toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio) === null
+//                                                 ? "—"
+//                                                 : `${toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio).toFixed(2)}%`
+//                                         }
+//                                         icon="◔"
+//                                         showComparisons={true}
+//                                     />
+//                                 </div>
+
+//                                 {/* Cycle metrics are four independent KPI cards in their own row.
+//                             They are deliberately NOT nested inside Trade Working Capital
+//                             or any other card. Values remain backend-authoritative. */}
+//                                 <div
+//                                     className="wc-sales-kpis wc-cycle-kpis"
+//                                     aria-label="Cash conversion cycle KPI cards"
+//                                     style={{
+//                                         display: "grid",
+//                                         width: "100%",
+//                                         marginTop: "0",
+//                                         marginBottom: "16px",
+//                                         gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+//                                         gap: "10px",
+//                                         alignItems: "stretch",
+//                                     }}
+//                                 >
+//                                     <KpiCard
+//                                         title="CCC"
+//                                         value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} days`}
+//                                         icon="◷"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="DSO"
+//                                         value={toNumber(kpis?.dso_days ?? kpis?.dso) === null ? "—" : `${toNumber(kpis?.dso_days ?? kpis?.dso).toFixed(2)} Days`}
+//                                         icon="◷"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="DIO"
+//                                         value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} Days`}
+//                                         icon="▦"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="DPO"
+//                                         value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} days`}
+//                                         icon="◒"
+//                                         showComparisons={true}
+//                                     />
+//                                     <KpiCard
+//                                         title="Working Capital Turnover"
+//                                         value={toNumber(getValue(kpis, "working_capital_turnover", "trade_working_capital_turnover", "turnover_times")) === null ? "—" : `${toNumber(getValue(kpis, "working_capital_turnover", "trade_working_capital_turnover", "turnover_times")).toFixed(1)} Times`}
+//                                         icon="⟳"
+//                                         showComparisons={true}
+//                                     />
+//                                 </div>
+//                             </>
+//                         )}
 
 //                         {/* ==================================================
 //                         TRADE WORKING CAPITAL TREND
@@ -7197,17 +9578,25 @@
 //                                 marginBottom: "10px",
 //                             }}
 //                         >
-//                             <TradeWorkingCapitalTrendPanel
-//                                 data={tradeTrend}
-//                                 currency={currency}
-//                                 onViewAll={() => openViewAll("trade")}
-//                             />
+//                             {tradeTrendLoading ? (
+//                                 <ChartPanelSkeleton title="Trade Working Capital Trend" />
+//                             ) : (
+//                                 <TradeWorkingCapitalTrendPanel
+//                                     data={tradeTrend}
+//                                     currency={currency}
+//                                     onViewAll={() => openViewAll("trade")}
+//                                 />
+//                             )}
 
-//                             <TradeWorkingCapitalComponents
-//                                 components={componentData}
-//                                 currency={currency}
-//                                 onViewAll={() => openViewAll("components")}
-//                             />
+//                             {componentsLoading ? (
+//                                 <ChartPanelSkeleton title="Working Capital Components" />
+//                             ) : (
+//                                 <TradeWorkingCapitalComponents
+//                                     components={componentData}
+//                                     currency={currency}
+//                                     onViewAll={() => openViewAll("components")}
+//                                 />
+//                             )}
 //                         </div>
 
 //                         {/* ==================================================
@@ -7227,61 +9616,53 @@
 //                     ================================================== */}
 
 //                         <div
+//                             ref={hierarchySectionRef}
 //                             className="wc-sales-main-grid"
 //                             style={{
 //                                 display: "grid",
 //                                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
 //                                 gap: "10px",
 //                                 marginBottom: "10px",
+//                                 minHeight: hierarchyLoading ? "240px" : undefined,
 //                             }}
+//                             aria-busy={hierarchyLoading}
 //                         >
-//                             <HierarchyTrendChart
-//                                 data={subDivisionTrend}
-//                                 currency={currency}
-//                                 title={`Working Capital by Sub-Division (${currency})`}
-//                                 levelLabel="Sub-Division"
-//                                 onViewAll={() => openViewAll("cfo", null, "Sub-Division")}
-//                                 onExportExcel={() =>
-//                                     exportTrendToExcel(
-//                                         subDivisionTrend,
-//                                         "Working Capital by Sub-Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
-//                                 }
-//                                 onExportPdf={() =>
-//                                     exportTrendToPdf(
-//                                         subDivisionTrend,
-//                                         "Working Capital by Sub-Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
-//                                 }
-//                             />
+//                             {(hierarchyLoading || !hierarchyLoaded) ? (
+//                                 <>
+//                                     <ChartPanelSkeleton title="Working Capital by Sub-Division" />
+//                                     <ChartPanelSkeleton title="Working Capital by Parent Division" />
+//                                 </>
+//                             ) : (
+//                                 <>
+//                                     <HierarchyTrendChart
+//                                         data={subDivisionTrend}
+//                                         currency={currency}
+//                                         title={`Working Capital by Sub-Division (${currency})`}
+//                                         levelLabel="Sub-Division"
+//                                         onViewAll={() => openViewAll("cfo", null, "Sub-Division")}
+//                                         onExportExcel={() =>
+//                                             handleExport("excel", "sub-division-trend", appliedFilters, subDivisionTrend)
+//                                         }
+//                                         onExportPdf={() =>
+//                                             handleExport("pdf", "sub-division-trend", appliedFilters, subDivisionTrend)
+//                                         }
+//                                     />
 
-//                             <HierarchyTrendChart
-//                                 data={parentDivisionTrend}
-//                                 currency={currency}
-//                                 title={`Working Capital by Parent Division (${currency})`}
-//                                 levelLabel="Parent Division"
-//                                 onViewAll={() => openViewAll("cfo", null, "Parent Division")}
-//                                 onExportExcel={() =>
-//                                     exportTrendToExcel(
-//                                         parentDivisionTrend,
-//                                         "Working Capital by Parent Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
-//                                 }
-//                                 onExportPdf={() =>
-//                                     exportTrendToPdf(
-//                                         parentDivisionTrend,
-//                                         "Working Capital by Parent Division",
-//                                         currency,
-//                                         "Working Capital"
-//                                     )
-//                                 }
-//                             />
+//                                     <HierarchyTrendChart
+//                                         data={parentDivisionTrend}
+//                                         currency={currency}
+//                                         title={`Working Capital by Parent Division (${currency})`}
+//                                         levelLabel="Parent Division"
+//                                         onViewAll={() => openViewAll("cfo", null, "Parent Division")}
+//                                         onExportExcel={() =>
+//                                             handleExport("excel", "parent-division-trend", appliedFilters, parentDivisionTrend)
+//                                         }
+//                                         onExportPdf={() =>
+//                                             handleExport("pdf", "parent-division-trend", appliedFilters, parentDivisionTrend)
+//                                         }
+//                                     />
+//                                 </>
+//                             )}
 //                         </div>
 
 //                         {/* ==================================================
@@ -7289,50 +9670,62 @@
 //                     ================================================== */}
 
 //                         <div
+//                             ref={cccSectionRef}
 //                             className="wc-sales-main-grid"
 //                             style={{
 //                                 display: "grid",
 //                                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
 //                                 gap: "10px",
 //                                 marginBottom: "10px",
+//                                 minHeight: cccSectionLoading ? "240px" : undefined,
 //                             }}
+//                             aria-busy={cccSectionLoading}
 //                         >
-//                             <CashConversionCycle
-//                                 kpis={kpis}
-//                                 cccPayload={ccc}
-//                                 operationalDate={operationalDate}
-//                             />
-
-//                             <div className="wc-panel-animate" style={styles.panel}>
-//                                 <div
-//                                     style={{
-//                                         display: "flex",
-//                                         justifyContent: "space-between",
-//                                         alignItems: "center",
-//                                     }}
-//                                 >
-//                                     <h3
-//                                         style={{
-//                                             ...styles.panelTitle,
-//                                             marginBottom: 0,
-//                                         }}
-//                                     >
-//                                         Cash Conversion Cycle Trend (Days)
-//                                     </h3>
-
-//                                     <ActionMenu
-//                                         items={[
-//                                             {
-//                                                 key: "view-all",
-//                                                 label: "🔎 View All",
-//                                                 onClick: () => openViewAll("ccc"),
-//                                             },
-//                                         ]}
+//                             {(cccSectionLoading || !cccSectionLoaded) ? (
+//                                 <>
+//                                     <ChartPanelSkeleton title="Cash Conversion Cycle" />
+//                                     <ChartPanelSkeleton title="Cash Conversion Cycle Trend" />
+//                                 </>
+//                             ) : (
+//                                 <>
+//                                     <CashConversionCycle
+//                                         kpis={kpis}
+//                                         cccPayload={ccc}
+//                                         operationalDate={operationalDate}
 //                                     />
-//                                 </div>
 
-//                                 <CccTrendMini data={cccTrend} />
-//                             </div>
+//                                     <div className="wc-panel-animate" style={styles.panel}>
+//                                         <div
+//                                             style={{
+//                                                 display: "flex",
+//                                                 justifyContent: "space-between",
+//                                                 alignItems: "center",
+//                                             }}
+//                                         >
+//                                             <h3
+//                                                 style={{
+//                                                     ...styles.panelTitle,
+//                                                     marginBottom: 0,
+//                                                 }}
+//                                             >
+//                                                 Cash Conversion Cycle Trend (Days)
+//                                             </h3>
+
+//                                             <ActionMenu
+//                                                 items={[
+//                                                     {
+//                                                         key: "view-all",
+//                                                         label: "🔎 View All",
+//                                                         onClick: () => openViewAll("ccc"),
+//                                                     },
+//                                                 ]}
+//                                             />
+//                                         </div>
+
+//                                         <CccTrendMini data={cccTrend} />
+//                                     </div>
+//                                 </>
+//                             )}
 //                         </div>
 
 //                     </>
@@ -9461,9 +11854,13 @@
 
 
 
+
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 import { createPortal } from "react-dom";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
 import {
     getWorkingCapitalFilterOptions,
@@ -9475,7 +11872,6 @@ import {
     getWorkingCapitalAssetsVsLiabilities,
     getWorkingCapitalCashConversionCycle,
     getWorkingCapitalTrend,
-    getWorkingCapitalCccTrend,
     getWorkingCapitalTradeTrend,
     getWorkingCapitalCurrentAssetsViewAll,
     getWorkingCapitalCurrentLiabilitiesViewAll,
@@ -9656,20 +12052,29 @@ function optionList(source) {
                 item?.id ??
                 item?.value ??
                 item?.key ??
-                item?.code ??
                 item?.legal_group_id ??
                 item?.legal_entity_id ??
                 item?.parent_division_id ??
-                item?.subdivision_id;
+                item?.subdivision_id ??
+                item?.sub_division_id ??
+                item?.code ??
+                item?.parent_division ??
+                item?.subdivision ??
+                item?.sub_division_id;
 
             const label =
                 item?.label ??
                 item?.name ??
                 item?.display_name ??
                 item?.legal_group_name ??
+                item?.legal_group_code ??
                 item?.legal_entity_name ??
+                item?.legal_entity_code ??
                 item?.parent_division_name ??
+                item?.parent_division ??
                 item?.subdivision_name ??
+                item?.sub_division_name ??
+                item?.subdivision ??
                 item?.value;
 
             return {
@@ -9679,7 +12084,9 @@ function optionList(source) {
                     item?.legal_group_ids,
                     item?.legalGroupIds,
                     item?.legal_group_id,
-                    item?.legalGroupId
+                    item?.legalGroupId,
+                    item?.legal_group_code,
+                    item?.legalGroupCode
                 ),
                 legalEntityIds: normalizeIds(
                     item?.legal_entity_ids,
@@ -9698,6 +12105,223 @@ function optionList(source) {
         .filter((item) => item.id && item.label);
 }
 
+
+
+function hasScopeValue(value) {
+    if (Array.isArray(value)) return value.some(hasScopeValue);
+    if (value && typeof value === "object") {
+        return Object.values(value).some(hasScopeValue);
+    }
+    return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function collectAccessScopeRows(access) {
+    const rows = [];
+    const seen = new Set();
+    const queue = [access];
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || seen.has(current)) continue;
+        seen.add(current);
+        if (Array.isArray(current)) {
+            current.forEach((item) => queue.push(item));
+            continue;
+        }
+        for (const key of [
+            "access_scopes", "accessScopes", "scope_assignments",
+            "scopeAssignments", "scopes", "module_scopes", "moduleScopes",
+        ]) {
+            if (Array.isArray(current[key])) {
+                current[key].forEach((row) => {
+                    if (row && typeof row === "object") rows.push(row);
+                });
+            }
+        }
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+    }
+    return rows;
+}
+
+function getScopedLegalEntityOptions(access) {
+    const rows = collectAccessScopeRows(access);
+    const result = [];
+    const seen = new Set();
+
+    const add = (idValue, labelValue, row = {}) => {
+        const id = idValue == null ? "" : String(idValue).trim();
+        const label = labelValue == null ? "" : String(labelValue).trim();
+        if (!label) return;
+        // Prefer a backend entity ID. When the access payload omits one,
+        // use its stable entity code/name so the assigned scope remains visible.
+        const optionId = id || String(
+            row.legal_entity_code ?? row.legalEntityCode ?? label
+        ).trim();
+        if (!optionId) return;
+        const key = `${optionId.toLowerCase()}::${label.toLowerCase()}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const toIds = (...values) => values
+            .flatMap((value) => Array.isArray(value) ? value : [value])
+            .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+            .map(String);
+        result.push({
+            id: optionId,
+            label,
+            legalGroupIds: toIds(
+                row.legal_group_id, row.legalGroupId,
+                row.legal_group_ids, row.legalGroupIds
+            ),
+            legalEntityIds: [optionId],
+            parentDivisionIds: toIds(
+                row.parent_division_id, row.parentDivisionId,
+                row.parent_division_ids, row.parentDivisionIds
+            ),
+        });
+    };
+
+    rows.forEach((row) => {
+        const type = String(
+            row.scope_type ?? row.scopeType ?? row.scope_level ??
+            row.scopeLevel ?? row.entity_type ?? row.entityType ?? ""
+        ).toLowerCase().replace(/[-\s]/g, "_");
+        const entityLabel = getValue(
+            row,
+            "legal_entity_name", "legalEntityName",
+            "entity_name", "entityName"
+        );
+        const entityId = getValue(
+            row,
+            "legal_entity_id", "legalEntityId",
+            "entity_id", "entityId", "legal_entity_code", "legalEntityCode"
+        );
+        const entityCode = getValue(row, "legal_entity_code", "legalEntityCode");
+        const looksLikeEntityScope =
+            type.includes("legal_entity") ||
+            type === "entity" ||
+            hasScopeValue(entityLabel) ||
+            hasScopeValue(entityId);
+        if (looksLikeEntityScope) {
+            add(entityId ?? entityCode, entityLabel ?? entityCode ?? entityId, row);
+        }
+    });
+
+    // Some /access/me versions expose scope fields directly rather than rows.
+    const directLabel = findValueInObject(access, [
+        "legal_entity_name", "legalEntityName", "entity_name", "entityName",
+    ]);
+    const directId = findValueInObject(access, [
+        "legal_entity_id", "legalEntityId", "entity_id", "entityId",
+        "legal_entity_code", "legalEntityCode",
+    ]);
+    if (hasScopeValue(directLabel) || hasScopeValue(directId)) {
+        const labels = Array.isArray(directLabel) ? directLabel : [directLabel];
+        const ids = Array.isArray(directId) ? directId : [directId];
+        labels.forEach((label, index) => add(ids[index] ?? ids[0] ?? label, label));
+    }
+    return result;
+}
+
+function findValueInObject(source, aliases) {
+    const visited = new Set();
+    const queue = [source];
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || visited.has(current)) continue;
+        visited.add(current);
+        if (Array.isArray(current)) {
+            current.forEach((item) => queue.push(item));
+            continue;
+        }
+        for (const alias of aliases) {
+            if (Object.prototype.hasOwnProperty.call(current, alias) && hasScopeValue(current[alias])) {
+                return current[alias];
+            }
+        }
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+    }
+    return null;
+}
+
+function getScopedLegalGroupOptions(access) {
+    const rows = collectAccessScopeRows(access);
+    const result = [];
+    const seen = new Set();
+    const add = (idValue, labelValue, row = {}) => {
+        const label = labelValue == null ? "" : String(labelValue).trim();
+        if (!label) return;
+        const id = String(idValue ?? row.legal_group_code ?? row.legalGroupCode ?? label).trim();
+        if (!id) return;
+        const key = `${id.toLowerCase()}::${label.toLowerCase()}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        result.push({ id, label, legalGroupIds: [id], legalEntityIds: [], parentDivisionIds: [] });
+    };
+    rows.forEach((row) => {
+        const label = getValue(row, "legal_group_name", "legalGroupName", "group_name", "groupName");
+        const id = getValue(row, "legal_group_id", "legalGroupId", "group_id", "groupId", "legal_group_code", "legalGroupCode");
+        const type = String(row.scope_type ?? row.scopeType ?? row.scope_level ?? row.scopeLevel ?? "").toLowerCase();
+        if (label && (type.includes("legal_group") || type === "group" || id != null)) add(id, label, row);
+    });
+    const directLabel = findValueInObject(access, ["legal_group_name", "legalGroupName", "group_name", "groupName"]);
+    const directId = findValueInObject(access, ["legal_group_id", "legalGroupId", "group_id", "groupId", "legal_group_code", "legalGroupCode"]);
+    if (directLabel) {
+        (Array.isArray(directLabel) ? directLabel : [directLabel]).forEach((label, index) => {
+            const ids = Array.isArray(directId) ? directId : [directId];
+            add(ids[index] ?? ids[0] ?? label, label);
+        });
+    }
+    return result;
+}
+
+function mergeScopedLegalGroups(options, access) {
+    const current = options?.legalGroups || [];
+    const scoped = getScopedLegalGroupOptions(access);
+    const merged = [...current];
+    const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+    scoped.forEach((item) => {
+        const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+        if (!keys.has(key)) { keys.add(key); merged.push(item); }
+    });
+    return { ...options, legalGroups: merged };
+}
+
+
+function annotateOptionsWithGroupScope(options, groupIds) {
+    const scopeIds = (Array.isArray(groupIds) ? groupIds : [groupIds])
+        .filter((id) => id !== null && id !== undefined && String(id).trim() !== "")
+        .map(String);
+    if (!scopeIds.length || !Array.isArray(options)) return Array.isArray(options) ? options : [];
+    return options.map((option) => ({
+        ...option,
+        // A scoped API response is authoritative for the selected group even
+        // when its metadata contains a group code/name instead of the group ID.
+        legalGroupIds: [...new Set([
+            ...(Array.isArray(option?.legalGroupIds) ? option.legalGroupIds.map(String) : []),
+            ...scopeIds,
+        ])],
+    }));
+}
+
+function mergeScopedLegalEntities(options, access) {
+    const current = options?.legalEntities || [];
+    const scoped = getScopedLegalEntityOptions(access);
+    const byId = new Map(current.map((item) => [String(item.id).toLowerCase(), item]));
+    const byLabel = new Map(current.map((item) => [String(item.label).toLowerCase(), item]));
+    const merged = [...current];
+    scoped.forEach((item) => {
+        const existing = byId.get(String(item.id).toLowerCase()) ||
+            byLabel.get(String(item.label).toLowerCase());
+        if (existing) return;
+        merged.push(item);
+        byId.set(String(item.id).toLowerCase(), item);
+        byLabel.set(String(item.label).toLowerCase(), item);
+    });
+    return { ...options, legalEntities: merged };
+}
 
 function getFilterOptionsPayload(payload) {
     const data = unwrapApiResponse(payload);
@@ -9782,17 +12406,60 @@ function normalizeFilterOptions(payload) {
 }
 
 function selectedIds(options, selectedValues) {
-    const selected = Array.isArray(selectedValues)
-        ? selectedValues
-        : [];
+    /*
+     * Preserve the exact selected hierarchy IDs when building API requests.
+     * Previously this function intersected selections with the option list.
+     * That silently dropped valid backend IDs whenever an option's ID was
+     * represented as a number/code or was absent from the current option set,
+     * making main-dashboard and View-All hierarchy filters appear ineffective.
+     * The dropdowns already constrain what users can select, so serialize the
+     * selected values directly and consistently as strings.
+     */
+    return (Array.isArray(selectedValues) ? selectedValues : [])
+        .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+        .map(String);
+}
 
-    return options
-        .filter((option) => selected.includes(option.id))
-        .map((option) => option.id);
+function hierarchyCacheKey(legalGroups = [], legalEntities = [], parentDivisions = []) {
+    const normalize = (values) => (Array.isArray(values) ? values : [])
+        .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
+        .map(String)
+        .sort()
+        .join(",");
+    return `${normalize(legalGroups)}::${normalize(legalEntities)}::${normalize(parentDivisions)}`;
+}
+
+function annotateOptionsWithHierarchyScope(options, legalGroups = [], legalEntities = [], parentDivisions = []) {
+    const groups = (Array.isArray(legalGroups) ? legalGroups : []).map(String);
+    const entities = (Array.isArray(legalEntities) ? legalEntities : []).map(String);
+    const parents = (Array.isArray(parentDivisions) ? parentDivisions : []).map(String);
+    return (Array.isArray(options) ? options : []).map((option) => ({
+        ...option,
+        legalGroupIds: [...new Set([
+            ...(Array.isArray(option?.legalGroupIds) ? option.legalGroupIds.map(String) : []),
+            ...groups,
+        ])],
+        legalEntityIds: [...new Set([
+            ...(Array.isArray(option?.legalEntityIds) ? option.legalEntityIds.map(String) : []),
+            ...entities,
+        ])],
+        parentDivisionIds: [...new Set([
+            ...(Array.isArray(option?.parentDivisionIds) ? option.parentDivisionIds.map(String) : []),
+            ...parents,
+        ])],
+    }));
+}
+
+const WORKING_CAPITAL_CURRENCIES = ["AED", "USD", "SAR", "OMR", "QAR", "INR"];
+
+function normalizeReportingCurrency(value) {
+    const currency = String(value ?? "AED").trim().toUpperCase();
+    return WORKING_CAPITAL_CURRENCIES.includes(currency) ? currency : "AED";
 }
 
 function buildApiFilters(filters, options) {
     const apiFilters = {
+        reporting_currency: normalizeReportingCurrency(filters?.reportingCurrency),
         // These remain arrays so the existing API service can serialize them
         // as repeated query parameters:
         // ?legal_entity_id=1&legal_entity_id=2&subdivision_id=15
@@ -9829,11 +12496,19 @@ function buildApiFilters(filters, options) {
  */
 function getWorkingCapitalDefaultFilters(filterOptions) {
     const options = filterOptions || {};
+    // FJ Group is the required default on initial load and every Reset.
+    // Resolve its real backend ID from the current options; never hardcode an ID.
+    const fjGroup = (options.legalGroups || []).find((option) =>
+        /\bfj\s*group\b/i.test(
+            `${String(option?.label ?? "").trim()} ${String(option?.id ?? "").trim()}`
+        )
+    );
     return {
-        legalGroups: [],
+        legalGroups: fjGroup ? [String(fjGroup.id)] : [],
         legalEntities: [],
         parentDivisions: [],
         subDivisions: [],
+        reportingCurrency: "AED",
         asOnDate:
             options.operationalAsOnDate ||
             options.asOnDates?.[0] ||
@@ -9855,6 +12530,7 @@ function buildCfoViewAllApiFilters(filters, options) {
     const source = filters || {};
 
     return {
+        reporting_currency: normalizeReportingCurrency(source.reportingCurrency),
         legal_group_id: selectedIds(
             options.legalGroups,
             source.legalGroups
@@ -9904,7 +12580,7 @@ function normalizeTradeTrendRows(payload) {
     return getRows(payload)
         .map((row) => {
             const asOnDate = getValue(row, "as_on_date", "snapshot_date", "date", "period_end");
-            const rawPeriod = getValue(row, "month", "period", "period_name", "label");
+            const rawPeriod = getValue(row, "month_label", "month", "period", "period_name", "label");
             return {
                 period: formatMonthLabel(asOnDate ?? rawPeriod),
                 asOnDate: asOnDate ?? null,
@@ -9917,9 +12593,49 @@ function normalizeTradeTrendRows(payload) {
                         "value"
                     )
                 ),
+                // The TWC Trend endpoint also supplies the CCC-series metrics.
+                // Keep the values exactly as returned by the backend; do not
+                // recalculate DSO, DIO, DPO, or CCC in the frontend.
+                dso: toNumber(getValue(row, "dso_days", "dso")),
+                dio: toNumber(getValue(row, "dio_days", "dio")),
+                dpo: toNumber(getValue(row, "dpo_days", "dpo")),
+                ccc: toNumber(getValue(row, "cash_conversion_cycle_days", "ccc_days", "ccc", "cash_conversion_cycle")),
+                status: getValue(row, "status", "ccc_status") ?? null,
             };
         })
-        .filter((row) => row.value !== null);
+        .filter((row) => row.value !== null || row.dso !== null || row.dio !== null || row.dpo !== null || row.ccc !== null || row.status !== null);
+}
+
+function normalizeYearMonthKey(value, yearValue, monthValue) {
+    const raw = value == null ? "" : String(value).trim();
+    const match = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?/);
+    if (match) return `${match[1]}-${String(match[2]).padStart(2, "0")}`;
+
+    const year = Number(yearValue);
+    const monthFromRaw = Number(raw);
+    const month = Number(monthValue ?? monthFromRaw);
+    if (Number.isInteger(year) && year >= 1900 && Number.isInteger(month) && month >= 1 && month <= 12) {
+        return `${year}-${String(month).padStart(2, "0")}`;
+    }
+
+    const labelMatch = raw.match(/^([A-Za-z]{3,9})[\s-]+(\d{2}|\d{4})$/);
+    if (labelMatch) {
+        const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+        const monthIndex = monthNames.indexOf(labelMatch[1].slice(0, 3).toLowerCase());
+        if (monthIndex >= 0) return `${labelMatch[2].length === 2 ? `20${labelMatch[2]}` : labelMatch[2]}-${String(monthIndex + 1).padStart(2, "0")}`;
+    }
+    return raw || "";
+}
+
+function formatMonthYearHeader(value) {
+    const raw = String(value ?? "").trim();
+    const match = raw.match(/^(\d{4})-(\d{1,2})$/);
+    if (match) {
+        const month = new Date(Number(match[1]), Number(match[2]) - 1, 1)
+            .toLocaleDateString("en-US", { month: "short" });
+        return `${month}-${match[1].slice(-2)}`;
+    }
+    return formatMonthLabel(raw);
 }
 
 function normalizeHierarchyTrendRows(payload, level = "parent") {
@@ -9978,6 +12694,9 @@ function normalizeHierarchyTrendRows(payload, level = "parent") {
             name: String(
                 getValue(row, ...nameKeys) ?? "—"
             ),
+            // Keep a year-aware key for table grouping so Jan-2025 and Jan-2026
+            // cannot collapse into the same month. Preserve the existing period
+            // label for other dashboard consumers.
             period: formatMonthLabel(
                 getValue(
                     row,
@@ -9992,6 +12711,11 @@ function normalizeHierarchyTrendRows(payload, level = "parent") {
                     "label"
                 )
             ),
+            periodKey: normalizeYearMonthKey(
+                getValue(row, "month_label", "period", "period_name", "as_on_date", "snapshot_date", "date", "period_end", "label"),
+                getValue(row, "year"),
+                getValue(row, "month")
+            ),
             value: toNumber(
                 getValue(
                     row,
@@ -10002,6 +12726,9 @@ function normalizeHierarchyTrendRows(payload, level = "parent") {
                     "amount"
                 )
             ),
+            dso: toNumber(getValue(row, "dso_days", "dso")),
+            dio: toNumber(getValue(row, "dio_days", "dio")),
+            dpo: toNumber(getValue(row, "dpo_days", "dpo")),
             ccc: toNumber(
                 getValue(
                     row,
@@ -10014,8 +12741,8 @@ function normalizeHierarchyTrendRows(payload, level = "parent") {
         }))
         .filter(
             (row) =>
-                row.value !== null &&
-                row.name !== "—"
+                row.name !== "—" &&
+                (row.value !== null || row.dso !== null || row.dio !== null || row.dpo !== null || row.ccc !== null)
         );
 }
 
@@ -10030,9 +12757,9 @@ function normalizeCfoViewAllRows(payload) {
                 : [];
 
     /*
-     * Common Parent Division / Sub-Division View All table.
-     * DSO, DPO, DIO and CCC are intentionally null for now.
-     * Never derive these values in the frontend.
+     * Map the four backend-provided ratios directly. These values are
+     * authoritative: do not recalculate them in the frontend.
+     * Null/empty ratio values remain null and render as N/A in the table.
      */
     return rawRows.map((row) => ({
         legalEntity:
@@ -10071,7 +12798,7 @@ function normalizeCfoViewAllRows(payload) {
                 "receivables"
             )
         ),
-        dso: null,
+        dso: toNumber(getValue(row, "dso_days", "dso")),
         tradePayables: toNumber(
             getValue(
                 row,
@@ -10080,11 +12807,11 @@ function normalizeCfoViewAllRows(payload) {
                 "payables"
             )
         ),
-        dpo: null,
+        dpo: toNumber(getValue(row, "dpo_days", "dpo")),
         inventory: toNumber(
             getValue(row, "inventory", "total_inventory")
         ),
-        dio: null,
+        dio: toNumber(getValue(row, "dio_days", "dio")),
         tradeWorkingCapital: toNumber(
             getValue(
                 row,
@@ -10093,58 +12820,62 @@ function normalizeCfoViewAllRows(payload) {
                 "working_capital"
             )
         ),
-        ccc: null,
+        ccc: toNumber(getValue(row, "cash_conversion_cycle_days", "ccc_days", "ccc", "cash_conversion_cycle")),
     }));
 }
 
 function normalizeCccTrendRows(payload) {
     return getRows(payload)
-        .map((row) => ({
-            period:
-                getValue(
-                    row,
-                    "month_label",
-                    "month",
-                    "period",
-                    "period_name",
-                    "label"
-                ) ?? "—",
-            dso: toNumber(
-                getValue(row, "dso_days", "dso")
-            ),
-            dio: toNumber(
-                getValue(row, "dio_days", "dio")
-            ),
-            dpo: toNumber(
-                getValue(row, "dpo_days", "dpo")
-            ),
-            // IMPORTANT:
-            // CCC is always taken directly from the backend response.
-            // Never derive CCC in the frontend from DSO + DIO - DPO.
-            ccc: toNumber(
-                getValue(
-                    row,
-                    "cash_conversion_cycle_days",
-                    "ccc_days",
-                    "ccc",
-                    "value"
-                )
-            ),
-            status:
-                getValue(
-                    row,
-                    "status",
-                    "ccc_status"
-                ) ?? null,
-        }))
-        .filter(
-            (row) =>
-                row.dso !== null ||
-                row.dio !== null ||
-                row.dpo !== null ||
-                row.ccc !== null ||
-                row.status !== null
+        .map((row) => {
+            const rawPeriod = getValue(
+                row,
+                "month_label",
+                "month",
+                "period",
+                "period_name",
+                "label",
+                "as_on_date",
+                "snapshot_date",
+                "date",
+                "period_end"
+            );
+            return {
+                period: formatCccPeriod(rawPeriod ?? "—"),
+                dso: toNumber(getValue(row, "dso_days", "dso")),
+                dio: toNumber(getValue(row, "dio_days", "dio")),
+                dpo: toNumber(getValue(row, "dpo_days", "dpo")),
+                // CCC is read directly from the TWC Trend backend response.
+                // Never derive CCC in the frontend from DSO + DIO - DPO.
+                ccc: toNumber(getValue(row, "cash_conversion_cycle_days", "ccc_days", "ccc", "cash_conversion_cycle")),
+                status: getValue(row, "status", "ccc_status") ?? null,
+            };
+        })
+        .filter((row) => row.dso !== null || row.dio !== null || row.dpo !== null || row.ccc !== null || row.status !== null);
+}
+
+function formatCccPeriod(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const raw = String(value).trim();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // Format monthly keys (YYYY-MM, YYYY-M) and ISO dates for display only.
+    const match = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+    if (match) {
+        const monthIndex = Number(match[2]) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) {
+            return `${monthNames[monthIndex]}-${match[1].slice(-2)}`;
+        }
+    }
+
+    // Normalize labels such as "Jan 2026" or "January 2026".
+    const labelMatch = raw.match(/^([A-Za-z]{3,9})[\s-]+(\d{2}|\d{4})$/);
+    if (labelMatch) {
+        const monthIndex = monthNames.findIndex((month) =>
+            month.toLowerCase() === labelMatch[1].slice(0, 3).toLowerCase()
         );
+        if (monthIndex >= 0) return `${monthNames[monthIndex]}-${labelMatch[2].slice(-2)}`;
+    }
+    return raw;
 }
 
 function normalizeBreakdownRows(payload) {
@@ -10309,12 +13040,12 @@ const styles = {
     },
     card: {
         background: "var(--clr-surface)",
-        border: "none",
-        borderRadius: "var(--radius-md)",
-        minHeight: "84px",
-        padding: S.cardPad,
+        border: "1px solid rgba(226, 232, 240, .55)",
+        borderRadius: "13px",
+        minHeight: "82px",
+        padding: "11px",
         boxSizing: "border-box",
-        boxShadow: SHADOW.card,
+        boxShadow: "0 2px 8px rgba(15, 23, 42, .025)",
         overflow: "hidden",
         position: "relative",
         transition: "transform var(--tr-base), box-shadow var(--tr-base)",
@@ -10411,8 +13142,8 @@ function PageSkeleton() {
             <div
                 style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-                    gap: "16px",
+                    gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                    gap: "10px",
                     marginBottom: "16px",
                 }}
             >
@@ -10421,7 +13152,7 @@ function PageSkeleton() {
                         key={index}
                         style={{
                             ...styles.card,
-                            minHeight: "84px",
+                            minHeight: "100px",
                         }}
                     >
                         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -10558,12 +13289,69 @@ function AnimatedKpiValue({ value, duration = 1100 }) {
     );
 }
 
-function KpiCard({ title, value, subtitle, icon }) {
+function KpiCardSkeletonGrid({ count = 10 }) {
+    return (
+        <div className="wc-sales-kpis kpi-grid wc-kpi-skeleton-grid" aria-label="Loading KPI cards" aria-busy="true">
+            {Array.from({ length: count }).map((_, index) => (
+                <div key={index} className="wc-kpi-skeleton-card" aria-hidden="true">
+                    <div className="wc-kpi-skeleton-heading">
+                        <div className="wc-skeleton-line wc-kpi-skeleton-icon" />
+                        <div className="wc-kpi-skeleton-copy">
+                            <div className="wc-skeleton-line" />
+                            <div className="wc-skeleton-line" />
+                        </div>
+                    </div>
+                    <div className="wc-kpi-skeleton-comparisons">
+                        <div className="wc-skeleton-line" />
+                        <div className="wc-skeleton-line" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ChartPanelSkeleton({ title }) {
+    return (
+        <section className="wc-panel-animate wc-chart-panel-skeleton" aria-label={`Loading ${title}`} aria-busy="true">
+            <div className="wc-skeleton-line wc-chart-skeleton-title" />
+            <div className="wc-skeleton-line wc-chart-skeleton-subtitle" />
+            <div className="wc-skeleton-chart" />
+        </section>
+    );
+}
+
+function KpiCard({ title, value, subtitle, icon, metricLine, showComparisons = false, comparisonTarget = "—", comparisonLastMonth = "—" }) {
     const palettes = {
         "Trade Working Capital": {
             bg: "#EEF4FF",
-            iconBg: "#DCE9FF",
+            iconBg: "#DCEBFF",
             accent: "#2563EB",
+        },
+        "Trade Receivables": {
+            bg: "#F5F2FF",
+            iconBg: "#E7DEFF",
+            accent: "#7C3AED",
+        },
+        "Inventory": {
+            bg: "#EFFCF4",
+            iconBg: "#DCFCE7",
+            accent: "#16A34A",
+        },
+        "Trade Payables": {
+            bg: "#FFF6EA",
+            iconBg: "#FFEDD5",
+            accent: "#D97706",
+        },
+        "Working Capital Ratio": {
+            bg: "#F5F1FF",
+            iconBg: "#E9DEFF",
+            accent: "#7C3AED",
+        },
+        "Trade Working Capital Ratio": {
+            bg: "#F5F1FF",
+            iconBg: "#E9DEFF",
+            accent: "#7C3AED",
         },
         "Net Working Capital": {
             bg: "#EEF2FF",
@@ -10586,14 +13374,14 @@ function KpiCard({ title, value, subtitle, icon }) {
             accent: "#EA8A00",
         },
         "DSO": {
-            bg: "#ECFBFF",
-            iconBg: "#D5F3FA",
-            accent: "#0891B2",
+            bg: "#FFF6EA",
+            iconBg: "#FFE6D2",
+            accent: "#D97706",
         },
         "DIO": {
-            bg: "#F0FDF4",
-            iconBg: "#DCFCE7",
-            accent: "#16A34A",
+            bg: "#EEF6FF",
+            iconBg: "#DCEBFF",
+            accent: "#155EEF",
         },
         "DPO": {
             bg: "#FFF1F2",
@@ -10601,7 +13389,7 @@ function KpiCard({ title, value, subtitle, icon }) {
             accent: "#DC2626",
         },
         "CCC": {
-            bg: "#FDF2F8",
+            bg: "#FFF0F7",
             iconBg: "#FCE0EE",
             accent: "#DB2777",
         },
@@ -10609,6 +13397,21 @@ function KpiCard({ title, value, subtitle, icon }) {
             bg: "#F0F9FF",
             iconBg: "#DDF3FF",
             accent: "#0284C7",
+        },
+        "CCC (Cash Conversion Cycle)": {
+            bg: "#FDF2F8",
+            iconBg: "#FCE0EE",
+            accent: "#DB2777",
+        },
+        "Target DSO": {
+            bg: "#F0F9FF",
+            iconBg: "#DDF3FF",
+            accent: "#0284C7",
+        },
+        "Working Capital Turnover": {
+            bg: "#ECFDF3",
+            iconBg: "#D9F7E5",
+            accent: "#16865B",
         },
     };
 
@@ -10629,6 +13432,11 @@ function KpiCard({ title, value, subtitle, icon }) {
             className="sales-style-kpi"
             style={{
                 ...styles.card,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "6px",
+                minHeight: showComparisons ? "100px" : styles.card.minHeight,
                 background: palette.bg,
                 transform: hover ? "translateY(-2px)" : "translateY(0)",
                 boxShadow: hover
@@ -10642,16 +13450,18 @@ function KpiCard({ title, value, subtitle, icon }) {
                 style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "9px",
-                    height: "100%",
+                    gap: "8px",
+                    minHeight: "35px",
+                    height: "35px",
                     minWidth: 0,
                 }}
             >
                 <div
+                    className="wc-kpi-icon"
                     style={{
-                        width: "34px",
-                        height: "34px",
-                        minWidth: "34px",
+                        width: "30px",
+                        height: "30px",
+                        minWidth: "30px",
                         borderRadius: "50%",
                         background: palette.iconBg,
                         display: "flex",
@@ -10677,14 +13487,19 @@ function KpiCard({ title, value, subtitle, icon }) {
                     }}
                 >
                     <div
+                        className="wc-kpi-title"
                         style={{
                             color: palette.accent,
-                            fontSize: "0.68rem",
-                            lineHeight: 1.15,
+                            fontSize: "10px",
+                            lineHeight: 1.12,
+                            letterSpacing: "-0.01em",
                             fontWeight: 700,
-                            whiteSpace: "nowrap",
+                            whiteSpace: "normal",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            overflowWrap: "anywhere",
                         }}
                         title={title}
                     >
@@ -10692,20 +13507,49 @@ function KpiCard({ title, value, subtitle, icon }) {
                     </div>
 
                     <div
+                        className="wc-kpi-value"
                         style={{
                             color: "#0F172A",
-                            fontSize: "1.02rem",
-                            lineHeight: 1.05,
+                            fontSize: "clamp(13px, 1vw, 16px)",
+                            lineHeight: 1.12,
                             fontWeight: 800,
                             letterSpacing: "-0.02em",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            whiteSpace: "normal",
+                            overflow: "visible",
+                            textOverflow: "clip",
+                            overflowWrap: "anywhere",
                         }}
                         title={String(value)}
                     >
                         <AnimatedKpiValue value={value} />
                     </div>
+
+                    {metricLine && (
+                        <div
+                            className="wc-kpi-metric-line"
+                            style={{
+                                display: "inline-flex",
+                                alignSelf: "flex-start",
+                                alignItems: "center",
+                                width: "fit-content",
+                                maxWidth: "100%",
+                                marginTop: "3px",
+                                padding: "2px 6px",
+                                borderRadius: "5px",
+                                background: "rgba(255,255,255,.68)",
+                                color: "#475569",
+                                fontSize: "0.60rem",
+                                lineHeight: 1.2,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                            }}
+                            title={metricLine}
+                        >
+                            {metricLine}
+                        </div>
+                    )}
 
                     {subtitle && (
                         <div
@@ -10715,7 +13559,7 @@ function KpiCard({ title, value, subtitle, icon }) {
                                 marginTop: "2px",
                                 padding: "2px 6px",
                                 borderRadius: "5px",
-                                background: "rgba(255,255,255,.58)",
+                                background: "rgba(255,255,255,.72)",
                                 color: isInsufficientHistory
                                     ? "#64748B"
                                     : "#64748B",
@@ -10733,6 +13577,79 @@ function KpiCard({ title, value, subtitle, icon }) {
                     )}
                 </div>
             </div>
+            {showComparisons && (
+                <div className="wc-kpi-comparison-panel wc-kpi-comparison-panel-left" style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "5px 8px",
+                    borderRadius: "9px",
+                    background: "rgba(255,255,255,.62)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    gap: "3px",
+                    fontSize: "9px",
+                    lineHeight: 1.12,
+                    textAlign: "left",
+                }}>
+                    <div className="wc-kpi-comparison-row wc-kpi-comparison-row-left" style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        width: "100%",
+                        minWidth: 0,
+                        textAlign: "left",
+                        gap: "6px",
+                    }}>
+                        <label className="wc-kpi-comparison-label wc-kpi-comparison-label-left" style={{
+                            display: "block",
+                            flex: "1 1 auto",
+                            minWidth: 0,
+                            margin: 0,
+                            padding: 0,
+                            textAlign: "left",
+                            whiteSpace: "nowrap",
+                        }}>vs Target</label>
+                        <output className="wc-kpi-comparison-value wc-kpi-comparison-value-right" style={{
+                            display: "block",
+                            flex: "0 0 auto",
+                            margin: "0 0 0 auto",
+                            padding: 0,
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                        }}>{comparisonTarget ?? "—"}</output>
+                    </div>
+                    <div className="wc-kpi-comparison-row wc-kpi-comparison-row-left" style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        width: "100%",
+                        minWidth: 0,
+                        textAlign: "left",
+                        gap: "6px",
+                    }}>
+                        <label className="wc-kpi-comparison-label wc-kpi-comparison-label-left" style={{
+                            display: "block",
+                            flex: "1 1 auto",
+                            minWidth: 0,
+                            margin: 0,
+                            padding: 0,
+                            textAlign: "left",
+                            whiteSpace: "nowrap",
+                        }}>vs Last Month</label>
+                        <output className="wc-kpi-comparison-value wc-kpi-comparison-value-right" style={{
+                            display: "block",
+                            flex: "0 0 auto",
+                            margin: "0 0 0 auto",
+                            padding: 0,
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                        }}>{comparisonLastMonth ?? "—"}</output>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -12521,9 +15438,12 @@ function CashConversionCycle({
     const dso = dsoRaw !== undefined ? toNumber(dsoRaw) : toNumber(kpis?.dso_days);
     const dio = dioRaw !== undefined ? toNumber(dioRaw) : toNumber(kpis?.dio_days);
     const dpo = dpoRaw !== undefined ? toNumber(dpoRaw) : toNumber(kpis?.dpo_days);
-    const ccc = cccRaw !== undefined
-        ? toNumber(cccRaw)
-        : toNumber(kpis?.cash_conversion_cycle_days);
+    // The visual explicitly represents CCC = DSO + DIO - DPO.
+    // Calculate it only when all three backend component values are available;
+    // do not substitute zero for a missing component.
+    const ccc = dso !== null && dio !== null && dpo !== null
+        ? dso + dio - dpo
+        : null;
 
     const status =
         getValue(cccPayload, "status", "ccc_status") ??
@@ -12636,7 +15556,7 @@ function CashConversionCycle({
                 <div>
                     <h3 style={{ ...styles.panelTitle, marginBottom: 2 }}>Cash Conversion Cycle (Days)</h3>
                     <div style={{ fontSize: "0.68rem", color: C.muted, marginTop: 2, fontWeight: 500 }}>
-                        AED — monthly available observations
+                        — monthly available observations
                     </div>
                 </div>
             </div>
@@ -12652,9 +15572,9 @@ function CashConversionCycle({
                 }}
             >
                 {renderCard(cards[0])}
-                <div style={{ color: "#334155", fontSize: "18px", fontWeight: 800, textAlign: "center" }}>−</div>
+                <div aria-label="plus" style={{ color: "#22BDEB", fontSize: "22px", fontWeight: 900, textAlign: "center" }}>+</div>
                 {renderCard(cards[1])}
-                <div style={{ color: "#334155", fontSize: "18px", fontWeight: 800, textAlign: "center" }}>+</div>
+                <div aria-label="minus" style={{ color: "#22BDEB", fontSize: "22px", fontWeight: 900, textAlign: "center" }}>−</div>
                 {renderCard(cards[2])}
                 <div style={{ color: "#334155", fontSize: "18px", fontWeight: 800, textAlign: "center" }}>=</div>
                 {renderCard(cards[3])}
@@ -13010,10 +15930,7 @@ function CalendarDateField({ value, onChange, width = 125 }) {
                     zIndex: 3,
                 }}
             >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-                    <path d="M7 3.5V7M17 3.5V7M3.5 9.5H20.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
+                <span style={{ fontSize: "14px", lineHeight: 1 }} aria-hidden="true">📅</span>
             </span>
             <input
                 ref={inputRef}
@@ -13249,6 +16166,7 @@ function HeaderExportMenu({
 function ViewAllMultiSelect({
     label,
     options = [],
+    allOptions = options,
     value = [],
     onChange,
     width = 118,
@@ -13283,10 +16201,17 @@ function ViewAllMultiSelect({
         );
     };
 
+    // Resolve selected labels against the complete option list, not only the
+    // cascaded visible list. A selected Parent/Sub-Division can temporarily be
+    // absent from the narrowed list; looking only in `options` displayed the
+    // fallback "1 selected" instead of the actual name.
+    const labelOptions = Array.isArray(allOptions) ? allOptions : options;
     const display = selected.length === 0
         ? "All"
         : selected.length === 1
-            ? options.find((o) => String(o.id) === selected[0])?.label || "1 selected"
+            ? labelOptions.find((o) => String(o.id) === selected[0])?.label ||
+            options.find((o) => String(o.id) === selected[0])?.label ||
+            selected[0]
             : `${selected.length} selected`;
 
     return (
@@ -13476,19 +16401,31 @@ function UnitToggle({ unit, onToggle, currency = "AED" }) {
                     transition: "all 0.15s ease",
                     outline: "none",
                 }}
-                title={`Display in ${currency} Million`}
+                title={`Display in ${currency} Millions`}
             >
-                {currency} Million
+                {currency} Millions
             </button>
         </div>
     );
 }
 
-function cascadeViewAllOptions(filterOptions, localFilters) {
+function cascadeViewAllOptions(
+    filterOptions,
+    localFilters,
+    legalEntityOptionsOverride = null,
+    parentDivisionOptionsOverride = null,
+    subDivisionOptionsOverride = null
+) {
     const groups = filterOptions?.legalGroups || [];
-    const entities = filterOptions?.legalEntities || [];
-    const parents = filterOptions?.parentDivisions || [];
-    const subs = filterOptions?.subDivisions || [];
+    const entities = Array.isArray(legalEntityOptionsOverride)
+        ? legalEntityOptionsOverride
+        : (filterOptions?.legalEntities || []);
+    const parents = Array.isArray(parentDivisionOptionsOverride)
+        ? parentDivisionOptionsOverride
+        : (filterOptions?.parentDivisions || []);
+    const subs = Array.isArray(subDivisionOptionsOverride)
+        ? subDivisionOptionsOverride
+        : (filterOptions?.subDivisions || []);
 
     const groupIds = (localFilters.legalGroups || []).map(String);
     const entityIds = (localFilters.legalEntities || []).map(String);
@@ -13496,7 +16433,11 @@ function cascadeViewAllOptions(filterOptions, localFilters) {
 
     const matches = (item, keys, selected) => {
         if (!selected.length) return true;
-        const ids = (keys || []).map(String);
+        const ids = (Array.isArray(keys) ? keys : keys == null ? [] : [keys])
+            .filter((id) => id !== null && id !== undefined && String(id).trim() !== "")
+            .map(String);
+        // If an option has no relationship metadata, keep it visible; the
+        // selected hierarchy IDs are still sent to the backend on Apply.
         return !ids.length || ids.some((id) => selected.includes(id));
     };
 
@@ -13752,7 +16693,7 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
     const periods = Array.from(
         new Set(
             safeRows
-                .map((row) => String(row?.period ?? ""))
+                .map((row) => String(row?.periodKey ?? row?.period ?? ""))
                 .filter(Boolean)
         )
     );
@@ -13768,7 +16709,7 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
     const lookup = new Map();
     safeRows.forEach((row) => {
         const name = String(row?.name ?? "—");
-        const period = String(row?.period ?? "");
+        const period = String(row?.periodKey ?? row?.period ?? "");
         if (!name || name === "—" || !period) return;
         lookup.set(`${name}__${period}`, row);
     });
@@ -13813,7 +16754,7 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
             <table
                 style={{
                     width: "100%",
-                    minWidth: Math.max(620, 190 + periods.length * 188),
+                    minWidth: Math.max(620, 190 + periods.length * 166),
                     borderCollapse: "collapse",
                     tableLayout: "fixed",
                     fontFamily: "Inter, system-ui, sans-serif",
@@ -13824,7 +16765,7 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
                     {periods.map((period) => (
                         <React.Fragment key={`col-${period}`}>
                             <col style={{ width: 94 }} />
-                            <col style={{ width: 94 }} />
+                            <col style={{ width: 72 }} />
                         </React.Fragment>
                     ))}
                 </colgroup>
@@ -13864,7 +16805,7 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
                                     whiteSpace: "nowrap",
                                 }}
                             >
-                                {period}
+                                {formatMonthYearHeader(period)}
                             </th>
                         ))}
                     </tr>
@@ -13895,9 +16836,9 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
                                 <th
                                     style={{
                                         ...thRight,
-                                        width: 94,
-                                        minWidth: 94,
-                                        maxWidth: 94,
+                                        width: 72,
+                                        minWidth: 72,
+                                        maxWidth: 72,
                                         textAlign: "center",
                                         background: "#FBFCFE",
                                         borderLeft: "1px solid #E2E8F0",
@@ -13961,10 +16902,10 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
                                         <td
                                             style={{
                                                 ...tdRight,
-                                                width: 94,
-                                                minWidth: 94,
-                                                maxWidth: 94,
-                                                padding: "8px 5px",
+                                                width: 72,
+                                                minWidth: 72,
+                                                maxWidth: 72,
+                                                padding: "8px 4px",
                                                 fontSize: "0.67rem",
                                                 whiteSpace: "nowrap",
                                                 color: "#475569",
@@ -13972,7 +16913,7 @@ function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
                                                 background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
                                             }}
                                         >
-                                            {toNumber(ccc) === null ? "—" : `${Number(ccc).toFixed(2)}`}
+                                            {toNumber(ccc) === null ? "N/A" : Number(ccc).toFixed(2)}
                                         </td>
                                     </React.Fragment>
                                 );
@@ -14041,22 +16982,98 @@ function ViewAllModal({
     const [modalUnit, setModalUnit] = useState("aed");
     const [page, setPage] = useState(0);
     const [cfoViewMode, setCfoViewMode] = useState("detailed");
+    const [isMaximized, setIsMaximized] = useState(false);
     const pageSize = 15;
 
     const [localFilters, setLocalFilters] = useState(() => ({
-        legalGroups: baseFilters?.legalGroups || [],
+        legalGroups: baseFilters?.legalGroups?.length
+            ? baseFilters.legalGroups
+            : getWorkingCapitalDefaultFilters(filterOptions).legalGroups,
         legalEntities: baseFilters?.legalEntities || [],
         parentDivisions: baseFilters?.parentDivisions || [],
         subDivisions: baseFilters?.subDivisions || [],
+        reportingCurrency: normalizeReportingCurrency(baseFilters?.reportingCurrency || currency || "AED"),
         asOnDate: baseFilters?.asOnDate || "",
     }));
+    const modalCurrency = normalizeReportingCurrency(localFilters.reportingCurrency || currency || "AED");
+    const [modalFilterOptions, setModalFilterOptions] = useState(filterOptions);
+    const [modalGroupSpecificLegalEntities, setModalGroupSpecificLegalEntities] = useState({});
+    const [modalParentDivisionCache, setModalParentDivisionCache] = useState({});
+    const [modalSubDivisionCache, setModalSubDivisionCache] = useState({});
+    const modalOptionRequestRef = useRef(0);
+
+    useEffect(() => {
+        setModalFilterOptions(filterOptions);
+    }, [filterOptions]);
+
+    // Load the same group-scoped entity list used by the main page whenever
+    // View All opens. This prevents FJ entities appearing for RKME and vice versa.
+    useEffect(() => {
+        const selectedGroups = baseFilters?.legalGroups?.length
+            ? baseFilters.legalGroups
+            : getWorkingCapitalDefaultFilters(filterOptions).legalGroups;
+        const groupIds = selectedIds([], selectedGroups);
+        if (!groupIds.length) return;
+        const groupKey = groupIds.slice().sort().join("|");
+        const requestId = ++modalOptionRequestRef.current;
+        void getWorkingCapitalFilterOptions({ legal_group_id: groupIds, reporting_currency: normalizeReportingCurrency(localFilters?.reportingCurrency || currency) }).then((response) => {
+            if (requestId !== modalOptionRequestRef.current) return;
+            const normalized = normalizeFilterOptions(response);
+            const scopedEntities = annotateOptionsWithGroupScope(normalized.legalEntities, groupIds);
+            if (normalized.parentDivisions.length) {
+                setModalParentDivisionCache((previous) => ({
+                    ...previous,
+                    [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+                        normalized.parentDivisions,
+                        groupIds,
+                        [],
+                        []
+                    ),
+                }));
+            }
+            if (normalized.subDivisions.length) {
+                setModalSubDivisionCache((previous) => ({
+                    ...previous,
+                    [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+                        normalized.subDivisions,
+                        groupIds,
+                        [],
+                        []
+                    ),
+                }));
+            }
+            if (scopedEntities.length) {
+                setModalGroupSpecificLegalEntities((previous) => ({
+                    ...previous,
+                    [groupKey]: scopedEntities,
+                }));
+                setModalFilterOptions((previous) => {
+                    const existing = previous.legalEntities || [];
+                    const merged = [...existing];
+                    const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+                    scopedEntities.forEach((item) => {
+                        const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+                        if (!keys.has(key)) { keys.add(key); merged.push(item); }
+                    });
+                    return { ...previous, legalEntities: merged };
+                });
+            }
+        }).catch((error) => {
+            console.error("Failed to load Working Capital View All Legal Entities:", error);
+        });
+        // View All is mounted for each opening; its current base filters are the initial scope.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         setLocalFilters({
-            legalGroups: baseFilters?.legalGroups || [],
+            legalGroups: baseFilters
+                ? (baseFilters.legalGroups || [])
+                : getWorkingCapitalDefaultFilters(filterOptions).legalGroups,
             legalEntities: baseFilters?.legalEntities || [],
             parentDivisions: baseFilters?.parentDivisions || [],
             subDivisions: baseFilters?.subDivisions || [],
+            reportingCurrency: normalizeReportingCurrency(baseFilters?.reportingCurrency || currency || "AED"),
             asOnDate: baseFilters?.asOnDate || "",
         });
         setSearch("");
@@ -14064,38 +17081,198 @@ function ViewAllModal({
         setCfoViewMode("detailed");
     }, [baseFilters, type]);
 
+    const loadModalLegalEntities = (selectedGroups) => {
+        const groupIds = selectedIds([], selectedGroups);
+        if (!groupIds.length) {
+            setModalGroupSpecificLegalEntities({});
+            return;
+        }
+        const groupKey = groupIds.slice().sort().join("|");
+        const requestId = ++modalOptionRequestRef.current;
+        setModalGroupSpecificLegalEntities((previous) => ({
+            ...previous,
+            [groupKey]: [],
+        }));
+        void getWorkingCapitalFilterOptions({ legal_group_id: groupIds, reporting_currency: normalizeReportingCurrency(localFilters?.reportingCurrency || currency) }).then((response) => {
+            if (requestId !== modalOptionRequestRef.current) return;
+            const normalized = normalizeFilterOptions(response);
+            const scopedEntities = annotateOptionsWithGroupScope(normalized.legalEntities, groupIds);
+            if (normalized.parentDivisions.length) {
+                setModalParentDivisionCache((previous) => ({
+                    ...previous,
+                    [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+                        normalized.parentDivisions,
+                        groupIds,
+                        [],
+                        []
+                    ),
+                }));
+            }
+            if (normalized.subDivisions.length) {
+                setModalSubDivisionCache((previous) => ({
+                    ...previous,
+                    [hierarchyCacheKey(groupIds, [], [])]: annotateOptionsWithHierarchyScope(
+                        normalized.subDivisions,
+                        groupIds,
+                        [],
+                        []
+                    ),
+                }));
+            }
+            if (scopedEntities.length) {
+                setModalGroupSpecificLegalEntities((previous) => ({
+                    ...previous,
+                    [groupKey]: scopedEntities,
+                }));
+                setModalFilterOptions((previous) => {
+                    const merged = [...(previous.legalEntities || [])];
+                    const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+                    scopedEntities.forEach((item) => {
+                        const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+                        if (!keys.has(key)) { keys.add(key); merged.push(item); }
+                    });
+                    return { ...previous, legalEntities: merged };
+                });
+            } else {
+                setModalGroupSpecificLegalEntities((previous) => {
+                    const next = { ...previous };
+                    delete next[groupKey];
+                    return next;
+                });
+            }
+        }).catch((error) => {
+            console.error("Failed to load Working Capital View All Legal Entities:", error);
+            setModalGroupSpecificLegalEntities((previous) => {
+                const next = { ...previous };
+                delete next[groupKey];
+                return next;
+            });
+        });
+    };
+
     const resetModalFilters = () => {
-        const reset = getWorkingCapitalDefaultFilters(filterOptions);
+        const reset = getWorkingCapitalDefaultFilters(modalFilterOptions);
         setLocalFilters(reset);
+        setModalParentDivisionCache({});
+        setModalSubDivisionCache({});
         setSearch("");
         setPage(0);
         setCfoViewMode("detailed");
+        loadModalLegalEntities(reset.legalGroups);
         onApplyFilters?.(reset);
     };
 
+    const modalGroupKey = (localFilters.legalGroups || []).map(String).sort().join("|");
+    const modalHasScopedEntities = Boolean(modalGroupKey) &&
+        Object.prototype.hasOwnProperty.call(modalGroupSpecificLegalEntities, modalGroupKey);
+    const activeModalLegalEntities = modalHasScopedEntities
+        ? (modalGroupSpecificLegalEntities[modalGroupKey] || [])
+        : (modalFilterOptions.legalEntities || []);
+    const modalParentKey = hierarchyCacheKey(
+        localFilters.legalGroups,
+        localFilters.legalEntities,
+        []
+    );
+    const modalSubKey = hierarchyCacheKey(
+        localFilters.legalGroups,
+        localFilters.legalEntities,
+        localFilters.parentDivisions
+    );
+    const activeModalParentDivisions = Object.prototype.hasOwnProperty.call(modalParentDivisionCache, modalParentKey)
+        ? (modalParentDivisionCache[modalParentKey] || [])
+        : (modalFilterOptions.parentDivisions || []);
+    const activeModalSubDivisions = Object.prototype.hasOwnProperty.call(modalSubDivisionCache, modalSubKey)
+        ? (modalSubDivisionCache[modalSubKey] || [])
+        : (modalFilterOptions.subDivisions || []);
+
     const cascaded = useMemo(
-        () => cascadeViewAllOptions(filterOptions, localFilters),
-        [filterOptions, localFilters]
+        () => cascadeViewAllOptions(
+            modalFilterOptions,
+            localFilters,
+            activeModalLegalEntities,
+            activeModalParentDivisions,
+            activeModalSubDivisions
+        ),
+        [modalFilterOptions, localFilters, activeModalLegalEntities, activeModalParentDivisions, activeModalSubDivisions]
     );
 
     const updateCascade = (key, values) => {
-        setLocalFilters((prev) => {
-            const next = { ...prev, [key]: values };
-            if (key === "legalGroups") {
-                next.legalEntities = [];
-                next.parentDivisions = [];
-                next.subDivisions = [];
-            }
-            if (key === "legalEntities") {
-                next.parentDivisions = [];
-                next.subDivisions = [];
-            }
-            if (key === "parentDivisions") {
-                next.subDivisions = [];
-            }
-            return next;
-        });
+        const nextFilters = {
+            ...localFilters,
+            [key]: Array.isArray(values) ? values : [],
+        };
+        if (key === "legalGroups") {
+            nextFilters.legalEntities = [];
+            nextFilters.parentDivisions = [];
+            nextFilters.subDivisions = [];
+            setModalParentDivisionCache({});
+            setModalSubDivisionCache({});
+        } else if (key === "legalEntities") {
+            nextFilters.parentDivisions = [];
+            nextFilters.subDivisions = [];
+            setModalSubDivisionCache({});
+        } else if (key === "parentDivisions") {
+            nextFilters.subDivisions = [];
+            setModalSubDivisionCache({});
+        }
+        setLocalFilters(nextFilters);
         setPage(0);
+
+        if (key === "legalGroups") {
+            loadModalLegalEntities(nextFilters.legalGroups);
+            return;
+        }
+
+        const dependentByKey = {
+            legalEntities: { optionKey: "parentDivisions" },
+            parentDivisions: { optionKey: "subDivisions" },
+        };
+        const dependent = dependentByKey[key];
+        if (!dependent) return;
+
+        const requestId = ++modalOptionRequestRef.current;
+        const apiFilters = {
+            reporting_currency: normalizeReportingCurrency(nextFilters.reportingCurrency || currency),
+            legal_group_id: selectedIds([], nextFilters.legalGroups),
+            legal_entity_id: selectedIds([], nextFilters.legalEntities),
+            parent_division_id: selectedIds([], nextFilters.parentDivisions),
+            subdivision_id: selectedIds([], nextFilters.subDivisions),
+            as_on_date: nextFilters.asOnDate || undefined,
+        };
+        void getWorkingCapitalFilterOptions(apiFilters).then((response) => {
+            if (requestId !== modalOptionRequestRef.current) return;
+            const normalized = normalizeFilterOptions(response);
+            const nextOptions = normalized[dependent.optionKey];
+            if (!Array.isArray(nextOptions)) return;
+
+            const scopedOptions = annotateOptionsWithHierarchyScope(
+                nextOptions,
+                nextFilters.legalGroups,
+                key === "legalEntities" ? nextFilters.legalEntities : nextFilters.legalEntities,
+                key === "parentDivisions" ? nextFilters.parentDivisions : []
+            );
+
+            if (key === "legalEntities") {
+                const cacheKey = hierarchyCacheKey(nextFilters.legalGroups, nextFilters.legalEntities, []);
+                setModalParentDivisionCache((previous) => ({ ...previous, [cacheKey]: scopedOptions }));
+            } else if (key === "parentDivisions") {
+                const cacheKey = hierarchyCacheKey(nextFilters.legalGroups, nextFilters.legalEntities, nextFilters.parentDivisions);
+                setModalSubDivisionCache((previous) => ({ ...previous, [cacheKey]: scopedOptions }));
+            }
+
+            setModalFilterOptions((previous) => {
+                const existing = previous[dependent.optionKey] || [];
+                const merged = [...existing];
+                const keys = new Set(merged.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+                scopedOptions.forEach((item) => {
+                    const optionKey = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+                    if (!keys.has(optionKey)) { keys.add(optionKey); merged.push(item); }
+                });
+                return { ...previous, [dependent.optionKey]: merged };
+            });
+        }).catch((error) => {
+            console.error("Failed to load Working Capital View All hierarchy options:", error);
+        });
     };
 
     const filtered = (Array.isArray(rows) ? rows : []).filter((row) => {
@@ -14149,27 +17326,31 @@ function ViewAllModal({
                 background: "rgba(15, 23, 42, 0.35)",
                 backdropFilter: "blur(6px)",
                 display: "flex",
-                alignItems: "flex-start",
+                alignItems: isMaximized ? "stretch" : "flex-start",
                 justifyContent: "center",
                 zIndex: 10000,
-                padding: "8px 0",
+                padding: isMaximized ? 0 : "8px 0",
                 boxSizing: "border-box",
             }}
         >
             <div
-                className="wc-sales-view-all-modal"
+                className={`wc-sales-view-all-modal${isMaximized ? " is-maximized" : ""}`}
                 style={{
-                    width: "96vw",
-                    maxWidth: "1500px",
-                    height: "calc(100vh - 16px)",
-                    maxHeight: "calc(100vh - 16px)",
+                    position: isMaximized ? "fixed" : "relative",
+                    inset: isMaximized ? 0 : "auto",
+                    width: isMaximized ? "100vw" : "96vw",
+                    maxWidth: isMaximized ? "100vw" : "1500px",
+                    height: isMaximized ? "100vh" : "calc(100vh - 16px)",
+                    maxHeight: isMaximized ? "100vh" : "calc(100vh - 16px)",
+                    margin: isMaximized ? 0 : "0 auto",
                     background: "#FFFFFF",
-                    borderRadius: 16,
-                    border: "1px solid #E2E8F0",
-                    boxShadow: "0 20px 60px rgba(0,0,0,.18)",
+                    borderRadius: isMaximized ? 0 : 16,
+                    border: isMaximized ? "none" : "1px solid #E2E8F0",
+                    boxShadow: isMaximized ? "none" : "0 20px 60px rgba(0,0,0,.18)",
                     overflow: "hidden",
                     display: "flex",
                     flexDirection: "column",
+                    boxSizing: "border-box",
                 }}
             >
                 <div style={{
@@ -14192,7 +17373,7 @@ function ViewAllModal({
                             {isCfo ? (
                                 <>
                                     <span style={{ margin: "0 6px", color: "#CBD5E1" }}>•</span>
-                                    Reporting currency: {currency}
+                                    Reporting currency: {modalCurrency}
                                 </>
                             ) : null}
                         </div>
@@ -14246,8 +17427,15 @@ function ViewAllModal({
                                 </button>
                             </div>
                         )}
+                        {/* Currency-unit controls apply only to monetary View All tables.
+                            CCC Trend is measured in days, so it intentionally has no
+                            AED / AED Millions toggle. */}
                         {!isCcc && (
-                            <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
+                            <UnitToggle
+                                unit={modalUnit}
+                                onToggle={setModalUnit}
+                                currency={modalCurrency}
+                            />
                         )}
                         {showModalExports && (
                             <>
@@ -14255,6 +17443,38 @@ function ViewAllModal({
                                 <button type="button" onClick={() => onExport?.("pdf", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #F2B8B8", background: "#FFF8F8", color: "#C23B3B", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>PDF</button>
                             </>
                         )}
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                // Keep this control local to the modal. Prevent any
+                                // surrounding click/form handlers from reloading or
+                                // reopening the dashboard while toggling the layout.
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setIsMaximized((current) => !current);
+                            }}
+                            aria-pressed={isMaximized}
+                            aria-label={isMaximized ? "Restore View All window" : "Maximize View All to full screen"}
+                            title={isMaximized ? "Restore window" : "Maximize to full screen"}
+                            style={{
+                                width: 32,
+                                height: 30,
+                                padding: 0,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "1px solid #CBD5E1",
+                                borderRadius: 7,
+                                background: "#FFFFFF",
+                                color: "#3149A5",
+                                cursor: "pointer",
+                                flexShrink: 0,
+                            }}
+                        >
+                            {isMaximized
+                                ? <Minimize2 size={16} strokeWidth={2.2} />
+                                : <Maximize2 size={16} strokeWidth={2.2} />}
+                        </button>
                         <ModalCloseButton onClick={onClose} />
                     </div>
                 </div>
@@ -14272,31 +17492,21 @@ function ViewAllModal({
                     zIndex: 20,
                     flexShrink: 0,
                 }}>
-                    <ViewAllMultiSelect label="Legal Group" options={cascaded.legalGroups} value={localFilters.legalGroups} onChange={(v) => updateCascade("legalGroups", v)} />
-                    <ViewAllMultiSelect label="Legal Entity" options={cascaded.legalEntities} value={localFilters.legalEntities} onChange={(v) => updateCascade("legalEntities", v)} />
-                    <ViewAllMultiSelect label="Parent Division" options={cascaded.parentDivisions} value={localFilters.parentDivisions} onChange={(v) => updateCascade("parentDivisions", v)} />
-                    <ViewAllMultiSelect label="Sub-Division" options={cascaded.subDivisions} value={localFilters.subDivisions} onChange={(v) => updateCascade("subDivisions", v)} />
+                    <ViewAllMultiSelect label="Legal Group" options={cascaded.legalGroups} allOptions={modalFilterOptions.legalGroups} value={localFilters.legalGroups} onChange={(v) => updateCascade("legalGroups", v)} />
+                    <ViewAllMultiSelect label="Legal Entity" options={cascaded.legalEntities} allOptions={modalFilterOptions.legalEntities} value={localFilters.legalEntities} onChange={(v) => updateCascade("legalEntities", v)} />
+                    <ViewAllMultiSelect label="Parent Division" options={cascaded.parentDivisions} allOptions={modalFilterOptions.parentDivisions} value={localFilters.parentDivisions} onChange={(v) => updateCascade("parentDivisions", v)} />
+                    <ViewAllMultiSelect label="Sub-Division" options={cascaded.subDivisions} allOptions={modalFilterOptions.subDivisions} value={localFilters.subDivisions} onChange={(v) => updateCascade("subDivisions", v)} />
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-                        <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Reporting Currency</span>
-                        <div
-                            style={{
-                                width: 112,
-                                height: 32,
-                                border: "1px solid #CBD5E1",
-                                borderRadius: 7,
-                                background: "#FFFFFF",
-                                color: "#334155",
-                                padding: "0 9px",
-                                display: "flex",
-                                alignItems: "center",
-                                boxSizing: "border-box",
-                                fontSize: "0.72rem",
-                                fontWeight: 700,
-                            }}
+                        <label htmlFor="working-capital-viewall-reporting-currency" style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Reporting Currency</label>
+                        <select
+                            id="working-capital-viewall-reporting-currency"
+                            value={modalCurrency}
+                            onChange={(event) => { setLocalFilters((previous) => ({ ...previous, reportingCurrency: normalizeReportingCurrency(event.target.value) })); setPage(0); }}
+                            style={{ width: 112, height: 32, border: "1px solid #CBD5E1", borderRadius: 7, background: "#FFFFFF", color: "#334155", padding: "0 9px", boxSizing: "border-box", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}
                         >
-                            {currency || "AED"}
-                        </div>
+                            {WORKING_CAPITAL_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                        </select>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
@@ -14317,7 +17527,7 @@ function ViewAllModal({
 
                 </div>
 
-                <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: "10px 16px 8px", background: "#FFFFFF", display: "flex", flexDirection: "column" }}>
+                <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: "10px 16px 8px", background: "#FFFFFF", display: "flex", flexDirection: "column", position: "relative" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "0 2px 8px", flexShrink: 0 }}>
                         <input
                             value={search}
@@ -14331,7 +17541,7 @@ function ViewAllModal({
                     </div>
 
                     {isTrade ? (
-                        <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(220px, 0.58fr) minmax(560px, 1.42fr)", gap: 10, overflow: "hidden" }}>
+                        <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.75fr)", gap: 10, overflow: "hidden" }}>
                             <div className="wc-trade-view-all-table" style={{ minWidth: 0, minHeight: 0, overflow: "auto" }}>
                                 <table
                                     style={{
@@ -14341,7 +17551,7 @@ function ViewAllModal({
                                         minWidth: isCfo
                                             ? 980
                                             : isCcc
-                                                ? 650
+                                                ? 760
                                                 : isTrade
                                                     ? 0
                                                     : isTrend
@@ -14358,18 +17568,19 @@ function ViewAllModal({
                                                     <th style={cfoTh}>SUB-DIVISION</th>
                                                     <th style={cfoThRight}>TRADE RECEIVABLES</th>
                                                     <th style={cfoThRight}>DSO</th>
-                                                    <th style={cfoThRight}>TRADE PAYABLES</th>
-                                                    <th style={cfoThRight}>DPO</th>
                                                     <th style={cfoThRight}>INVENTORY</th>
                                                     <th style={cfoThRight}>DIO</th>
+                                                    <th style={cfoThRight}>TRADE PAYABLES</th>
+                                                    <th style={cfoThRight}>DPO</th>
                                                     <th style={{ ...cfoThRight, whiteSpace: "nowrap" }}>
-                                                        TRADE WORKING CAPITAL ({currency})
+                                                        TRADE WORKING CAPITAL ({modalCurrency})
                                                     </th>
                                                     <th style={cfoThRight}>CCC</th>
                                                 </>
                                             ) : isCcc ? (
                                                 <>
-                                                    <th style={th}>PERIOD</th>
+                                                    <th style={th}>METRIC / PERIOD</th>
+                                                    <th style={thRight}>TARGET DAYS</th>
                                                     <th style={thRight}>DSO</th>
                                                     <th style={thRight}>DIO</th>
                                                     <th style={thRight}>DPO</th>
@@ -14380,7 +17591,7 @@ function ViewAllModal({
                                                     <th style={th}>PERIOD</th>
                                                     <th style={thRight}>
                                                         {isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}
-                                                        {currency ? ` (${currency})` : ""}
+                                                        {modalCurrency ? ` (${modalCurrency})` : ""}
                                                     </th>
                                                 </>
                                             ) : (
@@ -14405,9 +17616,9 @@ function ViewAllModal({
                                                         <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
                                                         <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
                                                         <td style={cfoTdRight}>—</td>
-                                                        <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
-                                                        <td style={cfoTdRight}>—</td>
                                                         <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
+                                                        <td style={cfoTdRight}>—</td>
+                                                        <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
                                                         <td style={cfoTdRight}>—</td>
                                                         <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
                                                         <td style={cfoTdRight}>—</td>
@@ -14417,7 +17628,8 @@ function ViewAllModal({
 
                                             if (isCcc) return (
                                                 <tr key={`${row.period}-${index}`}>
-                                                    <td style={td}>{row.period}</td>
+                                                    <td style={td}>{formatCccPeriod(row.period)}</td>
+                                                    <td style={tdRight} title="Target days will be populated when the backend provides target values">—</td>
                                                     <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
                                                     <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
                                                     <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -14447,7 +17659,7 @@ function ViewAllModal({
                                                         isCfo
                                                             ? 11
                                                             : isCcc
-                                                                ? 5
+                                                                ? 6
                                                                 : isTrade || isTrend
                                                                     ? 2
                                                                     : 4
@@ -14466,10 +17678,53 @@ function ViewAllModal({
                                     </tbody>
                                 </table>
                             </div>
-                            <TradeWorkingCapitalViewAllChart rows={filtered} currency={currency} unit={modalUnit} />
+                            <TradeWorkingCapitalViewAllChart rows={filtered} currency={modalCurrency} unit={modalUnit} />
                         </div>
+                    ) : isCcc ? (
+                        (() => {
+                            const monthRows = [...filtered].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+                            const months = [...new Set(monthRows.map((row) => String(row.period ?? "—")))];
+                            const metricRows = [
+                                { key: "dso", label: "DSO", target: "—", color: "#F59E0B", icon: "◷" },
+                                { key: "dio", label: "DIO", target: "—", color: "#0EA5E9", icon: "▦" },
+                                { key: "dpo", label: "DPO", target: "—", color: "#E11D48", icon: "⊖" },
+                                { key: "ccc", label: "CCC", target: "—", color: "#7C3AED", icon: "⟳" },
+                            ];
+                            return (
+                                <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #E5EDF7", borderRadius: 10 }}>
+                                    <table style={{ width: "100%", minWidth: Math.max(760, 150 + months.length * 105), borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed", fontFamily: "Inter, system-ui, sans-serif" }}>
+                                        <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+                                            <tr>
+                                                <th style={{ ...th, minWidth: 150, width: 170, background: "#EFF6FF", textAlign: "left" }}>METRIC</th>
+                                                <th style={{ ...thRight, minWidth: 105, width: 115, background: "#EFF6FF", borderLeft: "3px solid #172554", borderRight: "3px solid #172554" }}>TARGET DAYS</th>
+                                                {months.map((month) => <th key={month} style={{ ...thRight, minWidth: 100, background: "#EFF6FF", textAlign: "center" }}>{formatCccPeriod(month)}</th>)}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {metricRows.map((metric) => (
+                                                <tr key={metric.key}>
+                                                    <td style={{ ...td, background: `${metric.color}12`, fontWeight: 800, color: "#172554", whiteSpace: "nowrap" }}>
+                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+                                                            <span style={{ width: 30, height: 30, borderRadius: "50%", background: `${metric.color}20`, color: metric.color, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>{metric.icon}</span>
+                                                            <span>{metric.label}<small style={{ display: "block", color: "#94A3B8", fontSize: 10, fontWeight: 500 }}>Days</small></span>
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ ...tdRight, textAlign: "center", borderLeft: "3px solid #172554", borderRight: "3px solid #172554", fontWeight: 700 }}>—</td>
+                                                    {months.map((month) => {
+                                                        const source = monthRows.find((row) => String(row.period ?? "—") === month);
+                                                        const value = toNumber(source?.[metric.key]);
+                                                        return <td key={`${metric.key}-${month}`} style={{ ...tdRight, textAlign: "center", background: "#FFFFFF" }}>{value === null ? "—" : value.toFixed(2)}</td>;
+                                                    })}
+                                                </tr>
+                                            ))}
+                                            {!months.length && <tr><td colSpan={2 + months.length} style={{ padding: 30, textAlign: "center", color: "#94A3B8" }}>{loading ? "Loading..." : "No available history."}</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()
                     ) : isCfo && cfoViewMode === "month-on-month" ? (
-                        <ParentDivisionMonthOnMonthTable rows={filteredMonthRows} currency={currency} unit={modalUnit} />
+                        <ParentDivisionMonthOnMonthTable rows={filteredMonthRows} currency={modalCurrency} unit={modalUnit} />
                     ) : (
                         <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}>
                             <table
@@ -14480,7 +17735,7 @@ function ViewAllModal({
                                     minWidth: isCfo
                                         ? 980
                                         : isCcc
-                                            ? 650
+                                            ? 760
                                             : isTrade || isTrend
                                                 ? 520
                                                 : 760,
@@ -14495,10 +17750,10 @@ function ViewAllModal({
                                                 <th style={cfoTh}>SUB-DIVISION</th>
                                                 <th style={cfoThRight}>TRADE RECEIVABLES</th>
                                                 <th style={cfoThRight}>DSO</th>
-                                                <th style={cfoThRight}>TRADE PAYABLES</th>
-                                                <th style={cfoThRight}>DPO</th>
                                                 <th style={cfoThRight}>INVENTORY</th>
                                                 <th style={cfoThRight}>DIO</th>
+                                                <th style={cfoThRight}>TRADE PAYABLES</th>
+                                                <th style={cfoThRight}>DPO</th>
                                                 <th style={cfoThRight}>TRADE WORKING CAPITAL</th>
                                                 <th style={cfoThRight}>CCC</th>
                                             </>
@@ -14534,19 +17789,20 @@ function ViewAllModal({
                                                     <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
                                                     <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
                                                     <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
-                                                    <td style={cfoTdRight}>—</td>
-                                                    <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
-                                                    <td style={cfoTdRight}>—</td>
+                                                    <td style={cfoTdRight}>{row.dso == null ? "N/A" : Number(row.dso).toFixed(2)}</td>
                                                     <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
-                                                    <td style={cfoTdRight}>—</td>
+                                                    <td style={cfoTdRight}>{row.dio == null ? "N/A" : Number(row.dio).toFixed(2)}</td>
+                                                    <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
+                                                    <td style={cfoTdRight}>{row.dpo == null ? "N/A" : Number(row.dpo).toFixed(2)}</td>
                                                     <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
-                                                    <td style={cfoTdRight}>—</td>
+                                                    <td style={cfoTdRight}>{row.ccc == null ? "N/A" : Number(row.ccc).toFixed(2)}</td>
                                                 </tr>
                                             );
                                         }
                                         if (isCcc) return (
                                             <tr key={`${row.period}-${index}`}>
-                                                <td style={td}>{row.period}</td>
+                                                <td style={td}>{formatCccPeriod(row.period)}</td>
+                                                <td style={tdRight} title="Target days will be populated when the backend provides target values">—</td>
                                                 <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
                                                 <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
                                                 <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
@@ -14569,13 +17825,45 @@ function ViewAllModal({
                                         );
                                     }) : (
                                         <tr>
-                                            <td colSpan={isCfo ? 11 : isCcc ? 5 : isTrade || isTrend ? 2 : 4} style={{ padding: 30, textAlign: "center", color: "#94A3B8", fontSize: "0.72rem" }}>
+                                            <td colSpan={isCfo ? 11 : isCcc ? 6 : isTrade || isTrend ? 2 : 4} style={{ padding: 30, textAlign: "center", color: "#94A3B8", fontSize: "0.72rem" }}>
                                                 {loading ? "Loading..." : "No available history."}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+                    {loading && (
+                        <div
+                            role="status"
+                            aria-label="Loading View All report"
+                            aria-busy="true"
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                zIndex: 30,
+                                padding: "18px",
+                                background: "rgba(255,255,255,.94)",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 14,
+                            }}
+                        >
+                            <div className="wc-skeleton-line" style={{ width: "34%", height: 14 }} />
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", gap: 9 }}>
+                                {Array.from({ length: 5 }).map((_, index) => (
+                                    <div key={index} style={{ height: 54, border: "1px solid #E8EDF4", borderRadius: 9, padding: 8, background: "#F8FAFC" }}>
+                                        <div className="wc-skeleton-line" style={{ width: "70%", height: 7 }} />
+                                        <div className="wc-skeleton-line" style={{ width: "92%", height: 10, marginTop: 10 }} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="wc-skeleton-line" style={{ width: "100%", height: 32 }} />
+                            {Array.from({ length: 7 }).map((_, index) => (
+                                <div key={index} className="wc-skeleton-line" style={{ width: index % 2 ? "96%" : "100%", height: 22 }} />
+                            ))}
+                            <span style={{ color: "#64748B", fontSize: 12, fontWeight: 600 }}>Loading report data…</span>
                         </div>
                     )}
                 </div>
@@ -14641,14 +17929,87 @@ const tdRight = {
 ============================================================ */
 
 export default function WorkingCapitalReport() {
-    const { canExport } = useAuth();
-    const canExportWC = Boolean(canExport?.('WORKING_CAPITAL'));
+    // RBAC follows the Receivables/Sales Revenue access contract:
+    // /api/access/me is the authority for user scopes and role_code.
+    // AuthContext is the authority for module-level export permission.
+    const [userAccess, setUserAccess] = useState(null);
+    const [permissions, setPermissions] = useState([]);
+    const { hasExportRight } = useAuth();
+    const canExportWorkingCapital =
+        typeof hasExportRight === "function" &&
+        hasExportRight("WORKING_CAPITAL");
+
+    // /api/access/me is authoritative for assigned legal hierarchy scopes.
+    // Ignore empty aliases so a blank top-level field cannot hide populated
+    // legal_entity_name values in access_scopes rows.
+    const findAccessScopeValue = (source, aliases) =>
+        findValueInObject(source, aliases);
+
+    const accessScopeRoot = userAccess ?? {};
+    const legalGroupScopeValue = findAccessScopeValue(accessScopeRoot, [
+        "legal_group_id", "legal_group_ids", "legal_group_code", "legal_group_name",
+        "legal_group", "legalGroupId", "legalGroupIds", "legalGroupCode",
+        "legalGroupName", "legalGroup",
+    ]);
+    const scopedEntityOptions = getScopedLegalEntityOptions(accessScopeRoot);
+    const legalEntityScopeValue = findAccessScopeValue(accessScopeRoot, [
+        "legal_entity_id", "legal_entity_ids", "legal_entity_name", "legal_entity_code",
+        "legal_entity", "legalEntityId", "legalEntityIds", "legalEntityName",
+        "legalEntityCode", "legalEntity",
+    ]);
+    const hasLegalGroupScope = hasScopeValue(legalGroupScopeValue);
+    const hasLegalEntityScope = hasScopeValue(legalEntityScopeValue) ||
+        scopedEntityOptions.length > 0;
+
+    const normalizePermissions = (response) => {
+        if (Array.isArray(response)) return response;
+        if (response && Array.isArray(response.data)) return response.data;
+        if (response && Array.isArray(response.permissions)) return response.permissions;
+        if (response && typeof response === "object") return [response];
+        return [];
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+        fetchAccessMe()
+            .then((data) => {
+                if (cancelled) return;
+                setUserAccess(data);
+                if (data && data.role_code) {
+                    return fetchRolePermissions(data.role_code)
+                        .then((response) => {
+                            if (!cancelled) setPermissions(normalizePermissions(response));
+                        })
+                        .catch(() => {
+                            if (!cancelled) setPermissions([]);
+                        });
+                }
+                return null;
+            })
+            .catch((err) => {
+                if (!cancelled) console.warn("Failed to fetch Working Capital access:", err);
+            });
+        return () => { cancelled = true; };
+    }, []);
+
+    // Access data can arrive after the initial filter-options request. Merge its
+    // assigned scope without replacing backend options or widening RBAC access.
+    useEffect(() => {
+        if (userAccess == null) return;
+        setFilterOptions((previous) =>
+            mergeScopedLegalEntities(
+                mergeScopedLegalGroups(previous, userAccess),
+                userAccess
+            )
+        );
+    }, [userAccess]);
 
     const [filters, setFilters] = useState({
         legalGroups: [],
         legalEntities: [],
         parentDivisions: [],
         subDivisions: [],
+        reportingCurrency: "AED",
         asOnDate: "",
     });
 
@@ -14674,6 +18035,27 @@ export default function WorkingCapitalReport() {
             operationalAsOnDate: "",
         });
 
+    // Keep group-scoped Legal Entity options separate. The Working Capital
+    // filter-options endpoint can return a different entity list for FJ and RKME;
+    // one group's response must never replace or contaminate another group's list.
+    const [groupSpecificLegalEntities, setGroupSpecificLegalEntities] = useState({});
+    const [mainParentDivisionCache, setMainParentDivisionCache] = useState({});
+    const [mainSubDivisionCache, setMainSubDivisionCache] = useState({});
+
+    // If FJ Group was available only through /access/me, select it after that
+    // scope has been merged. Do not override a deliberate user selection.
+    useEffect(() => {
+        if (!filterOptionsLoaded) return;
+        const defaults = getWorkingCapitalDefaultFilters(filterOptions);
+        if (!defaults.legalGroups.length) return;
+        setFilters((previous) =>
+            previous.legalGroups?.length ? previous : { ...previous, ...defaults }
+        );
+        setAppliedFilters((previous) =>
+            previous?.legalGroups?.length ? previous : { ...defaults }
+        );
+    }, [filterOptions.legalGroups, filterOptionsLoaded]);
+
     const [kpis, setKpis] = useState(null);
     const [components, setComponents] =
         useState(null);
@@ -14691,6 +18073,20 @@ export default function WorkingCapitalReport() {
         useState([]);
     const [cccTrend, setCccTrend] =
         useState([]);
+
+    // Historical sections load independently when they approach the viewport.
+    // The dashboard's initial KPI/visible-chart request is kept separate.
+    const hierarchySectionRef = useRef(null);
+    const cccSectionRef = useRef(null);
+    const dashboardRequestCacheRef = useRef(new Map());
+    const lazySectionRequestsRef = useRef(new Set());
+    const lazyFilterKeyRef = useRef("");
+    const [hierarchyLoading, setHierarchyLoading] = useState(false);
+    const [hierarchyLoaded, setHierarchyLoaded] = useState(false);
+    const [cccSectionLoading, setCccSectionLoading] = useState(false);
+    const [cccSectionLoaded, setCccSectionLoaded] = useState(false);
+    const [componentsLoading, setComponentsLoading] = useState(false);
+    const [tradeTrendLoading, setTradeTrendLoading] = useState(false);
 
     const [parentDivisionTrend, setParentDivisionTrend] =
         useState([]);
@@ -14718,263 +18114,340 @@ export default function WorkingCapitalReport() {
     const viewAllInFlightRef = useRef(new Map());
 
     /* --------------------------------------------------------
-       FILTER OPTIONS
+       FILTER OPTIONS — FAST INITIALIZATION + BACKGROUND HIERARCHY
+       The base option response initializes filters immediately. The scoped
+       Legal Group hierarchy is hydrated in the background and must not delay
+       KPI/chart requests. Requests are shared across effect reruns (including
+       React StrictMode) to avoid duplicate network calls.
     -------------------------------------------------------- */
+    const filterOptionsRequestCacheRef = useRef(new Map());
+    const requestFilterOptionsOnce = (key, request) => {
+        const cached = filterOptionsRequestCacheRef.current.get(key);
+        if (cached) return cached;
+        const promise = Promise.resolve().then(request);
+        filterOptionsRequestCacheRef.current.set(key, promise);
+        promise.catch(() => {
+            if (filterOptionsRequestCacheRef.current.get(key) === promise) {
+                filterOptionsRequestCacheRef.current.delete(key);
+            }
+        });
+        return promise;
+    };
 
     useEffect(() => {
         let active = true;
 
+        const mergeOptions = (existing = [], incoming = []) => {
+            const result = [...existing];
+            const keys = new Set(result.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+            incoming.forEach((item) => {
+                const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+                if (!keys.has(key)) { keys.add(key); result.push(item); }
+            });
+            return result;
+        };
+
+        const hydrateScopedHierarchy = async (defaultGroupId, baseOptions) => {
+            if (!defaultGroupId) return;
+            const scopeKey = `working-capital-filter-options:group:${String(defaultGroupId)}:AED`;
+            try {
+                const scopedResponse = await requestFilterOptionsOnce(
+                    scopeKey,
+                    () => getWorkingCapitalFilterOptions({
+                        reporting_currency: "AED",
+                        legal_group_id: [defaultGroupId],
+                    })
+                );
+                if (!active) return;
+                const scopedOptions = normalizeFilterOptions(scopedResponse);
+                const scopedEntities = annotateOptionsWithGroupScope(scopedOptions.legalEntities, [defaultGroupId]);
+                const groupKey = hierarchyCacheKey([defaultGroupId], [], []);
+
+                if (scopedEntities.length) {
+                    setGroupSpecificLegalEntities((previous) => ({
+                        ...previous,
+                        [String(defaultGroupId)]: scopedEntities,
+                    }));
+                }
+                if (scopedOptions.parentDivisions.length) {
+                    setMainParentDivisionCache((previous) => ({
+                        ...previous,
+                        [groupKey]: annotateOptionsWithHierarchyScope(scopedOptions.parentDivisions, [defaultGroupId], [], []),
+                    }));
+                }
+                if (scopedOptions.subDivisions.length) {
+                    setMainSubDivisionCache((previous) => ({
+                        ...previous,
+                        [groupKey]: annotateOptionsWithHierarchyScope(scopedOptions.subDivisions, [defaultGroupId], [], []),
+                    }));
+                }
+
+                // Merge the scoped options without clearing or overriding the
+                // user's current selections, access scopes, or reporting currency.
+                setFilterOptions((previous) => ({
+                    ...previous,
+                    legalEntities: mergeOptions(previous.legalEntities, annotateOptionsWithGroupScope(scopedOptions.legalEntities, [defaultGroupId])),
+                    parentDivisions: mergeOptions(previous.parentDivisions, annotateOptionsWithGroupScope(scopedOptions.parentDivisions, [defaultGroupId])),
+                    subDivisions: mergeOptions(previous.subDivisions, annotateOptionsWithGroupScope(scopedOptions.subDivisions, [defaultGroupId])),
+                }));
+            } catch (scopeError) {
+                // The base option response remains usable. A scoped-options
+                // failure must never block the dashboard's primary data requests.
+                console.warn("Unable to refresh default Legal Group hierarchy options:", scopeError);
+            }
+        };
+
         async function loadFilterOptions() {
             try {
-                /*
-                 * Filter dropdowns are populated only from the backend.
-                 * No hierarchy lists are hardcoded in the frontend.
-                 * Aging Basis is not applicable to Working Capital, so it is
-                 * intentionally not requested, stored, rendered, or sent.
-                 */
-                const response =
-                    await getWorkingCapitalFilterOptions({});
-
+                const response = await requestFilterOptionsOnce(
+                    "working-capital-filter-options:base:AED",
+                    () => getWorkingCapitalFilterOptions({ reporting_currency: "AED" })
+                );
                 if (!active) return;
 
-                const options =
-                    normalizeFilterOptions(response);
-
-                setFilterOptions(options);
-
-                /*
-                 * Set the backend-provided first available operational date
-                 * as the initial UI date when available. This does NOT wait
-                 * for the user to press Apply; it is the initial page-load
-                 * filter used by the dashboard.
-                 */
-                const nextFilters = {
-                    ...filters,
-                    asOnDate:
-                        filters.asOnDate ||
-                        options.operationalAsOnDate ||
-                        options.asOnDates[0] ||
-                        "",
-                };
-
-                setFilters(nextFilters);
-                setAppliedFilters((current) =>
-                    current === null
-                        ? { ...nextFilters }
-                        : current
+                const backendOptions = normalizeFilterOptions(response);
+                const options = mergeScopedLegalEntities(
+                    mergeScopedLegalGroups(backendOptions, userAccess),
+                    userAccess
                 );
+                const defaults = getWorkingCapitalDefaultFilters(options);
+                const defaultGroupId = defaults.legalGroups[0];
 
+                // Set up usable filters immediately after the base response.
+                // Do not await the slower scoped hierarchy request before allowing
+                // KPI cards and the initial charts to start loading.
+                setFilterOptions(options);
+                setFilters((currentFilters) => {
+                    const nextFilters = {
+                        ...getWorkingCapitalDefaultFilters(options),
+                        legalGroups: currentFilters.legalGroups?.length ? currentFilters.legalGroups : defaults.legalGroups,
+                        legalEntities: currentFilters.legalGroups?.length ? currentFilters.legalEntities : [],
+                        parentDivisions: currentFilters.legalGroups?.length ? currentFilters.parentDivisions : [],
+                        subDivisions: currentFilters.legalGroups?.length ? currentFilters.subDivisions : [],
+                        reportingCurrency: normalizeReportingCurrency(currentFilters.reportingCurrency || "AED"),
+                        asOnDate: currentFilters.asOnDate || options.operationalAsOnDate || options.asOnDates[0] || "",
+                    };
+                    setAppliedFilters((currentApplied) => currentApplied === null ? { ...nextFilters } : currentApplied);
+                    return nextFilters;
+                });
                 setFilterOptionsLoaded(true);
+
+                // Hydrate FJ/default-group child options after the dashboard has
+                // already been released to render and request its primary data.
+                void hydrateScopedHierarchy(defaultGroupId, options);
             } catch (err) {
                 if (active) {
                     setLoading(false);
                     setFilterOptionsLoaded(true);
-                    setError(
-                        err?.response?.data
-                            ?.detail ||
-                        err?.message ||
-                        "Unable to load Working Capital filter options."
-                    );
+                    setError(err?.response?.data?.detail || err?.message || "Unable to load Working Capital filter options.");
                 }
             }
         }
 
-        loadFilterOptions();
-
-        return () => {
-            active = false;
-        };
-    }, []);
+        void loadFilterOptions();
+        return () => { active = false; };
+    }, [userAccess]);
 
     /* --------------------------------------------------------
-       LOAD DASHBOARD
+       LOAD DASHBOARD — PRIORITIZED INITIAL REQUESTS
+       KPI cards and the initially visible Trade Working Capital chart load
+       first. Historical hierarchy charts and CCC detail are deferred until
+       their sections are visible. Each section handles its own request state.
     -------------------------------------------------------- */
 
     useEffect(() => {
-        /*
-         * Load all Working Capital dashboard components automatically after
-         * the backend filter options are available. The user no longer needs
-         * to press Apply just to see the initial dashboard.
-         *
-         * After that initial load, changing filter controls alone does not
-         * trigger requests. Apply explicitly commits the selected filters.
-         */
         if (!filterOptionsLoaded || !appliedFilters) return;
 
         let active = true;
+        setLoading(true);
+        setError("");
+        setKpis(null);
+        setComponents(null);
+        setTradeTrend([]);
+        setTrend([]);
+        setCccTrend([]);
+        setCcc(null);
+        setParentDivisionTrend([]);
+        setSubDivisionTrend([]);
+        setHierarchyLoading(false);
+        setCccSectionLoading(false);
+        setComponentsLoading(true);
+        setTradeTrendLoading(true);
 
-        async function load() {
-            setLoading(true);
-            setError("");
-
-            const apiFilters =
-                buildApiFilters(
-                    appliedFilters,
-                    filterOptions
-                );
-
-            const dashboardFilters = {
-                ...apiFilters,
-                months: 6,
-            };
-
-            const results =
-                await Promise.allSettled([
-                    getWorkingCapitalKpis(
-                        apiFilters
-                    ),
-                    getWorkingCapitalComponents(
-                        apiFilters
-                    ),
-                    getWorkingCapitalCurrentAssets(
-                        apiFilters
-                    ),
-                    getWorkingCapitalCurrentLiabilities(
-                        apiFilters
-                    ),
-                    getWorkingCapitalLiquidityRatios(
-                        apiFilters
-                    ),
-                    getWorkingCapitalAssetsVsLiabilities(
-                        apiFilters
-                    ),
-                    getWorkingCapitalCashConversionCycle(
-                        apiFilters
-                    ),
-                    getWorkingCapitalTrend(
-                        dashboardFilters
-                    ),
-                    getWorkingCapitalTradeTrend(
-                        dashboardFilters
-                    ),
-                    getWorkingCapitalCccTrend(
-                        dashboardFilters
-                    ),
-                    getWorkingCapitalParentDivisionTrend({
-                        ...apiFilters,
-                        months: 6,
-                    }),
-                    getWorkingCapitalSubDivisionTrend({
-                        ...apiFilters,
-                        months: 6,
-                    }),
-                ]);
-
-            if (!active) return;
-
-            const value = (index) =>
-                results[index]?.status ===
-                    "fulfilled"
-                    ? unwrapApiResponse(
-                        results[index]
-                            .value
-                    )
-                    : null;
-
-            const kpiPayload = value(0);
-            const componentsPayload = value(1);
-            const assetsPayload = value(2);
-            const liabilitiesPayload = value(3);
-            const ratiosPayload = value(4);
-            const avlPayload = value(5);
-            const cccPayload = value(6);
-            const trendPayload = value(7);
-            const tradePayload = value(8);
-            const cccTrendPayload = value(9);
-
-            setKpis(kpiPayload);
-            setComponents(
-                componentsPayload
+        const apiFilters = buildApiFilters(appliedFilters, filterOptions);
+        const dashboardFilters = { ...apiFilters, months: 6 };
+        const cacheKey = JSON.stringify(apiFilters);
+        const requestOnce = (key, request) => {
+            const existing = dashboardRequestCacheRef.current.get(key);
+            if (existing) return existing;
+            const promise = Promise.resolve().then(request);
+            dashboardRequestCacheRef.current.set(key, promise);
+            promise.then(
+                () => {
+                    if (dashboardRequestCacheRef.current.get(key) === promise) {
+                        dashboardRequestCacheRef.current.delete(key);
+                    }
+                },
+                () => {
+                    if (dashboardRequestCacheRef.current.get(key) === promise) {
+                        dashboardRequestCacheRef.current.delete(key);
+                    }
+                }
             );
-            setCurrentAssets(
-                assetsPayload
-            );
-            setCurrentLiabilities(
-                liabilitiesPayload
-            );
-            setLiquidityRatios(
-                ratiosPayload
-            );
-            setAssetsVsLiabilities(
-                avlPayload
-            );
-            setCcc(cccPayload);
+            return promise;
+        };
 
-            setTrend(
-                normalizeTrendRows(
-                    trendPayload
-                )
-            );
+        const kpiRequest = requestOnce(`kpis:${cacheKey}`, () => getWorkingCapitalKpis(apiFilters));
+        const componentsRequest = requestOnce(`components:${cacheKey}`, () => getWorkingCapitalComponents(apiFilters));
+        // One TWC response powers both the TWC and CCC trend displays.
+        const tradeTrendRequest = requestOnce(
+            `twc-trend:${JSON.stringify(dashboardFilters)}`,
+            () => getWorkingCapitalTradeTrend(dashboardFilters)
+        );
 
-            setTradeTrend(
-                normalizeTradeTrendRows(
-                    tradePayload
-                )
-            );
-
-            setCccTrend(
-                normalizeCccTrendRows(
-                    cccTrendPayload
-                )
-            );
-
-            const parentTrendPayload = value(10);
-            const subDivisionTrendPayload = value(11);
-
-            setParentDivisionTrend(
-                normalizeHierarchyTrendRows(
-                    parentTrendPayload,
-                    "parent"
-                )
-            );
-
-            setSubDivisionTrend(
-                normalizeHierarchyTrendRows(
-                    subDivisionTrendPayload,
-                    "sub"
-                )
-            );
-
-            const failed =
-                results.filter(
-                    (item) =>
-                        item.status ===
-                        "rejected"
-                );
-
-            if (
-                failed.length ===
-                results.length
-            ) {
-                throw failed[0].reason;
-            }
-        }
-
-        load()
+        // KPI cards have their own completion path; slow chart endpoints never
+        // hold the whole page behind the initial skeleton.
+        kpiRequest
+            .then((payload) => {
+                if (active) setKpis(unwrapApiResponse(payload));
+            })
             .catch((err) => {
-                if (!active) return;
-
-                setError(
-                    err?.response?.data
-                        ?.detail ||
-                    err?.message ||
-                    "Unable to load Working Capital data."
-                );
+                if (active) setError(err?.response?.data?.detail || err?.message || "Unable to load Working Capital KPI data.");
             })
             .finally(() => {
-                if (active) {
-                    setLoading(false);
-                }
+                if (active) setLoading(false);
             });
+
+        // Components and the TWC/CCC trend settle independently. A failure in
+        // one chart does not prevent the KPI cards or the other chart rendering.
+        componentsRequest
+            .then((payload) => {
+                if (active) setComponents(unwrapApiResponse(payload));
+            })
+            .catch((err) => {
+                if (active) setError((previous) => previous || err?.response?.data?.detail || err?.message || "Unable to load Working Capital components chart.");
+            })
+            .finally(() => {
+                if (active) setComponentsLoading(false);
+            });
+
+        tradeTrendRequest
+            .then((payload) => {
+                if (!active) return;
+                const normalizedTradeTrend = normalizeTradeTrendRows(payload);
+                setTradeTrend(normalizedTradeTrend);
+                // Reuse the TWC endpoint's ratios for CCC trend; no overlapping
+                // second historical request is issued for the same series.
+                setCccTrend(normalizeCccTrendRows(payload));
+            })
+            .catch((err) => {
+                if (active) setError((previous) => previous || err?.response?.data?.detail || err?.message || "Unable to load Trade Working Capital trend.");
+            })
+            .finally(() => {
+                if (active) setTradeTrendLoading(false);
+            });
+        return () => { active = false; };
+    }, [appliedFilters, filterOptionsLoaded]);
+
+    /* --------------------------------------------------------
+       LAZY HISTORICAL SECTIONS
+       Parent/Sub-Division trends and the CCC insight API are requested only
+       when their respective sections are scrolled into view. The observer is
+       recreated for a new applied filter set, and stale responses are ignored.
+    -------------------------------------------------------- */
+    useEffect(() => {
+        if (!filterOptionsLoaded || !appliedFilters || loading) return undefined;
+
+        let active = true;
+        const apiFilters = buildApiFilters(appliedFilters, filterOptions);
+        const filterKey = JSON.stringify(apiFilters);
+        // Reset lazy-section readiness only when the applied filter scope changes.
+        // The effect can also rerun after unrelated option state updates; those
+        // must not reset a section that has already loaded for the same filters.
+        if (lazyFilterKeyRef.current !== filterKey) {
+            lazyFilterKeyRef.current = filterKey;
+            setHierarchyLoaded(false);
+            setCccSectionLoaded(false);
+            setParentDivisionTrend([]);
+            setSubDivisionTrend([]);
+            setCcc(null);
+        }
+
+        const loadHierarchy = async () => {
+            const requestKey = `${filterKey}:hierarchy`;
+            if (lazySectionRequestsRef.current.has(requestKey)) return;
+            lazySectionRequestsRef.current.add(requestKey);
+            setHierarchyLoading(true);
+            try {
+                const [parentPayload, subPayload] = await Promise.all([
+                    getWorkingCapitalParentDivisionTrend({ ...apiFilters, months: 6 }),
+                    getWorkingCapitalSubDivisionTrend({ ...apiFilters, months: 6 }),
+                ]);
+                if (!active) return;
+                setParentDivisionTrend(normalizeHierarchyTrendRows(parentPayload, "parent"));
+                setSubDivisionTrend(normalizeHierarchyTrendRows(subPayload, "sub"));
+            } catch (err) {
+                lazySectionRequestsRef.current.delete(requestKey);
+                if (active) setError(err?.response?.data?.detail || err?.message || "Unable to load hierarchy trend charts.");
+            } finally {
+                if (active) {
+                    setHierarchyLoading(false);
+                    setHierarchyLoaded(true);
+                }
+            }
+        };
+
+        const loadCcc = async () => {
+            const requestKey = `${filterKey}:ccc`;
+            if (lazySectionRequestsRef.current.has(requestKey)) return;
+            lazySectionRequestsRef.current.add(requestKey);
+            setCccSectionLoading(true);
+            try {
+                const response = await getWorkingCapitalCashConversionCycle(apiFilters);
+                if (!active) return;
+                setCcc(unwrapApiResponse(response));
+            } catch (err) {
+                lazySectionRequestsRef.current.delete(requestKey);
+                if (active) setError(err?.response?.data?.detail || err?.message || "Unable to load Cash Conversion Cycle details.");
+            } finally {
+                if (active) {
+                    setCccSectionLoading(false);
+                    setCccSectionLoaded(true);
+                }
+            }
+        };
+
+        let observer = null;
+        if (typeof IntersectionObserver !== "undefined") {
+            observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    if (entry.target === hierarchySectionRef.current) {
+                        loadHierarchy();
+                        observer.unobserve(entry.target);
+                    } else if (entry.target === cccSectionRef.current) {
+                        loadCcc();
+                        observer.unobserve(entry.target);
+                    }
+                });
+                // Start these below-the-fold requests earlier after a filter reset,
+                // while retaining independent lazy loading and parallel API calls.
+            }, { root: null, rootMargin: "900px 0px", threshold: 0.01 });
+
+            if (hierarchySectionRef.current) observer.observe(hierarchySectionRef.current);
+            if (cccSectionRef.current) observer.observe(cccSectionRef.current);
+        } else {
+            // Older/embedded browsers without IntersectionObserver still load
+            // the sections independently rather than leaving skeletons forever.
+            void loadHierarchy();
+            void loadCcc();
+        }
 
         return () => {
             active = false;
+            observer?.disconnect();
         };
-    }, [
-        appliedFilters,
-        filterOptions,
-        filterOptionsLoaded,
-    ]);
+    }, [appliedFilters, filterOptionsLoaded, loading]);
 
     /* --------------------------------------------------------
        DERIVED DISPLAY VALUES
@@ -14982,11 +18455,14 @@ export default function WorkingCapitalReport() {
        These are backend values only.
     -------------------------------------------------------- */
 
-    const currency =
+    const currency = normalizeReportingCurrency(
+        appliedFilters?.reportingCurrency ||
+        filters?.reportingCurrency ||
         kpis?.reporting_currency ||
         currentAssets?.reporting_currency ||
         currentLiabilities?.reporting_currency ||
-        "—";
+        "AED"
+    );
 
     const operationalDate =
         kpis?.operational_as_on_date ??
@@ -15083,19 +18559,26 @@ export default function WorkingCapitalReport() {
         const selectedParents = Array.isArray(filters.parentDivisions)
             ? filters.parentDivisions.map(String)
             : [];
+        const groupKey = selectedGroups.slice().sort().join("|");
+
+        // Prefer the exact entity list returned for the selected group set.
+        // Fall back to the unscoped backend list only when no scoped response
+        // has been received for that group set yet.
+        const hasScopedEntities = Boolean(groupKey) &&
+            Object.prototype.hasOwnProperty.call(groupSpecificLegalEntities, groupKey);
+        const groupEntities = hasScopedEntities
+            ? (groupSpecificLegalEntities[groupKey] || [])
+            : filterOptions.legalEntities;
 
         const matches = (option, selected, relationKey) => {
             if (!selected.length) return true;
-
             const related = Array.isArray(option?.[relationKey])
-                ? option[relationKey]
+                ? option[relationKey].map(String)
                 : [];
-
-            return !related.length ||
-                related.some((id) => selected.includes(String(id)));
+            return !related.length || related.some((id) => selected.includes(id));
         };
 
-        const legalEntities = filterOptions.legalEntities.filter((option) =>
+        const legalEntities = groupEntities.filter((option) =>
             matches(option, selectedGroups, "legalGroupIds")
         );
 
@@ -15104,8 +18587,12 @@ export default function WorkingCapitalReport() {
                 ? selectedEntities
                 : legalEntities.map((option) => String(option.id))
         );
-
-        const parentDivisions = filterOptions.parentDivisions.filter((option) =>
+        const parentKey = hierarchyCacheKey(selectedGroups, selectedEntities, []);
+        const hasScopedParents = Object.prototype.hasOwnProperty.call(mainParentDivisionCache, parentKey);
+        const parentSource = hasScopedParents
+            ? (mainParentDivisionCache[parentKey] || [])
+            : filterOptions.parentDivisions;
+        const parentDivisions = parentSource.filter((option) =>
             matches(option, selectedGroups, "legalGroupIds") &&
             matches(option, [...visibleEntityIds], "legalEntityIds")
         );
@@ -15115,8 +18602,12 @@ export default function WorkingCapitalReport() {
                 ? selectedParents
                 : parentDivisions.map((option) => String(option.id))
         );
-
-        const subDivisions = filterOptions.subDivisions.filter((option) =>
+        const subKey = hierarchyCacheKey(selectedGroups, selectedEntities, selectedParents);
+        const hasScopedSubs = Object.prototype.hasOwnProperty.call(mainSubDivisionCache, subKey);
+        const subSource = hasScopedSubs
+            ? (mainSubDivisionCache[subKey] || [])
+            : filterOptions.subDivisions;
+        const subDivisions = subSource.filter((option) =>
             matches(option, selectedGroups, "legalGroupIds") &&
             matches(option, [...visibleEntityIds], "legalEntityIds") &&
             matches(option, [...visibleParentIds], "parentDivisionIds")
@@ -15133,34 +18624,173 @@ export default function WorkingCapitalReport() {
         filters.legalGroups,
         filters.legalEntities,
         filters.parentDivisions,
+        groupSpecificLegalEntities,
+        mainParentDivisionCache,
+        mainSubDivisionCache,
     ]);
 
     /* --------------------------------------------------------
        FILTER ACTIONS
     -------------------------------------------------------- */
 
-    function updateFilter(
-        key,
-        value
-    ) {
-        setFilters((previous) => {
-            const next = {
+    const filterOptionRequestRef = useRef(0);
+
+    function updateFilter(key, value) {
+        const nextFilters = {
+            ...filters,
+            [key]: value,
+        };
+        if (key === "legalGroups") {
+            nextFilters.legalEntities = [];
+            nextFilters.parentDivisions = [];
+            nextFilters.subDivisions = [];
+            setMainParentDivisionCache({});
+            setMainSubDivisionCache({});
+        } else if (key === "legalEntities") {
+            nextFilters.parentDivisions = [];
+            nextFilters.subDivisions = [];
+            setMainSubDivisionCache({});
+        } else if (key === "parentDivisions") {
+            nextFilters.subDivisions = [];
+            setMainSubDivisionCache({});
+        }
+        setFilters(nextFilters);
+
+        const dependentByKey = {
+            legalGroups: "legalEntities",
+            legalEntities: "parentDivisions",
+            parentDivisions: "subDivisions",
+        };
+        const dependentKey = dependentByKey[key];
+        if (!dependentKey) return;
+
+        const requestId = ++filterOptionRequestRef.current;
+        const selectedGroupIds = selectedIds([], nextFilters.legalGroups);
+        const groupKey = selectedGroupIds.slice().sort().join("|");
+        if (key === "legalGroups" && groupKey) {
+            // Mark this group as pending so the previous group's entities cannot
+            // appear while the selected group's options are being fetched.
+            setGroupSpecificLegalEntities((previous) => ({
                 ...previous,
-                [key]: value,
-            };
-
-            if (key === "legalGroups") {
-                next.legalEntities = [];
-                next.parentDivisions = [];
-                next.subDivisions = [];
+                [groupKey]: [],
+            }));
+        }
+        const optionFilters = {
+            reporting_currency: normalizeReportingCurrency(nextFilters.reportingCurrency || filters.reportingCurrency),
+            legal_group_id: selectedGroupIds,
+            legal_entity_id: selectedIds([], nextFilters.legalEntities),
+            parent_division_id: selectedIds([], nextFilters.parentDivisions),
+            subdivision_id: selectedIds([], nextFilters.subDivisions),
+            as_on_date: nextFilters.asOnDate || undefined,
+        };
+        if (key === "legalGroups" && !selectedGroupIds.length) {
+            // Clearing Legal Group restores the full backend entity inventory.
+            setGroupSpecificLegalEntities({});
+        }
+        void getWorkingCapitalFilterOptions(optionFilters).then((response) => {
+            if (requestId !== filterOptionRequestRef.current) return;
+            const normalized = normalizeFilterOptions(response);
+            const nextOptions = normalized[dependentKey];
+            if (!Array.isArray(nextOptions)) return;
+            if (key === "legalGroups" && groupKey) {
+                const scopedEntities = annotateOptionsWithGroupScope(nextOptions, selectedGroupIds);
+                if (scopedEntities.length) {
+                    setGroupSpecificLegalEntities((previous) => ({
+                        ...previous,
+                        [groupKey]: scopedEntities,
+                    }));
+                } else {
+                    // Empty scoped responses should not permanently hide entities
+                    // that are already present in the backend's full option list.
+                    setGroupSpecificLegalEntities((previous) => {
+                        const next = { ...previous };
+                        delete next[groupKey];
+                        return next;
+                    });
+                }
+                if (normalized.parentDivisions.length) {
+                    setMainParentDivisionCache((previous) => ({
+                        ...previous,
+                        [hierarchyCacheKey(nextFilters.legalGroups, [], [])]: annotateOptionsWithHierarchyScope(
+                            normalized.parentDivisions,
+                            nextFilters.legalGroups,
+                            [],
+                            []
+                        ),
+                    }));
+                }
+                if (normalized.subDivisions.length) {
+                    setMainSubDivisionCache((previous) => ({
+                        ...previous,
+                        [hierarchyCacheKey(nextFilters.legalGroups, [], [])]: annotateOptionsWithHierarchyScope(
+                            normalized.subDivisions,
+                            nextFilters.legalGroups,
+                            [],
+                            []
+                        ),
+                    }));
+                }
             } else if (key === "legalEntities") {
-                next.parentDivisions = [];
-                next.subDivisions = [];
+                const cacheKey = hierarchyCacheKey(
+                    nextFilters.legalGroups,
+                    nextFilters.legalEntities,
+                    []
+                );
+                const scopedParents = annotateOptionsWithHierarchyScope(
+                    nextOptions,
+                    nextFilters.legalGroups,
+                    nextFilters.legalEntities,
+                    []
+                );
+                setMainParentDivisionCache((previous) => ({
+                    ...previous,
+                    [cacheKey]: scopedParents,
+                }));
             } else if (key === "parentDivisions") {
-                next.subDivisions = [];
+                const cacheKey = hierarchyCacheKey(
+                    nextFilters.legalGroups,
+                    nextFilters.legalEntities,
+                    nextFilters.parentDivisions
+                );
+                const scopedSubs = annotateOptionsWithHierarchyScope(
+                    nextOptions,
+                    nextFilters.legalGroups,
+                    nextFilters.legalEntities,
+                    nextFilters.parentDivisions
+                );
+                setMainSubDivisionCache((previous) => ({
+                    ...previous,
+                    [cacheKey]: scopedSubs,
+                }));
             }
-
-            return next;
+            setFilterOptions((previous) => {
+                // Keep the complete option inventory and merge refreshed child
+                // options by stable ID/label. Some API responses are scoped to
+                // the selected group (FJ/RKME); replacing the array outright
+                // made other valid groups/entities disappear after one selection.
+                const mergeOptions = (existing = [], incoming = []) => {
+                    const result = [...existing];
+                    const keys = new Set(result.map((item) => `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`));
+                    incoming.forEach((item) => {
+                        const key = `${String(item.id).toLowerCase()}::${String(item.label).toLowerCase()}`;
+                        if (!keys.has(key)) { keys.add(key); result.push(item); }
+                    });
+                    return result;
+                };
+                const scopedIncoming = annotateOptionsWithGroupScope(
+                    nextOptions,
+                    nextFilters.legalGroups
+                );
+                const merged = {
+                    ...previous,
+                    [dependentKey]: mergeOptions(previous[dependentKey], scopedIncoming),
+                };
+                return dependentKey === "legalEntities"
+                    ? mergeScopedLegalEntities(merged, userAccess)
+                    : merged;
+            });
+        }).catch((error) => {
+            console.error("Failed to load Working Capital hierarchy options:", error);
         });
     }
 
@@ -15176,6 +18806,20 @@ export default function WorkingCapitalReport() {
 
     function resetFilters() {
         const next = getWorkingCapitalDefaultFilters(filterOptions);
+
+        // Reset the lazy historical sections as well as the visible filters.
+        // These sections use the same filter key across renders; without clearing
+        // their request guard, a reset to an already-seen scope could leave the
+        // four chart panels waiting behind a stale request marker.
+        lazySectionRequestsRef.current.clear();
+        lazyFilterKeyRef.current = "";
+        setHierarchyLoaded(false);
+        setCccSectionLoaded(false);
+        setHierarchyLoading(false);
+        setCccSectionLoading(false);
+        setParentDivisionTrend([]);
+        setSubDivisionTrend([]);
+        setCcc(null);
 
         // Update both the visible controls and the committed API scope.
         // A fresh object is used for each state so React always sees the reset.
@@ -15205,7 +18849,8 @@ export default function WorkingCapitalReport() {
         overrideFilters = null,
         overrideRows = null
     ) {
-        if (!canExportWC) return;
+        if (!canExportWorkingCapital) return;
+
         setExporting(true);
         setError("");
 
@@ -15258,34 +18903,23 @@ export default function WorkingCapitalReport() {
                     response,
                     fallback
                 );
-            } else if (section === "trend") {
-                if (type === "excel") {
-                    exportTrendToExcel(
-                        overrideRows || trend,
-                        "Net Working Capital",
-                        currency,
-                        "Net Working Capital"
-                    );
-                } else {
-                    exportTrendToPdf(
-                        overrideRows || trend,
-                        "Net Working Capital",
-                        currency,
-                        "Net Working Capital"
-                    );
-                }
-            } else if (section === "liquidity") {
-                if (type === "excel") {
-                    exportLiquidityRatioToExcel(
-                        ratioValue,
-                        balanceSheetPeriod
-                    );
-                } else {
-                    exportLiquidityRatioToPdf(
-                        ratioValue,
-                        balanceSheetPeriod
-                    );
-                }
+            } else {
+                // Use the backend's supported common export endpoint for
+                // sections that do not have their own export endpoint.
+                // The same hierarchy/date filters are sent as View All.
+                const commonFilters = buildCfoViewAllApiFilters(
+                    activeFilters,
+                    filterOptions
+                );
+                response =
+                    type === "excel"
+                        ? await exportWorkingCapitalViewAllExcel(commonFilters)
+                        : await exportWorkingCapitalViewAllPdf(commonFilters);
+                fallback =
+                    type === "excel"
+                        ? `working-capital-${String(section || "view-all").toLowerCase()}-export.xlsx`
+                        : `working-capital-${String(section || "view-all").toLowerCase()}-export.pdf`;
+                downloadWorkingCapitalFile(response, fallback);
             }
         } catch (err) {
             setError(
@@ -15315,7 +18949,7 @@ export default function WorkingCapitalReport() {
         _section,
         overrideFilters = null
     ) {
-        if (!canExportWC) return;
+        if (!canExportWorkingCapital) return;
         setExporting(true);
         setError("");
 
@@ -15361,21 +18995,34 @@ export default function WorkingCapitalReport() {
     }
 
     async function handleHeaderExport(format) {
-        if (!canExportWC || exporting) return;
+        if (!canExportWorkingCapital) return;
+        if (exporting) return;
         setExporting(true);
+        setError("");
         try {
-            const kpisRows = kpis ? Object.entries(kpis).map(([key, value]) => ({ metric: key, value })) : [];
-            const componentsRows = [
-                { label: "Receivables", value: getValue(components, "receivables", "total_receivables"), type: "positive" },
-                { label: "Inventory", value: getValue(components, "inventory", "total_inventory"), type: "positive" },
-                { label: "(-) Payables", value: getValue(components, "payables", "total_payables"), type: "negative" },
-                { label: "Trade Working Capital", value: getValue(components, "trade_working_capital", "trade_working_capital_value", "working_capital"), type: "total" },
-            ];
-            const payload = { kpisRows, trend, tradeTrend, componentsRows, assetRows, liabilityRows, avlRows, cccTrend };
-            if (format === "excel") exportWorkingCapitalAllToExcel(payload, currency);
-            else exportWorkingCapitalAllToPdf(payload, currency);
+            // Use the available backend export API instead of generating a
+            // client-side workbook/PDF from whatever data happens to be loaded.
+            const activeFilters = appliedFilters || filters;
+            const apiFilters = buildCfoViewAllApiFilters(
+                activeFilters,
+                filterOptions
+            );
+            const response =
+                format === "excel"
+                    ? await exportWorkingCapitalViewAllExcel(apiFilters)
+                    : await exportWorkingCapitalViewAllPdf(apiFilters);
+            downloadWorkingCapitalFile(
+                response,
+                format === "excel"
+                    ? "working-capital-dashboard.xlsx"
+                    : "working-capital-dashboard.pdf"
+            );
         } catch (err) {
-            setError(err?.message || `Working Capital ${format} export failed.`);
+            setError(
+                err?.response?.data?.detail ||
+                err?.message ||
+                `Working Capital ${format} export failed.`
+            );
         } finally {
             setExporting(false);
         }
@@ -15401,6 +19048,14 @@ export default function WorkingCapitalReport() {
          */
         if (type === "components") {
             setViewAllLoading(true);
+            setViewAll({
+                type,
+                cfoViewLabel,
+                title: "Working Capital Components Detailed View",
+                rows: [],
+                monthOnMonthRows: [],
+                filters: { ...activeFilters },
+            });
             setError("");
 
             try {
@@ -15479,6 +19134,23 @@ export default function WorkingCapitalReport() {
         }
 
         setViewAllLoading(true);
+        const pendingTitles = {
+            assets: `Current Assets — Full History (${currency})`,
+            liabilities: `Current Liabilities — Full History (${currency})`,
+            trend: `Net Working Capital — Full History (${currency})`,
+            cfo: `Working Capital - ${cfoViewLabel || "Detailed"} - Detailed View`,
+            trade: "Trade Working Capital Detailed View",
+            ccc: "Cash Conversion Cycle Detailed View",
+            liquidity: "Key Liquidity Ratio",
+        };
+        setViewAll({
+            type,
+            cfoViewLabel,
+            title: pendingTitles[type] || "Working Capital Detailed View",
+            rows: [],
+            monthOnMonthRows: [],
+            filters: { ...activeFilters },
+        });
         setError("");
 
         const requestPromise = (async () => {
@@ -15675,6 +19347,228 @@ export default function WorkingCapitalReport() {
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
             <style>{workingCapitalFilterResponsiveCss}</style>
             <style>{`
+                /* Sales Revenue visual language — scoped to Working Capital only. */
+                .wc-sales-page,
+                .wc-sales-page * {
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                }
+                .wc-sales-page {
+                    background: #F7F9FC !important;
+                    color: #1E293B !important;
+                }
+                .wc-sales-page .page-header {
+                    margin: 0 0 16px !important;
+                    gap: 14px !important;
+                }
+                .wc-sales-page .page-header-title,
+                .wc-sales-page .wc-page-title {
+                    color: #1E1B4B !important;
+                    font-size: 1.45rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -0.025em !important;
+                    line-height: 1.2 !important;
+                }
+                .wc-sales-page .page-header-subtitle {
+                    color: #64748B !important;
+                    font-size: 0.76rem !important;
+                    font-weight: 500 !important;
+                    line-height: 1.45 !important;
+                }
+                .wc-sales-page .wc-filter-grid {
+                    background: #FFFFFF !important;
+                    border: 1px solid #E8EDF4 !important;
+                    border-radius: 14px !important;
+                    padding: 9px 11px !important;
+                    margin-bottom: 12px !important;
+                    box-shadow: 0 3px 12px rgba(15, 23, 42, .035) !important;
+                }
+                .wc-sales-page .wc-filter-grid label,
+                .wc-sales-page .wc-filter-grid > div > label,
+                .wc-sales-page .wc-filter-grid > div > span {
+                    color: #334155 !important;
+                    font-size: 0.70rem !important;
+                    font-weight: 700 !important;
+                }
+                .wc-sales-page .wc-filter-grid select,
+                .wc-sales-page .wc-filter-grid input,
+                .wc-sales-page .wc-filter-grid button {
+                    border-radius: 8px !important;
+                    font-size: 0.72rem !important;
+                    font-weight: 600 !important;
+                }
+                .wc-sales-page .wc-sales-kpis {
+                    gap: 8px !important;
+                    margin: 0 0 12px !important;
+                }
+                .wc-sales-page .sales-style-kpi {
+                    border: 1px solid rgba(226, 232, 240, .55) !important;
+                    border-radius: 13px !important;
+                    min-height: 64px !important;
+                    padding: 8px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                    transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
+                }
+                .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+                .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
+                .wc-sales-page .sales-style-kpi:hover {
+                    transform: translateY(-2px) !important;
+                    box-shadow: 0 9px 22px rgba(15, 23, 42, .08) !important;
+                }
+                .wc-sales-page .wc-panel-animate,
+                .wc-sales-page .wc-hierarchy-exposure-panel {
+                    background: #FFFFFF !important;
+                    border: 1px solid rgba(226, 232, 240, .62) !important;
+                    border-radius: 16px !important;
+                    box-shadow: 0 4px 20px rgba(15, 23, 42, .035), 0 1px 3px rgba(15, 23, 42, .025) !important;
+                    transition: transform .22s ease, box-shadow .22s ease !important;
+                }
+                .wc-sales-page .wc-panel-animate:hover,
+                .wc-sales-page .wc-hierarchy-exposure-panel:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 8px 24px rgba(15, 23, 42, .065) !important;
+                }
+                .wc-sales-page h2,
+                .wc-sales-page h3,
+                .wc-sales-page .wc-panel-title {
+                    color: #1E1B4B !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.018em !important;
+                }
+                .wc-sales-page .recharts-cartesian-axis-tick-value,
+                .wc-sales-page .recharts-label,
+                .wc-sales-page .recharts-legend-item-text {
+                    font-family: Inter, system-ui, sans-serif !important;
+                    font-size: 10px !important;
+                    font-weight: 600 !important;
+                    fill: #94A3B8 !important;
+                }
+                .wc-sales-page .recharts-cartesian-grid-horizontal line,
+                .wc-sales-page .recharts-cartesian-grid-vertical line {
+                    stroke: #E8EDF5 !important;
+                }
+                .wc-sales-page .wc-sales-data-table,
+                .wc-sales-page table {
+                    font-family: Inter, system-ui, sans-serif !important;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                }
+                .wc-sales-page .wc-sales-data-table th,
+                .wc-sales-page table thead th {
+                    background: #F5F7FB !important;
+                    color: #334155 !important;
+                    font-size: 0.68rem !important;
+                    font-weight: 800 !important;
+                    letter-spacing: .01em !important;
+                    border-bottom: 1px solid #E2E8F0 !important;
+                }
+                .wc-sales-page .wc-sales-data-table td,
+                .wc-sales-page table tbody td {
+                    color: #334155;
+                    font-size: 0.72rem;
+                    font-weight: 500;
+                    border-bottom-color: #EEF2F7 !important;
+                }
+                .wc-sales-page .wc-sales-data-table tbody tr:hover td,
+                .wc-sales-page table tbody tr:hover td {
+                    background: #F8FAFF !important;
+                }
+                .wc-sales-page button {
+                    transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+                }
+                .wc-sales-page button:hover:not(:disabled) {
+                    transform: translateY(-1px);
+                }
+                .wc-sales-view-all-overlay,
+                .wc-sales-view-all-overlay * {
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                }
+                .wc-sales-view-all-modal {
+                    animation: wcSalesModalIn .22s ease-out both;
+                    border-radius: 14px !important;
+                    box-shadow: 0 24px 70px rgba(15, 23, 42, .20) !important;
+                }
+                .wc-sales-view-all-modal.is-maximized {
+                    width: 100vw !important;
+                    max-width: 100vw !important;
+                    height: 100vh !important;
+                    max-height: 100vh !important;
+                    margin: 0 !important;
+                    border-radius: 0 !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    animation: none !important;
+                }
+                .wc-sales-view-all-modal table thead th {
+                    background: #F5F7FB !important;
+                    color: #334155 !important;
+                    font-size: 0.68rem !important;
+                    font-weight: 800 !important;
+                    border-bottom: 1px solid #DDE5EF !important;
+                    padding: 9px 10px !important;
+                }
+                .wc-sales-view-all-modal table tbody td {
+                    font-size: 0.72rem !important;
+                    color: #334155 !important;
+                    padding: 9px 10px !important;
+                    border-bottom: 1px solid #EEF2F7 !important;
+                }
+                .wc-sales-view-all-modal table tbody tr:nth-child(even) td {
+                    background: #FBFCFE;
+                }
+                .wc-sales-view-all-modal table tbody tr:hover td {
+                    background: #F1F5FF !important;
+                }
+                @keyframes wcSalesModalIn {
+                    from { opacity: 0; transform: translateY(5px) scale(.995); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @media (max-width: 900px) {
+                    .wc-sales-page .wc-sales-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+                }
+                @media (max-width: 600px) {
+                    .wc-sales-page .wc-sales-kpis { grid-template-columns: 1fr !important; }
+                    .wc-sales-view-all-modal { width: 100vw !important; height: 100dvh !important; border-radius: 0 !important; }
+                }
+                /* KPI comparison rows: keep labels flush-left and values flush-right,
+                   overriding inherited Sales-page centering rules only in these cards. */
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel,
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > div {
+                    text-align: left !important;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > .wc-kpi-comparison-row {
+                    display: flex !important;
+                    flex-direction: row !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                    gap: 6px !important;
+                    min-width: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > .wc-kpi-comparison-row > .wc-kpi-comparison-label {
+                    display: block !important;
+                    flex: 1 1 auto !important;
+                    width: auto !important;
+                    min-width: 0 !important;
+                    margin: 0 auto 0 0 !important;
+                    padding: 0 !important;
+                    text-align: left !important;
+                    align-self: center !important;
+                    white-space: nowrap !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel > .wc-kpi-comparison-row > .wc-kpi-comparison-value {
+                    display: block !important;
+                    flex: 0 0 auto !important;
+                    width: auto !important;
+                    margin: 0 0 0 auto !important;
+                    padding: 0 !important;
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                }
+            `}</style>
+            <style>{`
                 .wc-trade-view-all-table table th,
                 .wc-trade-view-all-table table td {
                     padding: 5px 6px !important;
@@ -15683,10 +19577,16 @@ export default function WorkingCapitalReport() {
                 .wc-trade-view-all-table table th {
                     white-space: nowrap;
                 }
+                .wc-trade-view-all-grid > .wc-trade-view-all-table {
+                    min-width: 0;
+                }
+                .wc-trade-view-all-grid > .wc-trade-view-all-table table {
+                    min-width: 0 !important;
+                }
                 @media (max-width: 1050px) {
                     .wc-trade-view-all-grid {
-                        grid-template-columns: 1fr !important;
-                        grid-template-rows: minmax(300px, 1fr) minmax(300px, 0.9fr) !important;
+                        grid-template-columns: minmax(0, 1fr) !important;
+                        grid-template-rows: minmax(220px, 1fr) minmax(240px, 0.8fr) !important;
                     }
                 }
             `}</style>
@@ -16111,14 +20011,53 @@ export default function WorkingCapitalReport() {
                 }
 
                 .wc-sales-page .sales-style-kpi {
-                    border: none !important;
-                    border-radius: 12px !important;
-                    padding: 10px !important;
-                    min-height: 74px !important;
-                    box-shadow: none !important;
-                    transition: all .25s cubic-bezier(.4,0,.2,1) !important;
+                    box-sizing: border-box !important;
+                    border: 1px solid rgba(226, 232, 240, .55) !important;
+                    border-radius: 13px !important;
+                    padding: 11px !important;
+                    min-height: 82px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                    overflow: hidden !important;
+                    transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease !important;
                 }
 
+                .wc-sales-page .sales-style-kpi > div {
+                    align-items: center !important;
+                    gap: 8px !important;
+                }
+
+                .wc-sales-page .sales-style-kpi > div > div:first-child {
+                    flex: 0 0 34px !important;
+                    width: 34px !important;
+                    height: 34px !important;
+                    min-width: 34px !important;
+                    border-radius: 50% !important;
+                }
+                .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+                .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
+                .wc-sales-page .sales-style-kpi:hover {
+                    box-shadow: 0 8px 18px rgba(79, 70, 229, .10) !important;
+                }
+
+                .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+                    display: inline-flex !important;
+                    align-self: flex-start !important;
+                    align-items: center !important;
+                    width: fit-content !important;
+                    max-width: 100% !important;
+                    margin-top: 3px !important;
+                    padding: 2px 6px !important;
+                    border-radius: 5px !important;
+                    background: rgba(255,255,255,.68) !important;
+                    color: #475569 !important;
+                    font-size: .60rem !important;
+                    line-height: 1.2 !important;
+                    font-weight: 700 !important;
+                    letter-spacing: 0 !important;
+                }
+
+                .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+                .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
                 .wc-sales-page .sales-style-kpi:hover {
                     box-shadow: 0 8px 24px rgba(37,99,235,.10) !important;
                     transform: translateY(-2px) !important;
@@ -16200,6 +20139,142 @@ export default function WorkingCapitalReport() {
                 @media (max-width: 600px) {
                     .wc-sales-page .wc-sales-kpis {
                         grid-template-columns: 1fr !important;
+                    }
+                }
+                /* Cycle KPI metrics are independent cards, styled exactly like the
+                   Sales-style KPI cards above; responsive only at smaller widths. */
+                .wc-sales-page .wc-cycle-kpis {
+                    display: grid !important;
+                    width: 100% !important;
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 10px !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 16px !important;
+                    align-items: stretch !important;
+                }
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+                    box-sizing: border-box !important;
+                    min-height: 116px !important;
+                    border: 1px solid rgba(226, 232, 240, .55) !important;
+                    border-radius: 13px !important;
+                    padding: 11px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                }
+                @media (max-width: 1200px) {
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                    }
+                }
+                @media (max-width: 600px) {
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+
+                /* Reference-matched Working Capital KPI cards. Scoped only to this page. */
+                .wc-sales-page .wc-sales-kpis {
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 14px !important;
+                    align-items: stretch !important;
+                    margin-bottom: 14px !important;
+                }
+                .wc-sales-page .sales-style-kpi {
+                    min-height: 194px !important;
+                    height: 194px !important;
+                    padding: 14px !important;
+                    box-sizing: border-box !important;
+                    border: 1px solid rgba(255,255,255,.9) !important;
+                    border-radius: 16px !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: space-between !important;
+                    gap: 8px !important;
+                    overflow: hidden !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:first-child {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 14px !important;
+                    min-height: 92px !important;
+                    flex: 1 1 auto !important;
+                }
+                .wc-sales-page .sales-style-kpi > div > div.wc-kpi-icon {
+                    width: 66px !important;
+                    height: 66px !important;
+                    min-width: 66px !important;
+                    flex: 0 0 66px !important;
+                    border-radius: 50% !important;
+                    font-size: 30px !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-title {
+                    font-size: 0.86rem !important;
+                    line-height: 1.25 !important;
+                    font-weight: 750 !important;
+                    letter-spacing: -.015em !important;
+                    margin-bottom: 4px !important;
+                    overflow-wrap: normal !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-value {
+                    color: #101936 !important;
+                    font-size: 1.48rem !important;
+                    line-height: 1.12 !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.025em !important;
+                    white-space: nowrap !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+                    font-size: .68rem !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) {
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                    padding: 12px 16px !important;
+                    border-radius: 14px !important;
+                    background: rgba(255,255,255,.72) !important;
+                    display: grid !important;
+                    gap: 8px !important;
+                    font-size: .82rem !important;
+                    line-height: 1.3 !important;
+                    flex: 0 0 auto !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                    gap: 8px !important;
+                    width: 100% !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) strong {
+                    font-size: .88rem !important;
+                    font-weight: 700 !important;
+                    white-space: nowrap !important;
+                }
+                .wc-sales-page .wc-cycle-kpis {
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 14px !important;
+                }
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+                    min-height: 202px !important;
+                    height: 202px !important;
+                }
+                @media (max-width: 1200px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                    }
+                    .wc-sales-page .sales-style-kpi {
+                        min-height: 194px !important;
+                        height: 194px !important;
+                    }
+                }
+                @media (max-width: 600px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: 1fr !important;
+                    }
+                    .wc-sales-page .sales-style-kpi {
+                        height: auto !important;
+                        min-height: 194px !important;
                     }
                 }
             `}</style>
@@ -16287,11 +20362,830 @@ export default function WorkingCapitalReport() {
                 }
             `}</style>
 
+            <style>{`
+                /* ==========================================================
+                   SALES REVENUE PAGE VISUAL MATCH — WORKING CAPITAL ONLY
+                   Typography, spacing, controls, panels and tables only.
+                   Existing API calls, RBAC, filter state and KPI data stay intact.
+                ========================================================== */
+                .wc-sales-page,
+                .wc-sales-page * {
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                    box-sizing: border-box;
+                }
+                .wc-sales-page {
+                    color: #1e293b !important;
+                    padding: 12px 0 8px !important;
+                    font-size: 12px !important;
+                    line-height: 1.4 !important;
+                }
+                .wc-sales-page .page-header {
+                    align-items: center !important;
+                    gap: 12px !important;
+                    margin-bottom: 12px !important;
+                }
+                .wc-sales-page .page-header-title,
+                .wc-sales-page .wc-page-title {
+                    color: #172554 !important;
+                    font-size: 1.45rem !important;
+                    line-height: 1.2 !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.035em !important;
+                }
+                .wc-sales-page .page-header-subtitle {
+                    color: #64748b !important;
+                    font-size: .76rem !important;
+                    line-height: 1.45 !important;
+                    font-weight: 500 !important;
+                    margin-top: 4px !important;
+                }
+                .wc-sales-page .page-header-subtitle span {
+                    font-size: .72rem !important;
+                }
+                .wc-sales-page .wc-filter-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(6, minmax(100px, 1fr)) auto auto !important;
+                    align-items: end !important;
+                    gap: 9px 7px !important;
+                    margin: 0 0 14px !important;
+                    padding: 10px 12px !important;
+                    background: #fff !important;
+                    border: 1px solid #edf0f5 !important;
+                    border-radius: 14px !important;
+                    box-shadow: 0 3px 12px rgba(15, 23, 42, .035) !important;
+                    overflow: visible !important;
+                }
+                .wc-sales-page .wc-filter-grid label,
+                .wc-sales-page .wc-filter-grid > div > label {
+                    color: #1e3a8a !important;
+                    font-size: .67rem !important;
+                    line-height: 1.2 !important;
+                    font-weight: 700 !important;
+                    letter-spacing: -.01em !important;
+                    margin-bottom: 4px !important;
+                }
+                .wc-sales-page .wc-filter-grid input,
+                .wc-sales-page .wc-filter-grid select,
+                .wc-sales-page .wc-filter-grid > div > div {
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                    font-size: .72rem !important;
+                    color: #334155 !important;
+                    border-color: #dbe2ea !important;
+                    border-radius: 7px !important;
+                }
+                .wc-sales-page .wc-filter-grid input:focus,
+                .wc-sales-page .wc-filter-grid select:focus {
+                    border-color: #93b4ff !important;
+                    box-shadow: 0 0 0 3px rgba(37, 99, 235, .10) !important;
+                    outline: none !important;
+                }
+                .wc-sales-page .wc-filter-grid > button:first-of-type {
+                    background: #2563eb !important;
+                    color: #fff !important;
+                    border: 1px solid #2563eb !important;
+                    border-radius: 7px !important;
+                    min-width: 68px !important;
+                    box-shadow: 0 2px 5px rgba(37, 99, 235, .14) !important;
+                    font-size: .72rem !important;
+                    font-weight: 750 !important;
+                }
+                .wc-sales-page .wc-filter-grid > button:last-of-type {
+                    color: #64748b !important;
+                    font-size: .70rem !important;
+                    font-weight: 650 !important;
+                    border-radius: 7px !important;
+                }
+                .wc-sales-page .wc-filter-grid button:hover {
+                    filter: brightness(.985);
+                }
+                .wc-sales-page .wc-sales-kpis,
+                .wc-sales-page .wc-cycle-kpis {
+                    gap: 10px !important;
+                    margin-bottom: 14px !important;
+                }
+                /* Preserve the requested 5-card rows and pastel KPI design. */
+                .wc-sales-page .sales-style-kpi {
+                    border: 1px solid rgba(226, 232, 240, .48) !important;
+                    border-radius: 13px !important;
+                    box-shadow: 0 2px 8px rgba(15, 23, 42, .025) !important;
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                    transition: transform .22s ease, box-shadow .22s ease !important;
+                }
+                .wc-sales-page .sales-style-kpi { box-sizing: border-box !important; min-width: 0 !important; }
+                .wc-sales-page .wc-kpi-value { min-width: 0 !important; max-width: 100% !important; }
+                .wc-sales-page .sales-style-kpi:hover {
+                    box-shadow: 0 7px 20px rgba(37, 99, 235, .09) !important;
+                    transform: translateY(-2px) !important;
+                }
+                .wc-sales-page .wc-kpi-title {
+                    letter-spacing: -.015em !important;
+                    font-weight: 750 !important;
+                }
+                .wc-sales-page .wc-kpi-value {
+                    color: #111b36 !important;
+                    letter-spacing: -.03em !important;
+                    font-weight: 800 !important;
+                }
+                .wc-sales-page .wc-panel-animate {
+                    background: #fff !important;
+                    border: 1px solid #edf0f5 !important;
+                    border-radius: 15px !important;
+                    box-shadow: 0 3px 14px rgba(15, 23, 42, .035) !important;
+                    padding: 14px !important;
+                }
+                .wc-sales-page .wc-panel-animate h3,
+                .wc-sales-page .wc-panel-animate h2 {
+                    color: #1e293b !important;
+                    font-size: .9rem !important;
+                    line-height: 1.3 !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.02em !important;
+                }
+                .wc-sales-page .wc-sales-main-grid,
+                .wc-sales-page .wc-sales-three-grid {
+                    gap: 10px !important;
+                    margin-bottom: 10px !important;
+                }
+                .wc-sales-page table {
+                    border-collapse: separate !important;
+                    border-spacing: 0 !important;
+                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                }
+                .wc-sales-page table thead th {
+                    background: #f8fafc !important;
+                    color: #1e3a8a !important;
+                    border-bottom: 1px solid #e2e8f0 !important;
+                    font-size: .70rem !important;
+                    line-height: 1.3 !important;
+                    font-weight: 750 !important;
+                    padding: 10px 12px !important;
+                }
+                .wc-sales-page table tbody td {
+                    color: #334155 !important;
+                    font-size: .72rem !important;
+                    line-height: 1.35 !important;
+                    padding: 9px 12px !important;
+                    border-bottom: 1px solid #f1f5f9 !important;
+                }
+                .wc-sales-page table tbody tr:hover td {
+                    background: #f8fbff !important;
+                }
+                .wc-sales-page button,
+                .wc-sales-page input,
+                .wc-sales-page select {
+                    transition: border-color .16s ease, box-shadow .16s ease, background .16s ease !important;
+                }
+                @media (max-width: 1400px) {
+                    .wc-sales-page .wc-filter-grid {
+                        grid-template-columns: repeat(4, minmax(110px, 1fr)) !important;
+                    }
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    }
+                }
+                @media (max-width: 1100px) {
+                    .wc-sales-page .wc-filter-grid {
+                        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                    }
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                    }
+                    .wc-sales-page .wc-sales-main-grid,
+                    .wc-sales-page .wc-sales-three-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+                @media (max-width: 600px) {
+                    .wc-sales-page .page-header-title,
+                    .wc-sales-page .wc-page-title {
+                        font-size: 1.2rem !important;
+                    }
+                    .wc-sales-page .wc-filter-grid,
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis {
+                        grid-template-columns: 1fr !important;
+                    }
+                    .wc-sales-page .sales-style-kpi {
+                        height: auto !important;
+                        min-height: 194px !important;
+                    }
+                }
+            `}</style>
+
+            <style>{`
+                /* Compact Working Capital KPI layout — scoped to this page only. */
+                .wc-sales-page .wc-sales-kpis {
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 7px !important;
+                    margin-bottom: 10px !important;
+                    align-items: stretch !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi {
+                    height: 150px !important;
+                    min-height: 150px !important;
+                    max-height: 150px !important;
+                    padding: 8px !important;
+                    gap: 4px !important;
+                    overflow: hidden !important;
+                    box-sizing: border-box !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:first-child {
+                    min-height: 42px !important;
+                    height: auto !important;
+                    gap: 7px !important;
+                    align-items: center !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-icon {
+                    width: 34px !important;
+                    height: 34px !important;
+                    min-width: 34px !important;
+                    flex: 0 0 34px !important;
+                    font-size: 17px !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-title {
+                    font-size: 0.70rem !important;
+                    line-height: 1.12 !important;
+                    display: -webkit-box !important;
+                    -webkit-line-clamp: 2 !important;
+                    -webkit-box-orient: vertical !important;
+                    overflow: hidden !important;
+                    overflow-wrap: anywhere !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-value {
+                    min-width: 0 !important;
+                    max-width: 100% !important;
+                    font-size: clamp(0.78rem, 0.92vw, 1.02rem) !important;
+                    line-height: 1.12 !important;
+                    white-space: normal !important;
+                    overflow: visible !important;
+                    text-overflow: clip !important;
+                    overflow-wrap: anywhere !important;
+                    word-break: normal !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-metric-line,
+                .wc-sales-page .sales-style-kpi > div:first-child > div > div[title] {
+                    max-width: 100% !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child {
+                    padding: 5px 7px !important;
+                    border-radius: 8px !important;
+                    gap: 2px !important;
+                    font-size: 0.65rem !important;
+                    line-height: 1.15 !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child > div {
+                    min-width: 0 !important;
+                    gap: 5px !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child span,
+                .wc-sales-page .sales-style-kpi > div:last-child strong {
+                    font-size: 0.65rem !important;
+                    line-height: 1.15 !important;
+                }
+                @media (max-width: 1250px) {
+                    .wc-sales-page .wc-sales-kpis {
+                        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                    }
+                    .wc-sales-page .wc-sales-kpis > .sales-style-kpi {
+                        height: 146px !important;
+                        min-height: 146px !important;
+                        max-height: 146px !important;
+                    }
+                }
+                @media (max-width: 760px) {
+                    .wc-sales-page .wc-sales-kpis {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                    }
+                }
+                @media (max-width: 480px) {
+                    .wc-sales-page .wc-sales-kpis {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+            `}</style>
+
+
+            <style>{`
+                /* Compact Payables-reference KPI styling, scoped to Working Capital only. */
+                .wc-sales-page .wc-sales-kpis {
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 10px !important;
+                    margin-bottom: 10px !important;
+                    align-items: stretch !important;
+                }
+                .wc-sales-page .sales-style-kpi,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+                    height: 100px !important;
+                    min-height: 100px !important;
+                    max-height: 100px !important;
+                    padding: 8px 10px !important;
+                    gap: 4px !important;
+                    border: 1px solid rgba(226,232,240,.65) !important;
+                    border-radius: 14px !important;
+                    box-shadow: 0 2px 7px rgba(15,23,42,.035) !important;
+                    box-sizing: border-box !important;
+                    overflow: hidden !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:first-child {
+                    min-height: 35px !important;
+                    height: 35px !important;
+                    flex: 0 0 35px !important;
+                    gap: 8px !important;
+                    align-items: center !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-icon {
+                    width: 30px !important;
+                    height: 30px !important;
+                    min-width: 30px !important;
+                    flex: 0 0 30px !important;
+                    font-size: 16px !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-title {
+                    font-size: 10px !important;
+                    line-height: 1.12 !important;
+                    font-weight: 750 !important;
+                    letter-spacing: -.01em !important;
+                    margin-bottom: 2px !important;
+                    -webkit-line-clamp: 2 !important;
+                    overflow-wrap: anywhere !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-value {
+                    font-size: clamp(13px, 1vw, 16px) !important;
+                    line-height: 1.1 !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.025em !important;
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    overflow-wrap: normal !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-metric-line {
+                    font-size: 9px !important;
+                    line-height: 1.1 !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) {
+                    padding: 5px 8px !important;
+                    border-radius: 9px !important;
+                    gap: 3px !important;
+                    font-size: 9px !important;
+                    line-height: 1.12 !important;
+                    background: rgba(255,255,255,.72) !important;
+                    flex: 0 0 auto !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div {
+                    gap: 6px !important;
+                    min-width: 0 !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) span,
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) strong {
+                    font-size: 9px !important;
+                    line-height: 1.1 !important;
+                    white-space: nowrap !important;
+                }
+                @media (max-width: 1200px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+                }
+                @media (max-width: 760px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+                }
+                @media (max-width: 480px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis { grid-template-columns: 1fr !important; }
+                }
+            `}</style>
+
+            <style>{`
+                /* Final authoritative Working Capital KPI sizing. Keep the two
+                   comparison values on separate compact rows and prevent the
+                   large legacy icon styles from expanding the cards. */
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div {
+                    justify-content: flex-start !important;
+                    text-align: left !important;
+                    width: 100% !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > span,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > span {
+                    text-align: left !important;
+                    margin-right: auto !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > strong,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div > strong {
+                    text-align: right !important;
+                    margin-left: auto !important;
+                }
+                .wc-sales-page .wc-sales-kpis,
+                .wc-sales-page .wc-cycle-kpis {
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 10px !important;
+                    margin-bottom: 10px !important;
+                    align-items: stretch !important;
+                }
+                /* Highest-specificity KPI rules: override older legacy card rules above. */
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+                    height: 100px !important;
+                    min-height: 100px !important;
+                    max-height: 100px !important;
+                    padding: 8px 10px !important;
+                    gap: 4px !important;
+                    box-sizing: border-box !important;
+                    overflow: hidden !important;
+                    border: 1px solid rgba(226,232,240,.65) !important;
+                    border-radius: 14px !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: space-between !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:first-child,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:first-child {
+                    min-height: 35px !important;
+                    height: 35px !important;
+                    flex: 0 0 35px !important;
+                    gap: 8px !important;
+                    align-items: center !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:first-child > div.wc-kpi-icon,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:first-child > div.wc-kpi-icon {
+                    width: 30px !important;
+                    height: 30px !important;
+                    min-width: 30px !important;
+                    max-width: 30px !important;
+                    flex: 0 0 30px !important;
+                    font-size: 16px !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi .wc-kpi-title,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi .wc-kpi-title {
+                    font-size: 10px !important;
+                    line-height: 1.12 !important;
+                    font-weight: 750 !important;
+                    letter-spacing: -.01em !important;
+                    margin-bottom: 2px !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi .wc-kpi-value,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi .wc-kpi-value {
+                    font-size: clamp(13px, 1vw, 16px) !important;
+                    line-height: 1.1 !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.025em !important;
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child),
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) {
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                    padding: 5px 8px !important;
+                    border-radius: 9px !important;
+                    display: grid !important;
+                    gap: 3px !important;
+                    font-size: 9px !important;
+                    line-height: 1.12 !important;
+                    background: rgba(255,255,255,.72) !important;
+                    flex: 0 0 auto !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) > div {
+                    display: flex !important;
+                    justify-content: space-between !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                    min-width: 0 !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) span,
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi > div:last-child:not(:first-child) strong,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) span,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi > div:last-child:not(:first-child) strong {
+                    font-size: 9px !important;
+                    line-height: 1.1 !important;
+                    white-space: nowrap !important;
+                }
+                @media (max-width: 1200px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+                }
+                @media (max-width: 760px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+                }
+                @media (max-width: 480px) {
+                    .wc-sales-page .wc-sales-kpis,
+                    .wc-sales-page .wc-cycle-kpis { grid-template-columns: 1fr !important; }
+                }
+            `}</style>
+
+            <style>{`
+                /* Final Payables-reference styling: scoped to Working Capital only. */
+                .wc-sales-page .wc-sales-kpis,
+                .wc-sales-page .wc-cycle-kpis {
+                    display: grid !important;
+                    width: 100% !important;
+                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                    gap: 10px !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 10px !important;
+                    align-items: stretch !important;
+                }
+                .wc-sales-page .wc-sales-kpis > .sales-style-kpi,
+                .wc-sales-page .wc-cycle-kpis > .sales-style-kpi {
+                    height: 100px !important;
+                    min-height: 100px !important;
+                    max-height: 100px !important;
+                    padding: 7px 9px !important;
+                    gap: 3px !important;
+                    box-sizing: border-box !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: space-between !important;
+                    overflow: hidden !important;
+                    border: 1px solid rgba(226,232,240,.65) !important;
+                    border-radius: 14px !important;
+                    box-shadow: 0 2px 7px rgba(15,23,42,.035) !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:first-child {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                    height: 30px !important;
+                    min-height: 30px !important;
+                    max-height: 30px !important;
+                    flex: 0 0 30px !important;
+                    min-width: 0 !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-icon {
+                    width: 30px !important;
+                    height: 30px !important;
+                    min-width: 30px !important;
+                    max-width: 30px !important;
+                    flex: 0 0 30px !important;
+                    border-radius: 50% !important;
+                    font-size: 16px !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-title {
+                    font-size: 10px !important;
+                    line-height: 1.12 !important;
+                    font-weight: 750 !important;
+                    letter-spacing: -.01em !important;
+                    margin: 0 0 2px !important;
+                    max-width: 100% !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-value {
+                    color: #0F172A !important;
+                    font-size: clamp(13px, 1vw, 16px) !important;
+                    line-height: 1.1 !important;
+                    font-weight: 800 !important;
+                    letter-spacing: -.025em !important;
+                    min-width: 0 !important;
+                    max-width: 100% !important;
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    overflow-wrap: normal !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-metric-line { font-size: 9px !important; }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) {
+                    width: 100% !important;
+                    height: 42px !important;
+                    min-height: 42px !important;
+                    max-height: 42px !important;
+                    flex: 0 0 42px !important;
+                    box-sizing: border-box !important;
+                    padding: 4px 8px !important;
+                    margin: 0 !important;
+                    border-radius: 9px !important;
+                    background: rgba(255,255,255,.72) !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    justify-content: center !important;
+                    text-align: left !important;
+                    gap: 2px !important;
+                    font-size: 9px !important;
+                    line-height: 1.1 !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div {
+                    display: flex !important;
+                    flex: 0 0 14px !important;
+                    min-height: 14px !important;
+                    height: 14px !important;
+                    width: 100% !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                    gap: 6px !important;
+                    min-width: 0 !important;
+                    text-align: left !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div > span {
+                    display: block !important;
+                    flex: 1 1 auto !important;
+                    margin: 0 auto 0 0 !important;
+                    text-align: left !important;
+                    align-self: flex-start !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) > div > strong {
+                    flex: 0 0 auto !important;
+                    margin-left: auto !important;
+                    text-align: right !important;
+                }
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) span,
+                .wc-sales-page .sales-style-kpi > div:last-child:not(:first-child) strong {
+                    font-size: 9px !important;
+                    line-height: 1.1 !important;
+                    white-space: nowrap !important;
+                }
+                .wc-sales-page .wc-kpi-skeleton-grid { margin-bottom: 10px !important; }
+                .wc-sales-page .wc-kpi-skeleton-card {
+                    height: 100px; min-height: 100px; box-sizing: border-box; padding: 7px 9px;
+                    border: 1px solid #E6ECF5; border-radius: 14px; background: #F8FAFC;
+                    display: flex; flex-direction: column; justify-content: space-between; gap: 3px;
+                }
+                .wc-sales-page .wc-kpi-skeleton-heading { display: flex; align-items: center; gap: 8px; height: 30px; }
+                .wc-sales-page .wc-kpi-skeleton-icon { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; }
+                .wc-sales-page .wc-kpi-skeleton-copy { display: flex; flex: 1; flex-direction: column; gap: 6px; }
+                .wc-sales-page .wc-kpi-skeleton-copy .wc-skeleton-line:first-child { width: 62%; height: 7px; }
+                .wc-sales-page .wc-kpi-skeleton-copy .wc-skeleton-line:last-child { width: 82%; height: 13px; }
+                .wc-sales-page .wc-kpi-skeleton-comparisons {
+                    height: 42px; box-sizing: border-box; padding: 5px 8px; border-radius: 9px;
+                    background: rgba(255,255,255,.8); display: flex; flex-direction: column; justify-content: space-between;
+                }
+                .wc-sales-page .wc-kpi-skeleton-comparisons .wc-skeleton-line { width: 90%; height: 5px; }
+                .wc-sales-page .wc-chart-panel-skeleton {
+                    min-width: 0; min-height: 270px; box-sizing: border-box; padding: 16px;
+                    background: #FFFFFF; border: 1px solid #E6ECF5; border-radius: 14px;
+                }
+                .wc-sales-page .wc-chart-skeleton-title { width: 46%; height: 12px; margin-bottom: 9px; }
+                .wc-sales-page .wc-chart-skeleton-subtitle { width: 58%; height: 7px; margin-bottom: 18px; }
+                .wc-sales-page .wc-chart-panel-skeleton .wc-skeleton-chart { min-height: 185px; }
+                @media (max-width: 1200px) {
+                    .wc-sales-page .wc-sales-kpis, .wc-sales-page .wc-cycle-kpis,
+                    .wc-sales-page .wc-kpi-skeleton-grid { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
+                }
+                @media (max-width: 760px) {
+                    .wc-sales-page .wc-sales-kpis, .wc-sales-page .wc-cycle-kpis,
+                    .wc-sales-page .wc-kpi-skeleton-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+                }
+                @media (max-width: 480px) {
+                    .wc-sales-page .wc-sales-kpis, .wc-sales-page .wc-cycle-kpis,
+                    .wc-sales-page .wc-kpi-skeleton-grid { grid-template-columns: 1fr !important; }
+                }
+                /* Explicitly pin comparison labels to the left and values to the right. */
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    text-align: left !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-row {
+                    display: flex !important;
+                    flex-direction: row !important;
+                    justify-content: space-between !important;
+                    align-items: center !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    text-align: left !important;
+                    gap: 6px !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-label {
+                    display: block !important;
+                    flex: 1 1 auto !important;
+                    width: auto !important;
+                    min-width: 0 !important;
+                    margin: 0 auto 0 0 !important;
+                    padding: 0 !important;
+                    justify-self: auto !important;
+                    align-self: center !important;
+                    text-align: left !important;
+                    white-space: nowrap !important;
+                    transform: none !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-value {
+                    display: block !important;
+                    flex: 0 0 auto !important;
+                    margin: 0 0 0 auto !important;
+                    padding: 0 !important;
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                }
+            `}</style>
+
+            <style>{`
+                /* Final, narrowly scoped override for Working Capital KPI comparison alignment. */
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    justify-content: center !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    box-sizing: border-box !important;
+                    text-align: left !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left {
+                    display: grid !important;
+                    grid-template-columns: minmax(0, 1fr) max-content !important;
+                    flex: 0 0 auto !important;
+                    align-items: center !important;
+                    justify-content: initial !important;
+                    justify-items: stretch !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    gap: 6px !important;
+                    text-align: left !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-label-left {
+                    display: block !important;
+                    position: static !important;
+                    justify-self: start !important;
+                    align-self: center !important;
+                    width: auto !important;
+                    min-width: 0 !important;
+                    max-width: 100% !important;
+                    flex: initial !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    text-align: left !important;
+                    text-indent: 0 !important;
+                    transform: none !important;
+                    white-space: nowrap !important;
+                }
+                .wc-sales-page .sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-value-right {
+                    display: block !important;
+                    position: static !important;
+                    justify-self: end !important;
+                    align-self: center !important;
+                    width: auto !important;
+                    min-width: 0 !important;
+                    flex: initial !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                    transform: none !important;
+                }
+                /* FINAL KPI-ONLY alignment override: keep both comparison labels on
+                   the same left edge and their values flush to the right edge. */
+                #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                    text-align: left !important;
+                }
+                #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left {
+                    display: grid !important;
+                    grid-template-columns: minmax(0, 1fr) max-content !important;
+                    align-items: center !important;
+                    justify-content: initial !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    gap: 6px !important;
+                }
+                #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-label-left {
+                    grid-column: 1 !important;
+                    justify-self: start !important;
+                    width: 100% !important;
+                    margin: 0 !important;
+                    text-align: left !important;
+                    white-space: nowrap !important;
+                }
+                #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-panel-left > .wc-kpi-comparison-row-left > .wc-kpi-comparison-value-right {
+                    grid-column: 2 !important;
+                    justify-self: end !important;
+                    margin: 0 !important;
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                }
+            
+                #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-label-left {
+                    display: block !important;
+                    position: static !important;
+                    justify-self: start !important;
+                    text-align: left !important;
+                    transform: none !important;
+                }
+                #root .wc-sales-page .sales-style-kpi.sales-style-kpi .wc-kpi-comparison-value-right {
+                    display: block !important;
+                    justify-self: end !important;
+                    text-align: right !important;
+                    font-style: normal !important;
+                }
+`}</style>
+
             <div className="wc-sales-page animate-in" style={{ paddingTop: "16px", paddingBottom: "8px" }}>
                 <div className="page-header" style={{ marginBottom: "16px", paddingTop: "0", gap: "16px" }}>
                     <div>
                         <h1 className="page-header-title wc-page-title" style={{ fontSize: "1.45rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                            <span style={{ fontSize: "1.3rem" }}>📈</span> Working Capital Report
+                            <span style={{ fontSize: "1.3rem" }}>📈</span> Trade Working Capital Report
                         </h1>
 
                         <p className="page-header-subtitle">
@@ -16310,40 +21204,36 @@ export default function WorkingCapitalReport() {
                             styles.headerActions
                         }
                     >
-                        {canExportWC && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => handleHeaderExport("excel")}
-                                    disabled={exporting}
-                                    style={{
-                                        ...styles.button,
-                                        color: "#15803D",
-                                        background: "#F0FDF4",
-                                        borderColor: "#BBF7D0",
-                                        minWidth: 78,
-                                    }}
-                                >
-                                    {exporting ? "⏳" : "📊"} Excel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleHeaderExport("pdf")}
-                                    disabled={exporting}
-                                    style={{
-                                        ...styles.button,
-                                        color: "#BE123C",
-                                        background: "#FFF1F2",
-                                        borderColor: "#FECDD3",
-                                        minWidth: 72,
-                                    }}
-                                >
-                                    {exporting ? "⏳" : "📄"} PDF
-                                </button>
-                            </>
-                        )}
-
                         <button
+                            type="button"
+                            onClick={() => handleHeaderExport("excel")}
+                            disabled={exporting}
+                            style={{
+                                ...styles.button,
+                                color: "#15803D",
+                                background: "#F0FDF4",
+                                borderColor: "#BBF7D0",
+                                minWidth: 78,
+                            }}
+                        >
+                            {exporting ? "⏳" : "📊"} Excel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleHeaderExport("pdf")}
+                            disabled={exporting}
+                            style={{
+                                ...styles.button,
+                                color: "#BE123C",
+                                background: "#FFF1F2",
+                                borderColor: "#FECDD3",
+                                minWidth: 72,
+                            }}
+                        >
+                            {exporting ? "⏳" : "📄"} PDF
+                        </button>
+
+                        {/* <button
                             type="button"
                             onClick={
                                 handleRefresh
@@ -16359,7 +21249,7 @@ export default function WorkingCapitalReport() {
                             title="Refresh"
                         >
                             ↻
-                        </button>
+                        </button> */}
                     </div>
                 </div>
 
@@ -16381,19 +21271,23 @@ export default function WorkingCapitalReport() {
                             Loading Working Capital filter options...
                         </div>
                     )}
-                    <MultiSelectField
-                        label="Legal Group"
-                        values={filters.legalGroups}
-                        options={cascadingFilterOptions.legalGroups}
-                        onChange={(value) => updateFilter("legalGroups", value)}
-                    />
+                    {hasLegalGroupScope && (
+                        <MultiSelectField
+                            label="Legal Group"
+                            values={filters.legalGroups}
+                            options={cascadingFilterOptions.legalGroups}
+                            onChange={(value) => updateFilter("legalGroups", value)}
+                        />
+                    )}
 
-                    <MultiSelectField
-                        label="Legal Entity"
-                        values={filters.legalEntities}
-                        options={cascadingFilterOptions.legalEntities}
-                        onChange={(value) => updateFilter("legalEntities", value)}
-                    />
+                    {hasLegalEntityScope && (
+                        <MultiSelectField
+                            label="Legal Entity"
+                            values={filters.legalEntities}
+                            options={cascadingFilterOptions.legalEntities}
+                            onChange={(value) => updateFilter("legalEntities", value)}
+                        />
+                    )}
 
                     <MultiSelectField
                         label="Parent Division"
@@ -16410,21 +21304,15 @@ export default function WorkingCapitalReport() {
                     />
 
                     <div style={{ minWidth: 0 }}>
-                        <label style={styles.filterLabel}>Reporting Currency</label>
-                        <div
-                            style={{
-                                ...styles.filterInput,
-                                height: "32px",
-                                display: "flex",
-                                alignItems: "center",
-                                color: "#334155",
-                                fontWeight: 700,
-                                background: "#FFFFFF",
-                                cursor: "default",
-                            }}
+                        <label style={styles.filterLabel} htmlFor="working-capital-reporting-currency">Reporting Currency</label>
+                        <select
+                            id="working-capital-reporting-currency"
+                            value={normalizeReportingCurrency(filters.reportingCurrency)}
+                            onChange={(event) => updateFilter("reportingCurrency", normalizeReportingCurrency(event.target.value))}
+                            style={{ ...styles.filterInput, height: "32px", fontWeight: 700, cursor: "pointer" }}
                         >
-                            {filterOptions.reportingCurrency || "AED"}
-                        </div>
+                            {WORKING_CAPITAL_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                        </select>
                     </div>
 
                     <div style={{ minWidth: 0 }}>
@@ -16461,7 +21349,7 @@ export default function WorkingCapitalReport() {
                             height: "32px",
                             border: "none",
                             background: "transparent",
-                            color: "#263BD4",
+                            color: "#6B7280",
                             fontSize: "11px",
                             fontWeight: 600,
                             cursor: "pointer",
@@ -16485,7 +21373,7 @@ export default function WorkingCapitalReport() {
                     </div>
                 )}
 
-                {loading && <PageSkeleton />}
+                {(!filterOptionsLoaded || !appliedFilters) && <PageSkeleton />}
 
                 {viewAllLoading && (
                     <div
@@ -16500,87 +21388,102 @@ export default function WorkingCapitalReport() {
                     </div>
                 )}
 
-                {!loading && (
+                {filterOptionsLoaded && appliedFilters && (
                     <>
                         {/* ==================================================
                         KPI CARDS
                     ================================================== */}
 
-                        <div className="wc-sales-kpis kpi-grid">
-                            <KpiCard
-                                title="Trade Working Capital"
-                                value={formatAmount(kpis?.trade_working_capital, currency)}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="↗"
-                            />
-                            <KpiCard
-                                title="Trade Receivables"
-                                value={formatAmount(kpis?.total_receivables, currency)}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◔"
-                            />
-                            <KpiCard
-                                title="Inventory"
-                                value={formatAmount(kpis?.total_inventory, currency)}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="▦"
-                            />
-                            <KpiCard
-                                title="Trade Payables"
-                                value={formatAmount(kpis?.total_payables, currency)}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◒"
-                            />
-                            <KpiCard
-                                title="Working Capital Ratio"
-                                value={toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio) === null ? "—" : toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio).toFixed(2)}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◔"
-                            />
-                            <KpiCard
-                                title="DSO"
-                                value={toNumber(kpis?.dso_days) === null ? "—" : `${toNumber(kpis.dso_days).toFixed(2)} Days`}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◷"
-                            />
-                            <KpiCard
-                                title="DIO"
-                                value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} Days`}
-                                subtitle={toNumber(kpis?.dio_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="▦"
-                            />
-                            <KpiCard
-                                title="DPO"
-                                value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} Days`}
-                                subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◒"
-                            />
-                            <KpiCard
-                                title="CCC"
-                                value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} Days`}
-                                subtitle={toNumber(kpis?.cash_conversion_cycle_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
-                                icon="◴"
-                            />
-                            <KpiCard
-                                title="Target CCC"
-                                value={(() => {
-                                    const target = toNumber(
-                                        getValue(
-                                            kpis,
-                                            "target_ccc_days",
-                                            "target_cash_conversion_cycle_days",
-                                            "target_cash_conversion_cycle",
-                                            "ccc_target_days",
-                                            "ccc_target",
-                                            "target_ccc"
-                                        )
-                                    );
-                                    return target === null ? "—" : `${target.toFixed(2)} Days`;
-                                })()}
-                                subtitle="Backend target"
-                                icon="◎"
-                            />
-                        </div>
+                        {loading ? (
+                            <KpiCardSkeletonGrid count={10} />
+                        ) : (
+                            <>
+                                <div className="wc-sales-kpis kpi-grid">
+                                    <KpiCard
+                                        title="Trade Working Capital"
+                                        value={formatAmount(kpis?.trade_working_capital, currency)}
+                                        icon="↗"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="Trade Receivables"
+                                        value={formatAmount(kpis?.total_receivables, currency)}
+                                        icon="◔"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="Inventory"
+                                        value={formatAmount(kpis?.total_inventory, currency)}
+                                        icon="▦"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="Trade Payables"
+                                        value={formatAmount(kpis?.total_payables, currency)}
+                                        icon="◒"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="Trade Working Capital to Revenue Ratio"
+                                        value={
+                                            toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio) === null
+                                                ? "—"
+                                                : `${toNumber(kpis?.working_capital_ratio ?? kpis?.current_ratio).toFixed(2)}%`
+                                        }
+                                        icon="◔"
+                                        showComparisons={true}
+                                    />
+                                </div>
+
+                                {/* Cycle metrics are four independent KPI cards in their own row.
+                            They are deliberately NOT nested inside Trade Working Capital
+                            or any other card. Values remain backend-authoritative. */}
+                                <div
+                                    className="wc-sales-kpis wc-cycle-kpis"
+                                    aria-label="Cash conversion cycle KPI cards"
+                                    style={{
+                                        display: "grid",
+                                        width: "100%",
+                                        marginTop: "0",
+                                        marginBottom: "16px",
+                                        gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                                        gap: "10px",
+                                        alignItems: "stretch",
+                                    }}
+                                >
+                                    <KpiCard
+                                        title="CCC"
+                                        value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} days`}
+                                        icon="◷"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="DSO"
+                                        value={toNumber(kpis?.dso_days ?? kpis?.dso) === null ? "—" : `${toNumber(kpis?.dso_days ?? kpis?.dso).toFixed(2)} Days`}
+                                        icon="◷"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="DIO"
+                                        value={toNumber(kpis?.dio_days) === null ? "—" : `${toNumber(kpis.dio_days).toFixed(2)} Days`}
+                                        icon="▦"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="DPO"
+                                        value={toNumber(kpis?.dpo_days) === null ? "—" : `${toNumber(kpis.dpo_days).toFixed(2)} days`}
+                                        icon="◒"
+                                        showComparisons={true}
+                                    />
+                                    <KpiCard
+                                        title="Working Capital Turnover"
+                                        value={toNumber(getValue(kpis, "working_capital_turnover", "trade_working_capital_turnover", "turnover_times")) === null ? "—" : `${toNumber(getValue(kpis, "working_capital_turnover", "trade_working_capital_turnover", "turnover_times")).toFixed(1)} Times`}
+                                        icon="⟳"
+                                        showComparisons={true}
+                                    />
+                                </div>
+                            </>
+                        )}
 
                         {/* ==================================================
                         TRADE WORKING CAPITAL TREND
@@ -16595,17 +21498,25 @@ export default function WorkingCapitalReport() {
                                 marginBottom: "10px",
                             }}
                         >
-                            <TradeWorkingCapitalTrendPanel
-                                data={tradeTrend}
-                                currency={currency}
-                                onViewAll={() => openViewAll("trade")}
-                            />
+                            {tradeTrendLoading ? (
+                                <ChartPanelSkeleton title="Trade Working Capital Trend" />
+                            ) : (
+                                <TradeWorkingCapitalTrendPanel
+                                    data={tradeTrend}
+                                    currency={currency}
+                                    onViewAll={() => openViewAll("trade")}
+                                />
+                            )}
 
-                            <TradeWorkingCapitalComponents
-                                components={componentData}
-                                currency={currency}
-                                onViewAll={() => openViewAll("components")}
-                            />
+                            {componentsLoading ? (
+                                <ChartPanelSkeleton title="Working Capital Components" />
+                            ) : (
+                                <TradeWorkingCapitalComponents
+                                    components={componentData}
+                                    currency={currency}
+                                    onViewAll={() => openViewAll("components")}
+                                />
+                            )}
                         </div>
 
                         {/* ==================================================
@@ -16625,61 +21536,53 @@ export default function WorkingCapitalReport() {
                     ================================================== */}
 
                         <div
+                            ref={hierarchySectionRef}
                             className="wc-sales-main-grid"
                             style={{
                                 display: "grid",
                                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                                 gap: "10px",
                                 marginBottom: "10px",
+                                minHeight: hierarchyLoading ? "240px" : undefined,
                             }}
+                            aria-busy={hierarchyLoading}
                         >
-                            <HierarchyTrendChart
-                                data={subDivisionTrend}
-                                currency={currency}
-                                title={`Working Capital by Sub-Division (${currency})`}
-                                levelLabel="Sub-Division"
-                                onViewAll={() => openViewAll("cfo", null, "Sub-Division")}
-                                onExportExcel={() =>
-                                    exportTrendToExcel(
-                                        subDivisionTrend,
-                                        "Working Capital by Sub-Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
-                                }
-                                onExportPdf={() =>
-                                    exportTrendToPdf(
-                                        subDivisionTrend,
-                                        "Working Capital by Sub-Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
-                                }
-                            />
+                            {(hierarchyLoading || !hierarchyLoaded) ? (
+                                <>
+                                    <ChartPanelSkeleton title="Working Capital by Sub-Division" />
+                                    <ChartPanelSkeleton title="Working Capital by Parent Division" />
+                                </>
+                            ) : (
+                                <>
+                                    <HierarchyTrendChart
+                                        data={subDivisionTrend}
+                                        currency={currency}
+                                        title={`Working Capital by Sub-Division (${currency})`}
+                                        levelLabel="Sub-Division"
+                                        onViewAll={() => openViewAll("cfo", null, "Sub-Division")}
+                                        onExportExcel={() =>
+                                            handleExport("excel", "sub-division-trend", appliedFilters, subDivisionTrend)
+                                        }
+                                        onExportPdf={() =>
+                                            handleExport("pdf", "sub-division-trend", appliedFilters, subDivisionTrend)
+                                        }
+                                    />
 
-                            <HierarchyTrendChart
-                                data={parentDivisionTrend}
-                                currency={currency}
-                                title={`Working Capital by Parent Division (${currency})`}
-                                levelLabel="Parent Division"
-                                onViewAll={() => openViewAll("cfo", null, "Parent Division")}
-                                onExportExcel={() =>
-                                    exportTrendToExcel(
-                                        parentDivisionTrend,
-                                        "Working Capital by Parent Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
-                                }
-                                onExportPdf={() =>
-                                    exportTrendToPdf(
-                                        parentDivisionTrend,
-                                        "Working Capital by Parent Division",
-                                        currency,
-                                        "Working Capital"
-                                    )
-                                }
-                            />
+                                    <HierarchyTrendChart
+                                        data={parentDivisionTrend}
+                                        currency={currency}
+                                        title={`Working Capital by Parent Division (${currency})`}
+                                        levelLabel="Parent Division"
+                                        onViewAll={() => openViewAll("cfo", null, "Parent Division")}
+                                        onExportExcel={() =>
+                                            handleExport("excel", "parent-division-trend", appliedFilters, parentDivisionTrend)
+                                        }
+                                        onExportPdf={() =>
+                                            handleExport("pdf", "parent-division-trend", appliedFilters, parentDivisionTrend)
+                                        }
+                                    />
+                                </>
+                            )}
                         </div>
 
                         {/* ==================================================
@@ -16687,50 +21590,62 @@ export default function WorkingCapitalReport() {
                     ================================================== */}
 
                         <div
+                            ref={cccSectionRef}
                             className="wc-sales-main-grid"
                             style={{
                                 display: "grid",
                                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                                 gap: "10px",
                                 marginBottom: "10px",
+                                minHeight: cccSectionLoading ? "240px" : undefined,
                             }}
+                            aria-busy={cccSectionLoading}
                         >
-                            <CashConversionCycle
-                                kpis={kpis}
-                                cccPayload={ccc}
-                                operationalDate={operationalDate}
-                            />
-
-                            <div className="wc-panel-animate" style={styles.panel}>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <h3
-                                        style={{
-                                            ...styles.panelTitle,
-                                            marginBottom: 0,
-                                        }}
-                                    >
-                                        Cash Conversion Cycle Trend (Days)
-                                    </h3>
-
-                                    <ActionMenu
-                                        items={[
-                                            {
-                                                key: "view-all",
-                                                label: "🔎 View All",
-                                                onClick: () => openViewAll("ccc"),
-                                            },
-                                        ]}
+                            {(cccSectionLoading || !cccSectionLoaded) ? (
+                                <>
+                                    <ChartPanelSkeleton title="Cash Conversion Cycle" />
+                                    <ChartPanelSkeleton title="Cash Conversion Cycle Trend" />
+                                </>
+                            ) : (
+                                <>
+                                    <CashConversionCycle
+                                        kpis={kpis}
+                                        cccPayload={ccc}
+                                        operationalDate={operationalDate}
                                     />
-                                </div>
 
-                                <CccTrendMini data={cccTrend} />
-                            </div>
+                                    <div className="wc-panel-animate" style={styles.panel}>
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                alignItems: "center",
+                                            }}
+                                        >
+                                            <h3
+                                                style={{
+                                                    ...styles.panelTitle,
+                                                    marginBottom: 0,
+                                                }}
+                                            >
+                                                Cash Conversion Cycle Trend (Days)
+                                            </h3>
+
+                                            <ActionMenu
+                                                items={[
+                                                    {
+                                                        key: "view-all",
+                                                        label: "🔎 View All",
+                                                        onClick: () => openViewAll("ccc"),
+                                                    },
+                                                ]}
+                                            />
+                                        </div>
+
+                                        <CccTrendMini data={cccTrend} />
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                     </>

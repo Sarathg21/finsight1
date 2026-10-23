@@ -30,6 +30,7 @@ import OperatingAnalysis from './pages/OperatingAnalysis';
 import FinancialPosition from './pages/FinancialPosition';
 import MyProfile from './pages/MyProfile';
 import InventoryAgingPage from './pages/InventoryAgingPage';
+import ManufacturingCostDashboard from './pages/ManufacturingCostDashboard';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -118,6 +119,7 @@ function App() {
               {/* <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} /> */}
               {/* <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} /> */}
               <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<InventoryAgingPage />} />} />
+              <Route path="/manufacturing-cost" element={<ProtectedRoute pageKey="manufacturing-cost" element={<ManufacturingCostDashboard />} />} />
               {/* <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} /> */}
             </Route>
 

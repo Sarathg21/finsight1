@@ -435,35 +435,34 @@ function normalizeOpexFilterOptions(
             ? payload.periods
             : [];
 
-    const isActiveFilterItem = (item) => {
-        if (!item) return false;
-        if (typeof item === 'object') {
-            if (item.active === false || item.is_active === false) return false;
-            if (item.status && String(item.status).toLowerCase() === 'inactive') return false;
-        }
-        return true;
-    };
-
-    const dedupeFilterItems = (list = []) => {
-        const seen = new Set();
-        return (Array.isArray(list) ? list : []).filter((item) => {
-            if (!isActiveFilterItem(item)) return false;
-            const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || String(item)).trim().toLowerCase();
-            if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
-            if (seen.has(name)) return false;
-            seen.add(name);
-            return true;
-        });
-    };
-
     return {
-        legal_groups: dedupeFilterItems(payload?.legal_groups),
+        legal_groups:
+            Array.isArray(
+                payload?.legal_groups
+            )
+                ? payload.legal_groups
+                : [],
 
-        legal_entities: dedupeFilterItems(payload?.legal_entities),
+        legal_entities:
+            Array.isArray(
+                payload?.legal_entities
+            )
+                ? payload.legal_entities
+                : [],
 
-        parent_divisions: dedupeFilterItems(payload?.parent_divisions),
+        parent_divisions:
+            Array.isArray(
+                payload?.parent_divisions
+            )
+                ? payload.parent_divisions
+                : [],
 
-        subdivisions: dedupeFilterItems(payload?.subdivisions),
+        subdivisions:
+            Array.isArray(
+                payload?.subdivisions
+            )
+                ? payload.subdivisions
+                : [],
 
         periods,
 
@@ -496,7 +495,86 @@ function normalizeOpexFilterOptions(
         default_reporting_currency:
             payload?.default_reporting_currency ||
             "AED",
+
+        // Preserve backend default-group metadata for the filter UI.
+        default_legal_group_id:
+            payload?.default_legal_group_id ??
+            payload?.default_group_id ??
+            payload?.default_legal_group?.id ??
+            payload?.default_legal_group?.value ??
+            payload?.defaults?.legal_group_id ??
+            payload?.default_filters?.legal_group_id ??
+            null,
+
+        default_legal_group:
+            payload?.default_legal_group ?? null,
     };
+}
+
+/* =========================================================
+   FILTER REQUEST HELPERS
+========================================================= */
+
+function stableFilterRequestKey(filters = {}) {
+    const sortValue = (value) => {
+        if (Array.isArray(value)) return value.map(sortValue);
+        if (value && typeof value === "object") {
+            return Object.keys(value).sort().reduce((result, key) => {
+                result[key] = sortValue(value[key]);
+                return result;
+            }, {});
+        }
+        return value;
+    };
+
+    return JSON.stringify(sortValue(filters || {}));
+}
+
+/**
+ * Resolve the default group using backend-provided IDs. If the API
+ * does not expose a separate default ID, use the ID from its FJ Group
+ * option rather than hard-coding an ID in the frontend.
+ */
+// Shared across OPEX filter instances so main/modal mounts cannot issue
+// duplicate concurrent requests for identical filter parameters.
+const opexFilterOptionsInFlight = new Map();
+
+function getDefaultLegalGroupId(payload = {}, legalGroups = []) {
+    const data =
+        payload?.data &&
+            typeof payload.data === "object" &&
+            !Array.isArray(payload.data)
+            ? payload.data
+            : payload;
+
+    const explicitDefault =
+        data?.default_legal_group_id ??
+        data?.default_group_id ??
+        data?.default_legal_group?.id ??
+        data?.default_legal_group?.value ??
+        data?.defaults?.legal_group_id ??
+        data?.default_filters?.legal_group_id;
+
+    if (
+        explicitDefault !== undefined &&
+        explicitDefault !== null &&
+        String(explicitDefault) !== ""
+    ) {
+        return String(explicitDefault);
+    }
+
+    const fjGroup = (legalGroups || []).find((option) => {
+        const label = String(getOptionLabel(option) ?? "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, " ");
+        return label === "fj group" || label.includes("fj group");
+    });
+
+    if (fjGroup === undefined || fjGroup === null) return "";
+
+    const value = getOptionValue(fjGroup);
+    return value === undefined || value === null ? "" : String(value);
 }
 
 /* =========================================================
@@ -837,49 +915,58 @@ function OpexMultiSelect({
        NORMALIZE
     ======================================================= */
 
-    const normalized = (() => {
-        const seen = new Set();
-        const result = [];
-        (options || []).forEach((option) => {
-            if (option === null || option === undefined) return;
-            if (typeof option === "object") {
-                if (option.active === false || option.is_active === false) return;
-                if (option.status && String(option.status).toLowerCase() === "inactive") return;
-            }
-            if (typeof option === "string" || typeof option === "number") {
-                const str = String(option);
-                const lower = str.trim().toLowerCase();
-                if (lower !== "" && lower !== "all" && !seen.has(lower)) {
-                    seen.add(lower);
-                    result.push({ id: str, name: str });
+    const normalized =
+        (options || [])
+            .map((option) => {
+                if (
+                    option === null ||
+                    option === undefined
+                ) {
+                    return null;
                 }
-                return;
-            }
-            const id =
-                option.value !== undefined
-                    ? option.value
-                    : option.id !== undefined
-                        ? option.id
-                        : option.code !== undefined
-                            ? option.code
-                            : "";
-            const rawName =
-                option.label !== undefined
-                    ? option.label
-                    : option.name !== undefined
-                        ? option.name
-                        : option.period_name !== undefined
-                            ? option.period_name
-                            : String(id);
-            const name = typeof rawName === "object" ? String(rawName?.label || rawName?.name || id) : String(rawName);
-            const lower = name.trim().toLowerCase();
-            if (String(id) !== "" && String(id) !== "null" && lower !== "" && lower !== "all" && lower !== "null" && lower !== "undefined" && !seen.has(lower)) {
-                seen.add(lower);
-                result.push({ id: String(id), name });
-            }
-        });
-        return result;
-    })();
+
+                if (
+                    typeof option === "string" ||
+                    typeof option === "number"
+                ) {
+                    return {
+                        id: String(option),
+                        name: String(option),
+                    };
+                }
+
+                const id =
+                    option.value !== undefined
+                        ? option.value
+                        : option.id !== undefined
+                            ? option.id
+                            : option.code !== undefined
+                                ? option.code
+                                : "";
+
+                const name =
+                    option.label !== undefined
+                        ? option.label
+                        : option.name !== undefined
+                            ? option.name
+                            : option.period_name !== undefined
+                                ? option.period_name
+                                : String(id);
+
+                if (
+                    id === null ||
+                    id === undefined ||
+                    id === ""
+                ) {
+                    return null;
+                }
+
+                return {
+                    id: String(id),
+                    name: String(name),
+                };
+            })
+            .filter(Boolean);
 
     const currentValues =
         Array.isArray(value)
@@ -1996,6 +2083,10 @@ export default function OpexFilters({
     onChange,
     onApply,
     onReset,
+    // Default to visible so existing pages that do not pass RBAC props
+    // retain their original filter layout.
+    showLegalGroupFilter = true,
+    showLegalEntityFilter = true,
 }) {
     const [
         opexFilterOptions,
@@ -2077,8 +2168,14 @@ export default function OpexFilters({
     const requestSequenceRef =
         useRef(0);
 
-    const initialLoadRef =
+    const defaultGroupInitializedRef =
         useRef(false);
+
+    // Completed results stay inside this mounted filter instance so a
+    // later login with different RBAC access cannot reuse another user's
+    // cached option lists.
+    const completedRequestsRef =
+        useRef(new Map());
 
     /* =======================================================
        SYNC EXTERNAL FILTERS
@@ -2167,253 +2264,244 @@ export default function OpexFilters({
             currentFilters = {},
             preserveOptionKey = null
         ) => {
+            const requestFilters = {
+                reporting_currency:
+                    currentFilters?.reporting_currency || "AED",
+                ...currentFilters,
+            };
+            const requestKey =
+                stableFilterRequestKey(requestFilters);
             const requestId =
                 ++requestSequenceRef.current;
 
-            try {
-                setLoading(true);
-
-                const response =
-                    await getOpexFilterOptions(
-                        currentFilters
-                    );
-
-                /*
-                 * Ignore stale responses.
-                 */
+            const applyOptions = (normalized) => {
                 if (
-                    requestId !==
-                    requestSequenceRef.current
+                    !normalized ||
+                    requestId !== requestSequenceRef.current
                 ) {
-                    return null;
+                    return;
                 }
 
-                const normalized =
-                    normalizeOpexFilterOptions(
-                        response
-                    );
+                setOpexFilterOptions((previous) => {
+                    if (preserveOptionKey) {
+                        const newOptions =
+                            normalized[preserveOptionKey];
 
-                setOpexFilterOptions(
-                    (previous) => {
-                        /*
-                         * =================================================
-                         * DEPENDENT REQUEST
-                         *
-                         * Do NOT replace the complete filter-option
-                         * object.
-                         *
-                         * Only replace the dropdown that this request
-                         * was specifically made for.
-                         *
-                         * This keeps the other filters completely stable.
-                         * =================================================
-                         */
-                        if (
-                            preserveOptionKey
-                        ) {
-                            const newOptions =
-                                normalized[
-                                preserveOptionKey
-                                ];
-
-                            /*
-                             * If API returned a real array for the
-                             * requested dependent field, use it.
-                             *
-                             * If the API did not return that field,
-                             * keep the existing options.
-                             */
-                            if (
-                                Array.isArray(
-                                    newOptions
-                                )
-                            ) {
-                                return {
-                                    ...previous,
-
-                                    [preserveOptionKey]:
-                                        newOptions,
-                                };
-                            }
-
-                            return previous;
+                        if (Array.isArray(newOptions)) {
+                            return {
+                                ...previous,
+                                [preserveOptionKey]: newOptions,
+                            };
                         }
 
-                        /*
-                         * =================================================
-                         * INITIAL / FULL REQUEST
-                         *
-                         * Full option response is allowed to replace
-                         * the complete option set.
-                         * =================================================
-                         */
-                        return {
-                            ...previous,
-                            ...normalized,
-                        };
+                        return previous;
                     }
+
+                    return {
+                        ...previous,
+                        ...normalized,
+                    };
+                });
+            };
+
+            let requestPromise =
+                completedRequestsRef.current.has(requestKey)
+                    ? Promise.resolve(
+                        completedRequestsRef.current.get(requestKey)
+                    )
+                    : opexFilterOptionsInFlight.get(requestKey);
+
+            if (!requestPromise) {
+                requestPromise = (async () => {
+                    const response =
+                        await getOpexFilterOptions(requestFilters);
+
+                    return normalizeOpexFilterOptions(response);
+                })();
+
+                opexFilterOptionsInFlight.set(
+                    requestKey,
+                    requestPromise
                 );
 
-                return normalized;
-            } catch (error) {
-                if (
-                    requestId !==
-                    requestSequenceRef.current
-                ) {
-                    return null;
+                requestPromise.finally(() => {
+                    if (
+                        opexFilterOptionsInFlight.get(requestKey) ===
+                        requestPromise
+                    ) {
+                        opexFilterOptionsInFlight.delete(requestKey);
+                    }
+                }).catch(() => {
+                    // The original awaited promise handles/logs the error.
+                });
+            }
+
+            setLoading(true);
+
+            try {
+                const normalized = await requestPromise;
+
+                if (normalized) {
+                    completedRequestsRef.current.set(
+                        requestKey,
+                        normalized
+                    );
                 }
 
-                console.error(
-                    "Failed to load OPEX filter options:",
-                    error
-                );
-
+                applyOptions(normalized);
+                return normalized;
+            } catch (error) {
+                if (requestId === requestSequenceRef.current) {
+                    console.error(
+                        "Failed to load OPEX filter options:",
+                        error
+                    );
+                }
                 return null;
             } finally {
-                if (
-                    requestId ===
-                    requestSequenceRef.current
-                ) {
+                if (requestId === requestSequenceRef.current) {
                     setLoading(false);
                 }
             }
         };
 
     /* =======================================================
-       INITIAL OPTIONS
+       SYNC PARENT-LOADED OPTIONS
+
+       OperatingAnalysis owns the single unscoped initial request.
+       This component consumes the options passed by the parent and only
+       requests scoped dependent options when the hierarchy changes.
     ======================================================= */
 
     useEffect(() => {
-        if (
-            initialLoadRef.current
-        ) {
+        const normalized =
+            normalizeOpexFilterOptions(filterOptions || {});
+
+        const hasParentOptions = [
+            normalized.legal_groups,
+            normalized.legal_entities,
+            normalized.parent_divisions,
+            normalized.subdivisions,
+            normalized.periods,
+            normalized.years,
+            normalized.reporting_currencies,
+        ].some((items) => Array.isArray(items) && items.length > 0);
+
+        if (!hasParentOptions) {
             return;
         }
 
-        initialLoadRef.current =
-            true;
+        setOpexFilterOptions((previous) => {
+            if (
+                JSON.stringify(previous) ===
+                JSON.stringify(normalized)
+            ) {
+                return previous;
+            }
 
-        void loadOpexFilterOptions(
-            {}
-        );
-    }, []);
+            return {
+                ...previous,
+                ...normalized,
+            };
+        });
+    }, [filterOptions]);
 
     /* =======================================================
        DEFAULT VALUES
     ======================================================= */
 
     useEffect(() => {
-        if (
-            !opexFilterOptions
-        ) {
+        if (!opexFilterOptions) {
             return;
         }
 
-        setSelectedFilters(
-            (previous) => {
-                let changed = false;
+        const defaultGroupId = getDefaultLegalGroupId(
+            opexFilterOptions,
+            opexFilterOptions.legal_groups || []
+        );
 
-                const next = {
-                    ...previous,
-                };
+        setSelectedFilters((previous) => {
+            const next = { ...previous };
+            let changed = false;
 
-                if (
-                    !next.year &&
-                    opexFilterOptions
-                        .years?.length
-                ) {
-                    const firstYear =
-                        String(
-                            getOptionValue(
-                                opexFilterOptions
-                                    .years[0]
-                            )
-                        );
+            if (!next.year && opexFilterOptions.years?.length) {
+                next.year = String(
+                    getOptionValue(opexFilterOptions.years[0])
+                );
+                changed = true;
+            }
 
-                    if (
-                        firstYear !==
-                        next.year
-                    ) {
-                        next.year =
-                            firstYear;
+            if (
+                (!Array.isArray(next.period) || next.period.length === 0) &&
+                opexFilterOptions.periods?.length
+            ) {
+                const latestPeriod =
+                    getLatestPeriod(opexFilterOptions.periods);
 
-                        changed = true;
-                    }
-                }
-
-                if (
-                    (!Array.isArray(
-                        next.period
-                    ) ||
-                        next.period.length ===
-                        0) &&
-                    opexFilterOptions
-                        .periods?.length
-                ) {
-                    const latestPeriod =
-                        getLatestPeriod(
-                            opexFilterOptions
-                                .periods
-                        );
-
-                    if (
-                        latestPeriod
-                    ) {
-                        const nextPeriod = [
-                            String(
-                                latestPeriod
-                            ),
-                        ];
-
-                        const samePeriod =
-                            Array.isArray(
-                                next.period
-                            ) &&
-                            next.period.length ===
-                            nextPeriod.length &&
-                            next.period.every(
-                                (
-                                    item,
-                                    index
-                                ) =>
-                                    String(item) ===
-                                    String(
-                                        nextPeriod[
-                                        index
-                                        ]
-                                    )
-                            );
-
-                        if (
-                            !samePeriod
-                        ) {
-                            next.period =
-                                nextPeriod;
-
-                            changed = true;
-                        }
-                    }
-                }
-
-                if (
-                    !next.reporting_currency
-                ) {
-                    next.reporting_currency =
-                        opexFilterOptions
-                            .default_reporting_currency ||
-                        "AED";
-
+                if (latestPeriod) {
+                    next.period = [String(latestPeriod)];
                     changed = true;
                 }
-
-                return changed
-                    ? next
-                    : previous;
             }
-        );
-    }, [
-        opexFilterOptions,
-    ]);
+
+            if (!next.reporting_currency) {
+                next.reporting_currency =
+                    opexFilterOptions.default_reporting_currency ||
+                    "AED";
+                changed = true;
+            }
+
+            if (
+                (!Array.isArray(next.legal_group) ||
+                    next.legal_group.length === 0) &&
+                defaultGroupId
+            ) {
+                next.legal_group = [defaultGroupId];
+                next.legal_entity = [];
+                next.parent_division = [];
+                next.subdivision = [];
+                changed = true;
+            }
+
+            return changed ? next : previous;
+        });
+
+        /*
+         * Only run this initial group-scoped request once. The request
+         * cache prevents it from duplicating another identical request.
+         */
+        const currentlySelectedGroups =
+            Array.isArray(selectedFilters?.legal_group)
+                ? selectedFilters.legal_group.map(String).filter(Boolean)
+                : selectedFilters?.legal_group
+                    ? [String(selectedFilters.legal_group)]
+                    : [];
+
+        const initialGroupIds =
+            currentlySelectedGroups.length
+                ? currentlySelectedGroups
+                : defaultGroupId
+                    ? [defaultGroupId]
+                    : [];
+
+        if (
+            initialGroupIds.length &&
+            !defaultGroupInitializedRef.current
+        ) {
+            defaultGroupInitializedRef.current = true;
+
+            void loadOpexFilterOptions(
+                {
+                    reporting_currency:
+                        selectedFilters?.reporting_currency ||
+                        opexFilterOptions.default_reporting_currency ||
+                        "AED",
+                    legal_group_id: initialGroupIds,
+                },
+                "legal_entities"
+            );
+        }
+    }, [opexFilterOptions]);
 
     /* =======================================================
        FILTER CHANGE
@@ -2522,9 +2610,18 @@ export default function OpexFilters({
                     undefined,
 
                 reporting_currency:
-                    nextFilters
-                        .reporting_currency ||
+                    nextFilters.reporting_currency ||
                     "AED",
+
+                // Include hierarchy ancestors to scope options correctly.
+                legal_group_id:
+                    nextFilters.legal_group || [],
+
+                legal_entity_id:
+                    nextFilters.legal_entity || [],
+
+                parent_division_id:
+                    nextFilters.parent_division || [],
 
                 [apiKey]:
                     Array.isArray(value)
@@ -2580,35 +2677,33 @@ export default function OpexFilters({
                 )
                 : "";
 
+        const defaultGroupId = getDefaultLegalGroupId(
+            opexFilterOptions,
+            opexFilterOptions.legal_groups ||
+            filterOptions?.legal_groups ||
+            []
+        );
+
         const resetFilters = {
             ...DEFAULT_FILTERS,
 
-            legal_group: [],
+            legal_group:
+                defaultGroupId ? [defaultGroupId] : [],
             legal_entity: [],
             parent_division: [],
             subdivision: [],
 
             period:
                 latestPeriod
-                    ? [
-                        String(
-                            latestPeriod
-                        ),
-                    ]
+                    ? [String(latestPeriod)]
                     : [],
 
             year:
-                firstYear
-                    ? String(
-                        firstYear
-                    )
-                    : "",
+                firstYear ? String(firstYear) : "",
 
             reporting_currency:
-                opexFilterOptions
-                    .default_reporting_currency ||
-                filterOptions
-                    ?.default_reporting_currency ||
+                opexFilterOptions.default_reporting_currency ||
+                filterOptions?.default_reporting_currency ||
                 "AED",
         };
 
@@ -2623,11 +2718,24 @@ export default function OpexFilters({
         onReset?.();
 
         /*
-         * Fresh full options request.
+         * Restore the FJ Group entity list on reset. The same filter state
+         * reuses cached/in-flight results instead of repeating the request.
          */
-        void loadOpexFilterOptions(
-            {}
-        );
+        if (defaultGroupId) {
+            void loadOpexFilterOptions(
+                {
+                    reporting_currency:
+                        resetFilters.reporting_currency,
+                    legal_group_id: [defaultGroupId],
+                },
+                "legal_entities"
+            );
+        } else {
+            void loadOpexFilterOptions({
+                reporting_currency:
+                    resetFilters.reporting_currency,
+            });
+        }
     };
 
     const options = {
@@ -2678,69 +2786,73 @@ export default function OpexFilters({
           LEGAL GROUP
       =================================================== */}
 
-            <FilterField
-                label="Legal Group"
-                width={
-                    FIELD_WIDTHS.legal_group
-                }
-            >
-                <OpexMultiSelect
-                    options={
-                        options.legal_groups ||
-                        []
-                    }
-                    value={
-                        selectedFilters
-                            .legal_group ||
-                        []
-                    }
-                    onChange={(value) =>
-                        handleFilterChange(
-                            "legal_group",
-                            value
-                        )
-                    }
-                    placeholder="All"
-                    searchPlaceholder="Search Legal Group"
+            {showLegalGroupFilter && (
+                <FilterField
+                    label="Legal Group"
                     width={
                         FIELD_WIDTHS.legal_group
                     }
-                />
-            </FilterField>
+                >
+                    <OpexMultiSelect
+                        options={
+                            options.legal_groups ||
+                            []
+                        }
+                        value={
+                            selectedFilters
+                                .legal_group ||
+                            []
+                        }
+                        onChange={(value) =>
+                            handleFilterChange(
+                                "legal_group",
+                                value
+                            )
+                        }
+                        placeholder="All"
+                        searchPlaceholder="Search Legal Group"
+                        width={
+                            FIELD_WIDTHS.legal_group
+                        }
+                    />
+                </FilterField>
+            )}
 
             {/* ===================================================
           LEGAL ENTITY
       =================================================== */}
 
-            <FilterField
-                label="Legal Entity"
-                width={
-                    FIELD_WIDTHS.legal_entity
-                }
-            >
-                <OpexMultiSelect
-                    options={
-                        options.legal_entities ||
-                        []
-                    }
-                    value={
-                        selectedFilters
-                            .legal_entity ||
-                        []
-                    }
-                    onChange={(value) =>
-                        handleFilterChange(
-                            "legal_entity",
-                            value
-                        )
-                    }
-                    placeholder="All"
-                    searchPlaceholder="Search Legal Entity"
+            {showLegalEntityFilter && (
+                <FilterField
+                    label="Legal Entity"
                     width={
                         FIELD_WIDTHS.legal_entity
                     }
-                />
-            </FilterField>
+                >
+                    <OpexMultiSelect
+                        options={
+                            options.legal_entities ||
+                            []
+                        }
+                        value={
+                            selectedFilters
+                                .legal_entity ||
+                            []
+                        }
+                        onChange={(value) =>
+                            handleFilterChange(
+                                "legal_entity",
+                                value
+                            )
+                        }
+                        placeholder="All"
+                        searchPlaceholder="Search Legal Entity"
+                        width={
+                            FIELD_WIDTHS.legal_entity
+                        }
+                    />
+                </FilterField>
+            )}
 
             {/* ===================================================
           PARENT DIVISION

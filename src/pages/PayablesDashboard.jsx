@@ -1,8 +1,9 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { useAuth } from "../context/AuthContext";
 import { createPortal } from "react-dom";
-import { Search } from "lucide-react";
+import { Search, Maximize2, Minimize2 } from "lucide-react";
+import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
+import { useAuth } from "../context/AuthContext";
 import {
     getPayablesFilterOptions,
     getPayablesDashboard,
@@ -13,7 +14,6 @@ import {
     exportPayablesExcel,
     exportPayablesPdf,
 } from "../api/payablesApi";
-import { getApiRoot } from "../utils/apiBase";
 
 // Compatibility helpers for the existing dashboard code.
 const getPayableFilters = getPayablesFilterOptions;
@@ -65,7 +65,8 @@ const triggerPayablesBlobDownload = (response, fallbackName) => {
    PARENT DIVISION MONTH-ON-MONTH HELPERS
    ============================================================ */
 const getPayablesApiBaseUrl = () => {
-    return getApiRoot();
+    const base = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+    return base.endsWith("/api") ? base : `${base}/api`;
 };
 
 const buildPayablesQueryString = (filters = {}) => {
@@ -239,6 +240,90 @@ const normalizeParentDivisionMonthOnMonthRows = (response) => {
 
     return Array.from(grouped.values());
 };
+
+/* ============================================================
+   ACCESS-SCOPE VISIBILITY HELPERS
+   Scope visibility is derived only from the authenticated /access/me
+   response. It is not inferred from dropdown options or role names.
+   ============================================================ */
+const payablesScopeHasValue = (value) => {
+    if (value === null || value === undefined) return false;
+    if (Array.isArray(value)) return value.some(payablesScopeHasValue);
+    if (typeof value === "object") {
+        return payablesScopeHasValue(
+            value.value ?? value.code ?? value.name ?? value.label ??
+            value.scope_value ?? value.scopeValue ?? value.values ?? value.ids
+        );
+    }
+    const text = String(value).trim();
+    return text !== "" && text.toLowerCase() !== "null" && text.toLowerCase() !== "undefined";
+};
+
+const findPayablesAccessScopeValue = (source, aliases) => {
+    const visited = new Set();
+    const queue = [source];
+    let emptyAliasFound = false;
+
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || visited.has(current)) continue;
+        visited.add(current);
+
+        if (Array.isArray(current)) {
+            current.forEach((item) => queue.push(item));
+            continue;
+        }
+
+        // Do not stop on an empty top-level alias: /access/me may include an
+        // empty convenience field while the real value lives in access_scopes.
+        for (const alias of aliases) {
+            if (Object.prototype.hasOwnProperty.call(current, alias)) {
+                const candidate = current[alias];
+                if (payablesScopeHasValue(candidate)) return candidate;
+                emptyAliasFound = true;
+            }
+        }
+
+        // Support centralized RBAC payloads that represent scopes as rows,
+        // e.g. { scope_type: "LEGAL_ENTITY", scope_value: [...] } rather than
+        // as direct legal_entity_name/legal_entity_code properties.
+        const scopeCollections = [current.access_scopes, current.accessScopes, current.scopes, current.scope_assignments, current.scopeAssignments];
+        for (const collection of scopeCollections) {
+            if (!collection) continue;
+            const rows = Array.isArray(collection) ? collection : Object.values(collection);
+            for (const row of rows) {
+                if (!row || typeof row !== "object") continue;
+                const kind = String(
+                    row.scope_type ?? row.scopeType ?? row.scope_level ?? row.scopeLevel ??
+                    row.resource_type ?? row.resourceType ?? row.entity_type ?? row.entityType ??
+                    row.type ?? row.key ?? row.name ?? ""
+                ).toLowerCase().replace(/[\s-]+/g, "_");
+                const isEntityScope = kind.includes("legal_entity") || kind.includes("legalentity");
+                if (isEntityScope) {
+                    const candidate = row.scope_value ?? row.scopeValue ?? row.values ?? row.value ??
+                        row.ids ?? row.names ?? row.legal_entity_name ?? row.legal_entity_code ??
+                        row.legal_entity_id ?? row.legalEntityName ?? row.legalEntityCode ?? row.legalEntityId;
+                    if (payablesScopeHasValue(candidate)) return candidate;
+                }
+            }
+        }
+
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+    }
+    return null;
+};
+
+const normalizePayablesPermissions = (response) => {
+    if (Array.isArray(response)) return response;
+    if (response && Array.isArray(response.data)) return response.data;
+    if (response && Array.isArray(response.permissions)) return response.permissions;
+    if (response && typeof response === "object") return [response];
+    return [];
+};
+
+const PAYABLES_ACCESS_MODULE = "PAYABLES";
 
 /* ============================================================
    PAYABLES DASHBOARD
@@ -450,31 +535,54 @@ const apiAgingBasis = (value) =>
 const uiAgingBasis = (value) =>
     apiAgingBasis(value) === "INVOICE_DATE" ? "Invoice Date" : "Due Date";
 
-const normalizeOptions = (items = []) => {
-    const seen = new Set();
-    return (Array.isArray(items) ? items : []).map((item) => {
+const normalizeOptions = (items = []) =>
+    (Array.isArray(items) ? items : []).map((item) => {
         if (item === null || item === undefined) return null;
-        if (typeof item === 'object') {
-            if (item.active === false || item.is_active === false) return null;
-            if (item.status && String(item.status).toLowerCase() === 'inactive') return null;
-        }
         if (typeof item !== "object") {
-            const str = String(item);
-            const lower = str.trim().toLowerCase();
-            if (lower === '' || lower === 'all' || lower === 'null' || lower === 'undefined' || seen.has(lower)) return null;
-            seen.add(lower);
-            return { value: str, label: str, meta: item };
+            return { value: String(item), label: String(item), meta: item };
         }
         const value = item.value ?? item.id ?? item.code ?? item.key ?? item.name;
         const label = item.label ?? item.name ?? item.title ?? item.description ?? value;
-        const strVal = String(value ?? "");
-        const strLbl = String(label ?? "");
-        const lower = strLbl.trim().toLowerCase();
-        if (strVal === '' || strVal === 'null' || lower === '' || lower === 'all' || lower === 'null' || lower === 'undefined' || seen.has(lower)) return null;
-        seen.add(lower);
-        return { value: strVal, label: strLbl, meta: item };
+        return { value: String(value ?? ""), label: String(label ?? ""), meta: item };
     }).filter(Boolean);
+
+const PAYABLES_HIERARCHY_OPTION_ALIASES = {
+    legal_groups: ["legal_groups", "legalGroups", "legal_group_options", "legalGroupOptions", "groups"],
+    legal_entities: ["legal_entities", "legalEntities", "entities", "legal_entity_options", "legalEntityOptions"],
+    parent_divisions: ["parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions", "divisions", "division_options", "divisionOptions"],
+    sub_divisions: ["sub_divisions", "subdivisions", "subDivisions", "sub_division_options", "subDivisionOptions", "subdivision_options", "subdivisionOptions"],
 };
+
+// Search the common API response envelopes without assuming that filter arrays
+// are always direct children of response.data. This only normalizes dropdown
+// options; it does not change API requests or dashboard data.
+const extractPayablesHierarchyOptions = (response, keys = []) => {
+    const requested = [...new Set(
+        keys.length ? keys : Object.values(PAYABLES_HIERARCHY_OPTION_ALIASES).flat()
+    )];
+    const queue = [response];
+    const visited = new Set();
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || typeof current !== "object" || visited.has(current)) continue;
+        visited.add(current);
+        if (Array.isArray(current)) continue;
+        for (const key of requested) {
+            if (Array.isArray(current[key])) return normalizeOptions(current[key]);
+        }
+        // Prioritize known response wrappers before walking other nested values.
+        [current.data, current.result, current.filters, current.options, current.payload].forEach((value) => {
+            if (value && typeof value === "object") queue.push(value);
+        });
+        Object.values(current).forEach((value) => {
+            if (value && typeof value === "object" && !visited.has(value)) queue.push(value);
+        });
+    }
+    return [];
+};
+
+const extractPayablesLegalEntityOptions = (response) =>
+    extractPayablesHierarchyOptions(response, PAYABLES_HIERARCHY_OPTION_ALIASES.legal_entities);
 
 const normalizeBackendDate = (value) => {
     if (!value) return "";
@@ -588,44 +696,125 @@ const getMetaValue = (option, keys = []) => {
 };
 
 const cascadeFilterOptions = (options = [], parentValue, relationKeys = []) => {
-    const parents = selectedFilterValues(parentValue);
-    if (!parents.length || !Array.isArray(options) || !options.length) return options || [];
-    let relationshipFieldFound = false;
+    const normalizeRelationValues = (value) => {
+        if (value === null || value === undefined || value === "") return [];
+        if (Array.isArray(value)) return value.flatMap(normalizeRelationValues);
+        if (typeof value === "object") {
+            return [value.value, value.id, value.code, value.name, value.label]
+                .filter((item) => item !== null && item !== undefined && String(item).trim() !== "")
+                .flatMap(normalizeRelationValues);
+        }
+        return [String(value).trim().toLowerCase()];
+    };
+    const parents = new Set(selectedFilterValues(parentValue).flatMap(normalizeRelationValues));
+    if (!parents.size || !Array.isArray(options) || !options.length) return options || [];
+    const sourcesFor = (option) => {
+        const meta = option?.meta;
+        return [option, meta, meta?.meta, meta?.data, meta?.access_scope, option?.data, option?.access_scope]
+            .filter((item) => item && typeof item === "object" && !Array.isArray(item));
+    };
+    let hasRelationshipMetadata = false;
     const filtered = options.filter((option) => {
-        const relation = getMetaValue(option, relationKeys);
-        if (relation === null) return true;
-        relationshipFieldFound = true;
-        const relations = Array.isArray(relation) ? relation.map(String) : [String(relation)];
-        return parents.some((parent) => relations.includes(String(parent)));
+        const relations = [];
+        sourcesFor(option).forEach((source) => relationKeys.forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+                relations.push(...normalizeRelationValues(source[key]));
+            }
+        }));
+        if (!relations.length) return true;
+        hasRelationshipMetadata = true;
+        return relations.some((relation) => parents.has(relation));
     });
-    return relationshipFieldFound ? filtered : options;
+    // Some filter-options responses omit hierarchy metadata; retain the API list
+    // rather than accidentally hiding every option when the relationship is unknown.
+    return hasRelationshipMetadata ? filtered : options;
 };
 
+const resolveSelectedOptionIds = (selectedValues, options = [], idKeys = ["id"]) => {
+    const values = selectedFilterValues(selectedValues);
+    const normalized = normalizeOptions(options);
+    return values.map((value) => {
+        const match = normalized.find((option) =>
+            String(option.value) === String(value) || String(option.label) === String(value)
+        );
+        return match ? (getMetaValue(match, idKeys) ?? match.value ?? match.label) : value;
+    }).map((value) => String(value));
+};
+
+// Cascade comparisons must match the API's hierarchy representation whether it
+// supplies IDs, codes, names, or display labels. This helper is for UI filtering
+// only; API request builders continue to send backend IDs.
+const resolveSelectedOptionRelations = (selectedValues, options = [], idKeys = [], labelKeys = []) => {
+    const values = selectedFilterValues(selectedValues);
+    const normalized = normalizeOptions(options);
+    const tokens = [];
+    values.forEach((value) => {
+        tokens.push(String(value));
+        const match = normalized.find((option) =>
+            String(option.value) === String(value) || String(option.label) === String(value) ||
+            String(getMetaValue(option, [...idKeys, ...labelKeys]) ?? "") === String(value)
+        );
+        if (!match) return;
+        [match.value, match.label].forEach((item) => {
+            if (item !== undefined && item !== null && String(item).trim()) tokens.push(String(item));
+        });
+        const meta = match.meta?.meta || match.meta || {};
+        [...idKeys, ...labelKeys].forEach((key) => {
+            const item = meta?.[key];
+            if (item !== undefined && item !== null && String(item).trim()) tokens.push(String(item));
+        });
+    });
+    return [...new Set(tokens.map((item) => String(item).trim()).filter(Boolean))];
+};
+
+// Resolve selected Legal Group labels/values to backend IDs. This helper is
+// shared by the main dashboard and View All filter option requests.
+const resolveLegalGroupRequestIds = (selectedGroups, legalGroupOptions = []) => {
+    const selected = selectedFilterValues(selectedGroups);
+    if (!selected.length) return [];
+    const options = normalizeOptions(legalGroupOptions);
+    const resolved = selected.map((value) => {
+        const match = options.find((option) =>
+            String(option.value) === String(value) ||
+            String(option.label) === String(value) ||
+            String(getMetaValue(option, [
+                "legal_group_id", "legalGroupId", "group_id", "groupId", "id"
+            ])) === String(value)
+        );
+        return match
+            ? (getMetaValue(match, ["legal_group_id", "legalGroupId", "group_id", "groupId", "id"]) ?? match.value)
+            : value;
+    });
+    return [...new Set(resolved.filter((value) => value !== null && value !== undefined && String(value).trim() !== "").map(String))];
+};
+
+const LEGAL_GROUP_RELATION_KEYS = [
+    "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId",
+    "legal_group_name", "legalGroupName", "group_name", "groupName", "legal_group_code", "legalGroupCode",
+    "parent_legal_group_name", "parentLegalGroupName", "legal_group_label", "legalGroupLabel",
+];
+const LEGAL_ENTITY_RELATION_KEYS = [
+    "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId",
+    "legal_entity_name", "legalEntityName", "entity_name", "entityName", "legal_entity_code", "legalEntityCode",
+];
+const PARENT_DIVISION_RELATION_KEYS = [
+    "parent_division_id", "parentDivisionId", "parent_division", "parentDivision", "division_id", "divisionId",
+    "parent_division_name", "parentDivisionName", "division_name", "divisionName", "parent_division_code", "parentDivisionCode",
+];
+
 const cascadeLegalEntities = (options, legalGroup) =>
-    cascadeFilterOptions(options, legalGroup, [
-        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
-    ]);
+    cascadeFilterOptions(options, legalGroup, LEGAL_GROUP_RELATION_KEYS);
 
 const cascadeParentDivisions = (options, legalEntities, legalGroup) => {
-    let result = cascadeFilterOptions(options, legalGroup, [
-        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
-    ]);
-    result = cascadeFilterOptions(result, legalEntities, [
-        "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId"
-    ]);
+    let result = cascadeFilterOptions(options, legalGroup, LEGAL_GROUP_RELATION_KEYS);
+    result = cascadeFilterOptions(result, legalEntities, LEGAL_ENTITY_RELATION_KEYS);
     return result;
 };
 
 const cascadeSubDivisions = (options, parentDivisions, legalEntities, legalGroup) => {
-    let result = cascadeFilterOptions(options, legalGroup, [
-        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
-    ]);
-    result = cascadeFilterOptions(result, legalEntities, [
-        "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId"
-    ]);
-    result = cascadeFilterOptions(result, parentDivisions, [
-        "parent_division_id", "parentDivisionId", "parent_division", "parentDivision", "division_id", "divisionId"
-    ]);
+    let result = cascadeFilterOptions(options, legalGroup, LEGAL_GROUP_RELATION_KEYS);
+    result = cascadeFilterOptions(result, legalEntities, LEGAL_ENTITY_RELATION_KEYS);
+    result = cascadeFilterOptions(result, parentDivisions, PARENT_DIVISION_RELATION_KEYS);
     return result;
 };
 
@@ -784,6 +973,33 @@ const normalizeOtherPayables = (raw = {}) => {
             payload?.total_trade_payables ??
             payload?.trade_payable_total ??
             null,
+        total_trade_payable_change_percentage:
+            payload?.total_trade_payable_change_percentage ??
+            payload?.total_trade_payable_change_percent ??
+            payload?.total_trade_payable_change_pct ??
+            payload?.total_trade_payables_change_percentage ??
+            payload?.trade_payable_total_change_percentage ??
+            null,
+        change_percentage:
+            payload?.change_percentage ??
+            payload?.change_percent ??
+            payload?.change_pct ??
+            payload?.percentage_change ??
+            payload?.period_change_percentage ??
+            payload?.variance_percentage ??
+            payload?.variance_percent ??
+            payload?.variance_pct ??
+            payload?.non_aging_trade_payable_change_percentage ??
+            payload?.non_aging_trade_payable_change_percent ??
+            payload?.non_aging_trade_payables_change_percentage ??
+            payload?.other_payables_change_percentage ??
+            null,
+        previous_date:
+            payload?.previous_date ??
+            payload?.previous_as_on_date ??
+            payload?.comparison_date ??
+            payload?.prior_date ??
+            null,
     };
 };
 
@@ -928,12 +1144,46 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
                 k.settlement_efficiency ??
                 k.invoice_settlement_efficiency_percent ??
                 null,
-            total_payables_variance: k.total_change_percentage,
-            current_payables_variance: k.current_change_percentage,
-            overdue_payables_variance: k.overdue_change_percentage,
-            overdue_gt_90_variance: k.overdue_above_90_change_percentage,
-            dpo_variance: k.dpo_change_days,
-            previous_date: k.previous_date ?? k.previous_as_on_date ?? null,
+            // Month-on-month variances are independent from target comparisons.
+            // Missing target fields remain null so the KPI panel renders an em dash.
+            total_payables_target_variance:
+                k.total_payables_target_variance ?? k.total_payables_variance_to_target ?? k.total_payables_vs_target_percentage ?? null,
+            current_payables_target_variance:
+                k.current_payables_target_variance ?? k.current_payables_variance_to_target ?? k.current_payables_vs_target_percentage ?? null,
+            overdue_payables_target_variance:
+                k.overdue_payables_target_variance ?? k.overdue_payables_variance_to_target ?? k.overdue_payables_vs_target_percentage ?? null,
+            overdue_gt_90_target_variance:
+                k.overdue_gt_90_target_variance ?? k.overdue_above_90_target_variance ?? k.overdue_above_90_variance_to_target ?? null,
+            overdue_percentage_target_variance:
+                k.overdue_percentage_target_variance ?? k.overdue_percentage_variance_to_target ?? k.overdue_percentage_vs_target ?? null,
+            dpo_target: k.target_dpo_days ?? k.target_dpo ?? k.dpo_target ?? null,
+            dpo_target_variance:
+                k.dpo_variance_days ?? k.dpo_target_variance_days ?? k.dpo_variance_to_target_days ?? null,
+            total_payables_variance: k.total_change_percentage ?? k.total_payables_change_percentage ?? null,
+            total_trade_payable_variance:
+                k.total_trade_payable_change_percentage ??
+                k.total_trade_payable_change_percent ??
+                k.total_trade_payable_change_pct ??
+                k.total_trade_payables_change_percentage ??
+                k.trade_payable_total_change_percentage ??
+                k.total_trade_payable_variance_percentage ??
+                k.total_trade_payable_variance ??
+                null,
+            non_aging_trade_payable_variance:
+                k.non_aging_trade_payable_change_percentage ??
+                k.non_aging_trade_payable_change_percent ??
+                k.non_aging_trade_payables_change_percentage ??
+                k.other_payables_change_percentage ??
+                k.other_payables_change_percent ??
+                k.non_aging_change_percentage ??
+                null,
+            current_payables_variance: k.current_change_percentage ?? k.current_payables_change_percentage ?? null,
+            overdue_payables_variance: k.overdue_change_percentage ?? k.overdue_payables_change_percentage ?? null,
+            overdue_gt_90_variance: k.overdue_above_90_change_percentage ?? k.overdue_gt_90_change_percentage ?? null,
+            overdue_percentage_variance:
+                k.overdue_percentage_change_percentage ?? k.overdue_percentage_change ?? k.overdue_percent_change ?? null,
+            dpo_variance: k.dpo_change_days ?? k.dpo_change ?? null,
+            previous_date: k.previous_date ?? k.previous_as_on_date ?? k.comparison_date ?? null,
         },
 
         agingSummary: aging.map(mapAmount),
@@ -980,6 +1230,7 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
             supplier_name: row.supplier_name,
             supplier_code: row.supplier_code,
             supplier_id: row.supplier_id,
+            supplier_type: row.supplier_type ?? row.supplierType ?? row.supplier_type_name ?? row.supplier_type_code ?? "",
             payable_amount: row.total_payables,
             percentage: getSupplierSharePercentage(
                 row.total_payables,
@@ -1472,6 +1723,7 @@ function FilterSelect({
     options = [],
     onChange,
     multiple = false,
+    className = "",
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -1642,9 +1894,11 @@ function FilterSelect({
     return (
         <div
             ref={dropdownRef}
+            className={`payables-filter-field ${className}`.trim()}
             style={{
                 flex: "1 1 115px",
-                minWidth: 115,
+                minWidth: 0,
+                width: "100%",
                 position: "relative",
             }}
         >
@@ -1966,6 +2220,7 @@ function FilterSelect({
 function DateFilter({
     value,
     onChange,
+    className = "",
 }) {
     const dateInputRef = useRef(null);
 
@@ -1992,9 +2247,11 @@ function DateFilter({
 
     return (
         <div
+            className={`payables-filter-field payables-filter-date ${className}`.trim()}
             style={{
-                flex: "1 1 115px",
-                minWidth: 115,
+                flex: "0.82 1 100px",
+                minWidth: 0,
+                width: "100%",
                 position: "relative",
             }}
         >
@@ -2122,184 +2379,80 @@ function AnimatedNumber({ value, formatter, duration = 700 }) {
    ============================================================ */
 
 function KpiCard({
-    title,
-    value,
-    variance,
-    previousDate,
-    icon,
-    iconBg,
-    iconColor,
-    titleColor,
-    cardBg,
-    currency,
-    suffix,
-    onClick,
-    forceMillions = false,
-    varianceType = "liability",
+    title, value, variance, previousDate, icon, iconBg, iconColor, titleColor,
+    cardBg, currency, suffix, onClick, forceMillions = false,
+    varianceType = "liability", targetVariance, lastMonthVariance,
+    targetUnit, lastMonthUnit,
 }) {
-    const formatValue = (value) => {
-        if (value === null || value === undefined) return "—";
-
-        // DPO
-        if (suffix === "Days") {
-            return `${Number(value).toFixed(0)} Days`;
-        }
-
-        // Percentage values
-        if (suffix === "%") {
-            return `${Number(value).toFixed(1)}%`;
-        }
-
-        // Currency values. forceMillions is used by the Non-Aging KPI so
-        // its latest signed balance remains compact even when negative.
-        const numeric = Number(value);
-        const sign = numeric < 0 ? "-" : "";
-        const absolute = Math.abs(numeric);
-
-        if (forceMillions || absolute >= 1000000) {
-            return `${sign}${currency} ${(absolute / 1000000).toFixed(2)}M`;
-        }
-
-        if (absolute >= 1000) {
-            return `${sign}${currency} ${(absolute / 1000).toFixed(2)}K`;
-        }
-
-        return `${sign}${currency} ${absolute.toFixed(2)}`;
+    const formatValue = (raw) => {
+        if (raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw))) return "—";
+        if (suffix === "Days") return `${Number(raw).toFixed(0)} Days`;
+        if (suffix === "%") return `${Number(raw).toFixed(1)}%`;
+        const numeric = Number(raw), sign = numeric < 0 ? "-" : "", absolute = Math.abs(numeric);
+        if (forceMillions || absolute >= 1000000) return `${sign}${currency || "AED"} ${(absolute / 1000000).toFixed(2)}M`;
+        if (absolute >= 1000) return `${sign}${currency || "AED"} ${(absolute / 1000).toFixed(2)}K`;
+        return `${sign}${currency || "AED"} ${absolute.toFixed(2)}`;
     };
-
-    const formatKpiPreviousDate = (date) => {
+    const formatDate = (date) => {
         if (!date) return "";
         const text = String(date);
         const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
         return match ? `${match[3]}-${match[2]}-${match[1]}` : text;
     };
-
-    const numericValue = Number(value);
-    const isNegativeValue =
-        Number.isFinite(numericValue) && numericValue < 0;
-    const varianceFavorability = getVarianceFavorability(variance, varianceType);
-    const varianceColor = varianceFavorability === "favourable"
-        ? "#10b981"
-        : varianceFavorability === "unfavourable"
-            ? "#ef4444"
-            : "#64748b";
-    const varianceArrow = Number(variance) >= 0 ? "▲" : "▼";
-
+    const renderChange = (raw, suffixText = "%") => {
+        if (raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw))) return <span style={{ color: "#64748b" }}>—</span>;
+        const n = Number(raw);
+        const favourability = getVarianceFavorability(n, varianceType);
+        const color = favourability === "favourable" ? "#16a34a" : favourability === "unfavourable" ? "#e11d48" : "#64748b";
+        return <span style={{ color, fontWeight: 800, whiteSpace: "nowrap" }}>{n >= 0 ? "▲" : "▼"} {Math.abs(n).toFixed(1)}{suffixText === "pp" ? " pp" : suffixText === "days" ? " Days" : "%"}</span>;
+    };
+    // Never substitute a month-on-month variance for a target comparison.
+    // The backend may not have targets configured; in that case show “—”.
+    const targetChange = targetVariance;
+    const monthChange = lastMonthVariance ?? variance;
+    const defaultChangeUnit = suffix === "Days" ? "days" : "%";
+    const resolvedTargetUnit = targetUnit || defaultChangeUnit;
+    const resolvedLastMonthUnit = lastMonthUnit || defaultChangeUnit;
     return (
-        <div
-            className="sales-style-kpi"
-            onClick={typeof onClick === "function" ? onClick : undefined}
-            style={{
-                background: cardBg || "#ffffff",
-                borderRadius: 12,
-                padding: "10px 10px",
-                boxShadow: "none",
-                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                cursor: typeof onClick === "function" ? "pointer" : "default",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                overflow: "visible",
-                position: "relative",
-                minHeight: 74,
-                height: "100%",
-                boxSizing: "border-box",
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 8px 24px ${iconColor || "#2563eb"}20`;
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-            }}
-        >
-            <div
-                style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: iconBg || "#f1f5f9",
-                    color: iconColor || "#2563eb",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                }}
-            >
-                {icon}
-            </div>
-
-            <div
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                    minWidth: 0,
-                    flex: 1,
-                    justifyContent: "center",
-                }}
-            >
-                <span
-                    style={{
-                        fontSize: "0.68rem",
-                        fontWeight: 700,
-                        color: titleColor || iconColor || "#2563eb",
-                        lineHeight: 1.2,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        wordBreak: "break-word",
-                    }}
-                >
-                    {title}
-                </span>
-
-                <div
-                    style={{
-                        fontSize: "1.02rem",
-                        fontWeight: 800,
-                        color: "#0f172a",
-                        lineHeight: 1.1,
-                        letterSpacing: "-0.02em",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        wordBreak: "break-word",
-                    }}
-                >
-                    {value === null || value === undefined || value === "" ? "—" : <AnimatedNumber value={value} formatter={formatValue} />}
+        <div className="sales-style-kpi" onClick={typeof onClick === "function" ? onClick : undefined}
+            style={{ background: cardBg || "#eff6ff", borderRadius: 16, padding: 14, border: "1px solid rgba(226,232,240,.55)", boxShadow: "0 3px 12px rgba(15,23,42,.035)", transition: "transform .2s ease, box-shadow .2s ease", cursor: typeof onClick === "function" ? "pointer" : "default", display: "flex", flexDirection: "column", gap: 10, minWidth: 0, minHeight: 190, boxSizing: "border-box" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 8px 22px ${iconColor || "#2563eb"}20`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 3px 12px rgba(15,23,42,.035)"; }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, minWidth: 0, flex: 1 }}>
+                <div style={{ width: 54, height: 54, minWidth: 54, borderRadius: "50%", background: iconBg || "#dbeafe", color: iconColor || "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 27, fontWeight: 700, flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.45)" }}>{icon}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: titleColor || iconColor || "#2563eb", lineHeight: 1.2, minHeight: 31, overflowWrap: "anywhere" }}>{title}</div>
+                    <div style={{ fontSize: 25, fontWeight: 900, color: "#0f172a", lineHeight: 1.08, letterSpacing: "-.035em", overflowWrap: "anywhere" }}>
+                        {value === null || value === undefined || value === "" ? "—" : <AnimatedNumber value={value} formatter={formatValue} />}
+                    </div>
                 </div>
-
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        flexWrap: "wrap",
-                        fontSize: "0.62rem",
-                        fontWeight: 600,
-                        color: "#64748b",
-                        lineHeight: 1.1,
-                    }}
-                >
-                    {variance !== null && variance !== undefined ? (
-                        <span
-                            title={`${varianceFavorability === "neutral" ? "No change" : varianceFavorability === "favourable" ? "Favourable" : "Unfavourable"} change for ${varianceType}`}
-                            style={{ color: varianceColor, fontWeight: 700 }}
-                        >
-                            {varianceArrow} {Math.abs(Number(variance)).toFixed(1)}%
-                        </span>
-                    ) : null}
-                    {previousDate && <span>vs {formatKpiPreviousDate(previousDate)}</span>}
+            </div>
+            <div className="payables-kpi-comparison-row" style={{
+                background: "rgba(255,255,255,.68)",
+                borderRadius: 8,
+                padding: "5px 8px",
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr)",
+                gridAutoRows: "minmax(14px, auto)",
+                alignItems: "center",
+                rowGap: 4,
+                marginTop: "auto",
+                minWidth: 0,
+                width: "100%",
+                boxSizing: "border-box",
+            }}>
+                <div className="payables-kpi-comparison-item" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, minWidth: 0, whiteSpace: "nowrap", fontSize: 9, lineHeight: 1.15 }}>
+                    <span className="payables-kpi-comparison-label" style={{ color: "#64748b", fontWeight: 600 }}>vs Target</span>
+                    <span className="payables-kpi-comparison-value" style={{ minWidth: 0, fontSize: 9 }}>{renderChange(targetChange, resolvedTargetUnit)}</span>
+                </div>
+                <div className="payables-kpi-comparison-item" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, minWidth: 0, whiteSpace: "nowrap", fontSize: 9, lineHeight: 1.15 }}>
+                    <span className="payables-kpi-comparison-label" style={{ color: "#64748b", fontWeight: 600 }}>vs Last Month</span>
+                    <span className="payables-kpi-comparison-value" style={{ minWidth: 0, fontSize: 9 }}>{renderChange(monthChange, resolvedLastMonthUnit)}</span>
                 </div>
             </div>
         </div>
-    )
+    );
 }
-
 
 /* ============================================================
    DONUT CHART
@@ -2317,6 +2470,7 @@ function DonutChart({
     // Enable only for Overdue Summary
     // ============================================================
     largeOverdueChart = false,
+    legendItemGap = 8,
 
     // ============================================================
     // Enable only for Aging Summary
@@ -2482,7 +2636,7 @@ function DonutChart({
 
                 gap: legendBelow
                     ? largeOverdueChart
-                        ? 28
+                        ? 42
                         : 20
                     : largeOverdueChart
                         ? 28
@@ -2998,7 +3152,7 @@ function DonutChart({
                     marginTop:
                         legendBelow
                             ? largeOverdueChart
-                                ? 8
+                                ? 22
                                 : 0
                             : 0,
                 }}
@@ -3059,18 +3213,16 @@ function DonutChart({
                                             : 4,
 
                                     // =================================================
-                                    // AGING SUMMARY ONLY:
-                                    // Reduce gap between legend rows.
-                                    //
-                                    // Default remains exactly the same:
-                                    //   - Normal donuts: 16px
-                                    //   - Overdue Summary: 1px
+                                    // LEGEND ROW SPACING
+                                    // Overdue Summary only: add clear vertical space
+                                    // between legend entries. Aging Summary and all
+                                    // other donuts retain their existing spacing.
                                     // =================================================
                                     marginBottom:
                                         compactAgingLegend
                                             ? 5
                                             : largeOverdueChart
-                                                ? 1
+                                                ? legendItemGap
                                                 : 16,
 
                                     fontSize: compactAgingLegend ? 10 : 12,
@@ -3329,18 +3481,17 @@ function TrendChart({ data, currency, onPointClick }) {
      * total_payables and dpo_days. Keep them authoritative.
      */
     const getTrendPayablesValue = (item) => {
-        if (
-            item?.total_payables === null ||
-            item?.total_payables === undefined ||
-            item?.total_payables === ""
-        ) {
-            return 0;
-        }
-
-        const numeric = Number(
-            String(item.total_payables).replace(/,/g, "").trim()
-        );
-
+        const rawValue =
+            item?.total_payables ??
+            item?.total_payable ??
+            item?.payables ??
+            item?.payable_amount ??
+            item?.outstanding_amount ??
+            item?.amount ??
+            item?.value ??
+            item?.balance;
+        if (rawValue === null || rawValue === undefined || String(rawValue).trim() === "") return 0;
+        const numeric = Number(String(rawValue).replace(/,/g, "").trim());
         return Number.isFinite(numeric) ? numeric : 0;
     };
 
@@ -3359,7 +3510,7 @@ function TrendChart({ data, currency, onPointClick }) {
         if (
             rawDpo === null ||
             rawDpo === undefined ||
-            rawDpo === ""
+            String(rawDpo).trim() === ""
         ) {
             return null;
         }
@@ -3380,17 +3531,21 @@ function TrendChart({ data, currency, onPointClick }) {
         .map(getTrendDpoValue)
         .filter((value) => value !== null);
 
-    // DPO uses a stable 0–100 day right-axis scale so the latest
-    // five-month trend remains comparable from month to month.
-    const dpoAxisMax = 100;
-    const dpoScaleValues = [100, 75, 50, 25, 0];
+    // Scale the right axis to the actual DPO range. Fixed 0–100 clipped
+    // valid values (for example 147.60 days) and made the line look incorrect.
+    const maxDpoValue = Math.max(0, ...dpoValues);
+    // Keep the scale rounded to 100-day ticks, while plotting each point from
+    // its actual backend DPO value (e.g. 316 stays 316; it is never rounded to a tick).
+    const dpoAxisMax = Math.max(100, Math.ceil(maxDpoValue / 100) * 100);
+    const dpoScaleValues = [dpoAxisMax, dpoAxisMax * 0.75, dpoAxisMax * 0.5, dpoAxisMax * 0.25, 0];
 
     // Use the exact same coordinate mapping for the DPO line and points.
     const getDpoY = (value) => {
+        if (value === null || value === undefined || String(value).trim() === "") return null;
         const numericValue = Number(value);
         if (!Number.isFinite(numericValue)) return null;
-        const safeValue = Math.max(0, Math.min(dpoAxisMax, numericValue));
-        return 175 - (safeValue / dpoAxisMax) * 175;
+        // Do not clamp genuine values to a fixed 100-day ceiling.
+        return 175 - (numericValue / dpoAxisMax) * 175;
     };
 
     const getTrendX = (index) => {
@@ -5529,6 +5684,7 @@ function DataTable({
     rowGap = false,
     rowVerticalPadding = null,
     rowHeightExtraPx = 0,
+    minRowHeight = null,
 
     // Pagination is opt-in so other tables are not affected
     pageSize = null,
@@ -5542,6 +5698,7 @@ function DataTable({
 
     // Optional compact pagination matching the dashboard screenshot.
     paginationStyle = "default",
+    paginationButtonSize = 28,
 
     // Optional cell-level click handler; disabled by default so existing
     // tables keep their current behavior.
@@ -5709,6 +5866,10 @@ function DataTable({
                         ? "fixed-total-row"
                         : `${startIndex}-${rowIndex}`)
                 }
+                className={isFixedRow ? "payables-fixed-total-row" : undefined}
+                style={minRowHeight !== null && Number(minRowHeight) > 0
+                    ? { height: `${Number(minRowHeight)}px` }
+                    : undefined}
             >
                 {columns.map((column) => {
                     const value = column.render
@@ -6006,8 +6167,8 @@ function DataTable({
                                 onClick={item.action}
                                 disabled={item.disabled}
                                 style={{
-                                    width: 28,
-                                    height: 25,
+                                    width: paginationButtonSize,
+                                    height: paginationButtonSize - 3,
                                     padding: 0,
                                     border: "1px solid #dbe3ef",
                                     borderRadius: 5,
@@ -6290,9 +6451,10 @@ function PayablesPageSkeleton() {
    ============================================================ */
 
 export default function PayablesDashboard() {
-    const { canExport } = useAuth();
-    const canExportPayables = Boolean(canExport?.('PAYABLES'));
-
+    const [userAccess, setUserAccess] = useState(null);
+    const [permissions, setPermissions] = useState([]);
+    const { hasExportRight } = useAuth();
+    const canExportPayables = hasExportRight(PAYABLES_ACCESS_MODULE);
     const [filters, setFilters] = useState({ ...defaultPayableFilters });
     const [appliedFilters, setAppliedFilters] = useState({ ...defaultPayableFilters });
     const [filterOptions, setFilterOptions] = useState({
@@ -6300,6 +6462,10 @@ export default function PayablesDashboard() {
         supplier_types: [], gl_codes: [],
         reporting_currencies: [], as_on_dates: [], aging_bases: [], years: [],
     });
+    const [groupSpecificLegalEntities, setGroupSpecificLegalEntities] = useState({});
+    const [mainParentDivisionCache, setMainParentDivisionCache] = useState({});
+    const [mainSubDivisionCache, setMainSubDivisionCache] = useState({});
+
     const [dashboardResponse, setDashboardResponse] = useState(null);
     const [loading, setLoading] = useState(true);
     const [dashboardError, setDashboardError] = useState("");
@@ -6310,8 +6476,62 @@ export default function PayablesDashboard() {
     const [viewAllContext, setViewAllContext] = useState({});
     const [viewAllResetKey, setViewAllResetKey] = useState(0);
 
+    // Scope visibility is driven by /access/me; role permissions and export
+    // authorization follow the Receivables/Sales Revenue RBAC pattern.
+    const legalGroupScopeValue = findPayablesAccessScopeValue(userAccess ?? {}, [
+        "legal_group_code", "legal_group_name", "legal_group", "legalGroupCode", "legalGroupName", "legalGroup",
+    ]);
+    const legalEntityScopeValue = findPayablesAccessScopeValue(userAccess ?? {}, [
+        "legal_entity_name", "legal_entity_code", "legal_entity_id", "legal_entity_ids",
+        "legal_entities", "legal_entity", "legalEntityName", "legalEntityCode", "legalEntityId",
+        "legalEntityIds", "legalEntities", "legalEntity",
+    ]);
+    const showLegalGroupFilter = payablesScopeHasValue(legalGroupScopeValue);
+    const showLegalEntityFilter = payablesScopeHasValue(legalEntityScopeValue);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetchAccessMe()
+            .then((data) => {
+                if (cancelled) return;
+                setUserAccess(data);
+
+                if (data && data.role_code) {
+                    return fetchRolePermissions(data.role_code)
+                        .then((perms) => {
+                            if (!cancelled) setPermissions(normalizePayablesPermissions(perms));
+                        })
+                        .catch((error) => {
+                            if (!cancelled) {
+                                setPermissions([]);
+                                console.warn("Failed to fetch Payables role permissions:", error);
+                            }
+                        });
+                }
+
+                setPermissions([]);
+                return null;
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    setUserAccess(null);
+                    setPermissions([]);
+                    console.warn("Payables access/me request failed:", error);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     // Local table searches only; existing API/data/pagination logic is unchanged.
     const [topSuppliersSearch, setTopSuppliersSearch] = useState("");
+    const [topSuppliersType, setTopSuppliersType] = useState("INTERNAL");
+    const [supplierTableRows, setSupplierTableRows] = useState([]);
+    const [supplierTableLoading, setSupplierTableLoading] = useState(false);
+    const [supplierTableError, setSupplierTableError] = useState("");
     const [subDivisionSearch, setSubDivisionSearch] = useState("");
     const [monthOnMonthSearch, setMonthOnMonthSearch] = useState("");
 
@@ -6370,34 +6590,120 @@ export default function PayablesDashboard() {
             kpis.total_trade_payable !== undefined
             ? kpis.total_trade_payable
             : otherPayables?.total_trade_payable ?? null;
+    const targetDpoValue = kpis.dpo_target ?? null;
+    const dpoTargetVariance = kpis.dpo_target_variance !== null && kpis.dpo_target_variance !== undefined
+        ? Number(kpis.dpo_target_variance)
+        : (kpis.dpo !== null && kpis.dpo !== undefined && targetDpoValue !== null && targetDpoValue !== undefined
+            ? Number(kpis.dpo) - Number(targetDpoValue)
+            : null);
     const currency = appliedFilters.reporting_currency || "AED";
     const [momDisplayUnit, setMomDisplayUnit] = useState("AED");
     const baseApiFilters = useMemo(() => buildApiFilters(), [appliedFilters, filterOptions]);
 
-    const mainLegalEntities = cascadeLegalEntities(filterOptions.legal_entities, filters.legal_group);
-    const mainParentDivisions = cascadeParentDivisions(
-        filterOptions.parent_divisions,
-        filters.legal_entities,
-        filters.legal_group
+    // Supplier-type switching refreshes only this table. It deliberately does not
+    // update appliedFilters or the dashboard response, so KPIs/charts stay put.
+    useEffect(() => {
+        let cancelled = false;
+        const loadSupplierTable = async () => {
+            setSupplierTableLoading(true);
+            setSupplierTableError("");
+            try {
+                const supplierOption = (filterOptions.supplier_types || []).find((option) =>
+                    `${option.label || ""} ${option.value || ""}`.toUpperCase().includes(topSuppliersType)
+                );
+                const requestFilters = {
+                    ...baseApiFilters,
+                    supplier_type: [supplierOption?.value ?? topSuppliersType],
+                };
+                const response = await getPayableDashboard(requestFilters);
+                const normalized = normalizeDashboard(response || {}, appliedFilters);
+                if (!cancelled) setSupplierTableRows(normalized.topSuppliers || []);
+            } catch (error) {
+                if (!cancelled) {
+                    setSupplierTableRows([]);
+                    setSupplierTableError(error?.message || `Unable to load ${topSuppliersType.toLowerCase()} suppliers.`);
+                }
+            } finally {
+                if (!cancelled) setSupplierTableLoading(false);
+            }
+        };
+        loadSupplierTable();
+        return () => { cancelled = true; };
+    }, [baseApiFilters, topSuppliersType, filterOptions.supplier_types]);
+
+    const mainGroupIds = resolveLegalGroupRequestIds(filters.legal_group, filterOptions.legal_groups);
+    const mainGroupCacheKey = mainGroupIds.slice().sort().join("|");
+    const mainLegalEntities = Object.prototype.hasOwnProperty.call(groupSpecificLegalEntities, mainGroupCacheKey)
+        ? normalizeOptions(groupSpecificLegalEntities[mainGroupCacheKey] || [])
+        : cascadeLegalEntities(filterOptions.legal_entities, filters.legal_group);
+
+    useEffect(() => {
+        if (!mainGroupIds.length || Object.prototype.hasOwnProperty.call(groupSpecificLegalEntities, mainGroupCacheKey)) return;
+        let cancelled = false;
+        getPayableFilters({ legal_group_id: mainGroupIds })
+            .then((response) => {
+                if (cancelled) return;
+                setGroupSpecificLegalEntities((previous) => ({
+                    ...previous, [mainGroupCacheKey]: extractPayablesLegalEntityOptions(response),
+                }));
+            })
+            .catch((error) => {
+                if (!cancelled) console.error("Failed to load group-scoped Payables Legal Entities", error);
+            });
+        return () => { cancelled = true; };
+    }, [mainGroupCacheKey, filterOptions.legal_groups]);
+
+    const mainSelectedGroupIdsForCascade = resolveSelectedOptionRelations(
+        filters.legal_group,
+        filterOptions.legal_groups,
+        ["legal_group_id", "legalGroupId", "group_id", "groupId", "id"],
+        ["legal_group_name", "legalGroupName", "group_name", "groupName", "legal_group_code", "legalGroupCode", "name", "code"]
     );
-    const mainSubDivisions = cascadeSubDivisions(
-        filterOptions.sub_divisions,
+    const mainSelectedEntityIdsForCascade = resolveSelectedOptionRelations(
+        filters.legal_entities,
+        mainLegalEntities,
+        ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"],
+        ["legal_entity_name", "legalEntityName", "entity_name", "entityName", "legal_entity_code", "legalEntityCode", "name", "code"]
+    );
+    const mainSelectedEntityRequestIds = resolveSelectedOptionIds(
+        filters.legal_entities,
+        mainLegalEntities,
+        ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"]
+    );
+    const mainParentDivisionCacheKey = [...mainGroupIds, "::", ...mainSelectedEntityRequestIds].join("|");
+    const mainParentDivisions = Object.prototype.hasOwnProperty.call(mainParentDivisionCache, mainParentDivisionCacheKey)
+        ? normalizeOptions(mainParentDivisionCache[mainParentDivisionCacheKey] || [])
+        : cascadeParentDivisions(filterOptions.parent_divisions, mainSelectedEntityIdsForCascade, mainSelectedGroupIdsForCascade);
+    const mainSelectedDivisionIdsForCascade = resolveSelectedOptionRelations(
         filters.parent_divisions,
-        filters.legal_entities,
-        filters.legal_group
+        mainParentDivisions,
+        ["parent_division_id", "parentDivisionId", "division_id", "divisionId", "id"],
+        ["parent_division_name", "parentDivisionName", "division_name", "divisionName", "parent_division_code", "parentDivisionCode", "name", "code"]
     );
+    const mainSelectedDivisionRequestIds = resolveSelectedOptionIds(
+        filters.parent_divisions,
+        mainParentDivisions,
+        ["parent_division_id", "parentDivisionId", "division_id", "divisionId", "id"]
+    );
+    const mainSubDivisionCacheKey = [...mainGroupIds, "::", ...mainSelectedEntityRequestIds, "::", ...mainSelectedDivisionRequestIds].join("|");
+    const mainSubDivisions = Object.prototype.hasOwnProperty.call(mainSubDivisionCache, mainSubDivisionCacheKey)
+        ? normalizeOptions(mainSubDivisionCache[mainSubDivisionCacheKey] || [])
+        : cascadeSubDivisions(filterOptions.sub_divisions, mainSelectedDivisionIdsForCascade, mainSelectedEntityIdsForCascade, mainSelectedGroupIdsForCascade);
 
     useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
                 const response = await getPayableFilters();
-                const raw = response?.data ?? response ?? {};
+                const responseData = response?.data ?? response ?? {};
+                const raw = responseData?.data && typeof responseData.data === "object"
+                    ? { ...responseData, ...responseData.data }
+                    : responseData;
                 const normalized = {
-                    legal_groups: normalizeOptions(raw.legal_groups),
-                    legal_entities: normalizeOptions(raw.legal_entities),
-                    parent_divisions: normalizeOptions(raw.parent_divisions),
-                    sub_divisions: normalizeOptions(raw.subdivisions || raw.sub_divisions),
+                    legal_groups: extractPayablesHierarchyOptions(response, PAYABLES_HIERARCHY_OPTION_ALIASES.legal_groups),
+                    legal_entities: extractPayablesLegalEntityOptions(response),
+                    parent_divisions: extractPayablesHierarchyOptions(response, PAYABLES_HIERARCHY_OPTION_ALIASES.parent_divisions),
+                    sub_divisions: extractPayablesHierarchyOptions(response, PAYABLES_HIERARCHY_OPTION_ALIASES.sub_divisions),
                     supplier_types: (() => {
                         const backendOptions = normalizeOptions(
                             raw.supplier_types ||
@@ -6449,11 +6755,18 @@ export default function PayablesDashboard() {
                 const dueOption = normalized.aging_bases.find((x) => x.value === "DUE_DATE" || String(x.label).toLowerCase().includes("due"));
                 if (!cancelled) {
                     setFilterOptions(normalized);
+                    const fjGroup = normalized.legal_groups.find((option) =>
+                        /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+                    );
+                    const defaultLegalGroup = fjGroup ? [fjGroup.label || fjGroup.value] : [];
+                    // FJ Group is the initial/reset selection only when returned
+                    // by the authenticated filter-options API.
                     // The footer's Last Updated On must show the latest
                     // backend-supported As On Date from as_on_dates.
                     setLastUpdatedAt(latestDate || null);
                     setFilters((prev) => ({
                         ...prev,
+                        legal_group: prev.legal_group?.length ? prev.legal_group : defaultLegalGroup,
                         as_on_date: latestDate,
                         reporting_currency: currencyOption?.value || "AED",
                         aging_basis: dueOption?.label || "Due Date",
@@ -6461,6 +6774,7 @@ export default function PayablesDashboard() {
                     }));
                     setAppliedFilters((prev) => ({
                         ...prev,
+                        legal_group: prev.legal_group?.length ? prev.legal_group : defaultLegalGroup,
                         as_on_date: latestDate,
                         reporting_currency: currencyOption?.value || "AED",
                         aging_basis: dueOption?.label || "Due Date",
@@ -6568,22 +6882,109 @@ export default function PayablesDashboard() {
         return () => { cancelled = true; };
     }, [baseApiFilters, appliedFilters, filterOptions, dashboardRetryKey]);
 
+    const handleMainLegalGroupChange = async (selectedGroups) => {
+        setFilters((previous) => ({ ...previous, legal_group: selectedGroups, legal_entities: [], parent_divisions: [], sub_divisions: [] }));
+        setMainParentDivisionCache({});
+        setMainSubDivisionCache({});
+        const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups);
+        if (!groupIds.length) { setGroupSpecificLegalEntities({}); return; }
+        const cacheKey = groupIds.slice().sort().join("|");
+        setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: [] }));
+        try {
+            const response = await getPayableFilters({ legal_group_id: groupIds });
+            setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: extractPayablesLegalEntityOptions(response) }));
+        } catch (error) {
+            console.error("Failed to load Payables Legal Entities for selected Legal Group", error);
+            setGroupSpecificLegalEntities((previous) => ({ ...previous, [cacheKey]: [] }));
+        }
+    };
+
+    const handleMainLegalEntityChange = async (selectedEntities) => {
+        setFilters((previous) => ({ ...previous, legal_entities: selectedEntities, parent_divisions: [], sub_divisions: [] }));
+        setMainParentDivisionCache({}); setMainSubDivisionCache({});
+        const groupIds = resolveLegalGroupRequestIds(filters.legal_group, filterOptions.legal_groups);
+        const entityIds = resolveSelectedOptionIds(
+            selectedEntities,
+            mainLegalEntities,
+            ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"]
+        );
+        const cacheKey = [...groupIds, "::", ...entityIds].join("|");
+        if (!entityIds.length) return;
+        setMainParentDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+        try {
+            const response = await getPayableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds });
+            const options = extractPayablesHierarchyOptions(response, ["parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions"]);
+            setMainParentDivisionCache((previous) => ({ ...previous, [cacheKey]: options }));
+        } catch (error) {
+            console.error("Failed to load Payables Parent Divisions", error);
+            setMainParentDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+        }
+    };
+
+    const handleMainParentDivisionChange = async (selectedDivisions) => {
+        setFilters((previous) => ({ ...previous, parent_divisions: selectedDivisions, sub_divisions: [] }));
+        setMainSubDivisionCache({});
+        const groupIds = resolveLegalGroupRequestIds(filters.legal_group, filterOptions.legal_groups);
+        const entityIds = resolveSelectedOptionIds(
+            filters.legal_entities,
+            mainLegalEntities,
+            ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"]
+        );
+        const divisionIds = resolveSelectedOptionIds(
+            selectedDivisions,
+            mainParentDivisions,
+            ["parent_division_id", "parentDivisionId", "division_id", "divisionId", "id"]
+        );
+        const cacheKey = [...groupIds, "::", ...entityIds, "::", ...divisionIds].join("|");
+        if (!divisionIds.length) return;
+        setMainSubDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+        try {
+            const response = await getPayableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds, parent_division_id: divisionIds });
+            const options = extractPayablesHierarchyOptions(response, ["sub_divisions", "subdivisions", "subDivisions", "sub_division_options", "subDivisionOptions"]);
+            setMainSubDivisionCache((previous) => ({ ...previous, [cacheKey]: options }));
+        } catch (error) {
+            console.error("Failed to load Payables Sub-Divisions", error);
+            setMainSubDivisionCache((previous) => ({ ...previous, [cacheKey]: [] }));
+        }
+    };
+
     const setFilter = (key, value) => setFilters((previous) => ({ ...previous, [key]: value }));
 
-    const handleApply = () => setAppliedFilters({ ...filters, aging_basis: uiAgingBasis(filters.aging_basis) });
+    const handleApply = () => setAppliedFilters({ ...filters });
 
     const handleReset = () => {
+        const fjGroup = (filterOptions.legal_groups || []).find((option) =>
+            /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+        );
         const reset = {
             ...defaultPayableFilters,
+            legal_group: fjGroup ? [fjGroup.label || fjGroup.value] : [],
             as_on_date: getLatestBackendDate(filterOptions.as_on_dates),
+            aging_basis: filterOptions.aging_bases?.find((option) =>
+                String(option?.value ?? "").toUpperCase() === "DUE_DATE"
+            )?.label || "Due Date",
         };
         setDashboardError("");
         setFilters(reset);
         setAppliedFilters(reset);
+        setGroupSpecificLegalEntities({});
+        if (reset.legal_group.length) {
+            const groupIds = resolveLegalGroupRequestIds(reset.legal_group, filterOptions.legal_groups);
+            if (groupIds.length) {
+                const cacheKey = groupIds.slice().sort().join("|");
+                getPayableFilters({ legal_group_id: groupIds }).then((response) => {
+                    setGroupSpecificLegalEntities((previous) => ({
+                        ...previous, [cacheKey]: extractPayablesLegalEntityOptions(response),
+                    }));
+                }).catch((error) => console.error("Failed to reload FJ Group Legal Entities", error));
+            }
+        }
         setShowViewAll(false);
         setViewAllContext({});
         setViewAllResetKey((value) => value + 1);
         setTopSuppliersSearch("");
+        setTopSuppliersType("INTERNAL");
+        setSupplierTableRows([]);
         setSubDivisionSearch("");
         setMonthOnMonthSearch("");
         setMomDisplayUnit("AED");
@@ -6722,7 +7123,7 @@ export default function PayablesDashboard() {
         });
     };
 
-    const supplierRows = data.topSuppliers;
+    const supplierRows = supplierTableRows;
 
     const subDivisionTableRows = useMemo(
         () => [
@@ -6850,13 +7251,15 @@ export default function PayablesDashboard() {
         },
     ];
 
-    const filteredTopSuppliersRows = useMemo(
-        () =>
-            (data.topSuppliers || []).filter((row) =>
-                matchesTableSearch(row, supplierColumns, topSuppliersSearch)
-            ),
-        [data.topSuppliers, topSuppliersSearch]
-    );
+    const filteredTopSuppliersRows = useMemo(() => {
+        const rows = supplierTableRows || [];
+        const hasTypeMetadata = rows.some((row) => String(row.supplier_type || "").trim());
+        return rows.filter((row) => {
+            const typeMatches = !hasTypeMetadata ||
+                String(row.supplier_type || "").trim().toUpperCase().includes(topSuppliersType);
+            return typeMatches && matchesTableSearch(row, supplierColumns, topSuppliersSearch);
+        });
+    }, [supplierTableRows, topSuppliersSearch, topSuppliersType]);
 
     const filteredSubDivisionRows = useMemo(
         () =>
@@ -6915,6 +7318,7 @@ export default function PayablesDashboard() {
             }}
         >
             <style>{`
+        @keyframes payables-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         .payables-sales-ui {
           --sales-navy: #0f172a;
           --sales-slate: #64748b;
@@ -6958,50 +7362,54 @@ export default function PayablesDashboard() {
           background: #fff !important;
         }
         .payables-sales-ui .sales-style-filter-bar {
-          display: grid !important;
-          grid-template-columns: repeat(6, minmax(76px, 1fr)) 100px 96px 108px auto auto !important;
-          align-items: end !important;
-          gap: 6px !important;
+          display: flex !important;
+          align-items: flex-end !important;
+          flex-wrap: nowrap !important;
+          gap: 8px !important;
           width: 100% !important;
-        }
-        .payables-sales-ui .sales-style-filter-bar > div {
           min-width: 0 !important;
-          width: 100% !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-field {
+          flex: 1 1 115px !important;
+          min-width: 0 !important;
+          width: auto !important;
           max-width: none !important;
         }
-        /* Keep the Reporting Currency filter compact so the complete
-           filter row remains on one line at normal desktop widths. */
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(7),
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(8) {
+        /* Keep Reporting Currency compact without relying on child positions,
+           which change with RBAC-controlled Legal Group/Entity filters. */
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-currency {
+          flex: 0.68 1 88px !important;
+          min-width: 76px !important;
+          max-width: 112px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-aging {
+          flex: 0.72 1 92px !important;
+          min-width: 78px !important;
+          max-width: 120px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-date {
+          flex: 0.82 1 100px !important;
+          min-width: 94px !important;
+          max-width: 126px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-field > button {
           min-width: 0 !important;
           width: 100% !important;
-          max-width: 100% !important;
+          padding-left: 7px !important;
+          padding-right: 20px !important;
+          font-size: 0.68rem !important;
         }
-        /* Keep Reporting Currency and Aging Basis labels clear and prevent
-           adjacent filter labels from overlapping. */
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(7) label,
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(8) label {
-          display: block !important;
-          white-space: normal !important;
-          overflow: visible !important;
-          word-break: keep-all !important;
-        }
-        /* The date field must keep DD-MM-YYYY on one line. */
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9),
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9) > button {
-          min-width: 96px !important;
-        }
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9) > button {
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-currency > button,
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-aging > button {
           white-space: nowrap !important;
           overflow: hidden !important;
-          text-overflow: clip !important;
-          padding-left: 7px !important;
-          padding-right: 31px !important;
-          font-size: 10px !important;
+          text-overflow: ellipsis !important;
         }
         .payables-sales-ui .sales-style-filter-bar > button {
-          width: auto !important;
-          min-width: 72px !important;
+          flex: 0 0 auto !important;
+          min-width: 0 !important;
+          padding-left: 10px !important;
+          padding-right: 10px !important;
         }
         .payables-sales-ui .sales-style-filter-bar label {
           color: #1e3a8a !important;
@@ -7256,7 +7664,7 @@ export default function PayablesDashboard() {
         .payables-sales-ui .payables-action-menu > div {
           animation: scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards;
         }
-        .payables-sales-ui .sales-style-view-all-modal {
+        .sales-style-view-all-modal {
           position: fixed !important;
           top: 0 !important;
           left: 50% !important;
@@ -7274,8 +7682,8 @@ export default function PayablesDashboard() {
           background: #fff !important;
           animation: payablesViewAllModalIn 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards !important;
         }
-        .payables-sales-ui .sales-style-view-all-modal input,
-        .payables-sales-ui .sales-style-view-all-modal select {
+        .sales-style-view-all-modal input,
+        .sales-style-view-all-modal select {
           border-radius: 8px !important; font-size: 0.74rem !important;
           border-color: #e2e8f0 !important; color: #334155 !important;
           background: #fff !important;
@@ -7289,11 +7697,6 @@ export default function PayablesDashboard() {
           from { transform: scale(0.95); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
-        @keyframes payablesViewAllKpiIn {
-          from { opacity: 0; transform: translateY(8px) scale(0.985); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
@@ -7304,15 +7707,209 @@ export default function PayablesDashboard() {
         }
         .payables-sales-ui .payables-sales-main { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         .payables-sales-ui .sales-style-filter-bar { min-height: 58px; }
-        .payables-sales-ui .sales-style-filter-bar > div { min-width: 0 !important; }
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(7) { min-width: 82px !important; }
-        .payables-sales-ui .sales-style-filter-bar > div:nth-child(9) { min-width: 96px !important; }
-        .payables-sales-ui .sales-style-view-all-modal { overflow-y: auto !important; overflow-x: hidden !important; }
-        .payables-sales-ui .sales-style-view-all-modal > div:not([aria-hidden]) { box-sizing: border-box; }
-        .payables-sales-ui .sales-style-view-all-modal table th { position: sticky; top: 0; z-index: 3; }
-        .payables-sales-ui .sales-style-view-all-modal button:hover { transform: translateY(-1px); }
-        .payables-sales-ui .sales-style-view-all-modal input:focus,
-        .payables-sales-ui .sales-style-view-all-modal select:focus { border-color: #818cf8 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important; outline: none; }
+        .payables-sales-ui .sales-style-filter-bar > .payables-filter-field { min-width: 0 !important; }
+        .sales-style-view-all-modal { overflow-y: auto !important; overflow-x: hidden !important; }
+        .sales-style-view-all-modal > div:not([aria-hidden]) { box-sizing: border-box; }
+        .sales-style-view-all-modal table thead { position: relative; }
+        .sales-style-view-all-modal table thead th { position: sticky !important; top: 0 !important; z-index: 30 !important; }
+        .sales-style-view-all-modal button:hover { transform: translateY(-1px); }
+        .sales-style-view-all-modal input:focus,
+        .sales-style-view-all-modal select:focus { border-color: #818cf8 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important; outline: none; }
+
+        /* Reference-style KPI cards: soft pastel surfaces with clear metric hierarchy. */
+        .payables-sales-ui .payables-kpi-grid {
+          grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+          gap: 12px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi {
+          min-height: 126px !important;
+          height: auto !important;
+          padding: 10px !important;
+          border-radius: 12px !important;
+          border: 1px solid rgba(226,232,240,.45) !important;
+          box-shadow: 0 2px 8px rgba(15,23,42,.035) !important;
+          gap: 6px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child { gap: 8px !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:first-child {
+          width: 36px !important; height: 36px !important; min-width: 36px !important;
+          font-size: 19px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) { gap: 3px !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:first-child {
+          min-height: 0 !important; font-size: 11px !important; line-height: 1.15 !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:nth-child(2) {
+          font-size: 18px !important; line-height: 1.1 !important; letter-spacing: -.025em !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:nth-child(3) { font-size: 9px !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child {
+          padding: 6px 8px !important; border-radius: 8px !important; gap: 5px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child > div { font-size: 9px !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(1) { background: linear-gradient(135deg,#eff6ff,#f4f7ff) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(2) { background: linear-gradient(135deg,#fffbeb,#fff8e8) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(3) { background: linear-gradient(135deg,#f5f3ff,#faf7ff) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(4) { background: linear-gradient(135deg,#f0fdf4,#f5fff8) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(5) { background: linear-gradient(135deg,#fff1f2,#fff7f7) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6) { background: linear-gradient(135deg,#fff1f2,#fff7f7) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(7) { background: linear-gradient(135deg,#fffbeb,#fff8e8) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(8) { background: linear-gradient(135deg,#ecfeff,#f0fdff) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(9) { background: linear-gradient(135deg,#fff7ed,#fffbeb) !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(10) { background: linear-gradient(135deg,#f5f3ff,#faf7ff) !important; }
+        .sales-style-view-all-modal { overflow-x: hidden !important; overflow-y: auto !important; }
+        /* Match Receivables: one modal/page scroll, no nested table scrollbars.
+           Sticky headers and totals stay attached to the modal's scroll viewport. */
+        /* Receivables pattern: one main content scroll viewport; no table-level scrolling. */
+        .sales-style-view-all-modal {
+          overflow: hidden !important;
+        }
+        .sales-style-view-all-modal > .payables-view-all-scroll {
+          flex: 1 1 auto !important;
+          min-height: 0 !important;
+          height: 100% !important;
+          max-height: 100% !important;
+          overflow-y: auto !important;
+          overflow-x: auto !important;
+          position: relative !important;
+          isolation: isolate !important;
+          overscroll-behavior: contain !important;
+        }
+        /* The View All modal is the sole vertical scroll container. Do not
+           create an inner scrollport around either table: sticky headers and
+           the pinned Total row are positioned against the modal scrollport. */
+        .sales-style-view-all-modal {
+          overflow: hidden !important;
+          overscroll-behavior-y: contain !important;
+          position: fixed !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-table-scroll,
+        .sales-style-view-all-modal .payables-mom-table-scroll {
+          display: block !important;
+          flex: 0 0 auto !important;
+          min-height: 0 !important;
+          height: auto !important;
+          max-height: none !important;
+          overflow: visible !important;
+          overflow-y: visible !important;
+          overflow-x: visible !important;
+          position: static !important;
+          overscroll-behavior: auto !important;
+          contain: none !important;
+          transform: none !important;
+        }
+        /* Critical: do NOT override overflow on .payables-view-all-scroll.
+           It is the single vertical scrollport; sticky table headers are anchored here. */
+        .sales-style-view-all-modal > .payables-view-all-scroll {
+          flex: 1 1 auto !important;
+          min-height: 0 !important;
+          height: 100% !important;
+          max-height: 100% !important;
+          overflow-y: auto !important;
+          overflow-x: auto !important;
+          position: relative !important;
+          isolation: isolate !important;
+          overscroll-behavior: contain !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table thead th,
+        .sales-style-view-all-modal .payables-view-all-table-scroll table thead th {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 30 !important;
+          background: #edf4ff !important;
+          background-clip: padding-box !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table tfoot td,
+        .sales-style-view-all-modal .payables-view-all-table-scroll table tfoot td,
+        .sales-style-view-all-modal .payables-view-all-scroll table tbody tr.payables-fixed-total-row td {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 18 !important;
+          background: #eef4ff !important;
+          color: #172554 !important;
+          font-weight: 900 !important;
+          border-top: 2px solid #cbd5e1 !important;
+        }
+        .sales-style-view-all-modal .payables-mom-table-scroll thead tr:first-child th {
+          position: sticky !important; top: 0 !important; z-index: 42 !important;
+          background: #edf4ff !important; background-clip: padding-box !important;
+        }
+        .sales-style-view-all-modal .payables-mom-table-scroll thead tr:nth-child(2) th {
+          position: sticky !important; top: 35px !important; z-index: 41 !important;
+          background: #edf4ff !important; background-clip: padding-box !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"] {
+          z-index: 36 !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table {
+          border-collapse: separate !important;
+          border-spacing: 0 !important;
+          overflow: visible !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table thead {
+          position: sticky !important; top: 0 !important; z-index: 20 !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table thead th {
+          position: sticky !important; top: 0 !important; z-index: 20 !important;
+          background: #edf4ff !important; background-clip: padding-box !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table thead tr:nth-child(2) th {
+          top: 35px !important; z-index: 19 !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table thead th[style*="left"] { z-index: 30 !important; }
+        .sales-style-view-all-modal .payables-view-all-scroll table tbody tr.payables-fixed-total-row td,
+        .sales-style-view-all-modal .payables-view-all-scroll table tfoot td {
+          position: sticky !important; bottom: 0 !important; z-index: 18 !important;
+          background: #eef4ff !important; color: #172554 !important; font-weight: 900 !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-detail-table tfoot td {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 20 !important;
+          background: #eef4ff !important;
+          color: #173b8f !important;
+          font-weight: 900 !important;
+        }
+
+        /* Final View All sticky rules: modal scrolls, rows do not scroll in a nested box. */
+        .sales-style-view-all-modal .payables-view-all-scroll table,
+        .sales-style-view-all-modal .payables-view-all-table-scroll table {
+          border-collapse: separate !important;
+          border-spacing: 0 !important;
+          overflow: visible !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table thead th,
+        .sales-style-view-all-modal .payables-view-all-table-scroll table thead th,
+        .sales-style-view-all-modal .payables-mom-table-scroll thead th {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 40 !important;
+          background: #edf4ff !important;
+          background-clip: padding-box !important;
+        }
+        .sales-style-view-all-modal .payables-mom-table-scroll thead tr:nth-child(2) th {
+          top: 35px !important;
+          z-index: 39 !important;
+        }
+        .sales-style-view-all-modal .payables-view-all-scroll table tbody tr.payables-fixed-total-row td,
+        .sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row td,
+        .sales-style-view-all-modal .payables-view-all-scroll table tfoot td,
+        .sales-style-view-all-modal .payables-view-all-table-scroll table tfoot td {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 35 !important;
+          background: #eef4ff !important;
+          color: #172554 !important;
+          font-weight: 900 !important;
+          border-top: 2px solid #cbd5e1 !important;
+        }
+
+        @media (max-width: 1250px) {
+          .payables-sales-ui .payables-kpi-grid { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
+        }
+        @media (max-width: 700px) {
+          .payables-sales-ui .payables-kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+        }
 
         /* ==========================================================
            SALES REVENUE VISUAL SYSTEM — PAYABLES ONLY
@@ -7596,6 +8193,71 @@ export default function PayablesDashboard() {
   min-width: 1690px !important;
 }
 
+/* Final View All scroll/sticky fix (Payables only).
+   The modal content is the only vertical scrollport. Table wrappers remain
+   overflow: visible so sticky headers and the Total row use that same viewport. */
+.sales-style-view-all-modal {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 92vh !important;
+  overflow: hidden !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  position: relative !important;
+  isolation: isolate !important;
+  overscroll-behavior: contain !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll,
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  display: block !important;
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  position: static !important;
+  contain: none !important;
+  transform: none !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table,
+.sales-style-view-all-modal .payables-view-all-table-scroll table {
+  width: max-content !important;
+  min-width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: visible !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th,
+.sales-style-view-all-modal .payables-view-all-table-scroll table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"] {
+  z-index: 60 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-detail-table tfoot td,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tfoot td {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 45 !important;
+  background: #eef4ff !important;
+  color: #172554 !important;
+  font-weight: 900 !important;
+  border-top: 2px solid #cbd5e1 !important;
+}
 @media (max-width: 900px) {
   .payables-sales-ui table thead th {
     padding: 9px 12px !important;
@@ -7612,6 +8274,1047 @@ export default function PayablesDashboard() {
   }
 }
 }
+
+/* FINAL PATCH — Payables View All viewport, sticky headers, compact KPI spacing.
+   Scoped to Payables only; does not change API calls, state, RBAC, or calculations. */
+.sales-style-view-all-modal {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  max-height: none !important;
+  overflow: auto !important;
+  position: relative !important;
+  isolation: isolate !important;
+  padding: 12px 16px 24px !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll,
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overflow-y: visible !important;
+  position: static !important;
+  transform: none !important;
+  contain: none !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table,
+.sales-style-view-all-modal .payables-view-all-table-scroll table,
+.sales-style-view-all-modal .payables-mom-table-scroll table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: visible !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th,
+.sales-style-view-all-modal .payables-view-all-table-scroll table thead th,
+.sales-style-view-all-modal .payables-mom-table-scroll table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 80 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll table thead tr:nth-child(2) th {
+  top: 35px !important;
+  z-index: 79 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"] {
+  z-index: 90 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-detail-table tfoot td,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tfoot td {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 70 !important;
+  background: #eef4ff !important;
+  border-top: 2px solid #cbd5e1 !important;
+}
+/* Remove excess vertical space under KPI values without changing card content. */
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi {
+  min-height: 0 !important;
+  padding-bottom: 8px !important;
+}
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0 !important;
+}
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child > div {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+@media (max-width: 700px) {
+  .sales-style-view-all-modal > .payables-view-all-scroll {
+    padding: 8px !important;
+  }
+}
+
+
+/* FINAL FIX — Payables View All only. Keep the modal viewport full-screen,
+   with exactly one vertical scroll container shared by both tabs. */
+.sales-style-view-all-modal {
+  position: relative !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100dvh !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  position: relative !important;
+  isolation: isolate !important;
+  overscroll-behavior: contain !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll,
+.sales-style-view-all-modal .payables-view-all-table-scroll {
+  overflow: visible !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  position: static !important;
+  contain: none !important;
+  transform: none !important;
+}
+.sales-style-view-all-modal table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.sales-style-view-all-modal table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 80 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll table thead tr:nth-child(2) th {
+  top: 35px !important;
+  z-index: 79 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"] {
+  z-index: 90 !important;
+}
+/* Remove the extra blank area marked under KPI values, preserving variance rows. */
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi {
+  min-height: 0 !important;
+  height: auto !important;
+  padding-bottom: 6px !important;
+}
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0 !important;
+}
+
+
+/* FINAL VERIFIED-SOURCE PATCH: Payables View All sticky headers in both tabs.
+   The View All content element is the only vertical scrollport; table wrappers
+   must remain overflow-visible so sticky TH elements attach to that scrollport. */
+.sales-style-view-all-modal {
+  position: relative !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  flex: 1 1 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: auto !important;
+  position: relative !important;
+  isolation: isolate !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll,
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  overflow: visible !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  position: static !important;
+  contain: none !important;
+  transform: none !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table,
+.sales-style-view-all-modal .payables-view-all-table-scroll table,
+.sales-style-view-all-modal .payables-mom-table-scroll table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead,
+.sales-style-view-all-modal .payables-view-all-table-scroll table thead,
+.sales-style-view-all-modal .payables-mom-table-scroll table thead {
+  position: static !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th,
+.sales-style-view-all-modal .payables-view-all-table-scroll table thead th,
+.sales-style-view-all-modal .payables-mom-table-scroll table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 120 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll table thead tr:nth-child(2) th {
+  top: 35px !important;
+  z-index: 119 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"] {
+  z-index: 130 !important;
+}
+/* KPI: the standalone variance indicator below the value is intentionally removed.
+   Target and Last Month comparisons remain in the existing comparison panel. */
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div > div:nth-child(3) {
+  display: none !important;
+}
+
+/* Match the working Receivables View All scroll architecture:
+   only the modal's main content element scrolls vertically. Table wrappers must
+   not create a second scrollport, otherwise sticky TH cells stop at the wrapper. */
+.sales-style-view-all-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  display: block !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  position: relative !important;
+  overscroll-behavior: contain !important;
+  isolation: isolate !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll,
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  display: block !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  position: static !important;
+  contain: none !important;
+  transform: none !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll table,
+.sales-style-view-all-modal .payables-mom-table-scroll table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll thead th,
+.sales-style-view-all-modal .payables-view-all-detail-table thead th,
+.sales-style-view-all-modal .payables-mom-table-scroll thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 120 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll thead tr:nth-child(2) th {
+  top: 35px !important;
+  z-index: 119 !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll thead th[style*="left"],
+.sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"],
+.sales-style-view-all-modal .payables-mom-table-scroll thead th[style*="left"] {
+  z-index: 130 !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll tfoot td,
+.sales-style-view-all-modal .payables-view-all-detail-table tfoot td,
+.sales-style-view-all-modal .payables-mom-table-scroll tfoot td,
+.sales-style-view-all-modal .payables-mom-table-scroll tbody tr.payables-fixed-total-row td {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 80 !important;
+}
+
+/* FINAL targeted correction: full-width overlay and sticky headers in both View All tabs.
+   Keep one modal scrollport; do not introduce a table-level vertical scrollbar. */
+.sales-style-view-all-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  flex: 0 0 100vw !important;
+  width: 100vw !important;
+  min-width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  display: block !important;
+  flex: 1 1 0% !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  position: relative !important;
+  overscroll-behavior: contain !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll,
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  display: block !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  position: static !important;
+  contain: none !important;
+  transform: none !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll table,
+.sales-style-view-all-modal .payables-mom-table-scroll table,
+.sales-style-view-all-modal .payables-view-all-detail-table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll thead th,
+.sales-style-view-all-modal .payables-view-all-detail-table thead th,
+.sales-style-view-all-modal .payables-mom-table-scroll thead th {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 300 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+  box-shadow: 0 1px 0 #dbe5f2 !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll thead tr:nth-child(2) th {
+  top: 35px !important;
+  z-index: 299 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"],
+.sales-style-view-all-modal .payables-mom-table-scroll thead th[style*="left"] {
+  z-index: 310 !important;
+}
+
+
+/* FINAL OVERRIDE: neutralize legacy centered-modal rules (left:50% and translateX)
+   which were shrinking/offsetting the portal despite the 100vw inline dimensions. */
+.sales-style-view-all-modal {
+  position: fixed !important;
+  inset: 0 0 0 0 !important;
+  top: 0 !important; right: 0 !important; bottom: 0 !important; left: 0 !important;
+  width: 100vw !important; min-width: 100vw !important; max-width: none !important;
+  height: 100vh !important; height: 100dvh !important;
+  min-height: 100vh !important; min-height: 100dvh !important;
+  max-height: 100vh !important; max-height: 100dvh !important;
+  margin: 0 !important; border: 0 !important; border-radius: 0 !important;
+  transform: none !important; animation: none !important;
+  overflow: hidden !important; box-sizing: border-box !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  display: block !important; flex: 1 1 0% !important; width: 100% !important;
+  min-width: 0 !important; height: 0 !important; min-height: 0 !important;
+  max-height: none !important; overflow-y: auto !important; overflow-x: auto !important;
+  position: relative !important; overscroll-behavior: contain !important;
+}
+.sales-style-view-all-modal .payables-view-all-table-scroll,
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  overflow: visible !important; overflow-y: visible !important; overflow-x: visible !important;
+  height: auto !important; max-height: none !important; position: static !important;
+  contain: none !important; transform: none !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table,
+.sales-style-view-all-modal .payables-view-all-table-scroll table,
+.sales-style-view-all-modal .payables-mom-table-scroll table {
+  border-collapse: separate !important; border-spacing: 0 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table thead th,
+.sales-style-view-all-modal .payables-view-all-table-scroll thead th,
+.sales-style-view-all-modal .payables-mom-table-scroll thead th {
+  position: -webkit-sticky !important; position: sticky !important;
+  top: 0 !important; z-index: 500 !important;
+  background: #edf4ff !important; background-clip: padding-box !important;
+  box-shadow: 0 1px 0 #dbe5f2 !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll thead tr:nth-child(2) th {
+  top: 35px !important; z-index: 499 !important;
+}
+
+
+/* FINAL, component-scoped layout fix.
+   The modal itself is viewport-sized; its content is the only vertical scrollport.
+   Month-on-Month keeps all 25 columns (Parent Division + 12 x Payables/DPO).
+   Both month header rows stick to the same scrollport. */
+.sales-style-view-all-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  position: relative !important;
+  isolation: isolate !important;
+  overscroll-behavior: contain !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  position: static !important;
+  contain: none !important;
+  transform: none !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll > table {
+  display: table !important;
+  width: max-content !important;
+  min-width: 2080px !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  overflow: visible !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll > table > thead {
+  display: table-header-group !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll > table > thead > tr:first-child > th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 120 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll > table > thead > tr:nth-child(2) > th {
+  position: sticky !important;
+  top: 35px !important;
+  z-index: 119 !important;
+  background: #f8fbff !important;
+  background-clip: padding-box !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll > table > thead > tr:first-child > th[rowspan="2"] {
+  top: 0 !important;
+  z-index: 130 !important;
+}
+.sales-style-view-all-modal .payables-mom-table-scroll > table > thead th[style*="left"] {
+  left: 0 !important;
+  z-index: 140 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table > thead th,
+.sales-style-view-all-modal .payables-view-all-table-scroll > table > thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 120 !important;
+  background: #edf4ff !important;
+  background-clip: padding-box !important;
+}
+
+/* ==========================================================
+   SALES PAGE VISUAL PARITY — PAYABLES ONLY
+   Styling-only overrides. No state, API, RBAC, or filter logic.
+========================================================== */
+.payables-sales-ui {
+  --payables-ui-ink: #0f172a;
+  --payables-ui-muted: #64748b;
+  --payables-ui-border: #e2e8f0;
+  --payables-ui-accent: #4f46e5;
+  --payables-ui-surface: #ffffff;
+  --payables-ui-soft: #f8fafc;
+}
+.payables-sales-ui,
+.payables-sales-ui button,
+.payables-sales-ui input,
+.payables-sales-ui select,
+.payables-sales-ui textarea,
+.sales-style-view-all-modal,
+.sales-style-view-all-modal button,
+.sales-style-view-all-modal input,
+.sales-style-view-all-modal select {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+.payables-sales-ui h1,
+.payables-sales-ui h2,
+.payables-sales-ui h3,
+.payables-sales-ui h4,
+.sales-style-view-all-modal h1,
+.sales-style-view-all-modal h2,
+.sales-style-view-all-modal h3,
+.sales-style-view-all-modal h4 {
+  color: #0f172a !important;
+  letter-spacing: -0.015em !important;
+}
+.payables-sales-ui h2,
+.sales-style-view-all-modal h2 {
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+}
+.payables-sales-ui h3,
+.sales-style-view-all-modal h3 {
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+}
+.payables-sales-ui p,
+.payables-sales-ui small,
+.sales-style-view-all-modal p,
+.sales-style-view-all-modal small {
+  line-height: 1.45;
+}
+
+/* Main filter fields — match Sales' compact 32px controls and indigo focus. */
+.payables-sales-ui .sales-style-filter-bar {
+  gap: 8px !important;
+  padding: 10px 14px !important;
+  border: 1px solid rgba(226,232,240,.85) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 4px 18px rgba(15,23,42,.035) !important;
+}
+.payables-sales-ui .sales-style-filter-bar label,
+.payables-sales-ui .sales-style-filter-bar .payables-filter-field > label {
+  color: #1e3a8a !important;
+  font-size: 0.66rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin-bottom: 4px !important;
+}
+.payables-sales-ui .sales-style-filter-bar .payables-filter-field > button,
+.payables-sales-ui .sales-style-filter-bar .payables-filter-currency > button,
+.payables-sales-ui .sales-style-filter-bar .payables-filter-aging > button,
+.payables-sales-ui .sales-style-filter-bar input,
+.payables-sales-ui .sales-style-filter-bar select {
+  height: 32px !important;
+  min-height: 32px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  color: #334155 !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+.payables-sales-ui .sales-style-filter-bar .payables-filter-field > button {
+  padding-left: 9px !important;
+  padding-right: 22px !important;
+}
+.payables-sales-ui .sales-style-filter-bar input:focus,
+.payables-sales-ui .sales-style-filter-bar select:focus,
+.payables-sales-ui .sales-style-filter-bar .payables-filter-field > button:focus-visible {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important;
+  outline: none !important;
+}
+.payables-sales-ui .sales-style-filter-bar #btn-apply-filter {
+  border-radius: 7px !important;
+  background: #4f46e5 !important;
+  border: 1px solid #4f46e5 !important;
+  color: #fff !important;
+  font-size: .70rem !important;
+  font-weight: 700 !important;
+}
+.payables-sales-ui .sales-style-filter-bar #btn-reset-filter {
+  border-radius: 7px !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+  font-size: .70rem !important;
+  font-weight: 600 !important;
+}
+
+/* Dropdown contents including searchable options, select-all and clear actions. */
+.payables-sales-ui .payables-dropdown-scroll {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 28px rgba(15,23,42,.12) !important;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+.payables-sales-ui .payables-dropdown-scroll button,
+.payables-sales-ui .payables-dropdown-scroll input {
+  font-family: inherit !important;
+  font-size: .72rem !important;
+}
+
+/* KPI cards: consistent Sales typography, tighter sizing, soft card treatment. */
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi,
+.sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi {
+  border: 1px solid rgba(226,232,240,.85) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 3px 12px rgba(15,23,42,.035) !important;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:last-child > div:first-child,
+.sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi > div:first-child > div:last-child > div:first-child {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  font-weight: 800 !important;
+}
+.payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:last-child > div:nth-child(2),
+.sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi > div:first-child > div:last-child > div:nth-child(2) {
+  font-size: 22px !important;
+  line-height: 1.12 !important;
+  font-weight: 850 !important;
+  letter-spacing: -.025em !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Dashboard panels and chart/table cards use consistent radius and borders. */
+.payables-sales-ui .payables-kpi-grid + div,
+.payables-sales-ui .payables-chart-card,
+.payables-sales-ui .payables-table-card,
+.payables-sales-ui .payables-sticky-table-card,
+.sales-style-view-all-modal .payables-sticky-table-card {
+  border-color: #e2e8f0 !important;
+  border-radius: 12px !important;
+}
+.payables-sales-ui table,
+.sales-style-view-all-modal table {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: .74rem !important;
+  color: #334155 !important;
+}
+.payables-sales-ui table thead th,
+.sales-style-view-all-modal table thead th {
+  background: #edf4ff !important;
+  color: #1e3a8a !important;
+  border-color: #dbe5f2 !important;
+  font-size: .68rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+  letter-spacing: .01em !important;
+  padding-top: 9px !important;
+  padding-bottom: 9px !important;
+}
+.payables-sales-ui table tbody td,
+.sales-style-view-all-modal table tbody td {
+  color: #334155;
+  border-color: #edf2f7 !important;
+  font-size: .73rem !important;
+  line-height: 1.4 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+.payables-sales-ui table tbody tr:nth-child(even),
+.sales-style-view-all-modal table tbody tr:nth-child(even) {
+  background-color: #fafcff;
+}
+.payables-sales-ui table tbody tr:hover,
+.sales-style-view-all-modal table tbody tr:hover {
+  background-color: #f1f5ff;
+}
+.payables-sales-ui table td.payables-negative-cell,
+.payables-sales-ui table tbody td.payables-negative-cell {
+  color: #dc2626 !important;
+}
+
+/* View All filters, dropdown values and action buttons follow the same design. */
+.sales-style-view-all-modal .payables-view-all-filter-bar {
+  gap: 8px !important;
+  padding: 10px 14px !important;
+  border: 1px solid rgba(226,232,240,.85) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 4px 18px rgba(15,23,42,.035) !important;
+}
+.sales-style-view-all-modal .payables-view-all-filter-bar label,
+.sales-style-view-all-modal .payables-view-all-filter-bar > div > div:first-child {
+  color: #1e3a8a !important;
+  font-size: .66rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+.sales-style-view-all-modal .payables-view-all-filter-bar input,
+.sales-style-view-all-modal .payables-view-all-filter-bar select,
+.sales-style-view-all-modal .payables-view-all-filter-bar .payables-view-all-filter > button,
+.sales-style-view-all-modal .payables-view-all-filter-bar > div > button {
+  font-family: inherit !important;
+  font-size: .72rem !important;
+  border-radius: 7px !important;
+}
+.sales-style-view-all-modal .payables-view-all-filter-bar .payables-view-all-filter > button {
+  height: 32px !important;
+  min-height: 32px !important;
+  border-color: #e2e8f0 !important;
+  background: #fff !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+.sales-style-view-all-modal .payables-view-all-filter-bar .payables-view-all-apply-button {
+  background: #4f46e5 !important;
+  color: #fff !important;
+  border: 1px solid #4f46e5 !important;
+  font-weight: 700 !important;
+}
+.sales-style-view-all-modal .payables-view-all-filter-bar button:hover {
+  border-color: #c7d2fe !important;
+}
+
+@media (max-width: 1100px) {
+  .payables-sales-ui .sales-style-filter-bar {
+    flex-wrap: wrap !important;
+  }
+  .payables-sales-ui .sales-style-filter-bar > .payables-filter-field,
+  .payables-sales-ui .sales-style-filter-bar > .payables-filter-currency,
+  .payables-sales-ui .sales-style-filter-bar > .payables-filter-aging,
+  .payables-sales-ui .sales-style-filter-bar > .payables-filter-date {
+    flex: 1 1 145px !important;
+    max-width: none !important;
+  }
+}
+
+
+        /* FINAL SALES-PAGE VISUAL ALIGNMENT — presentation only. */
+        .payables-sales-ui,
+        .payables-sales-ui .payables-sales-main {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+          color: #334155 !important;
+        }
+        .payables-sales-ui .payables-sales-main {
+          padding-top: 20px !important;
+          padding-bottom: 32px !important;
+        }
+        .payables-sales-ui .payables-sales-main h1 {
+          color: #172554 !important;
+          font-size: 1.45rem !important;
+          line-height: 1.15 !important;
+          font-weight: 800 !important;
+          letter-spacing: -0.025em !important;
+          margin: 0 !important;
+        }
+        .payables-sales-ui .sales-style-subtitle {
+          color: #64748b !important;
+          font-size: .78rem !important;
+          line-height: 1.45 !important;
+          font-weight: 500 !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar {
+          gap: 8px !important;
+          padding: 10px 12px !important;
+          margin-bottom: 16px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 12px !important;
+          background: #fff !important;
+          box-shadow: 0 2px 8px rgba(15,23,42,.025) !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar label,
+        .payables-sales-ui .sales-style-filter-bar .payables-filter-field > label {
+          color: #173575 !important;
+          font-size: .70rem !important;
+          line-height: 1.25 !important;
+          font-weight: 700 !important;
+          margin-bottom: 4px !important;
+        }
+        .payables-sales-ui .sales-style-filter-bar input,
+        .payables-sales-ui .sales-style-filter-bar select,
+        .payables-sales-ui .sales-style-filter-bar .payables-filter-field > button {
+          min-height: 32px !important;
+          border: 1px solid #dbe3ef !important;
+          border-radius: 7px !important;
+          background: #fff !important;
+          color: #334155 !important;
+          font-size: .74rem !important;
+          font-weight: 500 !important;
+          box-shadow: none !important;
+        }
+        .payables-sales-ui .payables-kpi-grid {
+          grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+          gap: 10px !important;
+          margin: 0 0 16px !important;
+          align-items: stretch !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi {
+          min-width: 0 !important;
+          min-height: 108px !important;
+          height: auto !important;
+          padding: 10px !important;
+          gap: 8px !important;
+          border: 1px solid rgba(226,232,240,.85) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 2px 8px rgba(15,23,42,.035) !important;
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child {
+          gap: 8px !important;
+          align-items: center !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:first-child {
+          width: 34px !important;
+          height: 34px !important;
+          min-width: 34px !important;
+          font-size: 18px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) {
+          gap: 3px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:first-child {
+          min-height: 0 !important;
+          font-size: 12px !important;
+          line-height: 1.25 !important;
+          font-weight: 800 !important;
+          letter-spacing: -.01em !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:nth-child(2) {
+          font-size: 21px !important;
+          line-height: 1.12 !important;
+          font-weight: 850 !important;
+          letter-spacing: -.025em !important;
+          overflow-wrap: anywhere !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child {
+          padding: 5px 7px !important;
+          border-radius: 8px !important;
+          gap: 4px !important;
+          margin-top: 2px !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child > div {
+          font-size: 10px !important;
+          line-height: 1.25 !important;
+        }
+        .payables-sales-ui section,
+        .payables-sales-ui .payables-chart-card,
+        .payables-sales-ui .payables-table-card,
+        .payables-sales-ui .payables-sticky-table-card {
+          border-color: #e2e8f0 !important;
+          border-radius: 12px !important;
+          box-shadow: 0 2px 8px rgba(15,23,42,.025) !important;
+        }
+        .payables-sales-ui table,
+        .payables-sales-ui button,
+        .payables-sales-ui input,
+        .payables-sales-ui select {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .payables-sales-ui table thead th {
+          padding: 9px 12px !important;
+          font-size: .70rem !important;
+          line-height: 1.25 !important;
+          font-weight: 800 !important;
+          color: #1e3a8a !important;
+          background: #edf4ff !important;
+          border-color: #dbe5f2 !important;
+        }
+        .payables-sales-ui table tbody td {
+          padding: 8px 12px !important;
+          font-size: .73rem !important;
+          line-height: 1.4 !important;
+          color: #334155 !important;
+          border-bottom-color: #edf2f7 !important;
+        }
+        .payables-sales-ui table tbody tr:nth-child(even) { background: #fafcff !important; }
+        .payables-sales-ui table tbody tr:hover td { background: #f1f5ff !important; }
+        .payables-sales-ui .payables-page-skeleton,
+        .payables-sales-ui .payables-skeleton-kpis,
+        .payables-sales-ui .payables-skeleton-grid { gap: 10px !important; }
+        @media (max-width: 1250px) {
+          .payables-sales-ui .payables-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 760px) {
+          .payables-sales-ui .payables-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 480px) {
+          .payables-sales-ui .payables-kpi-grid { grid-template-columns: minmax(0, 1fr) !important; }
+        }
+
+        /* Screenshot-matched Sales KPI typography and pastel palette — Payables only. */
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi {
+          min-height: 84px !important;
+          height: auto !important;
+          padding: 9px 10px !important;
+          gap: 5px !important;
+          border: 1px solid rgba(226,232,240,.38) !important;
+          border-radius: 14px !important;
+          box-shadow: none !important;
+          justify-content: center !important;
+          background: #eff6ff !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6n + 1) { background: #eef4ff !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6n + 2) { background: #effcf4 !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6n + 3) { background: #f5f1ff !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6n + 4) { background: #fff6e9 !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6n + 5) { background: #eafcff !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi:nth-child(6n) { background: #fff0f7 !important; }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child {
+          align-items: center !important;
+          gap: 8px !important;
+          min-height: 0 !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:first-child {
+          width: 32px !important;
+          height: 32px !important;
+          min-width: 32px !important;
+          font-size: 16px !important;
+          border-radius: 50% !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) {
+          gap: 2px !important;
+          min-width: 0 !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:first-child {
+          min-height: 0 !important;
+          font-size: 10.5px !important;
+          line-height: 1.15 !important;
+          font-weight: 800 !important;
+          letter-spacing: -.01em !important;
+          overflow-wrap: anywhere !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:nth-child(2) {
+          font-size: 16px !important;
+          line-height: 1.08 !important;
+          font-weight: 850 !important;
+          letter-spacing: -.035em !important;
+          color: #111827 !important;
+          overflow-wrap: anywhere !important;
+          font-variant-numeric: tabular-nums !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child {
+          display: grid !important;
+          grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
+          gap: 4px !important;
+          margin-top: 1px !important;
+          padding: 4px 6px !important;
+          border-radius: 8px !important;
+          background: rgba(255,255,255,.58) !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child > div {
+          min-width: 0 !important;
+          gap: 3px !important;
+          font-size: 9px !important;
+          line-height: 1.15 !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:last-child span {
+          font-size: 9px !important;
+          line-height: 1.15 !important;
+        }
+        @media (max-width: 760px) {
+          .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div:first-child > div:nth-child(2) > div:nth-child(2) { font-size: 15px !important; }
+        }
+
+        /* Keep the two KPI comparisons on separate stacked rows. Dedicated
+           classes prevent older generic KPI CSS from overriding this layout. */
+        /* The generic last-child KPI rule below uses a more specific selector.
+           Match that specificity here so the comparison container always stacks
+           Target and Last Month vertically (one comparison per row). */
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div.payables-kpi-comparison-row:last-child {
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) !important;
+          grid-auto-rows: minmax(14px, auto) !important;
+          align-items: center !important;
+          row-gap: 4px !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          padding: 5px 8px !important;
+          margin-top: auto !important;
+          box-sizing: border-box !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div.payables-kpi-comparison-row:last-child > .payables-kpi-comparison-item {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          gap: 6px !important;
+          min-width: 0 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          font-size: 9px !important;
+          line-height: 1.15 !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-label,
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-value {
+          flex: 0 0 auto !important;
+          white-space: nowrap !important;
+          font-size: 9px !important;
+          line-height: 1.15 !important;
+        }
+        .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-value > span {
+          font-size: 9px !important;
+          white-space: nowrap !important;
+        }
+        @media (max-width: 1250px) {
+          .payables-sales-ui .payables-kpi-grid .sales-style-kpi > div.payables-kpi-comparison-row:last-child > .payables-kpi-comparison-item { gap: 4px !important; }
+          .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-label,
+          .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-value,
+          .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-value > span { font-size: 8px !important; }
+        }
+
       `}</style>
             {/* ======================================================
           PAGE CONTENT
@@ -7684,88 +9387,85 @@ export default function PayablesDashboard() {
                         }}
                     >
 
-                        {/* Excel & PDF Exports */}
-                        {canExportPayables && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        handleExport("excel", {
-                                            unit: "AED",
-                                            report_section: "Dashboard",
-                                            report_title: "Payables Dashboard",
-                                        })
-                                    }
-                                    style={{
-                                        height: 34,
-                                        minWidth: 80,
-                                        padding: "0 13px",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        gap: 6,
-                                        border: "1px solid #86efac",
-                                        borderRadius: 8,
-                                        background: "#f7fffa",
-                                        color: "#16a34a",
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        cursor: "pointer",
-                                        transition: "all 0.2s ease",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = "#ecfdf5";
-                                        e.currentTarget.style.borderColor = "#4ade80";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = "#f7fffa";
-                                        e.currentTarget.style.borderColor = "#86efac";
-                                    }}
-                                >
-                                    <span style={{ fontSize: 13 }}>📊</span>
-                                    Excel
-                                </button>
+                        {/* Excel */}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                handleExport("excel", {
+                                    unit: "AED",
+                                    report_section: "Dashboard",
+                                    report_title: "Payables Dashboard",
+                                })
+                            }
+                            style={{
+                                height: 34,
+                                minWidth: 80,
+                                padding: "0 13px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                border: "1px solid #86efac",
+                                borderRadius: 8,
+                                background: "#f7fffa",
+                                color: "#16a34a",
+                                fontSize: 11,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "#ecfdf5";
+                                e.currentTarget.style.borderColor = "#4ade80";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "#f7fffa";
+                                e.currentTarget.style.borderColor = "#86efac";
+                            }}
+                        >
+                            <span style={{ fontSize: 13 }}>📊</span>
+                            Excel
+                        </button>
 
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        handleExport("pdf", {
-                                            unit: "AED",
-                                            report_section: "Dashboard",
-                                            report_title: "Payables Dashboard",
-                                        })
-                                    }
-                                    style={{
-                                        height: 34,
-                                        minWidth: 72,
-                                        padding: "0 13px",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        gap: 6,
-                                        border: "1px solid #fda4af",
-                                        borderRadius: 8,
-                                        background: "#fff8f8",
-                                        color: "#ef4444",
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        cursor: "pointer",
-                                        transition: "all 0.2s ease",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = "#fff1f2";
-                                        e.currentTarget.style.borderColor = "#fb7185";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = "#fff8f8";
-                                        e.currentTarget.style.borderColor = "#fda4af";
-                                    }}
-                                >
-                                    <span style={{ fontSize: 13 }}>📄</span>
-                                    PDF
-                                </button>
-                            </>
-                        )}
+                        {/* PDF */}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                handleExport("pdf", {
+                                    unit: "AED",
+                                    report_section: "Dashboard",
+                                    report_title: "Payables Dashboard",
+                                })
+                            }
+                            style={{
+                                height: 34,
+                                minWidth: 72,
+                                padding: "0 13px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                border: "1px solid #fda4af",
+                                borderRadius: 8,
+                                background: "#fff8f8",
+                                color: "#ef4444",
+                                fontSize: 11,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "#fff1f2";
+                                e.currentTarget.style.borderColor = "#fb7185";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "#fff8f8";
+                                e.currentTarget.style.borderColor = "#fda4af";
+                            }}
+                        >
+                            <span style={{ fontSize: 13 }}>📄</span>
+                            PDF
+                        </button>
 
 
                     </div>
@@ -7794,52 +9494,39 @@ export default function PayablesDashboard() {
                         flexWrap: "nowrap",
                     }}
                 >
-                    <FilterSelect
-                        label="Legal Group"
-                        value={filters.legal_group}
-                        options={filterOptions.legal_groups.map((x) => x.label)}
-                        multiple
-                        onChange={(value) =>
-                            setFilters((prev) => ({
-                                ...prev,
-                                legal_group: value,
-                                legal_entities: [],
-                                parent_divisions: [],
-                                sub_divisions: [],
-                            }))
-                        }
-                    />
+                    {showLegalGroupFilter && (
+                        <FilterSelect
+                            className="payables-filter-hierarchy"
+                            label="Legal Group"
+                            value={filters.legal_group}
+                            options={filterOptions.legal_groups.map((x) => x.label)}
+                            multiple
+                            onChange={handleMainLegalGroupChange}
+                        />
+                    )}
+
+                    {showLegalEntityFilter && (
+                        <FilterSelect
+                            className="payables-filter-hierarchy"
+                            label="Legal Entity"
+                            value={filters.legal_entities}
+                            options={mainLegalEntities.map((x) => x.label)}
+                            multiple
+                            onChange={handleMainLegalEntityChange}
+                        />
+                    )}
 
                     <FilterSelect
-                        label="Legal Entity"
-                        value={filters.legal_entities}
-                        options={mainLegalEntities.map((x) => x.label)}
-                        multiple
-                        onChange={(value) =>
-                            setFilters((prev) => ({
-                                ...prev,
-                                legal_entities: value,
-                                parent_divisions: [],
-                                sub_divisions: [],
-                            }))
-                        }
-                    />
-
-                    <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="Parent Division"
                         value={filters.parent_divisions}
                         options={mainParentDivisions.map((x) => x.label)}
                         multiple
-                        onChange={(value) =>
-                            setFilters((prev) => ({
-                                ...prev,
-                                parent_divisions: value,
-                                sub_divisions: [],
-                            }))
-                        }
+                        onChange={handleMainParentDivisionChange}
                     />
 
                     <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="Sub-Division"
                         value={filters.sub_divisions}
                         options={mainSubDivisions.map((x) => x.label)}
@@ -7853,6 +9540,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="Supplier Type"
                         value={filters.supplier_types}
                         options={filterOptions.supplier_types.map((x) => x.label)}
@@ -7866,6 +9554,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-hierarchy"
                         label="GL Code"
                         value={filters.gl_codes}
                         options={filterOptions.gl_codes.map((x) => x.label)}
@@ -7879,6 +9568,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-currency"
                         label="Reporting Currency"
                         value={filters.reporting_currency}
                         options={filterOptions.reporting_currencies.map((x) => x.label)}
@@ -7891,6 +9581,7 @@ export default function PayablesDashboard() {
                     />
 
                     <FilterSelect
+                        className="payables-filter-aging"
                         label="Aging Basis"
                         value={filters.aging_basis}
                         options={filterOptions.aging_bases.map((x) => x.label)}
@@ -7903,6 +9594,7 @@ export default function PayablesDashboard() {
                     />
 
                     <DateFilter
+                        className="payables-filter-date"
                         value={filters.as_on_date}
                         options={filterOptions?.as_on_dates || []}
                         onChange={(value) => {
@@ -8010,7 +9702,7 @@ export default function PayablesDashboard() {
 
                 {loading ? (
                     <PayablesPageSkeleton />
-                ) : isInternalSupplierEmpty ? (
+                ) : false ? (
                     <div
                         style={{
                             marginTop: 20,
@@ -8075,98 +9767,59 @@ export default function PayablesDashboard() {
             ================================================== */}
 
                         <div
+                            className="payables-kpi-grid"
                             style={{
-                                marginTop: "20px",
+                                marginTop: 20,
                                 display: "grid",
-                                gridTemplateColumns:
-                                    "repeat(7, minmax(0, 1fr))",
-                                gap: 9,
-                                marginBottom: 12,
+                                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                                gap: 12,
+                                marginBottom: 16,
                             }}
                         >
-                            <KpiCard
-                                title="Trade Payable (Aging)"
-                                value={kpis.total_payables}
-                                variance={kpis.total_payables_variance}
-                                previousDate={kpis?.previous_date}
-                                currency={currency}
-                                icon="▤"
-                                iconBg="#dbeafe"
-                                iconColor="#2563eb"
-                                cardBg="#f0f5ff"
-                            />
-
-                            <KpiCard
-                                title="Non-Aging Trade Payable"
-                                value={nonAgingTradePayable}
-                                currency={currency}
-                                forceMillions
-                                icon="↕"
-                                iconBg="#fef3c7"
-                                iconColor="#d97706"
-                                cardBg="#fffbeb"
-                            />
-
-                            <KpiCard
-                                title="Total Trade Payable"
-                                value={totalTradePayable}
-                                currency={currency}
-                                icon="Σ"
-                                iconBg="#ede9fe"
-                                iconColor="#7c3aed"
-                                cardBg="#f5f3ff"
-                            />
-
-                            <KpiCard
-                                title="Current Payables"
-                                value={kpis.current_payables}
-                                variance={kpis.current_payables_variance}
-                                previousDate={kpis.previous_date}
-                                currency={currency}
-                                icon="▣"
-                                iconBg="#dcfce7"
-                                iconColor="#16a34a"
-                                cardBg="#f0fdf4"
-                            />
-
-                            <KpiCard
-                                title="Overdue Payables"
-                                value={kpis.overdue_payables}
-                                variance={kpis.overdue_payables_variance}
-                                previousDate={kpis.previous_date}
-                                currency={currency}
-                                icon="⌛"
-                                iconBg="#ea580c"
-                                iconColor="#dc2626"
-                                cardBg="#fef2f2"
-                            />
-
-                            <KpiCard
-                                title="Overdue > 90 Days"
-                                value={kpis.overdue_gt_90}
-                                onClick={openOverdueAbove90Drilldown}
-                                variance={kpis.overdue_gt_90_variance}
-                                previousDate={kpis.previous_date}
-                                currency={currency}
-                                icon="!"
-                                iconBg="#ef4444"
-                                iconColor="#ffffff"
-                                titleColor="#dc2626"
-                                cardBg="#fef2f2"
-                            />
-
-                            <KpiCard
-                                title="DPO"
-                                value={kpis.dpo}
-                                variance={kpis.dpo_variance}
-                                previousDate={kpis.previous_date}
-                                suffix="Days"
-                                currency={currency}
-                                icon="%"
-                                iconBg="#cffafe"
-                                iconColor="#0891b2"
-                                cardBg="#ecfeff"
-                            />
+                            <KpiCard title="Trade Payable (Aging)" value={kpis.total_payables}
+                                variance={kpis.total_payables_variance} lastMonthVariance={kpis.total_payables_variance}
+                                targetVariance={kpis.total_payables_target_variance} previousDate={kpis?.previous_date}
+                                currency={currency} icon="▤" iconBg="#dbeafe" iconColor="#2563eb" titleColor="#1d4ed8" cardBg="#EEF4FF" />
+                            <KpiCard title="Non-Aging Trade Payable" value={nonAgingTradePayable}
+                                variance={kpis.non_aging_trade_payable_variance ?? otherPayables?.change_percentage ?? null}
+                                lastMonthVariance={kpis.non_aging_trade_payable_variance ?? otherPayables?.change_percentage ?? null}
+                                targetVariance={null} previousDate={otherPayables?.previous_date ?? kpis?.previous_date ?? null}
+                                currency={currency} forceMillions icon="↕" iconBg="#fef3c7" iconColor="#d97706" titleColor="#d97706" cardBg="#EFFCF4" />
+                            <KpiCard title="Total Trade Payable" value={totalTradePayable}
+                                variance={kpis.total_trade_payable_variance ?? otherPayables?.total_trade_payable_change_percentage ?? null}
+                                lastMonthVariance={kpis.total_trade_payable_variance ?? otherPayables?.total_trade_payable_change_percentage ?? null}
+                                targetVariance={null} previousDate={otherPayables?.previous_date ?? kpis?.previous_date ?? null}
+                                currency={currency} icon="Σ" iconBg="#ede9fe" iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#F5F2FF" />
+                            <KpiCard title="Current Payables" value={kpis.current_payables}
+                                variance={kpis.current_payables_variance} lastMonthVariance={kpis.current_payables_variance}
+                                targetVariance={kpis.current_payables_target_variance} previousDate={kpis.previous_date}
+                                currency={currency} icon="▣" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#16a34a" cardBg="#FFF6EA" />
+                            <KpiCard title="Overdue Payables" value={kpis.overdue_payables}
+                                variance={kpis.overdue_payables_variance} lastMonthVariance={kpis.overdue_payables_variance}
+                                targetVariance={kpis.overdue_payables_target_variance} previousDate={kpis.previous_date}
+                                currency={currency} icon="⌛" iconBg="#fee2e2" iconColor="#dc2626" titleColor="#dc2626" cardBg="#EAFBFC" />
+                            <KpiCard title="Overdue > 90 Days" value={kpis.overdue_gt_90}
+                                onClick={openOverdueAbove90Drilldown} variance={kpis.overdue_gt_90_variance}
+                                lastMonthVariance={kpis.overdue_gt_90_variance} targetVariance={kpis.overdue_gt_90_target_variance}
+                                previousDate={kpis.previous_date} currency={currency} icon="!"
+                                iconBg="#fee2e2" iconColor="#dc2626" titleColor="#dc2626" cardBg="#EAFBFC" />
+                            <KpiCard title="Overdue %" value={Number(kpis.total_payables) > 0 && kpis.overdue_payables != null
+                                ? (Number(kpis.overdue_payables) / Number(kpis.total_payables)) * 100 : null}
+                                suffix="%" variance={kpis.overdue_percentage_variance ?? null}
+                                lastMonthVariance={kpis.overdue_percentage_variance ?? null}
+                                targetVariance={kpis.overdue_percentage_target_variance ?? null}
+                                previousDate={kpis.previous_date} currency={currency} icon="%" iconBg="#fef3c7" iconColor="#d97706" titleColor="#d97706" cardBg="#EFFCF4" />
+                            <KpiCard title="DPO (Actual)" value={kpis.dpo} variance={kpis.dpo_variance}
+                                lastMonthVariance={kpis.dpo_variance} targetVariance={kpis.dpo_target_variance}
+                                previousDate={kpis.previous_date} suffix="Days" currency={currency}
+                                icon="▦" iconBg="#dbeafe" iconColor="#0284c7" titleColor="#0369a1" cardBg="#EAFBFC" />
+                            <KpiCard title="Target DPO" value={targetDpoValue}
+                                targetVariance={null} lastMonthVariance={null}
+                                suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#d97706" titleColor="#b45309" cardBg="#FFF0F7" />
+                            <KpiCard title="DPO Variance" value={dpoTargetVariance} suffix="Days"
+                                targetVariance={null} lastMonthVariance={null}
+                                previousDate={kpis.previous_date} currency={currency} icon="⚖" iconBg="#ede9fe"
+                                iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#F5F2FF" />
                         </div>
 
                         {/* ==================================================
@@ -8197,8 +9850,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Aging Summary" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Aging Summary" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Aging Summary" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Aging Summary" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Aging Summary" }) : undefined}
                                 />
                                 <SectionTitle info="Payables grouped by aging bucket">
                                     Payables Aging Summary ({currency})
@@ -8248,8 +9901,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Monthly Trend" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Monthly Trend" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Monthly Trend" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Monthly Trend" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Monthly Trend" }) : undefined}
                                 />
                                 <SectionTitle info="Historical total payables and DPO">
                                     Payables Trend ({currency})
@@ -8286,8 +9939,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Parent Division" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Parent Division" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Parent Division" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Parent Division" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Parent Division" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Payables by Parent Division ({currency})
@@ -8334,12 +9987,22 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Top 10 Suppliers" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Top 10 Suppliers" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Top 10 Suppliers" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Top 10 Suppliers" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Top 10 Suppliers" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Top 10 Suppliers by Payables ({currency})
                                 </SectionTitle>
+                                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -4, marginBottom: 8 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 2, padding: 2, border: "1px solid #dbe4f0", borderRadius: 7, background: "#f8fafc" }} aria-label="Supplier type selection">
+                                        {[{ value: "INTERNAL", label: "Internal" }, { value: "EXTERNAL", label: "External" }].map((item) => (
+                                            <button key={item.value} type="button" onClick={() => {
+                                                setTopSuppliersType(item.value);
+                                                setTopSuppliersSearch("");
+                                            }} style={{ border: 0, borderRadius: 5, padding: "6px 11px", fontSize: 10, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", background: topSuppliersType === item.value ? "#1d4ed8" : "transparent", color: topSuppliersType === item.value ? "#ffffff" : "#475569" }}>{item.label}</button>
+                                        ))}
+                                    </div>
+                                </div>
 
                                 <div
                                     className="search-wrap hide-on-tablet"
@@ -8362,22 +10025,20 @@ export default function PayablesDashboard() {
                                     />
                                 </div>
 
-                                {data.topSuppliers?.length ? (
+                                {supplierTableLoading ? (
+                                    <div aria-label={`Loading ${topSuppliersType.toLowerCase()} suppliers`} style={{ minHeight: 185, padding: "4px 0" }}>
+                                        {[0, 1, 2, 3, 4].map((row) => <div key={row} style={{ display: "grid", gridTemplateColumns: "8% 47% 24% 21%", gap: 6, alignItems: "center", height: 29, borderBottom: "1px solid #edf1f7", padding: "0 4px" }}>
+                                            {["55%", "75%", "62%", "48%"].map((width, cell) => <div key={cell} style={{ height: 10, width, justifySelf: cell > 1 ? "end" : "start", borderRadius: 6, background: "linear-gradient(90deg,#e8edf5 25%,#f8fafc 50%,#e8edf5 75%)", backgroundSize: "200% 100%", animation: "payables-shimmer 1.2s ease-in-out infinite" }} />)}
+                                        </div>)}
+                                    </div>
+                                ) : supplierTableError ? (
+                                    <div role="alert" style={{ minHeight: 185, display: "grid", placeItems: "center", color: "#be123c", fontSize: 11, fontWeight: 700, textAlign: "center" }}>{supplierTableError}</div>
+                                ) : supplierTableRows.length ? (
                                     <div className="top-suppliers-row-gap-1">
-                                        <DataTable
-                                            columns={supplierColumns}
-                                            rows={filteredTopSuppliersRows}
-                                            fitColumns
-                                            compactRows
-                                            rowVerticalPadding={4}
-                                            rowHeightExtraPx={5.5}
-                                            onCellClick={(row) => {
-                                                openSupplierDrilldown(row);
-                                            }}
-                                        />
+                                        <DataTable columns={supplierColumns} rows={filteredTopSuppliersRows} fitColumns compactRows rowVerticalPadding={4} rowHeightExtraPx={5.5} onCellClick={(row) => openSupplierDrilldown(row)} />
                                     </div>
                                 ) : <NoDataAvailable minHeight={185} />}
-                                <div
+                                {!supplierTableLoading && !supplierTableError && supplierTableRows.length > 0 && <div
                                     style={{
                                         display: "grid",
                                         gridTemplateColumns: "8% 47% 24% 21%",
@@ -8443,7 +10104,7 @@ export default function PayablesDashboard() {
                                             )
                                         )}
                                     </span>
-                                </div>
+                                </div>}
                             </section>
 
                             {/* Overdue Summary */}
@@ -8453,8 +10114,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ balance_status: "OVERDUE", component: "Overdue Summary" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Overdue Summary" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Overdue Summary" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Overdue Summary" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Overdue Summary" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Overdue Summary ({currency})
@@ -8480,6 +10141,7 @@ export default function PayablesDashboard() {
                                             centerLabel="Overdue"
                                             legendBelow
                                             largeOverdueChart
+                                            legendItemGap={22}
                                             tooltipPlacement="right"
                                             resetSignal={showViewAll}
                                             onSegmentClick={openAgingDrilldown}
@@ -8495,8 +10157,8 @@ export default function PayablesDashboard() {
                             >
                                 <SectionActions
                                     onViewAll={() => openPayablesViewAll({ component: "Sub-Division" })}
-                                    onExportExcel={() => handleExport("excel", { report_section: "Sub-Division" })}
-                                    onExportPdf={() => handleExport("pdf", { report_section: "Sub-Division" })}
+                                    onExportExcel={canExportPayables ? () => handleExport("excel", { report_section: "Sub-Division" }) : undefined}
+                                    onExportPdf={canExportPayables ? () => handleExport("pdf", { report_section: "Sub-Division" }) : undefined}
                                 />
                                 <SectionTitle>
                                     Payables by Sub-Division ({currency})
@@ -8527,12 +10189,15 @@ export default function PayablesDashboard() {
                                     <DataTable
                                         columns={subDivisionColumns}
                                         rows={filteredSubDivisionTableRows}
-                                        pageSize={10}
+                                        pageSize={11}
                                         keepFirstRow={true}
                                         showPageNumbers={true}
                                         paginationStyle="compact"
+                                        paginationButtonSize={34}
                                         fitColumns
                                         rowGap
+                                        rowVerticalPadding={18}
+                                        minRowHeight={48}
                                         onCellClick={(row, column) => {
                                             if (
                                                 row?.id !== "subdivision-total" &&
@@ -8715,18 +10380,18 @@ export default function PayablesDashboard() {
                                     {/* 3 DOTS */}
                                     <SectionActions
                                         onViewAll={() => openPayablesViewAll({ component: "Month-on-Month Payables" })}
-                                        onExportExcel={() =>
+                                        onExportExcel={canExportPayables ? () =>
                                             handleExport("excel", {
                                                 report_section: "Month-on-Month Payables",
                                                 unit: momDisplayUnit,
                                             })
-                                        }
-                                        onExportPdf={() =>
+                                            : undefined}
+                                        onExportPdf={canExportPayables ? () =>
                                             handleExport("pdf", {
                                                 report_section: "Month-on-Month Payables",
                                                 unit: momDisplayUnit,
                                             })
-                                        }
+                                            : undefined}
                                     />
                                 </div>
                             </div>
@@ -8823,6 +10488,9 @@ export default function PayablesDashboard() {
                     mainKpis={kpis}
                     currency={currency}
                     filterOptions={filterOptions}
+                    showLegalGroupFilter={showLegalGroupFilter}
+                    showLegalEntityFilter={showLegalEntityFilter}
+                    canExportPayables={canExportPayables}
                     baseFilters={baseApiFilters}
                     drilldown={viewAllContext}
                     onClose={() => setShowViewAll(false)}
@@ -8842,6 +10510,9 @@ function PayablesViewAll({
     mainKpis = {},
     currency,
     filterOptions = {},
+    showLegalGroupFilter = false,
+    showLegalEntityFilter = false,
+    canExportPayables = false,
     baseFilters = {},
     drilldown = {},
     onClose,
@@ -8852,6 +10523,9 @@ function PayablesViewAll({
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [viewAllDisplayUnit, setViewAllDisplayUnit] = useState("AED");
+    // Start in a comfortable modal window; the header control expands every
+    // Payables View All mode to the full dashboard viewport and restores it.
+    const [isViewAllMaximized, setIsViewAllMaximized] = useState(false);
 
     const [showParentDivisionMonthOnMonth, setShowParentDivisionMonthOnMonth] =
         useState(false);
@@ -8946,86 +10620,123 @@ function PayablesViewAll({
             return matched.label ?? matched.value ?? stringValue;
         }
 
-        return stringValue;
+        const compact = stringValue.toUpperCase().replace(/[^A-Z]/g, "").replace(/BASED$/, "");
+        const semanticMatch = options.find((item) => {
+            const value = String(item?.value ?? item ?? "").toUpperCase().replace(/[^A-Z]/g, "").replace(/BASED$/, "");
+            const label = String(item?.label ?? item ?? "").toUpperCase().replace(/[^A-Z]/g, "").replace(/BASED$/, "");
+            return (compact.includes("INVOICE") && (value.includes("INVOICE") || label.includes("INVOICE"))) ||
+                ((compact.includes("DUE") || compact === "DUEDATE") && (value.includes("DUE") || label.includes("DUE")));
+        });
+        return semanticMatch?.label ?? stringValue;
     };
 
-    const getInitialViewFilters = () => ({
-        legal_group: Array.isArray(filters?.legal_group)
+    const getInitialViewFilters = () => {
+        const fjGroupOption = normalizeOptions(filterOptions?.legal_groups || []).find((option) =>
+            /\bfj\s*group\b/i.test(`${option.label || ""} ${option.value || ""}`)
+        );
+        const inheritedLegalGroups = Array.isArray(filters?.legal_group)
             ? [...filters.legal_group]
-            : filters?.legal_group
-                ? [filters.legal_group]
-                : [],
+            : filters?.legal_group ? [filters.legal_group] : [];
+        return ({
+            legal_group: fjGroupOption ? [fjGroupOption.label || fjGroupOption.value] : inheritedLegalGroups,
 
-        legal_entities: Array.isArray(
-            filters?.legal_entities
-        )
-            ? [...filters.legal_entities]
-            : filters?.legal_entities
-                ? [filters.legal_entities]
-                : [],
+            legal_entities: Array.isArray(
+                filters?.legal_entities
+            )
+                ? [...filters.legal_entities]
+                : filters?.legal_entities
+                    ? [filters.legal_entities]
+                    : [],
 
-        parent_divisions: Array.isArray(
-            filters?.parent_divisions
-        )
-            ? [...filters.parent_divisions]
-            : filters?.parent_divisions
-                ? [filters.parent_divisions]
-                : [],
+            parent_divisions: Array.isArray(
+                filters?.parent_divisions
+            )
+                ? [...filters.parent_divisions]
+                : filters?.parent_divisions
+                    ? [filters.parent_divisions]
+                    : [],
 
-        sub_divisions: Array.isArray(
-            filters?.sub_divisions
-        )
-            ? [...filters.sub_divisions]
-            : filters?.sub_divisions
-                ? [filters.sub_divisions]
-                : [],
+            sub_divisions: Array.isArray(
+                filters?.sub_divisions
+            )
+                ? [...filters.sub_divisions]
+                : filters?.sub_divisions
+                    ? [filters.sub_divisions]
+                    : [],
 
-        reporting_currency:
-            filters?.reporting_currency ||
-            currency ||
-            "AED",
+            reporting_currency:
+                filters?.reporting_currency ||
+                currency ||
+                "AED",
 
-        as_on_date:
-            filters?.as_on_date ||
-            filters?.asOfDate ||
-            filters?.snapshot_date ||
-            getLatestBackendDate(filterOptions?.as_on_dates),
+            as_on_date:
+                filters?.as_on_date ||
+                filters?.asOfDate ||
+                filters?.snapshot_date ||
+                getLatestBackendDate(filterOptions?.as_on_dates),
 
-        /* 
-         * Keep the exact backend display label. 
-         * Example: 
-         * DUE_DATE -> Due Date Based 
-         * INVOICE_DATE -> Invoice Date Based 
-         */
-        aging_basis: getBackendAgingBasisLabel(
-            filters?.aging_basis ||
-            filters?.agingBasis ||
-            ""
-        ),
+            /* 
+             * Keep the exact backend display label. 
+             * Example: 
+             * DUE_DATE -> Due Date Based 
+             * INVOICE_DATE -> Invoice Date Based 
+             */
+            aging_basis: getBackendAgingBasisLabel(
+                filters?.aging_basis ||
+                filters?.agingBasis ||
+                ""
+            ),
 
-        supplier_types: Array.isArray(filters?.supplier_types)
-            ? [...filters.supplier_types]
-            : filters?.supplier_types
-                ? [filters.supplier_types]
-                : [],
+            supplier_types: Array.isArray(filters?.supplier_types)
+                ? [...filters.supplier_types]
+                : filters?.supplier_types
+                    ? [filters.supplier_types]
+                    : [],
 
-        gl_codes: Array.isArray(filters?.gl_codes)
-            ? [...filters.gl_codes]
-            : filters?.gl_codes
-                ? [filters.gl_codes]
-                : [],
+            gl_codes: Array.isArray(filters?.gl_codes)
+                ? [...filters.gl_codes]
+                : filters?.gl_codes
+                    ? [filters.gl_codes]
+                    : [],
 
-        year:
-            Number(filters?.year) ||
-            new Date().getFullYear(),
-    });
+            year:
+                Number(filters?.year) ||
+                new Date().getFullYear(),
+        });
+    };
 
     const [viewFilters, setViewFilters] = useState(
         getInitialViewFilters
     );
+    const [viewParentDivisionCache, setViewParentDivisionCache] = useState({});
+    const [viewSubDivisionCache, setViewSubDivisionCache] = useState({});
 
     const [appliedViewFilters, setAppliedViewFilters] =
         useState(getInitialViewFilters);
+
+    useEffect(() => {
+        const agingOptions = filterOptions?.aging_bases || [];
+        if (!agingOptions.length) return;
+
+        // On first load, both the main filters and View All must default to
+        // the backend's DUE_DATE option. Keep this as a label in UI state;
+        // buildDetailFilters converts it back to the backend value.
+        const dueDateOption = agingOptions.find((option) =>
+            String(option?.value ?? option).trim().toUpperCase() === "DUE_DATE" ||
+            String(option?.label ?? option).trim().toLowerCase().includes("due date")
+        );
+        if (!dueDateOption) return;
+        const dueDateLabel = dueDateOption.label ?? dueDateOption.value ?? "Due Date Based";
+
+        setViewFilters((previous) => ({
+            ...previous,
+            aging_basis: dueDateLabel,
+        }));
+        setAppliedViewFilters((previous) => ({
+            ...previous,
+            aging_basis: dueDateLabel,
+        }));
+    }, [filterOptions?.aging_bases]);
 
     /*
      * Keep View All As On Date synchronized with the latest date
@@ -9122,22 +10833,88 @@ function PayablesViewAll({
        API FILTER OPTIONS 
     ============================================================ */
 
+    const [viewGroupSpecificEntities, setViewGroupSpecificEntities] = useState({});
+    const viewSelectedGroupIds = resolveLegalGroupRequestIds(viewFilters.legal_group, filterOptions.legal_groups || []);
+    const viewGroupCacheKey = viewSelectedGroupIds.slice().sort().join("|");
+    useEffect(() => {
+        if (!viewSelectedGroupIds.length || Object.prototype.hasOwnProperty.call(viewGroupSpecificEntities, viewGroupCacheKey)) return;
+        let cancelled = false;
+        getPayableFilters({ legal_group_id: viewSelectedGroupIds })
+            .then((response) => {
+                if (cancelled) return;
+                setViewGroupSpecificEntities((previous) => ({
+                    ...previous,
+                    [viewGroupCacheKey]: extractPayablesLegalEntityOptions(response),
+                }));
+            })
+            .catch((error) => {
+                if (!cancelled) console.error("Failed to load View All Legal Entities for selected Legal Group", error);
+            });
+        return () => { cancelled = true; };
+    }, [viewGroupCacheKey, filterOptions.legal_groups]);
+
+    const viewLegalEntityObjects = Object.prototype.hasOwnProperty.call(viewGroupSpecificEntities, viewGroupCacheKey)
+        ? normalizeOptions(viewGroupSpecificEntities[viewGroupCacheKey] || [])
+        : cascadeLegalEntities(filterOptions.legal_entities || [], viewFilters.legal_group);
+    const resolveSelectedIds = (selected, options, idKeys = ["id", "legal_entity_id", "parent_division_id"]) => {
+        const values = selectedFilterValues(selected);
+        return values.map((value) => {
+            const match = normalizeOptions(options || []).find((option) => String(option.label) === String(value) || String(option.value) === String(value));
+            return match ? (getMetaValue(match, idKeys) ?? match.value) : value;
+        });
+    };
+    const viewGroupIdsForCascade = resolveSelectedOptionRelations(
+        viewFilters.legal_group,
+        filterOptions.legal_groups || [],
+        ["legal_group_id", "legalGroupId", "group_id", "groupId", "id"],
+        ["legal_group_name", "legalGroupName", "group_name", "groupName", "legal_group_code", "legalGroupCode", "name", "code"]
+    );
+    const viewEntityIdsForCascade = resolveSelectedOptionRelations(
+        viewFilters.legal_entities,
+        viewLegalEntityObjects,
+        ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"],
+        ["legal_entity_name", "legalEntityName", "entity_name", "entityName", "legal_entity_code", "legalEntityCode", "name", "code"]
+    );
+    const viewDivisionIdsForCascade = resolveSelectedOptionRelations(
+        viewFilters.parent_divisions,
+        filterOptions.parent_divisions || [],
+        ["parent_division_id", "parentDivisionId", "division_id", "divisionId", "id"],
+        ["parent_division_name", "parentDivisionName", "division_name", "divisionName", "parent_division_code", "parentDivisionCode", "name", "code"]
+    );
+    const viewEntityRequestIds = resolveSelectedOptionIds(
+        viewFilters.legal_entities,
+        viewLegalEntityObjects,
+        ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"]
+    );
+    const viewParentDivisionCacheKey = [...viewSelectedGroupIds, "::", ...viewEntityRequestIds].join("|");
+    let viewParentDivisionObjects = cascadeFilterOptions(filterOptions.parent_divisions || [], viewGroupIdsForCascade, LEGAL_GROUP_RELATION_KEYS);
+    viewParentDivisionObjects = cascadeFilterOptions(viewParentDivisionObjects, viewEntityIdsForCascade, LEGAL_ENTITY_RELATION_KEYS);
+    if (Object.prototype.hasOwnProperty.call(viewParentDivisionCache, viewParentDivisionCacheKey)) {
+        viewParentDivisionObjects = normalizeOptions(viewParentDivisionCache[viewParentDivisionCacheKey] || []);
+    }
+    const viewDivisionRequestIds = resolveSelectedOptionIds(
+        viewFilters.parent_divisions,
+        viewParentDivisionObjects,
+        ["parent_division_id", "parentDivisionId", "division_id", "divisionId", "id"]
+    );
+    const viewSubDivisionCacheKey = [...viewSelectedGroupIds, "::", ...viewEntityRequestIds, "::", ...viewDivisionRequestIds].join("|");
+    let viewSubDivisionObjects = cascadeFilterOptions(filterOptions.sub_divisions || [], viewGroupIdsForCascade, LEGAL_GROUP_RELATION_KEYS);
+    viewSubDivisionObjects = cascadeFilterOptions(viewSubDivisionObjects, viewEntityIdsForCascade, LEGAL_ENTITY_RELATION_KEYS);
+    viewSubDivisionObjects = cascadeFilterOptions(viewSubDivisionObjects, viewDivisionIdsForCascade, PARENT_DIVISION_RELATION_KEYS);
+    if (Object.prototype.hasOwnProperty.call(viewSubDivisionCache, viewSubDivisionCacheKey)) {
+        viewSubDivisionObjects = normalizeOptions(viewSubDivisionCache[viewSubDivisionCacheKey] || []);
+    }
+
     const viewFilterOptions = {
         legal_group: (
             filterOptions.legal_groups || []
         ).map((x) => x.label ?? x),
 
-        legal_entities: (
-            filterOptions.legal_entities || []
-        ).map((x) => x.label ?? x),
+        legal_entities: viewLegalEntityObjects.map((x) => x.label ?? x.value ?? x),
 
-        parent_divisions: (
-            filterOptions.parent_divisions || []
-        ).map((x) => x.label ?? x),
+        parent_divisions: viewParentDivisionObjects.map((x) => x.label ?? x.value ?? x),
 
-        sub_divisions: (
-            filterOptions.sub_divisions || []
-        ).map((x) => x.label ?? x),
+        sub_divisions: viewSubDivisionObjects.map((x) => x.label ?? x.value ?? x),
 
         supplier_types: (
             filterOptions.supplier_types || []
@@ -9281,73 +11058,117 @@ function PayablesViewAll({
         }));
     };
 
+    const loadViewParentDivisions = async (selectedGroups, selectedEntities) => {
+        const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups || []);
+        const entityIds = resolveSelectedOptionIds(
+            selectedEntities,
+            viewLegalEntityObjects,
+            ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"]
+        );
+        const cacheKey = [...groupIds, "::", ...entityIds].join("|");
+        setViewSubDivisionCache({});
+        if (!entityIds.length) { setViewParentDivisionCache((prev) => ({ ...prev, [cacheKey]: [] })); return; }
+        setViewParentDivisionCache((prev) => ({ ...prev, [cacheKey]: [] }));
+        try {
+            const response = await getPayableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds });
+            const options = extractPayablesHierarchyOptions(response, ["parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions"]);
+            setViewParentDivisionCache((prev) => ({ ...prev, [cacheKey]: options }));
+        } catch (error) {
+            console.error("Failed to load Payables View All Parent Divisions", error);
+            setViewParentDivisionCache((prev) => ({ ...prev, [cacheKey]: [] }));
+        }
+    };
+
+    const loadViewSubDivisions = async (selectedGroups, selectedEntities, selectedDivisions) => {
+        const groupIds = resolveLegalGroupRequestIds(selectedGroups, filterOptions.legal_groups || []);
+        const entityIds = resolveSelectedOptionIds(
+            selectedEntities,
+            viewLegalEntityObjects,
+            ["legal_entity_id", "legalEntityId", "entity_id", "entityId", "id"]
+        );
+        const divisionIds = resolveSelectedOptionIds(
+            selectedDivisions,
+            viewParentDivisionObjects,
+            ["parent_division_id", "parentDivisionId", "division_id", "divisionId", "id"]
+        );
+        const cacheKey = [...groupIds, "::", ...entityIds, "::", ...divisionIds].join("|");
+        if (!divisionIds.length) { setViewSubDivisionCache((prev) => ({ ...prev, [cacheKey]: [] })); return; }
+        setViewSubDivisionCache((prev) => ({ ...prev, [cacheKey]: [] }));
+        try {
+            const response = await getPayableFilters({ legal_group_id: groupIds, legal_entity_id: entityIds, parent_division_id: divisionIds });
+            const options = extractPayablesHierarchyOptions(response, ["sub_divisions", "subdivisions", "subDivisions", "sub_division_options", "subDivisionOptions"]);
+            setViewSubDivisionCache((prev) => ({ ...prev, [cacheKey]: options }));
+        } catch (error) {
+            console.error("Failed to load Payables View All Sub-Divisions", error);
+            setViewSubDivisionCache((prev) => ({ ...prev, [cacheKey]: [] }));
+        }
+    };
+
+    const handleViewCascadeChange = (key, nextValues) => {
+        const next = { ...viewFilters, [key]: nextValues };
+        if (key === "legal_group") {
+            next.legal_entities = []; next.parent_divisions = []; next.sub_divisions = [];
+            const groupIds = resolveLegalGroupRequestIds(nextValues, filterOptions.legal_groups || []);
+            if (groupIds.length) {
+                const cacheKey = groupIds.slice().sort().join("|");
+                setViewGroupSpecificEntities((prev) => ({ ...prev, [cacheKey]: [] }));
+                getPayableFilters({ legal_group_id: groupIds }).then((response) => setViewGroupSpecificEntities((prev) => ({ ...prev, [cacheKey]: extractPayablesLegalEntityOptions(response) }))).catch((error) => console.error("Failed to load Payables View All Legal Entities", error));
+            }
+            setViewParentDivisionCache({}); setViewSubDivisionCache({});
+        } else if (key === "legal_entities") {
+            next.parent_divisions = []; next.sub_divisions = [];
+            setViewParentDivisionCache({});
+            setViewSubDivisionCache({});
+            if (Array.isArray(nextValues) && nextValues.length) {
+                void loadViewParentDivisions(next.legal_group, nextValues);
+            }
+        } else if (key === "parent_divisions") {
+            next.sub_divisions = [];
+            setViewSubDivisionCache({});
+            if (Array.isArray(nextValues) && nextValues.length) {
+                void loadViewSubDivisions(next.legal_group, next.legal_entities, nextValues);
+            }
+        }
+        setViewFilters((prev) => ({ ...prev, ...next }));
+    };
+
     const toggleMultiFilterValue = (
         key,
         value
     ) => {
-        setViewFilters((prev) => {
-            const currentValues =
-                Array.isArray(prev[key])
-                    ? prev[key]
-                    : [];
-
-            const exists =
-                currentValues.includes(value);
-
-            return {
-                ...prev,
-                [key]: exists
-                    ? currentValues.filter(
-                        (item) =>
-                            item !== value
-                    )
-                    : [
-                        ...currentValues,
-                        value,
-                    ],
-            };
-        });
+        const currentValues = Array.isArray(viewFilters[key]) ? viewFilters[key] : [];
+        const nextValues = currentValues.includes(value)
+            ? currentValues.filter((item) => item !== value)
+            : [...currentValues, value];
+        handleViewCascadeChange(key, nextValues);
     };
 
     const selectAllFilterValues = (key) => {
-        setViewFilters((prev) => {
-            const options =
-                multiFilterConfig[key]?.options || [];
-            const selected = Array.isArray(prev[key])
-                ? prev[key]
-                : [];
-            const allSelected =
-                options.length > 0 &&
-                selected.length === options.length;
-
-            return {
-                ...prev,
-                [key]: allSelected ? [] : [...options],
-            };
-        });
+        const options = multiFilterConfig[key]?.options || [];
+        const selected = Array.isArray(viewFilters[key]) ? viewFilters[key] : [];
+        const allSelected = options.length > 0 && selected.length === options.length;
+        handleViewCascadeChange(key, allSelected ? [] : [...options]);
     };
 
     const clearFilterValues = (key) => {
-        setViewFilters((prev) => ({
-            ...prev,
-            [key]: Array.isArray(prev[key])
-                ? []
-                : "",
-        }));
-
-        setFilterSearch((prev) => ({
-            ...prev,
-            [key]: "",
-        }));
+        handleViewCascadeChange(key, Array.isArray(viewFilters[key]) ? [] : "");
+        setFilterSearch((prev) => ({ ...prev, [key]: "" }));
     };
 
     const selectSingleFilterValue = (
         key,
         value
     ) => {
+        const nextValue = key === "aging_basis"
+            ? (filterOptions?.aging_bases || []).find((option) =>
+                String(option?.label ?? option).trim() === String(value).trim() ||
+                String(option?.value ?? option).trim().toUpperCase() === String(value).trim().toUpperCase()
+            )?.label ?? value
+            : value;
+
         setViewFilters((prev) => ({
             ...prev,
-            [key]: value,
+            [key]: nextValue,
         }));
 
         setOpenFilter(null);
@@ -9923,6 +11744,7 @@ function PayablesViewAll({
 
         return (
             <div
+                className="payables-view-all-filter"
                 style={{
                     position: "relative",
                 }}
@@ -10498,6 +12320,7 @@ function PayablesViewAll({
     const handleExport = async (
         format
     ) => {
+        if (!canExportPayables) return;
         try {
             const apiFilters =
                 buildDetailFilters();
@@ -10618,9 +12441,18 @@ function PayablesViewAll({
                     selectedAgingBasis
                 ).trim().toUpperCase();
 
+                const normalizeBasis = (value) => String(value || "")
+                    .toUpperCase()
+                    .replace(/[^A-Z]/g, "")
+                    .replace(/BASED$/, "");
                 return (
                     optionValue === selected ||
-                    optionLabel === selected
+                    optionLabel === selected ||
+                    normalizeBasis(optionValue) === normalizeBasis(selected) ||
+                    (normalizeBasis(optionValue).includes("INVOICE") && normalizeBasis(selected).includes("INVOICE")) ||
+                    (normalizeBasis(optionLabel).includes("INVOICE") && normalizeBasis(selected).includes("INVOICE")) ||
+                    (normalizeBasis(optionValue).includes("DUE") && normalizeBasis(selected).includes("DUE")) ||
+                    (normalizeBasis(optionLabel).includes("DUE") && normalizeBasis(selected).includes("DUE"))
                 );
             });
 
@@ -10811,6 +12643,7 @@ function PayablesViewAll({
     ]);
 
     const handleParentDivisionMonthOnMonthExport = async (format) => {
+        if (!canExportPayables) return;
         try {
             const response = await exportParentDivisionMonthOnMonth(
                 buildParentDivisionMonthOnMonthFilters(),
@@ -10919,6 +12752,16 @@ function PayablesViewAll({
         return isParenthesizedNegative ? -Math.abs(numeric) : numeric;
     };
 
+    // Totals use every filtered Parent Division row, not only the current page.
+    // DPO is a ratio/day metric and must not be added like currency amounts.
+    const parentDivisionMonthOnMonthTotals = MONTHS.reduce((totals, month) => {
+        totals[month] = filteredParentDivisionMonthOnMonthRows.reduce(
+            (sum, row) => sum + getParentDivisionMonthOnMonthNumericValue(row?.[month]),
+            0
+        );
+        return totals;
+    }, {});
+
     useEffect(() => {
         setParentDivisionMonthOnMonthPage(1);
     }, [
@@ -10940,6 +12783,55 @@ function PayablesViewAll({
         parentDivisionMonthOnMonthPage,
         parentDivisionMonthOnMonthTotalPages,
     ]);
+
+    /* ============================================================
+       LOAD FILTER-SCOPED KPI VALUES INDEPENDENTLY FROM TABLE PAGINATION
+       Pagination, page size, sorting and supplier search are deliberately
+       excluded. The dashboard KPI endpoint calculates values across the
+       complete filtered population rather than the visible 10 rows.
+    ============================================================ */
+    useEffect(() => {
+        let cancelled = false;
+        const loadFilteredKpis = async () => {
+            try {
+                // Always request the full dashboard KPI snapshot, including on
+                // first open when the user has not changed any View All filters.
+                const filtersForKpis = { ...buildDetailFilters() };
+                ["page", "page_size", "sort_by", "sort_dir", "unit", "report_section", "report_title"].forEach((key) => delete filtersForKpis[key]);
+                const response = await getPayablesDashboard(filtersForKpis);
+                if (cancelled) return;
+                const root = response?.data ?? response ?? {};
+                const payload = root?.data && !Array.isArray(root.data) ? root.data : root;
+                const candidates = [
+                    payload?.kpis,
+                    payload?.data?.kpis,
+                    payload?.summary?.kpis,
+                    payload?.summary,
+                    root?.kpis,
+                    root?.data?.kpis,
+                    root?.data?.summary?.kpis,
+                ];
+                const kpis = candidates.find((candidate) =>
+                    candidate && typeof candidate === "object" && !Array.isArray(candidate) && Object.keys(candidate).length > 0
+                );
+                if (kpis) {
+                    setViewAllKpis({
+                        ...kpis,
+                        trade_payables_aging: kpis.trade_payables_aging ??
+                            kpis.aging_trade_payables ?? kpis.total_trade_payable ?? kpis.total_trade_payables,
+                    });
+                }
+                // Always restart after the initial request settles. If the API
+                // does not return KPI fields, render the main dashboard snapshot
+                // below rather than letting an empty object hide those values.
+            } catch (error) {
+                console.error("Payables filtered KPI request failed", error);
+                // mainKpis remains available as a fallback when this request fails.
+            }
+        };
+        loadFilteredKpis();
+        return () => { cancelled = true; };
+    }, [appliedViewFilters, filterOptions, drilldown, baseFilters, filters, currency]);
 
     /* ============================================================ 
        LOAD VIEW ALL 
@@ -11039,21 +12931,9 @@ function PayablesViewAll({
                     response?.meta ??
                     {};
 
-                // Support future backend-provided View All KPI values without
-                // changing the current table/pagination behavior.
-                const responseKpis =
-                    payload?.kpis ||
-                    payload?.data?.kpis ||
-                    meta?.kpis ||
-                    {};
-
-                if (!kpiSnapshotInitializedRef.current) {
-                    setViewAllKpis(
-                        responseKpis && typeof responseKpis === "object"
-                            ? responseKpis
-                            : {}
-                    );
-                }
+                // KPI cards are populated only by the separate filter-scoped KPI
+                // request above. Do not consume KPI values embedded in this paginated
+                // table response: some backends calculate those from the current page.
 
                 /* 
                  * Backend total_records is the 
@@ -11123,15 +13003,9 @@ function PayablesViewAll({
                     const backendAgingBasisLabel =
                         getBackendAgingBasisLabel(responseAgingBasis);
 
+                    // Response metadata may update the display only; it must not
+                    // overwrite a user's current/applied filter selection.
                     setServerAgingBasis(backendAgingBasisLabel);
-                    setViewFilters((previous) => ({
-                        ...previous,
-                        aging_basis: backendAgingBasisLabel,
-                    }));
-                    setAppliedViewFilters((previous) => ({
-                        ...previous,
-                        aging_basis: backendAgingBasisLabel,
-                    }));
                 } else {
                     setServerAgingBasis(
                         getBackendAgingBasisLabel(
@@ -11473,14 +13347,19 @@ function PayablesViewAll({
        SUMMARY VALUES 
     ============================================================ */
 
-    const backendKpis =
-        viewAllKpis?.kpis ||
-        viewAllKpis ||
-        mainKpis?.kpis ||
-        mainKpis?.data?.kpis ||
-        data?.kpis ||
-        mainKpis ||
-        {};
+    // Empty objects are truthy in JavaScript; don't allow the initial empty
+    // View All snapshot to mask usable KPI data already loaded by the dashboard.
+    const firstPopulatedKpiObject = (...candidates) => candidates.find((candidate) =>
+        candidate && typeof candidate === "object" && !Array.isArray(candidate) && Object.keys(candidate).length > 0
+    ) || {};
+    const backendKpis = firstPopulatedKpiObject(
+        viewAllKpis?.kpis,
+        viewAllKpis,
+        mainKpis?.kpis,
+        mainKpis?.data?.kpis,
+        data?.kpis,
+        mainKpis
+    );
 
     const hasBackendKpi = (key) =>
         backendKpis?.[key] !== undefined &&
@@ -11488,88 +13367,30 @@ function PayablesViewAll({
         backendKpis?.[key] !== "";
 
     const totalPayables =
-        hasBackendKpi("total_payables")
-            ? Number(backendKpis.total_payables)
-            : kpiRows.reduce(
-                (sum, row) =>
-                    sum +
-                    Number(
-                        row.total_payable ||
-                        0
-                    ),
-                0
-            );
+        hasBackendKpi("trade_payables_aging") || hasBackendKpi("aging_trade_payables")
+            ? Number(backendKpis.trade_payables_aging ?? backendKpis.aging_trade_payables)
+            : hasBackendKpi("total_trade_payable")
+                ? Number(backendKpis.total_trade_payable)
+                : hasBackendKpi("total_trade_payables")
+                    ? Number(backendKpis.total_trade_payables)
+                    : null;
 
-    const currentPayables =
-        hasBackendKpi("current_payables")
-            ? Number(backendKpis.current_payables)
-            : kpiRows.reduce(
-                (sum, row) =>
-                    sum +
-                    Number(
-                        row.current ||
-                        0
-                    ),
-                0
-            );
+    const currentPayables = hasBackendKpi("current_payables")
+        ? Number(backendKpis.current_payables)
+        : null;
 
-    const overduePayables =
-        hasBackendKpi("overdue_payables")
-            ? Number(backendKpis.overdue_payables)
-            : kpiRows.reduce(
-                (sum, row) =>
-                    sum +
-                    Number(
-                        row["0_30"] || 0
-                    ) +
-                    Number(
-                        row["31_60"] || 0
-                    ) +
-                    Number(
-                        row["61_90"] || 0
-                    ) +
-                    Number(
-                        row["91_120"] || 0
-                    ) +
-                    Number(
-                        row["121_180"] || 0
-                    ) +
-                    Number(
-                        row["181_365"] || 0
-                    ) +
-                    Number(
-                        row["above_365"] ||
-                        0
-                    ),
-                0
-            );
+    const overduePayables = hasBackendKpi("overdue_payables")
+        ? Number(backendKpis.overdue_payables)
+        : null;
 
     const overdue90 =
         hasBackendKpi("overdue_gt_90")
             ? Number(backendKpis.overdue_gt_90)
             : hasBackendKpi("overdue_above_90")
                 ? Number(backendKpis.overdue_above_90)
-                : kpiRows.reduce(
-                    (sum, row) =>
-                        sum +
-                        Number(
-                            row["91_120"] ||
-                            0
-                        ) +
-                        Number(
-                            row["121_180"] ||
-                            0
-                        ) +
-                        Number(
-                            row["181_365"] ||
-                            0
-                        ) +
-                        Number(
-                            row["above_365"] ||
-                            0
-                        ),
-                    0
-                );
+                : hasBackendKpi("overdue_above_90_days")
+                    ? Number(backendKpis.overdue_above_90_days)
+                    : null;
 
     const dpoValue =
         hasBackendKpi("dpo")
@@ -11602,15 +13423,7 @@ function PayablesViewAll({
         filters?.snapshot_date ||
         getLatestBackendDate(filterOptions?.as_on_dates) ||
         "";
-    const agingBasis =
-        serverAgingBasis ||
-        getBackendAgingBasisLabel(
-            appliedViewFilters?.aging_basis ||
-            filters?.aging_basis ||
-            filters?.agingBasis ||
-            ""
-        ) ||
-        "";
+    const agingBasis = getBackendAgingBasisLabel(appliedViewFilters?.aging_basis || serverAgingBasis || "");
 
     /* ============================================================ 
        KPI CARD 
@@ -11725,9 +13538,9 @@ function PayablesViewAll({
                             textOverflow: "ellipsis",
                         }}
                     >
-                        {value === null || value === undefined || value === ""
+                        {value === null || value === undefined || value === "" || !Number.isFinite(Number(value))
                             ? "—"
-                            : formatSummaryValue(value)}
+                            : formatSummaryValue(Number(value))}
                     </div>
                 </div>
             </div>
@@ -11824,22 +13637,27 @@ function PayablesViewAll({
        RETURN 
     ============================================================ */
 
-    return (
+    return createPortal((
         <div
             style={{
                 position: "fixed",
                 inset: 0,
                 zIndex: 2000,
+                isolation: "isolate",
                 background:
                     "rgba(15, 23, 42, 0.48)",
                 display: "flex",
-                alignItems:
-                    "center",
-                justifyContent:
-                    "center",
-                padding: 20,
-                boxSizing:
-                    "border-box",
+                alignItems: isViewAllMaximized ? "stretch" : "center",
+                justifyContent: isViewAllMaximized ? "flex-start" : "center",
+                padding: isViewAllMaximized ? 0 : "2vh 2vw",
+                boxSizing: "border-box",
+                width: "100vw",
+                minWidth: "100vw",
+                maxWidth: "100vw",
+                height: "100dvh",
+                minHeight: "100dvh",
+                flex: "0 0 100vw",
+                alignSelf: "stretch",
             }}
             onClick={(e) => {
                 if (
@@ -11851,14 +13669,26 @@ function PayablesViewAll({
             }}
         >
             <div
-                className="sales-style-view-all-modal"
+                className={`sales-style-view-all-modal ${isViewAllMaximized ? "payables-view-all-maximized" : "payables-view-all-restored"}`}
                 style={{
-                    width:
-                        "min(1450px, 100%)",
-                    maxHeight: "92vh",
-                    background:
-                        "#f7faff",
-                    borderRadius: 10,
+                    position: isViewAllMaximized ? "absolute" : "relative",
+                    top: isViewAllMaximized ? 0 : "auto",
+                    right: isViewAllMaximized ? 0 : "auto",
+                    bottom: isViewAllMaximized ? 0 : "auto",
+                    left: isViewAllMaximized ? 0 : "auto",
+                    width: isViewAllMaximized ? "100%" : "96vw",
+                    minWidth: 0,
+                    maxWidth: isViewAllMaximized ? "100%" : "96vw",
+                    height: isViewAllMaximized ? "100%" : "94vh",
+                    minHeight: 0,
+                    maxHeight: isViewAllMaximized ? "100%" : "94dvh",
+                    flex: "none",
+                    alignSelf: "stretch",
+                    margin: 0,
+                    transform: "none",
+                    transition: "width 180ms ease, height 180ms ease, border-radius 180ms ease",
+                    background: "#f7faff",
+                    borderRadius: isViewAllMaximized ? 0 : 16,
                     overflow:
                         "hidden",
                     boxShadow:
@@ -11870,11 +13700,113 @@ function PayablesViewAll({
                         "border-box",
                 }}
             >
+                <style>{`
+                    /* Override legacy global !important modal rules that otherwise force
+                       a centered 96vw panel and translateX(-50%), blocking maximize/restore. */
+                    .sales-style-view-all-modal.payables-view-all-maximized {
+                        position: fixed !important; inset: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                        width: 100vw !important; min-width: 100vw !important; max-width: none !important;
+                        height: 100dvh !important; min-height: 100dvh !important; max-height: 100dvh !important;
+                        margin: 0 !important; transform: none !important; border-radius: 0 !important;
+                        animation: none !important; box-shadow: none !important;
+                    }
+                    .sales-style-view-all-modal.payables-view-all-restored {
+                        position: relative !important; inset: auto !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+                        width: min(96vw, 1540px) !important; min-width: 0 !important; max-width: min(96vw, 1540px) !important;
+                        height: 94vh !important; min-height: 0 !important; max-height: 94dvh !important;
+                        margin: 0 !important; transform: none !important; border-radius: 16px !important;
+                        animation: none !important;
+                    }
+                    /* All View All table headers follow the modal's single vertical page scroller. */
+                    .sales-style-view-all-modal .payables-view-all-scroll table thead th {
+                        position: -webkit-sticky !important;
+                        position: sticky !important;
+                        top: 0;
+                        z-index: 25;
+                        background-clip: padding-box;
+                    }
+                    /* Ancestor cards must not create an overflow clipping context for sticky headers. */
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-sticky-table-card {
+                        overflow: visible !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-view-all-table-scroll,
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-mom-table-scroll {
+                        overflow-x: visible !important;
+                        overflow-y: visible !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-mom-table-scroll,
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-view-all-table-scroll {
+                        height: auto !important;
+                        max-height: none !important;
+                        overflow-y: visible !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-mom-table-scroll thead tr:first-child th {
+                        top: 0;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll .payables-mom-table-scroll thead tr:nth-child(2) th {
+                        top: 35px;
+                    }
+
+                    /* Sales-page visual alignment for the portal-rendered View All screen. */
+                    .sales-style-view-all-modal,
+                    .sales-style-view-all-modal * {
+                      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                    }
+                    .sales-style-view-all-modal h1,
+                    .sales-style-view-all-modal h2,
+                    .sales-style-view-all-modal h3 {
+                      color: #172554 !important;
+                      letter-spacing: -.02em !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-kpi-grid {
+                      gap: 10px !important;
+                      margin-bottom: 14px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi {
+                      min-height: 76px !important;
+                      padding: 10px !important;
+                      gap: 8px !important;
+                      border: 1px solid rgba(226,232,240,.85) !important;
+                      border-radius: 12px !important;
+                      box-shadow: 0 2px 8px rgba(15,23,42,.035) !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi > div:first-child > div:first-child {
+                      width: 32px !important;
+                      height: 32px !important;
+                      min-width: 32px !important;
+                      font-size: 16px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi > div:first-child > div:last-child > div:first-child {
+                      font-size: 12px !important;
+                      line-height: 1.25 !important;
+                      font-weight: 800 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-kpi-grid .sales-style-kpi > div:first-child > div:last-child > div:nth-child(2) {
+                      font-size: 20px !important;
+                      line-height: 1.12 !important;
+                      font-weight: 850 !important;
+                      letter-spacing: -.025em !important;
+                    }
+                    .sales-style-view-all-modal table thead th {
+                      background: #edf4ff !important;
+                      color: #1e3a8a !important;
+                      font-size: .68rem !important;
+                      font-weight: 800 !important;
+                      border-color: #dbe5f2 !important;
+                    }
+                    .sales-style-view-all-modal table tbody td {
+                      font-size: .73rem !important;
+                      line-height: 1.4 !important;
+                      border-color: #edf2f7 !important;
+                    }
+
+                `}</style>
                 <div
                     className="payables-view-all-scroll"
                     style={{
                         width: "100%",
                         minHeight: 0,
+                        flex: "1 1 auto",
                         overflowY:
                             "auto",
                         padding:
@@ -11941,7 +13873,7 @@ function PayablesViewAll({
                                 display: "flex",
                                 alignItems:
                                     "center",
-                                gap: 8,
+                                gap: 12,
                                 flexWrap: "wrap",
                                 justifyContent: "flex-end",
                             }}
@@ -12005,7 +13937,7 @@ function PayablesViewAll({
                                     height: 34,
                                     minWidth: 80,
                                     padding: "0 13px",
-                                    display: "inline-flex",
+                                    display: canExportPayables ? "inline-flex" : "none",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     gap: 6,
@@ -12033,7 +13965,7 @@ function PayablesViewAll({
                                     height: 34,
                                     minWidth: 72,
                                     padding: "0 13px",
-                                    display: "inline-flex",
+                                    display: canExportPayables ? "inline-flex" : "none",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     gap: 6,
@@ -12048,6 +13980,33 @@ function PayablesViewAll({
                             >
                                 <span style={{ fontSize: 13 }}>📄</span>
                                 PDF
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setIsViewAllMaximized((current) => !current)}
+                                aria-label={isViewAllMaximized ? "Restore View All window" : "Maximize View All to full screen"}
+                                aria-pressed={isViewAllMaximized}
+                                title={isViewAllMaximized ? "Restore window" : "Maximize to full screen"}
+                                style={{
+                                    width: 36,
+                                    height: 34,
+                                    padding: 0,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: "1px solid #cbd5e1",
+                                    borderRadius: 8,
+                                    background: "#ffffff",
+                                    color: "#3149a5",
+                                    cursor: "pointer",
+                                    transition: "background 0.15s ease, border-color 0.15s ease",
+                                    flex: "0 0 auto",
+                                }}
+                            >
+                                {isViewAllMaximized
+                                    ? <Minimize2 size={16} strokeWidth={2.2} />
+                                    : <Maximize2 size={16} strokeWidth={2.2} />}
                             </button>
 
                             <button
@@ -12104,13 +14063,13 @@ function PayablesViewAll({
                                     padding: "0 16px",
                                     border: "none",
                                     borderRadius: 6,
-                                    background: !showParentDivisionMonthOnMonth
+                                    background: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
                                         ? "#173b8f"
                                         : "transparent",
-                                    color: !showParentDivisionMonthOnMonth
+                                    color: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
                                         ? "#ffffff"
                                         : "#536789",
-                                    boxShadow: !showParentDivisionMonthOnMonth
+                                    boxShadow: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
                                         ? "0 2px 6px rgba(23,59,143,0.18)"
                                         : "none",
                                     fontSize: 11,
@@ -12221,24 +14180,30 @@ function PayablesViewAll({
                             style={{
                                 display:
                                     "grid",
-                                gridTemplateColumns:
-                                    showNonAgingTradePayables
-                                        ? "repeat(7, minmax(105px, 1fr)) auto auto"
-                                        : "repeat(9, minmax(105px, 1fr)) auto auto",
+                                gridTemplateColumns: `repeat(${Math.max(
+                                    1,
+                                    (showNonAgingTradePayables ? 7 : 9) -
+                                    (showLegalGroupFilter ? 0 : 1) -
+                                    (showLegalEntityFilter ? 0 : 1)
+                                )}, minmax(105px, 1fr)) auto auto`,
                                 gap: 10,
                                 alignItems:
                                     "end",
                             }}
                         >
-                            <MultiSelectDropdown
-                                filterKey="legal_group"
-                                label="Legal Group"
-                            />
+                            {showLegalGroupFilter && (
+                                <MultiSelectDropdown
+                                    filterKey="legal_group"
+                                    label="Legal Group"
+                                />
+                            )}
 
-                            <MultiSelectDropdown
-                                filterKey="legal_entities"
-                                label="Legal Entity"
-                            />
+                            {showLegalEntityFilter && (
+                                <MultiSelectDropdown
+                                    filterKey="legal_entities"
+                                    label="Legal Entity"
+                                />
+                            )}
 
                             <MultiSelectDropdown
                                 filterKey="parent_divisions"
@@ -12336,11 +14301,12 @@ function PayablesViewAll({
 
                     {showParentDivisionMonthOnMonth ? (
                         <div
+                            className="payables-sticky-table-card"
                             style={{
                                 background: "#ffffff",
                                 border: "1px solid #e3e9f2",
                                 borderRadius: 9,
-                                overflow: "hidden",
+                                overflow: "visible",
                                 boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
                             }}
                         >
@@ -12540,18 +14506,14 @@ function PayablesViewAll({
                             ) : parentDivisionMonthOnMonthPageRows.length ? (
                                 <div
                                     className="payables-mom-table-scroll"
-                                    style={{
-                                        width: "100%",
-                                        overflowX: "auto",
-                                        overflowY: "auto",
-                                        maxHeight: 430,
-                                    }}
+                                    style={{ minHeight: 0, height: "auto", maxHeight: "none", overflow: "visible", position: "static", width: "100%" }}
                                 >
                                     <table
                                         style={{
                                             width: "100%",
                                             minWidth: 2080,
-                                            borderCollapse: "collapse",
+                                            borderCollapse: "separate",
+                                            borderSpacing: 0,
                                             tableLayout: "fixed",
                                             fontSize: 11,
                                         }}
@@ -12572,8 +14534,9 @@ function PayablesViewAll({
                                                     rowSpan={2}
                                                     style={{
                                                         position: "sticky",
+                                                        top: 0,
                                                         left: 0,
-                                                        zIndex: 10,
+                                                        zIndex: 40,
                                                         width: 190,
                                                         minWidth: 190,
                                                         padding: "9px 10px",
@@ -12596,6 +14559,9 @@ function PayablesViewAll({
                                                         key={month}
                                                         colSpan={2}
                                                         style={{
+                                                            position: "sticky",
+                                                            top: 0,
+                                                            zIndex: 30,
                                                             padding: "9px 8px",
                                                             background: "#edf4ff",
                                                             color: "#24479d",
@@ -12615,6 +14581,9 @@ function PayablesViewAll({
                                                     <React.Fragment key={`${month}-headers`}>
                                                         <th
                                                             style={{
+                                                                position: "sticky",
+                                                                top: 35,
+                                                                zIndex: 30,
                                                                 padding: "8px 8px",
                                                                 background: "#f8fbff",
                                                                 color: "#24479d",
@@ -12630,6 +14599,9 @@ function PayablesViewAll({
                                                         </th>
                                                         <th
                                                             style={{
+                                                                position: "sticky",
+                                                                top: 35,
+                                                                zIndex: 30,
                                                                 padding: "8px 8px",
                                                                 background: "#f8fbff",
                                                                 color: "#24479d",
@@ -12725,6 +14697,70 @@ function PayablesViewAll({
                                                 )
                                             )}
                                         </tbody>
+                                        <tfoot>
+                                            <tr className="payables-mom-total-row">
+                                                <td
+                                                    style={{
+                                                        position: "sticky",
+                                                        left: 0,
+                                                        bottom: 0,
+                                                        zIndex: 120,
+                                                        width: 190,
+                                                        minWidth: 190,
+                                                        padding: "10px 10px",
+                                                        color: "#173b8f",
+                                                        background: "#e8f0ff",
+                                                        borderTop: "2px solid #aebfe0",
+                                                        borderRight: "1px solid #cbd8ee",
+                                                        fontWeight: 900,
+                                                        textAlign: "left",
+                                                        whiteSpace: "nowrap",
+                                                        boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.28)",
+                                                    }}
+                                                >
+                                                    TOTAL
+                                                </td>
+                                                {MONTHS.map((month) => (
+                                                    <React.Fragment key={`total-${month}`}>
+                                                        <td
+                                                            className={parentDivisionMonthOnMonthTotals[month] < 0 ? "payables-negative-cell" : undefined}
+                                                            style={{
+                                                                position: "sticky",
+                                                                bottom: 0,
+                                                                zIndex: 110,
+                                                                padding: "10px 8px",
+                                                                color: parentDivisionMonthOnMonthTotals[month] < 0 ? "#dc2626" : "#173b8f",
+                                                                background: "#e8f0ff",
+                                                                borderTop: "2px solid #aebfe0",
+                                                                borderRight: "1px solid #d4def0",
+                                                                fontWeight: 900,
+                                                                textAlign: "right",
+                                                                whiteSpace: "nowrap",
+                                                            }}
+                                                        >
+                                                            {formatMoMValue(parentDivisionMonthOnMonthTotals[month], viewAllDisplayUnit === "Millions" ? "Millions" : "AED")}
+                                                        </td>
+                                                        <td
+                                                            style={{
+                                                                position: "sticky",
+                                                                bottom: 0,
+                                                                zIndex: 110,
+                                                                padding: "10px 8px",
+                                                                color: "#64748b",
+                                                                background: "#e8f0ff",
+                                                                borderTop: "2px solid #aebfe0",
+                                                                borderRight: "1px solid #d4def0",
+                                                                fontWeight: 800,
+                                                                textAlign: "right",
+                                                                whiteSpace: "nowrap",
+                                                            }}
+                                                        >
+                                                            —
+                                                        </td>
+                                                    </React.Fragment>
+                                                ))}
+                                            </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             ) : (
@@ -13446,6 +15482,7 @@ function PayablesViewAll({
                     ====================================================== */}
 
                             <div
+                                className="payables-sticky-table-card"
                                 style={{
                                     background:
                                         "#ffffff",
@@ -13453,7 +15490,7 @@ function PayablesViewAll({
                                         "1px solid #e3e9f2",
                                     borderRadius: 9,
                                     overflow:
-                                        "hidden",
+                                        "visible",
                                     boxShadow:
                                         "0 2px 8px rgba(15, 23, 42, 0.025)",
                                 }}
@@ -13785,14 +15822,9 @@ function PayablesViewAll({
                                 <div
                                     className="payables-view-all-table-scroll"
                                     style={{
-                                        width:
-                                            "100%",
-                                        overflowX:
-                                            "auto",
-                                        overflowY:
-                                            "auto",
-                                        maxWidth:
-                                            "100%",
+                                        width: "100%", minHeight: 0, maxWidth: "100%",
+                                        height: "auto", maxHeight: "none",
+                                        overflow: "visible", position: "static",
                                     }}
                                 >
                                     <table
@@ -13847,10 +15879,9 @@ function PayablesViewAll({
                                                                     )
                                                                 }
                                                                 style={{
-                                                                    position:
-                                                                        isSticky
-                                                                            ? "sticky"
-                                                                            : "static",
+                                                                    // Every header cell sticks to the View All modal's page
+                                                                    // scroll. Only the first three columns also stick horizontally.
+                                                                    position: "sticky",
 
                                                                     left:
                                                                         isSticky
@@ -13859,10 +15890,7 @@ function PayablesViewAll({
 
                                                                     top: 0,
 
-                                                                    zIndex:
-                                                                        isSticky
-                                                                            ? 5
-                                                                            : 2,
+                                                                    zIndex: isSticky ? 35 : 30,
 
                                                                     width:
                                                                         columnWidth,
@@ -14203,9 +16231,10 @@ function PayablesViewAll({
                                                         <td
                                                             key={`total-${column.key}`}
                                                             style={{
-                                                                position: isSticky ? "sticky" : "static",
+                                                                position: "sticky",
+                                                                bottom: 0,
                                                                 left: isSticky ? stickyLeft : undefined,
-                                                                zIndex: isSticky ? 4 : 1,
+                                                                zIndex: isSticky ? 22 : 18,
                                                                 width: getColumnWidth(columnIndex),
                                                                 minWidth: getColumnWidth(columnIndex),
                                                                 maxWidth: getColumnWidth(columnIndex),
@@ -14407,6 +16436,7 @@ function PayablesViewAll({
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 }
+
 
