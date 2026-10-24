@@ -1548,8 +1548,8 @@ export default function ExecutiveDashboard() {
                                     No trend data available
                                 </div>
                             ) : (
-                                <ResponsiveContainer width="100%" height={160}>
-                                    <ComposedChart data={chartProfitTrend} margin={{ top: 10, right: 82, bottom: 0, left: -20 }}>
+                                <ResponsiveContainer width="100%" height={175}>
+                                    <ComposedChart data={chartProfitTrend} margin={{ top: 20, right: 82, bottom: 0, left: -20 }}>
                                         <defs>
                                             <linearGradient id="npTeaserGrad" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="0%" stopColor="#2563eb" stopOpacity={0.85}/>
@@ -1559,7 +1559,7 @@ export default function ExecutiveDashboard() {
                                         <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="#f1f5f9" />
                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 9.5, fill: '#94a3b8', fontWeight: 600 }} interval={0} dy={6} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
-                                        <Tooltip
+                                        <Tooltip position={{ y: -14 }} allowEscapeViewBox={{ x: false, y: true }} wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
                                             content={({ active, payload, label }) => {
                                                 if (!active || !payload || !payload.length) return null;
                                                 const pt = payload[0]?.payload || {};
@@ -1572,38 +1572,40 @@ export default function ExecutiveDashboard() {
                                                         background: '#ffffff',
                                                         border: '1px solid #e2e8f0',
                                                         borderRadius: 8,
-                                                        padding: '8px 12px',
-                                                        boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
-                                                        fontSize: '0.72rem',
-                                                        minWidth: 155
+                                                        padding: '7px 11px',
+                                                        boxShadow: '0 6px 18px rgba(0,0,0,0.10)',
+                                                        fontSize: '0.70rem',
+                                                        minWidth: 175
                                                     }}>
-                                                        <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 5 }}>{label}</div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, borderBottom: '1px solid #f1f5f9', paddingBottom: 3 }}>
+                                                            <span style={{ fontWeight: 800, color: '#0f172a' }}>{label}</span>
+                                                            {pt.np_pct !== undefined && pt.np_pct !== null && (
+                                                                <span style={{ fontSize: '0.63rem', color: '#64748b', fontWeight: 700 }}>
+                                                                    NP Margin: {Number(pt.np_pct).toFixed(1)}%
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#d97706', fontWeight: 700 }}>
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+                                                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
                                                                 Actual Net Profit:
                                                             </span>
                                                             <span style={{ color: '#0f172a' }}>{currency} {Number(act ?? 0).toFixed(2)}M</span>
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#881337', fontWeight: 700, marginTop: 3 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#881337', fontWeight: 700, marginTop: 2 }}>
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                                <span style={{ width: 8, height: 2, background: '#881337', display: 'inline-block' }} />
+                                                                <span style={{ width: 7, height: 2, background: '#881337', display: 'inline-block' }} />
                                                                 Target Net Profit:
                                                             </span>
                                                             <span style={{ color: '#0f172a' }}>{currency} {Number(tgt).toFixed(2)}M</span>
                                                         </div>
                                                         {diffPct !== null && (
                                                             <div style={{
-                                                                display: 'flex', alignItems: 'center', gap: 4, marginTop: 4,
-                                                                fontSize: '0.66rem', fontWeight: 700,
+                                                                display: 'flex', alignItems: 'center', gap: 4, marginTop: 3,
+                                                                fontSize: '0.65rem', fontWeight: 700,
                                                                 color: diff >= 0 ? '#16a34a' : '#dc2626'
                                                             }}>
                                                                 <span>{diff >= 0 ? '▲' : '▼'} {diff >= 0 ? '+' : ''}{diffPct.toFixed(1)}% vs. Target</span>
-                                                            </div>
-                                                        )}
-                                                        {pt.np_pct !== undefined && pt.np_pct !== null && (
-                                                            <div style={{ fontSize: '0.64rem', color: '#64748b', fontWeight: 600, marginTop: 4, borderTop: '1px solid #f1f5f9', paddingTop: 3 }}>
-                                                                NP Margin: {Number(pt.np_pct).toFixed(1)}%
                                                             </div>
                                                         )}
                                                     </div>

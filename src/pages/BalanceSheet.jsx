@@ -24,6 +24,8 @@ import {
   exportStatementToPDF,
   exportSubDivisionToExcel,
   exportSubDivisionToPDF,
+  exportDrilldownToExcel,
+  exportDrilldownToPDF,
 } from '../utils/bsExport';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
@@ -1101,7 +1103,7 @@ const fmtTableCell = (val, unit = 'aed') => {
     }
     return `${millions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
   }
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Math.round(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 /* Reusable AED / AED Millions Toggle Button (matches OPEX Report style) */
@@ -1436,8 +1438,8 @@ function StatementCards({
         {hasCompare && (
           <>
             <th style={{ ...STH, minWidth: 92 }}>AS ON {comparePeriodLabel}</th>
-            <th style={{ ...STH, minWidth: 90 }}>VARIANCE ({unit === 'millions' ? `${currency} M` : currency})</th>
-            <th style={{ ...STH, minWidth: 72 }}>VARIANCE (%)</th>
+            <th style={{ ...STH, minWidth: 90 }}>VAR ({unit === 'millions' ? `${currency} M` : currency})</th>
+            <th style={{ ...STH, minWidth: 72 }}>VAR (%)</th>
           </>
         )}
       </tr>
@@ -1826,7 +1828,7 @@ function StatementViewAll({
   const isQueryActive = Boolean(query);
 
   const VTH = {
-    padding: '10px 16px',
+    padding: '8px 12px',
     textAlign: 'right',
     fontSize: '0.74rem',
     fontWeight: 700,
@@ -1835,6 +1837,7 @@ function StatementViewAll({
     borderBottom: '2px solid #e2e8f0',
     whiteSpace: 'nowrap',
     textTransform: 'uppercase',
+    boxSizing: 'border-box',
   };
   const VTH_L = { ...VTH, textAlign: 'left', whiteSpace: 'normal', minWidth: '120px' };
 
@@ -1935,16 +1938,46 @@ function StatementViewAll({
     );
   };
 
-  const renderTableHeaders = () => (
-    <thead>
+  const BANNER_HEIGHT = 40;
+
+  const renderTableHeaders = (title, total, isAssets = true) => (
+    <thead style={{ background: '#f8fafc' }}>
       <tr>
-        <th style={{ ...VTH_L, width: hasCompare ? '38%' : '65%' }}>Account</th>
-        <th style={VTH}>As on {periodLabel}</th>
+        <th
+          colSpan={hasCompare ? 5 : 2}
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 30,
+            height: BANNER_HEIGHT,
+            minHeight: BANNER_HEIGHT,
+            maxHeight: BANNER_HEIGHT,
+            lineHeight: `${BANNER_HEIGHT}px`,
+            boxSizing: 'border-box',
+            padding: '0 14px',
+            background: isAssets ? 'linear-gradient(90deg, #eff6ff, #fff)' : 'linear-gradient(90deg, #f0fdf4, #fff)',
+            borderBottom: isAssets ? '1px solid #bfdbfe' : '1px solid #bbf7d0',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%', width: '100%' }}>
+            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: isAssets ? '#1e3a8a' : '#14532d' }}>
+              {title}
+            </span>
+            <span style={{ fontWeight: 800, fontSize: '0.80rem', color: isAssets ? '#2563eb' : '#15803d' }}>
+              {total}
+            </span>
+          </div>
+        </th>
+      </tr>
+      <tr>
+        <th style={{ ...VTH_L, width: hasCompare ? '38%' : '65%', position: 'sticky', top: BANNER_HEIGHT - 1, zIndex: 25, background: '#f8fafc' }}>Account</th>
+        <th style={{ ...VTH, position: 'sticky', top: BANNER_HEIGHT - 1, zIndex: 25, background: '#f8fafc' }}>As on {periodLabel}</th>
         {hasCompare && (
           <>
-            <th style={VTH}>As on {comparePeriodLabel}</th>
-            <th style={VTH}>Variance ({modalUnit === 'millions' ? `${modalFilters.currency} M` : modalFilters.currency})</th>
-            <th style={VTH}>Variance (%)</th>
+            <th style={{ ...VTH, position: 'sticky', top: BANNER_HEIGHT - 1, zIndex: 25, background: '#f8fafc' }}>As on {comparePeriodLabel}</th>
+            <th style={{ ...VTH, position: 'sticky', top: BANNER_HEIGHT - 1, zIndex: 25, background: '#f8fafc' }}>VAR ({modalUnit === 'millions' ? `${modalFilters.currency} M` : modalFilters.currency})</th>
+            <th style={{ ...VTH, position: 'sticky', top: BANNER_HEIGHT - 1, zIndex: 25, background: '#f8fafc' }}>VAR (%)</th>
           </>
         )}
       </tr>
@@ -2194,21 +2227,14 @@ function StatementViewAll({
       {/* ── Split 2-Panel Presentation (Assets vs Equity & Liabilities) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         {/* PANEL 1: ASSETS */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{
-            padding: '10px 14px', background: 'linear-gradient(90deg, #eff6ff, #fff)',
-            borderBottom: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}>
-            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#1e3a8a' }}>
-              1. ASSETS ({modalUnit === 'millions' ? `${modalFilters.currency} Millions` : modalFilters.currency})
-            </span>
-            <span style={{ fontWeight: 800, fontSize: '0.80rem', color: '#2563eb' }}>
-              {fmtTableCell(initialStatementData.totalAssets.current, modalUnit)}
-            </span>
-          </div>
-          <div className="bs-statement-table-scroll" style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-              {renderTableHeaders()}
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'visible', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div className="bs-statement-table-scroll" style={{ overflow: 'visible', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <table style={{ width: '100%', height: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.72rem' }}>
+              {renderTableHeaders(
+                `1. ASSETS (${modalUnit === 'millions' ? `${modalFilters.currency} Millions` : modalFilters.currency})`,
+                fmtTableCell(initialStatementData.totalAssets.current, modalUnit),
+                true
+              )}
               <tbody>
                 {renderSectionTable('I. CURRENT ASSETS', initialStatementData.currentAssets, cAssetsRows, 'currentAssets')}
                 {renderSectionTable('II. NON CURRENT ASSETS', initialStatementData.nonCurrentAssets, ncAssetsRows, 'nonCurrentAssets')}
@@ -2234,21 +2260,14 @@ function StatementViewAll({
         </div>
 
         {/* PANEL 2: EQUITY & LIABILITIES */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{
-            padding: '10px 14px', background: 'linear-gradient(90deg, #f0fdf4, #fff)',
-            borderBottom: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}>
-            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#14532d' }}>
-              2. EQUITY & LIABILITIES ({modalUnit === 'millions' ? `${modalFilters.currency} Millions` : modalFilters.currency})
-            </span>
-            <span style={{ fontWeight: 800, fontSize: '0.80rem', color: '#15803d' }}>
-              {fmtTableCell(initialStatementData.totalEqLiab.current, modalUnit)}
-            </span>
-          </div>
-          <div className="bs-statement-table-scroll" style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-              {renderTableHeaders()}
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'visible', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div className="bs-statement-table-scroll" style={{ overflow: 'visible', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <table style={{ width: '100%', height: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.72rem' }}>
+              {renderTableHeaders(
+                `2. EQUITY & LIABILITIES (${modalUnit === 'millions' ? `${modalFilters.currency} Millions` : modalFilters.currency})`,
+                fmtTableCell(initialStatementData.totalEqLiab.current, modalUnit),
+                false
+              )}
               <tbody>
                 {renderSectionTable('I. CURRENT LIABILITIES', initialStatementData.currentLiab, cLiabRows, 'currentLiab')}
                 {renderSectionTable('II. NON CURRENT LIABILITIES', initialStatementData.nonCurrentLiab, ncLiabRows, 'nonCurrentLiab')}
@@ -3121,7 +3140,33 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
               {`Period: ${data?.period_name || '\u2014'} | Currency: ${currency} | Total: ${fmtNum(Math.abs(total), currency)}`}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.15rem', cursor: 'pointer', color: C.slate, padding: '2px 6px', lineHeight: 1 }}>{'\u2715'}</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => exportDrilldownToExcel(data, currency)}
+              style={{
+                padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, borderRadius: 6,
+                background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                transition: 'all 0.15s ease',
+              }}
+              title="Export drilldown to Excel (.xlsx)"
+            >
+              📊 Excel
+            </button>
+            <button
+              onClick={() => exportDrilldownToPDF(data, currency)}
+              style={{
+                padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, borderRadius: 6,
+                background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                transition: 'all 0.15s ease',
+              }}
+              title="Export drilldown to PDF (.pdf)"
+            >
+              📄 PDF
+            </button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.15rem', cursor: 'pointer', color: C.slate, padding: '2px 6px', lineHeight: 1 }}>{'\u2715'}</button>
+          </div>
         </div>
         <div style={{ padding: '6px 14px', overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
           {!rows.length ? (

@@ -490,7 +490,7 @@ export default function KeyFinancialParameters({
                 ...getPlVals('Gross Profit'),
             },
             {
-                id: 5.5,
+                id: 5.1,
                 category: 'Profitability',
                 param: 'Gross Profit %',
                 unit: '%',
@@ -542,7 +542,7 @@ export default function KeyFinancialParameters({
                 ...getPlVals('Net Profit'),
             },
             {
-                id: 7.5,
+                id: 7.1,
                 category: 'Profitability',
                 param: 'Net Profit %',
                 unit: '%',
@@ -754,7 +754,7 @@ export default function KeyFinancialParameters({
             {
                 id: 22,
                 category: 'Short Term Borrowings',
-                param: 'Short Term Loans (18-19+20+21)',
+                param: 'Short Term Loans (18-19-20-21)',
                 unit: 'AED M',
                 isDays: false,
                 isLowerBetter: true,
@@ -1269,7 +1269,7 @@ export default function KeyFinancialParameters({
                                     </td>
 
                                     {/* Parameter Name */}
-                                    <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 5.5 || row.id === 7 || row.id === 7.5 || row.id === 8 || row.id === 18 || row.id === 19) ? 800 : 600, color: '#1e293b' }}>
+                                    <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 5.1 || row.id === 7 || row.id === 7.1 || row.id === 8 || row.id === 18 || row.id === 19) ? 800 : 600, color: '#1e293b' }}>
                                         {row.param}
                                     </td>
 

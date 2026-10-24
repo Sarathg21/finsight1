@@ -175,7 +175,7 @@ const TH = ({ children, align = 'left', style = {} }) => (
     padding: '10px 12px', textAlign: align, fontSize: '0.65rem', color: '#64748b', fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.03em', borderBottom: '2px solid #e2e8f0',
     background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10, whiteSpace: 'normal',
-    wordBreak: 'normal', lineHeight: '1.25', userSelect: 'none', ...style
+    wordBreak: 'normal', lineHeight: '1.25', verticalAlign: 'bottom', userSelect: 'none', ...style
   }}>
     {children}
   </th>
@@ -1345,6 +1345,59 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
     },
   ], [currency]);
 
+  // Completed number of months N based on filter date (as_on_date / as_of_date) and selectedYear
+  // Rule: YTD Average = (Month 1 + Month 2 + ... + Month N) / Completed No. of months (N)
+  // e.g. for Sept 2026 = (Jan26 + Feb26 + ... + Sept26) / 9
+  // e.g. for Jan 26 = Jan26 / 1; Feb 26 = (Jan26 + Feb26) / 2; Aug = (Jan26 + ... + Aug26) / 8
+  const completedMonthCount = useMemo(() => {
+    const rawDate = filters?.as_on_date || filters?.as_of_date || '';
+    let filterYr = 2026;
+    let filterMo = 9; // Default September if not parseable
+
+    if (rawDate) {
+      const dateStr = String(rawDate).trim();
+      const m1 = dateStr.match(/^(\d{4})[-/](\d{1,2})/);
+      if (m1) {
+        filterYr = parseInt(m1[1], 10);
+        filterMo = parseInt(m1[2], 10);
+      } else {
+        const m2 = dateStr.match(/^([a-zA-Z]{3})[-/ ]?(\d{2,4})/);
+        if (m2) {
+          const mi = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].indexOf(m2[1].toUpperCase());
+          if (mi >= 0) filterMo = mi + 1;
+          const yNum = parseInt(m2[2], 10);
+          filterYr = yNum < 100 ? 2000 + yNum : yNum;
+        }
+      }
+    }
+
+    const selYr = parseInt(selectedYear || '2026', 10);
+    if (selYr < filterYr) return 12; // Past year: all 12 months completed
+    if (selYr > filterYr) return 0;  // Future year: not started
+    return Math.min(12, Math.max(1, filterMo));
+  }, [filters, selectedYear]);
+
+  // Calculate YTD Average = (Month 1 + Month 2 + ... + Month N) / Completed No. of months (N)
+  const getMetricAverage = (metric) => {
+    const N = completedMonthCount;
+    if (N <= 0) return null;
+    const activeMonths = MONTH_COLS.slice(0, N);
+    let sum = 0;
+    let hasAnyData = false;
+    activeMonths.forEach(m => {
+      const rowData = monthMap[m];
+      const val = metric.getValue(rowData);
+      if (val !== null && val !== undefined && val !== '' && !isNaN(Number(val))) {
+        sum += Number(val);
+        hasAnyData = true;
+      }
+    });
+    return hasAnyData ? (sum / N) : null;
+  };
+
+
+
+
   // Filter rows by search term
   const displayMetrics = useMemo(() => {
     if (!search.trim()) return METRIC_DEFINITIONS;
@@ -1379,19 +1432,17 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
     setExporting(true);
     try {
       if (format === 'excel') {
-        const headers = ['Parameter', ...MONTH_COLS, 'Latest'];
+        const headers = ['Parameter', ...MONTH_COLS, 'Average'];
         const csvRows = [headers.join(',')];
         METRIC_DEFINITIONS.forEach(m => {
+          const avgVal = getMetricAverage(m);
           const rowCells = [
             '"' + m.label + '"',
             ...MONTH_COLS.map(col => {
               const v = m.getValue(monthMap[col]);
               return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v).toFixed(2) : '';
             }),
-            (() => {
-              const v = m.getValue(latestRow);
-              return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v).toFixed(2) : '';
-            })(),
+            avgVal !== null && avgVal !== undefined && !isNaN(Number(avgVal)) ? Number(avgVal).toFixed(2) : '',
           ];
           csvRows.push(rowCells.join(','));
         });
@@ -1584,7 +1635,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
                       {m}
                     </th>
                   ))}
-                  {/* Latest Column */}
+                  {/* Average Column */}
                   <th style={{
                     position: 'sticky', top: 0, zIndex: 10,
                     width: 104, minWidth: 104,
@@ -1593,7 +1644,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
                     textTransform: 'uppercase', letterSpacing: '0.04em',
                     borderBottom: '2px solid #cbd5e1',
                   }}>
-                    Latest
+                    Average
                   </th>
                 </tr>
               </thead>
@@ -1618,9 +1669,9 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
                           ? '#ffffff'
                           : '#fafcff';
 
-                    const latestVal = metric.getValue(latestRow);
-                    const latestFormatted = formatCell(latestVal, metric.type, unit);
-                    const latestColor = getCellColor(latestVal, metric);
+                    const avgVal = getMetricAverage(metric);
+                    const avgFormatted = formatCell(avgVal, metric.type, unit);
+                    const avgColor = getCellColor(avgVal, metric);
 
                     return (
                       <tr
@@ -1683,19 +1734,19 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
                           );
                         })}
 
-                        {/* Latest Value Cell */}
+                        {/* Average Value Cell */}
                         <td style={{
                           padding: '10px 14px',
                           textAlign: 'right',
                           fontSize: '0.74rem',
                           fontWeight: 800,
-                          color: latestColor,
+                          color: avgColor,
                           fontVariantNumeric: 'tabular-nums',
                           background: isTwc ? '#e4f0ff' : isCcc ? '#f3e8ff' : '#f8fafd',
                           borderBottom: isSummary ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
                           whiteSpace: 'nowrap',
                         }}>
-                          {latestFormatted}
+                          {avgFormatted}
                         </td>
                       </tr>
                     );
@@ -2673,7 +2724,17 @@ const PROFIT_SELECTION_CRITERIA = [
 const PROFIT_YEARS = ['2026', '2025', '2024'];
 
 function extractMetricsFromStatement(stmt) {
-  if (!stmt) return { revenue: 0, cost_of_material: 0, manufacturing_expense: 0, gross_profit: 0, operating_expense: 0, pbt: 0, net_profit: 0 };
+  if (!stmt) return {
+    revenue: 0,
+    cost_of_material: 0,
+    direct_labour: 0,
+    manufacturing_expense: 0,
+    overhead_absorption: 0,
+    gross_profit: 0,
+    operating_expense: 0,
+    pbt: 0,
+    net_profit: 0,
+  };
 
   let rawList = [];
   if (Array.isArray(stmt)) {
@@ -2702,34 +2763,55 @@ function extractMetricsFromStatement(stmt) {
     || findRow(p => p.includes('total revenue') || p.endsWith('revenue'));
   const revenue = getNum(revenueRow);
 
-  const comRow = findRow(p => p === 'cost of material' || p === 'cost of materials' || p.includes('cost of material'));
+  const comRow = findRow(p => (p === 'cost of material' || p === 'cost of materials' || p.includes('cost of material')) && !p.includes('%'));
   const cost_of_material = getNum(comRow);
 
-  const mfgRow = findRow(p => p === 'total direct expenses' || p.includes('manufacturing') || p.includes('direct overhead') || p === 'direct expenses rkme');
-  const manufacturing_expense = getNum(mfgRow);
+  // Direct Labour
+  const labourRow = findRow(p => (p === 'direct labour' || p === 'direct labor' || p.includes('direct labour') || p.includes('direct labor')) && !p.includes('%'));
+  const direct_labour = getNum(labourRow);
 
-  let gpRow = findRow(p => p === 'gross profit' || p === 'gross margin');
-  let gross_profit = getNum(gpRow);
-  if (gross_profit === 0 && revenue > 0 && cost_of_material > 0) {
-    gross_profit = revenue - cost_of_material - manufacturing_expense;
+  // Overhead Absorption
+  const absorptionRow = findRow(p => (p.includes('overhead absorption') || p.includes('absorption')) && !p.includes('%'));
+  const overhead_absorption = getNum(absorptionRow);
+
+  // Manufacturing / Direct Overheads (+ RKME if present)
+  const mfgRow = findRow(p => (p.includes('manufacturing') || p.includes('direct overhead')) && !p.includes('absorption') && !p.includes('depreciation') && !p.includes('%'));
+  const rkmeRow = findRow(p => p.includes('rkme') && !p.includes('%'));
+  let manufacturing_expense = getNum(mfgRow) + getNum(rkmeRow);
+
+  // Fallback if specific manufacturing row was not labelled as such
+  if (manufacturing_expense === 0) {
+    const totDirectRow = findRow(p => (p === 'total direct expenses' || p.includes('direct expenses')) && !p.includes('rkme') && !p.includes('%'));
+    if (totDirectRow) {
+      const totDirect = getNum(totDirectRow);
+      manufacturing_expense = totDirect - direct_labour - overhead_absorption;
+    }
   }
 
-  const opexRow = findRow(p => p === 'total operating expenses' || p === 'total expenses' || p === 'operating expenses' || p.includes('total operating expense'));
+  let gpRow = findRow(p => (p === 'gross profit' || p === 'gross margin') && !p.includes('%'));
+  let gross_profit = getNum(gpRow);
+  if (gross_profit === 0 && revenue > 0 && cost_of_material > 0) {
+    gross_profit = revenue - cost_of_material - direct_labour - manufacturing_expense - overhead_absorption;
+  }
+
+  const opexRow = findRow(p => (p === 'total operating expenses' || p === 'total expenses' || p === 'operating expenses' || p.includes('total operating expense')) && !p.includes('%'));
   const operating_expense = getNum(opexRow);
 
-  let pbtRow = findRow(p => p === 'pbt' || p === 'profit before tax' || p.includes('profit before tax') || p === 'profit / (loss) before tax');
+  let pbtRow = findRow(p => (p === 'pbt' || p === 'profit before tax' || p.includes('profit before tax') || p === 'profit / (loss) before tax') && !p.includes('%'));
   let pbt = getNum(pbtRow);
   if (pbt === 0 && gross_profit !== 0) {
     pbt = gross_profit - operating_expense;
   }
 
-  const npRow = findRow(p => p === 'net profit' || p === 'net profit / (loss)' || p.includes('net profit'));
+  const npRow = findRow(p => (p === 'net profit' || p === 'net profit / (loss)' || p.includes('net profit')) && !p.includes('%'));
   const net_profit = getNum(npRow) || pbt;
 
   return {
     revenue,
     cost_of_material,
+    direct_labour,
     manufacturing_expense,
+    overhead_absorption,
     gross_profit,
     operating_expense,
     pbt,
@@ -2804,7 +2886,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const [criteriaKey, setCriteriaKey] = useState('parent_division');
   const [reportSel, setReportSel]     = useState('All');
   const [year, setYear]               = useState('2026');
-  const [period, setPeriod]           = useState('Jan-26');
+  const [period, setPeriod]           = useState('Oct-26');
   const [unit, setUnit]               = useState('aed'); // 'aed' | 'millions'
   const [filterOptions, setFilterOptions] = useState({});
   const [search, setSearch]           = useState('');
@@ -2832,8 +2914,61 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
     if (exporting) return;
     setExporting(format);
     try {
-      await exportPL('statement', format, { year, periodName: period, currency });
-      showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started — check Downloads`, 'success');
+      if (format === 'excel') {
+        const headers = [
+          currentCritLabel,
+          `Revenue (${unit === 'millions' ? `${currency} M` : currency})`,
+          `Cost of Material (${unit === 'millions' ? `${currency} M` : currency})`,
+          `Direct Labour (${unit === 'millions' ? `${currency} M` : currency})`,
+          `Manufacturing Expense (${unit === 'millions' ? `${currency} M` : currency})`,
+          `Overhead Absorption (${unit === 'millions' ? `${currency} M` : currency})`,
+          `Gross Profit (${unit === 'millions' ? `${currency} M` : currency})`,
+          'GP %',
+          `Operating Expense (${unit === 'millions' ? `${currency} M` : currency})`,
+          'Opex %',
+          `Net Profit Before Tax (${unit === 'millions' ? `${currency} M` : currency})`,
+          'PBT %',
+        ];
+        const rowsData = [
+          headers,
+          ...displayRows.map(r => [
+            r.name,
+            fmtAmount(r.revenue, unit),
+            fmtAmount(r.cost_of_material, unit),
+            fmtAmount(r.direct_labour, unit),
+            fmtAmount(r.manufacturing_expense, unit),
+            fmtAmount(r.overhead_absorption, unit),
+            fmtAmount(r.gross_profit, unit),
+            fmtPct(r.gp_pct),
+            fmtAmount(r.operating_expense, unit),
+            fmtPct(r.opex_pct),
+            fmtAmount(r.pbt, unit),
+            fmtPct(r.pbt_pct),
+          ]),
+          [
+            `Total (${displayRows.length})`,
+            fmtAmount(totals.revenue, unit),
+            fmtAmount(totals.cost_of_material, unit),
+            fmtAmount(totals.direct_labour, unit),
+            fmtAmount(totals.manufacturing_expense, unit),
+            fmtAmount(totals.overhead_absorption, unit),
+            fmtAmount(totals.gross_profit, unit),
+            fmtPct(totalGpPct),
+            fmtAmount(totals.operating_expense, unit),
+            fmtPct(totalOpexPct),
+            fmtAmount(totals.pbt, unit),
+            fmtPct(totalPbtPct),
+          ],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Detailed Financials');
+        XLSX.writeFile(wb, `Profitability_Detailed_Financials_${period}_${year}.xlsx`);
+        showToast('Excel export started — check Downloads', 'success');
+      } else {
+        await exportPL('statement', format, { year, periodName: period, currency });
+        showToast('PDF export started — check Downloads', 'success');
+      }
     } catch (e) {
       showToast(e?.message || 'Export failed', 'error');
     } finally {
@@ -2849,7 +2984,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
         if (cancelled || !res) return;
         setFilterOptions(res);
         const initYear = res.years?.[0] ? String(res.years[0]) : '2026';
-        const initPeriod = res.periods?.[0] || 'Jan-26';
+        const initPeriod = (res.periods && res.periods.length > 0) ? res.periods[res.periods.length - 1] : 'Oct-26';
         setYear(initYear);
         setPeriod(initPeriod);
         setStaged(s => ({ ...s, year: initYear, period: initPeriod }));
@@ -2922,7 +3057,9 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
               name: ent.name,
               revenue: m.revenue,
               cost_of_material: m.cost_of_material,
+              direct_labour: m.direct_labour,
               manufacturing_expense: m.manufacturing_expense,
+              overhead_absorption: m.overhead_absorption,
               gross_profit: m.gross_profit,
               gp_pct: m.revenue ? (m.gross_profit / m.revenue) * 100 : 0,
               operating_expense: m.operating_expense,
@@ -2937,7 +3074,9 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
               name: ent.name,
               revenue: 0,
               cost_of_material: 0,
+              direct_labour: 0,
               manufacturing_expense: 0,
+              overhead_absorption: 0,
               gross_profit: 0,
               gp_pct: 0,
               operating_expense: 0,
@@ -2978,7 +3117,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
 
   const handleReset = () => {
     const defYear = filterOptions.years?.[0] ? String(filterOptions.years[0]) : '2026';
-    const defPeriod = filterOptions.periods?.[0] || 'Jan-26';
+    const defPeriod = (filterOptions.periods && filterOptions.periods.length > 0) ? filterOptions.periods[filterOptions.periods.length - 1] : 'Oct-26';
     const def = { criteriaKey: 'parent_division', reportSel: 'All', year: defYear, period: defPeriod };
     setStaged(def);
     setCriteriaKey(def.criteriaKey);
@@ -2997,11 +3136,13 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const totals = useMemo(() => displayRows.reduce((acc, r) => ({
     revenue:               acc.revenue               + (r.revenue || 0),
     cost_of_material:      acc.cost_of_material      + (r.cost_of_material || 0),
+    direct_labour:         acc.direct_labour         + (r.direct_labour || 0),
     manufacturing_expense: acc.manufacturing_expense + (r.manufacturing_expense || 0),
+    overhead_absorption:   acc.overhead_absorption   + (r.overhead_absorption || 0),
     gross_profit:          acc.gross_profit          + (r.gross_profit || 0),
     operating_expense:     acc.operating_expense     + (r.operating_expense || 0),
     pbt:                   acc.pbt                   + (r.pbt || 0),
-  }), { revenue: 0, cost_of_material: 0, manufacturing_expense: 0, gross_profit: 0, operating_expense: 0, pbt: 0 }),
+  }), { revenue: 0, cost_of_material: 0, direct_labour: 0, manufacturing_expense: 0, overhead_absorption: 0, gross_profit: 0, operating_expense: 0, pbt: 0 }),
   [displayRows]);
 
   const totalGpPct   = totals.revenue ? (totals.gross_profit     / totals.revenue) * 100 : 0;
@@ -3185,18 +3326,58 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
             ) : displayRows.length === 0 ? (
               <EmptyState message="No records found for the selected grouping and filters." />
             ) : (
-              <ScrollTable minWidth={950}>
+              <ScrollTable minWidth={1180}>
                 <thead>
                   <tr>
-                    <TH style={{ minWidth: 200 }}>{currentCritLabel}</TH>
+                    <TH style={{ minWidth: 200 }}>
+                      {currentCritLabel.includes(' ') ? (
+                        <>
+                          <span style={{ whiteSpace: 'nowrap' }}>{currentCritLabel.split(' ').slice(0, -1).join(' ')}</span>
+                          <br />
+                          <span style={{ whiteSpace: 'nowrap' }}>{currentCritLabel.split(' ').slice(-1)[0]}</span>
+                        </>
+                      ) : (
+                        <span style={{ whiteSpace: 'nowrap' }}>{currentCritLabel}</span>
+                      )}
+                    </TH>
                     <TH align="right">Revenue</TH>
-                    <TH align="right">Cost of Material</TH>
-                    <TH align="right">Manufacturing Expense</TH>
-                    <TH align="right">Gross Profit</TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Cost of</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Material</span>
+                    </TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Direct</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Labour</span>
+                    </TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Manufacturing</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Expense</span>
+                    </TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Overhead</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Absorption</span>
+                    </TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Gross</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Profit</span>
+                    </TH>
                     <TH align="right">GP %</TH>
-                    <TH align="right">Operating Expense</TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Operating</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Expense</span>
+                    </TH>
                     <TH align="right">Opex %</TH>
-                    <TH align="right">Net Profit Before Tax</TH>
+                    <TH align="right">
+                      <span style={{ whiteSpace: 'nowrap' }}>Net Profit</span>
+                      <br />
+                      <span style={{ whiteSpace: 'nowrap' }}>Before Tax</span>
+                    </TH>
                     <TH align="right">PBT %</TH>
                   </tr>
                 </thead>
@@ -3215,7 +3396,9 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
                       </TD>
                       <TD align="right">{fmtAmount(r.revenue, unit)}</TD>
                       <TD align="right">{fmtAmount(r.cost_of_material, unit)}</TD>
+                      <TD align="right">{fmtAmount(r.direct_labour, unit)}</TD>
                       <TD align="right">{fmtAmount(r.manufacturing_expense, unit)}</TD>
+                      <TD align="right" color={r.overhead_absorption < 0 ? "#dc2626" : undefined}>{fmtAmount(r.overhead_absorption, unit)}</TD>
                       <TD align="right">{fmtAmount(r.gross_profit, unit)}</TD>
                       <TD align="right" color="#2563eb" bold>{fmtPct(r.gp_pct)}</TD>
                       <TD align="right">{fmtAmount(r.operating_expense, unit)}</TD>
@@ -3231,7 +3414,9 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
                       <TF bold style={{ color: '#1e40af' }}>Total ({displayRows.length})</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.revenue, unit)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.cost_of_material, unit)}</TF>
+                      <TF align="right" bold color="#1e40af">{fmtAmount(totals.direct_labour, unit)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.manufacturing_expense, unit)}</TF>
+                      <TF align="right" bold color={totals.overhead_absorption < 0 ? "#dc2626" : "#1e40af"}>{fmtAmount(totals.overhead_absorption, unit)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.gross_profit, unit)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtPct(totalGpPct)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.operating_expense, unit)}</TF>

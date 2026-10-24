@@ -298,7 +298,7 @@ export function exportStatementToPDF(statementData, currency = 'AED', metadata =
     : [['Code', 'Particulars / Account', `As on ${curPeriod} (${currLabel})`]];
 
   const body = [];
-  const fmt = n => n != null ? (Number(n) / divisor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const fmt = n => n != null ? (isMillions ? (Number(n) / divisor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Math.round(Number(n)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })) : '—';
   const fmtPct = n => n != null ? `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(2)}%` : '—';
 
   const pushSectionHeader = title => {
@@ -414,7 +414,7 @@ export function exportSubDivisionToPDF(subdivData, currency = 'AED', metadata = 
     14, 22
   );
 
-  const fmt = n => n != null ? (Number(n) / divisor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const fmt = n => n != null ? (isMillions ? (Number(n) / divisor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Math.round(Number(n)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })) : '—';
 
   const tableHead = [['Sub-Division Name', 'Code', 'Legal Entity', 'Parent Division', `Net Balance (${currLabel})`]];
   const tableBody = rows.map(r => [
@@ -448,4 +448,166 @@ export function exportSubDivisionToPDF(subdivData, currency = 'AED', metadata = 
   });
 
   doc.save(`Balance_Sheet_SubDivision_${currLabel.replace(' ', '_')}_${curPeriod}.pdf`);
+}
+
+
+export function exportDrilldownToExcel(drilldownData, currency = 'AED', metadata = {}) {
+  const rows = drilldownData?.data || [];
+  if (!rows || !rows.length) return;
+
+  const account = drilldownData?.account_name || (rows[0] && rows[0].account_name) || 'Drilldown';
+  const curPeriod = drilldownData?.period_name || metadata.period || 'Current';
+  const computedRowSum = rows.reduce((sum, r) => sum + (Number(r.balance_amount) || 0), 0);
+  const total = drilldownData?.frontPageBalance !== undefined && drilldownData?.frontPageBalance !== null
+    ? Number(drilldownData.frontPageBalance)
+    : (drilldownData?.consolidated_balance ?? computedRowSum);
+
+  const hasSubDivision = rows.some(r => r.sub_division_name);
+  const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
+  const hasDrCr = rows.some(r => r.dr_cr);
+  const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '—');
+
+  // Build headers
+  const headers = ['Account', 'Code'];
+  if (hasLegalEntity) headers.push('Legal Entity');
+  if (hasSubDivision) headers.push('Sub-Division');
+  if (hasLedger) headers.push('Ledger');
+  if (hasDrCr) headers.push('DR/CR');
+  headers.push(`Balance Amount (${currency})`, '% of Total');
+
+  const wsData = [
+    [`FinSight — Balance Sheet Drilldown: ${account}`],
+    [`Period: ${curPeriod}`, `Currency: ${currency}`, `Total: ${Math.round(Math.abs(total)).toLocaleString('en-US')}`],
+    [`Generated: ${new Date().toLocaleString()}`],
+    [],
+    headers,
+  ];
+
+  rows.forEach(r => {
+    const amt = Number(r.balance_amount) || 0;
+    const isOpposing = r.is_opposing !== undefined
+      ? r.is_opposing
+      : (total !== 0 ? (total > 0 ? amt < 0 : amt > 0) : amt < 0);
+    const displayDrCr = isOpposing
+      ? (total >= 0 ? 'CR' : 'DR')
+      : (r.dr_cr || (total >= 0 ? 'DR' : 'CR'));
+    const pctVal = Math.abs(r.abs_pct_of_total ?? (total !== 0 ? Math.round((Math.abs(amt) / Math.abs(total)) * 100 * 10) / 10 : 0));
+    const finalAmt = isOpposing ? -Math.abs(amt) : Math.abs(amt);
+
+    const rowCells = [
+      r.account_name || r.sub_division_name || '—',
+      r.account_code || r.sub_division_code || '—',
+    ];
+    if (hasLegalEntity) rowCells.push(r.legal_entity_name || r.legal_entity || r.entity_name || r.entity || '—');
+    if (hasSubDivision) rowCells.push(r.sub_division_name || '—');
+    if (hasLedger) rowCells.push(r.ledger_code || '—');
+    if (hasDrCr) rowCells.push(displayDrCr);
+    rowCells.push(finalAmt);
+    rowCells.push(`${pctVal.toFixed(1)}%`);
+
+    wsData.push(rowCells);
+  });
+
+  // Total row
+  const totalRow = ['TOTAL', ''];
+  if (hasLegalEntity) totalRow.push('');
+  if (hasSubDivision) totalRow.push('');
+  if (hasLedger) totalRow.push('');
+  if (hasDrCr) totalRow.push('');
+  totalRow.push(Math.abs(total));
+  totalRow.push('100.0%');
+  wsData.push([]);
+  wsData.push(totalRow);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  const colWidths = [{ wch: 32 }, { wch: 14 }];
+  if (hasLegalEntity) colWidths.push({ wch: 36 });
+  if (hasSubDivision) colWidths.push({ wch: 24 });
+  if (hasLedger) colWidths.push({ wch: 14 });
+  if (hasDrCr) colWidths.push({ wch: 10 });
+  colWidths.push({ wch: 20 }, { wch: 14 });
+  ws['!cols'] = colWidths;
+
+  const safeAcc = account.replace(/[/\\?%*:|"<> ]/g, '_').slice(0, 25);
+  XLSX.utils.book_append_sheet(wb, ws, 'Drilldown');
+  XLSX.writeFile(wb, `Balance_Sheet_Drilldown_${safeAcc}_${curPeriod}.xlsx`);
+}
+
+export function exportDrilldownToPDF(drilldownData, currency = 'AED', metadata = {}) {
+  const rows = drilldownData?.data || [];
+  if (!rows || !rows.length) return;
+
+  const account = drilldownData?.account_name || (rows[0] && rows[0].account_name) || 'Drilldown';
+  const curPeriod = drilldownData?.period_name || metadata.period || 'Current';
+  const computedRowSum = rows.reduce((sum, r) => sum + (Number(r.balance_amount) || 0), 0);
+  const total = drilldownData?.frontPageBalance !== undefined && drilldownData?.frontPageBalance !== null
+    ? Number(drilldownData.frontPageBalance)
+    : (drilldownData?.consolidated_balance ?? computedRowSum);
+
+  const hasSubDivision = rows.some(r => r.sub_division_name);
+  const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
+  const hasDrCr = rows.some(r => r.dr_cr);
+  const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '—');
+
+  const doc = new jsPDF({ orientation: hasSubDivision ? 'landscape' : 'portrait' });
+  doc.setFontSize(13);
+  doc.text(`FinSight — Balance Sheet Drilldown: ${account}`, 14, 15);
+  doc.setFontSize(8.5);
+  doc.text(
+    `Period: ${curPeriod} | Currency: ${currency} | Total: ${Math.round(Math.abs(total)).toLocaleString('en-US')} | Generated: ${new Date().toLocaleDateString()}`,
+    14, 22
+  );
+
+  const headers = ['Account', 'Code'];
+  if (hasLegalEntity) headers.push('Legal Entity');
+  if (hasSubDivision) headers.push('Sub-Division');
+  if (hasLedger) headers.push('Ledger');
+  if (hasDrCr) headers.push('DR/CR');
+  headers.push(`Balance (${currency})`, '% Total');
+
+  const tableBody = rows.map(r => {
+    const amt = Number(r.balance_amount) || 0;
+    const isOpposing = r.is_opposing !== undefined
+      ? r.is_opposing
+      : (total !== 0 ? (total > 0 ? amt < 0 : amt > 0) : amt < 0);
+    const displayDrCr = isOpposing
+      ? (total >= 0 ? 'CR' : 'DR')
+      : (r.dr_cr || (total >= 0 ? 'DR' : 'CR'));
+    const pctVal = Math.abs(r.abs_pct_of_total ?? (total !== 0 ? Math.round((Math.abs(amt) / Math.abs(total)) * 100 * 10) / 10 : 0));
+    const finalAmt = isOpposing ? -Math.abs(amt) : Math.abs(amt);
+
+    const rowCells = [
+      r.account_name || r.sub_division_name || '—',
+      r.account_code || r.sub_division_code || '—',
+    ];
+    if (hasLegalEntity) rowCells.push(r.legal_entity_name || r.legal_entity || r.entity_name || r.entity || '—');
+    if (hasSubDivision) rowCells.push(r.sub_division_name || '—');
+    if (hasLedger) rowCells.push(r.ledger_code || '—');
+    if (hasDrCr) rowCells.push(displayDrCr);
+    rowCells.push(Math.round(finalAmt).toLocaleString('en-US'));
+    rowCells.push(`${pctVal.toFixed(1)}%`);
+    return rowCells;
+  });
+
+  const colSpanBeforeTotal = 2 + (hasLegalEntity ? 1 : 0) + (hasSubDivision ? 1 : 0) + (hasLedger ? 1 : 0) + (hasDrCr ? 1 : 0);
+  tableBody.push([
+    { content: 'TOTAL', colSpan: colSpanBeforeTotal, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+    { content: Math.round(Math.abs(total)).toLocaleString('en-US'), styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249] } },
+    { content: '100.0%', styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249] } },
+  ]);
+
+  autoTable(doc, {
+    startY: 27,
+    head: [headers],
+    body: tableBody,
+    theme: 'striped',
+    headStyles: { fillColor: [30, 58, 138] },
+    styles: { fontSize: 7.5, cellPadding: 2 },
+  });
+
+  const safeAcc = account.replace(/[/\\?%*:|"<> ]/g, '_').slice(0, 25);
+  doc.save(`Balance_Sheet_Drilldown_${safeAcc}_${curPeriod}.pdf`);
 }
