@@ -1786,9 +1786,29 @@ function StatementViewAll({
   const collapseAll = () => setExpanded({ currentAssets: false, nonCurrentAssets: false, currentLiab: false, nonCurrentLiab: false, equity: false });
 
   const handleApply = () => {
-    // Intentionally local-only: View All filters work on the already-loaded
-    // statementData and do NOT push changes back to the main page context.
-    // Main page filters are controlled exclusively via the main filter bar.
+    if (onApplyFilters) {
+      onApplyFilters(modalFilters);
+    }
+  };
+
+  const handleReset = () => {
+    const p1 = filterOptions?.periods?.[0];
+    const p2 = filterOptions?.periods?.[1];
+    const first  = (p1 && typeof p1 === 'object' ? p1.period : p1) || '';
+    const second = (p2 && typeof p2 === 'object' ? p2.period : p2) || '';
+    const reset = {
+      legalGroup:     ['All'],
+      legalEntity:    ['All'],
+      parentDivision: ['All'],
+      subdivision:    ['All'],
+      period:         first,
+      comparePeriod:  second,
+      currency:       'AED',
+    };
+    setModalFilters(reset);
+    if (onApplyFilters) {
+      onApplyFilters(reset);
+    }
   };
 
   const handleExcel = () => {
@@ -2097,27 +2117,36 @@ function StatementViewAll({
 
         <button
           onClick={handleApply}
+          disabled={loading}
           style={{
-            padding: '7px 16px', background: C.primary, color: '#fff',
-            border: 'none', borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            padding: '7px 16px',
+            background: loading ? '#94a3b8' : C.primary,
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            cursor: loading ? 'not-allowed' : 'pointer',
             alignSelf: 'flex-end',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
           }}
         >
-          Apply Filters
+          {loading && (
+            <svg style={{ animation: 'spin 1s linear infinite' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+            </svg>
+          )}
+          {loading ? 'Applying...' : 'Apply Filters'}
         </button>
         <button
-          onClick={() => setModalFilters({
-            legalGroup:     appliedFilters?.legalGroup     || ['All'],
-            legalEntity:    appliedFilters?.legalEntity    || ['All'],
-            parentDivision: appliedFilters?.parentDivision || ['All'],
-            subdivision:    appliedFilters?.subdivision    || ['All'],
-            period:         appliedFilters?.period         || '',
-            comparePeriod:  appliedFilters?.comparePeriod  || '',
-            currency:       currency || 'AED',
-          })}
+          onClick={handleReset}
+          disabled={loading}
           style={{
             padding: '7px 12px', background: 'none', color: C.slate,
-            border: 'none', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer',
+            border: 'none', fontSize: '0.74rem', fontWeight: 600,
+            cursor: loading ? 'not-allowed' : 'pointer',
             alignSelf: 'flex-end',
           }}
         >
@@ -2225,7 +2254,15 @@ function StatementViewAll({
       </div>
 
       {/* ── Split 2-Panel Presentation (Assets vs Equity & Liabilities) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 14,
+        position: 'relative',
+        opacity: loading ? 0.6 : 1,
+        pointerEvents: loading ? 'none' : 'auto',
+        transition: 'opacity 0.2s ease',
+      }}>
         {/* PANEL 1: ASSETS */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'visible', position: 'relative', display: 'flex', flexDirection: 'column' }}>
           <div className="bs-statement-table-scroll" style={{ overflow: 'visible', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -3971,6 +4008,7 @@ export default function BalanceSheet() {
           appliedFilters={appliedFilters}
           onApplyFilters={(f) => {
             setAppliedFilters(prev => ({ ...prev, ...f }));
+            setFilters(prev => ({ ...prev, ...f }));
             fetchAll({ ...appliedFilters, ...f });
           }}
           onDrilldown={handleDrilldown}
@@ -3996,6 +4034,7 @@ export default function BalanceSheet() {
           appliedFilters={appliedFilters}
           onApplyFilters={(f) => {
             setAppliedFilters(prev => ({ ...prev, ...f }));
+            setFilters(prev => ({ ...prev, ...f }));
             fetchAll({ ...appliedFilters, ...f });
           }}
           loading={loading.trend}
@@ -4016,6 +4055,7 @@ export default function BalanceSheet() {
           appliedFilters={appliedFilters}
           onApplyFilters={(f) => {
             setAppliedFilters(prev => ({ ...prev, ...f }));
+            setFilters(prev => ({ ...prev, ...f }));
             fetchAll({ ...appliedFilters, ...f });
           }}
           loading={loading.summary}
