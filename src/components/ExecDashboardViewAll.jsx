@@ -441,6 +441,158 @@ function ExecMultiSelect({ options = [], value = ['All'], onChange, placeholder 
   );
 }
 
+/**
+ * FinSight Standard Calendar Date Field
+ * Displays formatted DD-MM-YYYY date with 📅 icon, opens native/browser calendar picker on click
+ */
+function CalendarDateField({ id, value, onChange, placeholder = 'Select' }) {
+  const inputRef = useRef(null);
+
+  const openCalendar = () => {
+    if (inputRef.current) {
+      if (typeof inputRef.current.showPicker === 'function') {
+        try {
+          inputRef.current.showPicker();
+          return;
+        } catch (_) {}
+      }
+      inputRef.current.focus();
+      inputRef.current.click();
+    }
+  };
+
+  const formatted = value ? String(value).split('-').reverse().join('-') : placeholder;
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <input
+        ref={inputRef}
+        id={id}
+        type="date"
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      />
+      <button
+        type="button"
+        onClick={openCalendar}
+        style={{
+          width: 104,
+          minWidth: 104,
+          height: 28,
+          boxSizing: 'border-box',
+          border: '1px solid #cbd5e1',
+          borderRadius: 6,
+          padding: '0 24px 0 8px',
+          background: '#f8fafc',
+          color: '#334155',
+          fontSize: '0.74rem',
+          fontWeight: 500,
+          outline: 'none',
+          cursor: 'pointer',
+          textAlign: 'left',
+          position: 'relative',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: 'flex',
+          alignItems: 'center',
+          transition: 'border-color 0.15s ease',
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = '#94a3b8'}
+        onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+      >
+        <span>{formatted}</span>
+        <span
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: 13,
+            pointerEvents: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            lineHeight: 1,
+          }}
+          aria-hidden="true"
+        >
+          📅
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SHARED HIERARCHY OPTIONS LOADER (Cached across TWC, Revenue, Profitability)
+───────────────────────────────────────────────────────────────────────────── */
+
+let cachedHierarchyOptions = null;
+let hierarchyPromise = null;
+
+function fetchHierarchyOptions() {
+  if (cachedHierarchyOptions) return Promise.resolve(cachedHierarchyOptions);
+  if (!hierarchyPromise) {
+    hierarchyPromise = Promise.allSettled([
+      getLegalGroups(),
+      getLegalEntities(),
+      getParentDivision(),
+      getSubDivision(),
+      getOpexFilterOptions(),
+    ]).then(([lgRes, leRes, pdRes, sdRes, opexRes]) => {
+      const opexData = opexRes?.status === "fulfilled" ? opexRes.value : null;
+
+      const isActiveEntry = (item) => {
+        if (!item) return false;
+        if (typeof item === "object") {
+          if (item.active === false || item.is_active === false) return false;
+          if (item.status && String(item.status).toLowerCase() === "inactive") return false;
+        }
+        return true;
+      };
+
+      const dedupe = (list = []) => {
+        const seen = new Set();
+        return (list || []).filter(item => {
+          if (!isActiveEntry(item)) return false;
+          const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || "").trim().toLowerCase();
+          if (!name || name === "all" || name === "null" || name === "undefined") return false;
+          if (seen.has(name)) return false;
+          seen.add(name);
+          return true;
+        });
+      };
+
+      const lg = (lgRes?.status === "fulfilled" ? (lgRes.value?.data ?? lgRes.value) : null)
+        || opexData?.legal_groups || opexData?.legalGroups || [];
+      const le = (leRes?.status === "fulfilled" ? (leRes.value?.data ?? leRes.value) : null)
+        || opexData?.legal_entities || opexData?.legalEntities || [];
+      const pd = (pdRes?.status === "fulfilled" ? (pdRes.value?.data ?? pdRes.value) : null)
+        || opexData?.parent_divisions || opexData?.parentDivisions || [];
+      const sd = (sdRes?.status === "fulfilled" ? (sdRes.value?.data ?? sdRes.value) : null)
+        || opexData?.subdivisions || opexData?.subDivisions || [];
+
+      cachedHierarchyOptions = {
+        legalGroups: dedupe(Array.isArray(lg) ? lg : []),
+        legalEntities: dedupe(Array.isArray(le) ? le : []),
+        parentDivs: dedupe(Array.isArray(pd) ? pd : []),
+        subDivs: dedupe(Array.isArray(sd) ? sd : []),
+      };
+      return cachedHierarchyOptions;
+    });
+  }
+  return hierarchyPromise;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    SECTION 1: TWC View All Table
 ───────────────────────────────────────────────────────────────────────────── */
@@ -507,53 +659,15 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
     subdivision_id: filters.subdivision_id || undefined,
   });
 
-  // Load hierarchy options from backend, strictly retaining only active entries and deduplicating names
+  // Load cached hierarchy options
   useEffect(() => {
     let cancelled = false;
-    Promise.allSettled([
-      getLegalGroups(),
-      getLegalEntities(),
-      getParentDivision(),
-      getSubDivision(),
-      getOpexFilterOptions(),
-    ]).then(([lgRes, leRes, pdRes, sdRes, opexRes]) => {
-      if (cancelled) return;
-      const opexData = opexRes?.status === 'fulfilled' ? opexRes.value : null;
-
-      const isActiveEntry = (item) => {
-        if (!item) return false;
-        if (typeof item === 'object') {
-          if (item.active === false || item.is_active === false) return false;
-          if (item.status && String(item.status).toLowerCase() === 'inactive') return false;
-        }
-        return true;
-      };
-
-      const dedupe = (list = []) => {
-        const seen = new Set();
-        return (list || []).filter(item => {
-          if (!isActiveEntry(item)) return false;
-          const name = (item.legal_group_name || item.legal_entity_name || item.parent_division_name || item.subdivision_name || item.name || item.label || '').trim().toLowerCase();
-          if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
-          if (seen.has(name)) return false;
-          seen.add(name);
-          return true;
-        });
-      };
-
-      const lg = (lgRes?.status === 'fulfilled' ? (lgRes.value?.data ?? lgRes.value) : null)
-        || opexData?.legal_groups || opexData?.legalGroups || [];
-      const le = (leRes?.status === 'fulfilled' ? (leRes.value?.data ?? leRes.value) : null)
-        || opexData?.legal_entities || opexData?.legalEntities || [];
-      const pd = (pdRes?.status === 'fulfilled' ? (pdRes.value?.data ?? pdRes.value) : null)
-        || opexData?.parent_divisions || opexData?.parentDivisions || [];
-      const sd = (sdRes?.status === 'fulfilled' ? (sdRes.value?.data ?? sdRes.value) : null)
-        || opexData?.subdivisions || opexData?.subDivisions || [];
-
-      setLegalGroups(dedupe(Array.isArray(lg) ? lg : []));
-      setLegalEntities(dedupe(Array.isArray(le) ? le : []));
-      setParentDivs(dedupe(Array.isArray(pd) ? pd : []));
-      setSubDivs(dedupe(Array.isArray(sd) ? sd : []));
+    fetchHierarchyOptions().then(opts => {
+      if (cancelled || !opts) return;
+      setLegalGroups(opts.legalGroups);
+      setLegalEntities(opts.legalEntities);
+      setParentDivs(opts.parentDivs);
+      setSubDivs(opts.subDivs);
     });
     return () => { cancelled = true; };
   }, []);
@@ -673,26 +787,116 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
     });
   }, [rows, search]);
 
-  // Totals for sticky table footer (preserve null when backend values are null)
+  // Totals for sticky table footer: fully calculates all 8 financial columns
   const totals = useMemo(() => {
     let tr = 0, tp = 0, inv = 0, twc = 0;
     let hasTr = false, hasTp = false, hasInv = false, hasTwc = false;
+    let sumRev = 0, sumCost = 0;
+    let applicableDays = 0;
+
+    let weightedDsoSum = 0, dsoSum = 0, dsoCount = 0;
+    let weightedDioSum = 0, dioSum = 0, dioCount = 0;
+    let weightedDpoSum = 0, dpoSum = 0, dpoCount = 0;
+
     displayRows.forEach(r => {
       const rawTr  = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
       const rawTp  = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp;
       const rawInv = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
       const rawTwc = r.trade_working_capital ?? r.twc;
 
-      if (rawTr != null && !isNaN(Number(rawTr))) { tr += Number(rawTr); hasTr = true; }
-      if (rawTp != null && !isNaN(Number(rawTp))) { tp += Number(rawTp); hasTp = true; }
-      if (rawInv != null && !isNaN(Number(rawInv))) { inv += Number(rawInv); hasInv = true; }
-      if (rawTwc != null && !isNaN(Number(rawTwc))) { twc += Number(rawTwc); hasTwc = true; }
+      const numTr  = (rawTr != null && !isNaN(Number(rawTr))) ? Number(rawTr) : 0;
+      const numTp  = (rawTp != null && !isNaN(Number(rawTp))) ? Number(rawTp) : 0;
+      const numInv = (rawInv != null && !isNaN(Number(rawInv))) ? Number(rawInv) : 0;
+      const numTwc = (rawTwc != null && !isNaN(Number(rawTwc))) ? Number(rawTwc) : 0;
+
+      if (rawTr != null && !isNaN(Number(rawTr))) { tr += numTr; hasTr = true; }
+      if (rawTp != null && !isNaN(Number(rawTp))) { tp += numTp; hasTp = true; }
+      if (rawInv != null && !isNaN(Number(rawInv))) { inv += numInv; hasInv = true; }
+      if (rawTwc != null && !isNaN(Number(rawTwc))) { twc += numTwc; hasTwc = true; }
+
+      const rev = Number(r.ratio_revenue_aed || 0);
+      const cost = Number(r.ratio_cost_of_material_aed || 0);
+      if (rev > 0) sumRev += rev;
+      if (cost > 0) sumCost += cost;
+
+      if (r.ratio_applicable_days && Number(r.ratio_applicable_days) > 0) {
+        applicableDays = Number(r.ratio_applicable_days);
+      }
+
+      const dsoVal = r.dso_days ?? r.dso;
+      if (dsoVal != null && !isNaN(Number(dsoVal))) {
+        dsoSum += Number(dsoVal);
+        dsoCount++;
+        weightedDsoSum += Number(dsoVal) * numTr;
+      }
+
+      const dioVal = r.dio_days ?? r.dio;
+      if (dioVal != null && !isNaN(Number(dioVal))) {
+        dioSum += Number(dioVal);
+        dioCount++;
+        weightedDioSum += Number(dioVal) * numInv;
+      }
+
+      const dpoVal = r.dpo_days ?? r.dpo;
+      if (dpoVal != null && !isNaN(Number(dpoVal))) {
+        dpoSum += Number(dpoVal);
+        dpoCount++;
+        weightedDpoSum += Number(dpoVal) * numTp;
+      }
     });
+
+    const finalTr = hasTr ? tr : 0;
+    const finalInv = hasInv ? inv : 0;
+    const finalTp = hasTp ? tp : 0;
+    const finalTwc = (hasTwc && twc !== 0) ? twc : (finalTr + finalInv - finalTp);
+
+    // DSO calculation: (Total TR / Total Revenue) * applicable days
+    let finalDso = null;
+    if (sumRev > 0 && applicableDays > 0) {
+      finalDso = (finalTr / sumRev) * applicableDays;
+    } else if (finalTr > 0 && weightedDsoSum > 0) {
+      finalDso = weightedDsoSum / finalTr;
+    } else if (dsoCount > 0) {
+      finalDso = dsoSum / dsoCount;
+    }
+
+    // DIO calculation: (Total Inventory / Total Cost of Material) * applicable days
+    let finalDio = null;
+    if (sumCost > 0 && applicableDays > 0) {
+      finalDio = (finalInv / sumCost) * applicableDays;
+    } else if (finalInv > 0 && weightedDioSum > 0) {
+      finalDio = weightedDioSum / finalInv;
+    } else if (dioCount > 0) {
+      finalDio = dioSum / dioCount;
+    }
+
+    // DPO calculation: (Total Payables / Total Cost of Material) * applicable days
+    let finalDpo = null;
+    if (finalTp > 0 && sumCost > 0 && applicableDays > 0) {
+      finalDpo = (finalTp / sumCost) * applicableDays;
+    } else if (finalTp > 0 && weightedDpoSum > 0) {
+      finalDpo = weightedDpoSum / finalTp;
+    } else if (dpoCount > 0) {
+      finalDpo = dpoSum / dpoCount;
+    } else {
+      finalDpo = 0;
+    }
+
+    // CCC = DSO + DIO - DPO
+    let finalCcc = null;
+    if (finalDso != null && finalDio != null) {
+      finalCcc = finalDso + finalDio - (finalDpo || 0);
+    }
+
     return {
-      tr: hasTr ? tr : null,
-      tp: hasTp ? tp : null,
-      inv: hasInv ? inv : null,
-      twc: hasTwc ? twc : null
+      tr: finalTr,
+      dso: finalDso,
+      inv: finalInv,
+      dio: finalDio,
+      tp: finalTp,
+      dpo: finalDpo,
+      twc: finalTwc,
+      ccc: finalCcc,
     };
   }, [displayRows]);
 
@@ -789,41 +993,19 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
             style={{ width: 130, minWidth: 120 }}
           />
 
-          {/* Period Date Range matching user screenshot */}
+          {/* Period Date Range with FinSight Calendar Date Picker */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Period:</span>
-            <input
-              type="date"
+            <CalendarDateField
+              id="twc-period-from"
               value={draftFromDate}
-              onChange={e => setDraftFromDate(e.target.value)}
-              style={{
-                height: 28,
-                borderRadius: 6,
-                border: '1px solid #cbd5e1',
-                padding: '0 6px',
-                fontSize: '0.72rem',
-                color: '#334155',
-                background: '#f8fafc',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
+              onChange={setDraftFromDate}
             />
             <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>-</span>
-            <input
-              type="date"
+            <CalendarDateField
+              id="twc-period-to"
               value={draftToDate}
-              onChange={e => setDraftToDate(e.target.value)}
-              style={{
-                height: 28,
-                borderRadius: 6,
-                border: '1px solid #cbd5e1',
-                padding: '0 6px',
-                fontSize: '0.72rem',
-                color: '#334155',
-                background: '#f8fafc',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
+              onChange={setDraftToDate}
             />
           </div>
 
@@ -925,10 +1107,10 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
               <TH style={{ width: 140, minWidth: 120 }}>Sub-Division</TH>
               <TH align="right">Trade Receivables ({currency})</TH>
               <TH align="right">DSO</TH>
-              <TH align="right">Trade Payables ({currency})</TH>
-              <TH align="right">DPO</TH>
               <TH align="right">Inventory ({currency})</TH>
               <TH align="right">DIO</TH>
+              <TH align="right">Trade Payables ({currency})</TH>
+              <TH align="right">DPO</TH>
               <TH align="right">TWC ({currency})</TH>
               <TH align="right">CCC (Days)</TH>
             </tr>
@@ -964,10 +1146,10 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
                   </TD>
                   <TD align="right">{fmtNum(trVal)}</TD>
                   <TD align="right">{fmtDays(dsoVal)}</TD>
-                  <TD align="right">{fmtNum(tpVal)}</TD>
-                  <TD align="right">{fmtDays(dpoVal)}</TD>
                   <TD align="right">{fmtNum(invVal)}</TD>
                   <TD align="right">{fmtDays(dioVal)}</TD>
+                  <TD align="right">{fmtNum(tpVal)}</TD>
+                  <TD align="right">{fmtDays(dpoVal)}</TD>
                   <TD align="right" bold color={twcVal !== null && twcVal !== undefined && Number(twcVal) >= 0 ? '#2563eb' : '#ef4444'}>
                     {fmtNum(twcVal)}
                   </TD>
@@ -983,13 +1165,13 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
                 <TF bold style={{ color: '#64748b' }}>–</TF>
                 <TF bold style={{ color: '#64748b' }}>–</TF>
                 <TF align="right" bold color="#2563eb">{fmtNum(totals.tr)}</TF>
-                <TF align="right" bold color="#64748b">–</TF>
-                <TF align="right" bold color="#2563eb">{fmtNum(totals.tp)}</TF>
-                <TF align="right" bold color="#64748b">–</TF>
+                <TF align="right" bold color="#2563eb">{fmtDays(totals.dso)}</TF>
                 <TF align="right" bold color="#2563eb">{fmtNum(totals.inv)}</TF>
-                <TF align="right" bold color="#64748b">–</TF>
+                <TF align="right" bold color="#2563eb">{fmtDays(totals.dio)}</TF>
+                <TF align="right" bold color="#2563eb">{fmtNum(totals.tp)}</TF>
+                <TF align="right" bold color="#2563eb">{fmtDays(totals.dpo)}</TF>
                 <TF align="right" bold color={totals.twc != null && totals.twc >= 0 ? '#2563eb' : '#ef4444'}>{fmtNum(totals.twc)}</TF>
-                <TF align="right" bold color="#64748b">–</TF>
+                <TF align="right" bold color={totals.ccc != null && totals.ccc >= 0 ? '#2563eb' : '#ef4444'}>{fmtDays(totals.ccc)}</TF>
               </tr>
             </tfoot>
           )}
@@ -1003,10 +1185,42 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
    SECTION 2: TWC Trend (Month-on-Month)
 ───────────────────────────────────────────────────────────────────────────── */
 
-function TwcTrendTable({ filters, currency }) {
+function parsePeriodKey(raw) {
+  if (!raw) return { year: '2026', monthIndex: 0, monthName: 'JAN', display: '—' };
+  const str = String(raw).trim();
+  const mIso = str.match(/^(\d{4})[-/]\s*(\d{1,2})/);
+  if (mIso) {
+    const y = mIso[1];
+    const mi = parseInt(mIso[2], 10) - 1;
+    const mn = MONTHS_SHORT[mi] ? MONTHS_SHORT[mi].toUpperCase() : 'JAN';
+    return { year: y, monthIndex: mi, monthName: mn, display: mn };
+  }
+  const mName = str.match(/^([a-zA-Z]{3})[- ]?(\d{2,4})$/);
+  if (mName) {
+    const monStr = mName[1].slice(0, 3).toUpperCase();
+    const yrStr = mName[2].length === 2 ? '20' + mName[2] : mName[2];
+    const mi = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].indexOf(monStr);
+    return { year: yrStr, monthIndex: mi >= 0 ? mi : 0, monthName: monStr, display: monStr };
+  }
+  return { year: '2026', monthIndex: 0, monthName: str.toUpperCase(), display: str };
+}
+
+const MONTH_COLS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [selectedYear, setSelectedYear] = useState('2026');
+  const [unit, setUnit] = useState('aed'); // 'aed' | 'millions'
+  const [toast, setToast] = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1021,66 +1235,707 @@ function TwcTrendTable({ filters, currency }) {
       .catch(err => {
         if (cancelled) return;
         console.error('[TWC Trend]', err.response?.status, err.response?.data || err.message);
-        setError(`Failed to load (${err.response?.status ?? 'Network error'}).`);
+        setError('Failed to load (' + (err.response?.status ?? 'Network error') + ').');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [filters]);
 
+  // Extract unique available years from returned trend records
+  const availableYears = useMemo(() => {
+    const yrs = new Set();
+    rows.forEach(r => {
+      const raw = r.month_label ?? r.month ?? r.period_name ?? r.period;
+      const p = parsePeriodKey(raw);
+      if (p.year) yrs.add(p.year);
+    });
+    if (yrs.size === 0) yrs.add('2026');
+    return Array.from(yrs).sort().reverse();
+  }, [rows]);
+
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears, selectedYear]);
+
+  // Map month data for the selected year and find latest recorded month
+  const { monthMap, latestRow } = useMemo(() => {
+    const map = {};
+    let latest = null;
+    let maxIdx = -1;
+
+    rows.forEach(r => {
+      const raw = r.month_label ?? r.month ?? r.period_name ?? r.period;
+      const p = parsePeriodKey(raw);
+      if (p.year === selectedYear) {
+        map[p.monthName] = r;
+        if (p.monthIndex >= maxIdx) {
+          maxIdx = p.monthIndex;
+          latest = r;
+        }
+      }
+    });
+
+    return { monthMap: map, latestRow: latest };
+  }, [rows, selectedYear]);
+
+  // 8 Exact Rows in order requested by user (matching red numbers 1-8 in mockup)
+  const METRIC_DEFINITIONS = useMemo(() => [
+    {
+      id: 'trade_receivables',
+      label: 'Trade Receivables (' + currency + ')',
+      order: 1,
+      type: 'currency',
+      getValue: (r) => (r ? (r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr) : null),
+    },
+    {
+      id: 'dso',
+      label: 'DSO (Days)',
+      order: 2,
+      type: 'days',
+      getValue: (r) => (r ? (r.dso_days ?? r.dso) : null),
+    },
+    {
+      id: 'inventory',
+      label: 'Inventory (' + currency + ')',
+      order: 3,
+      type: 'currency',
+      getValue: (r) => (r ? (r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv) : null),
+    },
+    {
+      id: 'dio',
+      label: 'DIO (Days)',
+      order: 4,
+      type: 'days',
+      getValue: (r) => (r ? (r.dio_days ?? r.dio) : null),
+    },
+    {
+      id: 'trade_payables',
+      label: 'Trade Payables (' + currency + ')',
+      order: 5,
+      type: 'currency',
+      getValue: (r) => (r ? (r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp) : null),
+    },
+    {
+      id: 'dpo',
+      label: 'DPO (Days)',
+      order: 6,
+      type: 'days',
+      getValue: (r) => (r ? (r.dpo_days ?? r.dpo) : null),
+    },
+    {
+      id: 'twc',
+      label: 'TWC (' + currency + ')',
+      order: 7,
+      type: 'currency',
+      isSummary: true,
+      isTwc: true,
+      getValue: (r) => (r ? (r.trade_working_capital ?? r.twc) : null),
+    },
+    {
+      id: 'ccc',
+      label: 'CCC (Days)',
+      order: 8,
+      type: 'days',
+      isSummary: true,
+      isCcc: true,
+      getValue: (r) => (r ? (r.cash_conversion_cycle_days ?? r.ccc) : null),
+    },
+  ], [currency]);
+
+  // Filter rows by search term
+  const displayMetrics = useMemo(() => {
+    if (!search.trim()) return METRIC_DEFINITIONS;
+    const q = search.toLowerCase();
+    return METRIC_DEFINITIONS.filter(m => m.label.toLowerCase().includes(q));
+  }, [METRIC_DEFINITIONS, search]);
+
+  const formatCell = (val, type, displayUnit) => {
+    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '—';
+    const num = Number(val);
+    if (type === 'days') {
+      return num.toFixed(2);
+    }
+    if (displayUnit === 'millions') {
+      const inM = num / 1000000;
+      return inM.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M';
+    }
+    return Math.round(num).toLocaleString('en-US');
+  };
+
+  const getCellColor = (val, metric) => {
+    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '#94a3b8';
+    const num = Number(val);
+    if (num < 0) return '#ef4444'; // Red for negative numbers (matching MoM design)
+    if (metric.isTwc) return num >= 0 ? '#2563eb' : '#ef4444';
+    if (metric.isSummary) return '#1e293b';
+    return '#334155';
+  };
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (format === 'excel') {
+        const headers = ['Parameter', ...MONTH_COLS, 'Latest'];
+        const csvRows = [headers.join(',')];
+        METRIC_DEFINITIONS.forEach(m => {
+          const rowCells = [
+            '"' + m.label + '"',
+            ...MONTH_COLS.map(col => {
+              const v = m.getValue(monthMap[col]);
+              return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v).toFixed(2) : '';
+            }),
+            (() => {
+              const v = m.getValue(latestRow);
+              return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v).toFixed(2) : '';
+            })(),
+          ];
+          csvRows.push(rowCells.join(','));
+        });
+        const blob = new Blob([csvRows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'TWC_Month_on_Month_Trend_' + selectedYear + '.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast('Excel/CSV export started — check Downloads', 'success');
+        if (onExportExcel) onExportExcel();
+      } else if (format === 'pdf') {
+        if (onExportPdf) await onExportPdf();
+        showToast('PDF export started — check Downloads', 'success');
+      }
+    } catch (err) {
+      showToast(err?.message || 'Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
-  if (!rows.length) return <EmptyState />;
+  if (!rows.length) return <EmptyState message="No month-on-month trend data available for the selected filters." />;
 
   return (
-    <ScrollTable minWidth={1050}>
-      <thead>
-        <tr>
-          <TH style={{ width: 110 }}>Period</TH>
-          <TH align="right">Trade Receivables ({currency})</TH>
-          <TH align="right">Trade Payables ({currency})</TH>
-          <TH align="right">Inventory ({currency})</TH>
-          <TH align="right">TWC ({currency})</TH>
-          <TH align="right">DSO (Days)</TH>
-          <TH align="right">DPO (Days)</TH>
-          <TH align="right">DIO (Days)</TH>
-          <TH align="right">CCC (Days)</TH>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => {
-          // Direct backend trend values — no frontend synthetic estimations
-          const trVal  = r.trade_receivables ?? r.total_receivables ?? r.receivables ?? r.tr;
-          const tpVal  = r.trade_payables ?? r.total_payables ?? r.payables ?? r.tp;
-          const invVal = r.inventory ?? r.total_inventory ?? r.inventories ?? r.inv;
-          const twcVal = r.trade_working_capital ?? r.twc;
-          const dsoVal = r.dso_days ?? r.dso;
-          const dpoVal = r.dpo_days ?? r.dpo;
-          const dioVal = r.dio_days ?? r.dio;
-          const cccVal = r.cash_conversion_cycle_days ?? r.ccc;
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#f8fafc' }}>
+      {/* Top Controls Toolbar: Search + Year + Unit Toggle + Export (matching other MoM pages) */}
+      <div style={{
+        padding: '12px 20px', background: '#fff', borderBottom: '1px solid #e2e8f0',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
+        flexShrink: 0
+      }}>
+        {/* Left info description */}
+        <div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b' }}>
+            Month-on-Month Working Capital Trend
+          </div>
+          <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 1, fontWeight: 500 }}>
+            Receivables, Inventory, Payables and Cash Conversion Cycle by month · {currency}
+          </div>
+        </div>
 
-          const periodRaw = r.month_label ?? r.month ?? r.period_name ?? r.period;
+        {/* Right controls: Search + Year + AED / AED Millions + Export */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Search box */}
+          <div style={{ position: 'relative', width: 170 }}>
+            <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                width: '100%', border: '1px solid #cbd5e1', borderRadius: 6,
+                padding: '5px 10px 5px 28px', fontSize: '0.72rem', color: '#334155', outline: 'none',
+                background: '#fff', boxSizing: 'border-box'
+              }}
+            />
+          </div>
 
-          return (
-            <tr key={i}
-              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-              onMouseLeave={e => e.currentTarget.style.background = ''}>
-              <TD bold style={{ width: 110 }}>{fmtPeriod(periodRaw)}</TD>
-              <TD align="right">{fmtNum(trVal)}</TD>
-              <TD align="right">{fmtNum(tpVal)}</TD>
-              <TD align="right">{fmtNum(invVal)}</TD>
-              <TD align="right" bold color={twcVal !== null && twcVal !== undefined && Number(twcVal) >= 0 ? '#2563eb' : '#ef4444'}>
-                {fmtNum(twcVal)}
-              </TD>
-              <TD align="right">{fmtDays(dsoVal)}</TD>
-              <TD align="right">{fmtDays(dpoVal)}</TD>
-              <TD align="right">{fmtDays(dioVal)}</TD>
-              <TD align="right">{fmtDays(cccVal)}</TD>
-            </tr>
-          );
-        })}
-      </tbody>
-    </ScrollTable>
+          {/* Year Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: '0.70rem', fontWeight: 700, color: '#64748b' }}>Year:</span>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+              style={{
+                padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1',
+                fontSize: '0.72rem', fontWeight: 700, color: '#1e3a8a', background: '#fff',
+                cursor: 'pointer', outline: 'none', height: 30, boxSizing: 'border-box'
+              }}
+            >
+              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+
+          {/* AED / AED Millions Toggle */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', height: 30,
+            border: '1px solid #d6deeb', borderRadius: 6, background: '#f8fafc', overflow: 'hidden'
+          }}>
+            <button
+              type="button"
+              onClick={() => setUnit('aed')}
+              style={{
+                height: '100%', minWidth: 42, padding: '0 9px', border: 'none', borderRight: '1px solid #d6deeb',
+                background: unit === 'aed' ? '#172f80' : 'transparent',
+                color: unit === 'aed' ? '#ffffff' : '#64748b',
+                fontSize: '0.70rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s ease',
+              }}
+              title={"Display amounts in " + currency}
+            >
+              {currency}
+            </button>
+            <button
+              type="button"
+              onClick={() => setUnit('millions')}
+              style={{
+                height: '100%', minWidth: 86, padding: '0 9px', border: 'none',
+                background: unit === 'millions' ? '#172f80' : 'transparent',
+                color: unit === 'millions' ? '#ffffff' : '#64748b',
+                fontSize: '0.70rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s ease',
+              }}
+              title={"Display amounts in " + currency + " Millions"}
+            >
+              {currency} Millions
+            </button>
+          </div>
+
+          {/* Export Buttons */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => handleExport('excel')}
+              disabled={exporting}
+              title="Export to Excel / CSV"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                border: '1px solid #bbf7d0', borderRadius: 6, cursor: exporting ? 'not-allowed' : 'pointer',
+                fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+                fontSize: '0.70rem', height: 30, padding: '0 10px',
+                background: exporting ? '#d1fae5' : '#f0fdf4', color: '#15803d',
+                opacity: exporting ? 0.7 : 1,
+              }}
+            >
+              {exporting ? '⏳' : '📊'} Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('pdf')}
+              disabled={exporting}
+              title="Export to PDF"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                border: '1px solid #fecdd3', borderRadius: 6, cursor: exporting ? 'not-allowed' : 'pointer',
+                fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+                fontSize: '0.70rem', height: 30, padding: '0 10px',
+                background: exporting ? '#fee2e2' : '#fff1f2', color: '#be123c',
+                opacity: exporting ? 0.7 : 1,
+              }}
+            >
+              {exporting ? '⏳' : '📄'} PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table: Transposed (Rows = Metrics, Columns = Months) */}
+      <div className="exec-modal-scroll" style={{
+        flex: 1, minHeight: 0, overflow: 'auto', padding: '16px 20px', background: '#f8fafc'
+      }}>
+        <div style={{
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+          overflow: 'hidden', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)'
+        }}>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table style={{
+              width: 'max-content', minWidth: '100%',
+              borderCollapse: 'separate', borderSpacing: 0,
+              fontFamily: 'Inter, system-ui, sans-serif', fontSize: '0.76rem',
+            }}>
+              <thead>
+                <tr>
+                  {/* Sticky left column: Parameter */}
+                  <th style={{
+                    position: 'sticky', top: 0, left: 0, zIndex: 25,
+                    width: 250, minWidth: 250, maxWidth: 280,
+                    padding: '11px 16px', background: '#edf4ff', color: '#1e3a8a',
+                    fontWeight: 800, fontSize: '0.72rem', textAlign: 'left',
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                    borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #cbd5e1',
+                  }}>
+                    Parameter
+                  </th>
+                  {/* Monthly Columns: JAN to DEC */}
+                  {MONTH_COLS.map(m => (
+                    <th key={m} style={{
+                      position: 'sticky', top: 0, zIndex: 10,
+                      width: 96, minWidth: 96,
+                      padding: '11px 12px', background: '#edf4ff', color: '#1e3a8a',
+                      fontWeight: 800, fontSize: '0.72rem', textAlign: 'right',
+                      textTransform: 'uppercase', letterSpacing: '0.04em',
+                      borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #e2e8f0',
+                    }}>
+                      {m}
+                    </th>
+                  ))}
+                  {/* Latest Column */}
+                  <th style={{
+                    position: 'sticky', top: 0, zIndex: 10,
+                    width: 104, minWidth: 104,
+                    padding: '11px 14px', background: '#e0ecff', color: '#1e3a8a',
+                    fontWeight: 800, fontSize: '0.72rem', textAlign: 'right',
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                    borderBottom: '2px solid #cbd5e1',
+                  }}>
+                    Latest
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayMetrics.length === 0 ? (
+                  <tr>
+                    <td colSpan={14} style={{ padding: '30px 16px', textAlign: 'center', color: '#64748b' }}>
+                      No matching parameters found for "{search}".
+                    </td>
+                  </tr>
+                ) : (
+                  displayMetrics.map((metric, idx) => {
+                    const isSummary = metric.isSummary;
+                    const isTwc = metric.isTwc;
+                    const isCcc = metric.isCcc;
+
+                    const rowBg = isTwc
+                      ? '#f0f7ff'
+                      : isCcc
+                        ? '#faf5ff'
+                        : idx % 2 === 0
+                          ? '#ffffff'
+                          : '#fafcff';
+
+                    const latestVal = metric.getValue(latestRow);
+                    const latestFormatted = formatCell(latestVal, metric.type, unit);
+                    const latestColor = getCellColor(latestVal, metric);
+
+                    return (
+                      <tr
+                        key={metric.id}
+                        style={{
+                          background: rowBg,
+                          transition: 'background 0.15s ease',
+                        }}
+                        onMouseEnter={e => {
+                          if (!isTwc && !isCcc) {
+                            e.currentTarget.style.background = '#f1f5f9';
+                            const firstTd = e.currentTarget.children[0];
+                            if (firstTd) firstTd.style.background = '#f1f5f9';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isTwc && !isCcc) {
+                            e.currentTarget.style.background = rowBg;
+                            const firstTd = e.currentTarget.children[0];
+                            if (firstTd) firstTd.style.background = rowBg;
+                          }
+                        }}
+                      >
+                        {/* Sticky Parameter Name Column */}
+                        <td style={{
+                          position: 'sticky', left: 0, zIndex: 12,
+                          background: rowBg,
+                          padding: '10px 16px',
+                          fontSize: '0.74rem',
+                          fontWeight: isSummary ? 800 : 700,
+                          color: isTwc ? '#1d4ed8' : isCcc ? '#7c3aed' : '#1e293b',
+                          borderBottom: isSummary ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                          borderRight: '1px solid #cbd5e1',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {metric.label}
+                        </td>
+
+                        {/* Monthly Data Cells */}
+                        {MONTH_COLS.map(m => {
+                          const rowData = monthMap[m];
+                          const val = metric.getValue(rowData);
+                          const formatted = formatCell(val, metric.type, unit);
+                          const cellColor = getCellColor(val, metric);
+
+                          return (
+                            <td key={m} style={{
+                              padding: '10px 12px',
+                              textAlign: 'right',
+                              fontSize: '0.74rem',
+                              fontWeight: isSummary ? 800 : 600,
+                              color: cellColor,
+                              fontVariantNumeric: 'tabular-nums',
+                              borderBottom: isSummary ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                              borderRight: '1px solid #f1f5f9',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {formatted}
+                            </td>
+                          );
+                        })}
+
+                        {/* Latest Value Cell */}
+                        <td style={{
+                          padding: '10px 14px',
+                          textAlign: 'right',
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          color: latestColor,
+                          fontVariantNumeric: 'tabular-nums',
+                          background: isTwc ? '#e4f0ff' : isCcc ? '#f3e8ff' : '#f8fafd',
+                          borderBottom: isSummary ? '2px solid #cbd5e1' : '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {latestFormatted}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REGIONAL FILTER TOOLBAR (Matches TWC – View All / Sales Revenue View All)
+───────────────────────────────────────────────────────────────────────────── */
+
+function RegionalFilterToolbar({
+  search,
+  setSearch,
+  searchPlaceholder = 'Search regions...',
+  legalGroups,
+  draftLegalGroup,
+  setDraftLegalGroup,
+  filteredLegalEntities,
+  draftLegalEntity,
+  setDraftLegalEntity,
+  filteredParentDivs,
+  draftParentDiv,
+  setDraftParentDiv,
+  filteredSubDivs,
+  draftSubDiv,
+  setDraftSubDiv,
+  draftFromDate,
+  setDraftFromDate,
+  draftToDate,
+  setDraftToDate,
+  fromDateId,
+  toDateId,
+  onApply,
+  onReset,
+  onExport,
+  exporting,
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '8px 16px',
+      borderBottom: '1px solid #e2e8f0',
+      background: '#fff',
+      flexShrink: 0,
+      gap: 6,
+      flexWrap: 'wrap',
+      position: 'relative',
+      zIndex: 100,
+      overflow: 'visible',
+    }}>
+      {/* Left: Search + Hierarchy Multi-Selects + Period + Apply / Reset */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, flex: 1, position: 'relative', zIndex: 101 }}>
+        {/* Search box with green magnifying glass icon matching Sales Revenue */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 8, pointerEvents: 'none' }}>
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </svg>
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              padding: '4px 8px 4px 26px',
+              borderRadius: 7,
+              border: '1px solid #cbd5e1',
+              fontSize: '0.74rem',
+              width: 135,
+              outline: 'none',
+              height: 28,
+              boxSizing: 'border-box',
+              background: '#fff',
+              color: '#334155',
+            }}
+          />
+        </div>
+
+        {/* Legal Group Multi-Select */}
+        <ExecMultiSelect
+          options={legalGroups}
+          value={draftLegalGroup}
+          onChange={(vals) => {
+            setDraftLegalGroup(vals);
+            setDraftLegalEntity(['All']);
+            setDraftParentDiv(['All']);
+            setDraftSubDiv(['All']);
+          }}
+          placeholder="All Legal Group"
+          style={{ width: 120, minWidth: 110 }}
+        />
+
+        {/* Legal Entity Multi-Select */}
+        <ExecMultiSelect
+          options={filteredLegalEntities}
+          value={draftLegalEntity}
+          onChange={(vals) => {
+            setDraftLegalEntity(vals);
+            setDraftParentDiv(['All']);
+            setDraftSubDiv(['All']);
+          }}
+          placeholder="All Legal Entity"
+          style={{ width: 130, minWidth: 120 }}
+        />
+
+        {/* Parent Division Multi-Select */}
+        <ExecMultiSelect
+          options={filteredParentDivs}
+          value={draftParentDiv}
+          onChange={(vals) => {
+            setDraftParentDiv(vals);
+            setDraftSubDiv(['All']);
+          }}
+          placeholder="All Parent Division"
+          style={{ width: 140, minWidth: 130 }}
+        />
+
+        {/* Sub-Division Multi-Select */}
+        <ExecMultiSelect
+          options={filteredSubDivs}
+          value={draftSubDiv}
+          onChange={(vals) => setDraftSubDiv(vals)}
+          placeholder="All Sub-Division"
+          style={{ width: 130, minWidth: 120 }}
+        />
+
+        {/* Period Date Range with FinSight Calendar Date Picker */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Period:</span>
+          <CalendarDateField
+            id={fromDateId}
+            value={draftFromDate}
+            onChange={setDraftFromDate}
+          />
+          <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>-</span>
+          <CalendarDateField
+            id={toDateId}
+            value={draftToDate}
+            onChange={setDraftToDate}
+          />
+        </div>
+
+        {/* Apply Button (Blue) */}
+        <button
+          onClick={onApply}
+          style={{
+            height: 28,
+            padding: '0 16px',
+            borderRadius: 7,
+            background: '#2563eb',
+            color: '#fff',
+            border: 'none',
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            transition: 'background 0.15s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
+          onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+        >
+          Apply
+        </button>
+
+        {/* Reset Button */}
+        <button
+          onClick={onReset}
+          style={{
+            height: 28,
+            padding: '0 12px',
+            borderRadius: 7,
+            background: '#f1f5f9',
+            color: '#475569',
+            border: '1px solid #e2e8f0',
+            fontSize: '0.74rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            transition: 'background 0.15s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+          onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+        >
+          ↺ Reset
+        </button>
+      </div>
+
+      {/* Right: Export Buttons matching Sales Revenue View All */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+        <button
+          onClick={() => onExport('excel')}
+          disabled={!!exporting}
+          title="Export to Excel"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            border: '1px solid #bbf7d0', borderRadius: 7, cursor: exporting ? 'not-allowed' : 'pointer',
+            fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+            fontSize: '0.70rem', height: 28, padding: '0 10px',
+            background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
+            color: '#15803d',
+            opacity: exporting ? 0.7 : 1,
+          }}
+        >
+          {exporting === 'excel' ? '⏳' : '📊'} Excel
+        </button>
+
+        <button
+          onClick={() => onExport('pdf')}
+          disabled={!!exporting}
+          title="Export to PDF"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            border: '1px solid #fecdd3', borderRadius: 7, cursor: exporting ? 'not-allowed' : 'pointer',
+            fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+            fontSize: '0.70rem', height: 28, padding: '0 10px',
+            background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
+            color: '#be123c',
+            opacity: exporting ? 0.7 : 1,
+          }}
+        >
+          {exporting === 'pdf' ? '⏳' : '📄'} PDF
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1088,17 +1943,145 @@ function TwcTrendTable({ filters, currency }) {
    SECTION 3: Revenue by Region
 ───────────────────────────────────────────────────────────────────────────── */
 
-function RevenueByRegion({ filters, currency }) {
+function RevenueByRegion({ filters = {}, currency = 'AED' }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
+  // Export & Toast state
+  const [exporting, setExporting] = useState(null);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const showToast = (msg, type = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, type });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+  };
+
+  // Dropdown options
+  const [legalGroups,   setLegalGroups]   = useState([]);
+  const [legalEntities, setLegalEntities] = useState([]);
+  const [parentDivs,    setParentDivs]    = useState([]);
+  const [subDivs,       setSubDivs]       = useState([]);
+
+  // Multi-select draft filters
+  const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+  const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+  const [draftParentDiv,    setDraftParentDiv]    = useState(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+  const [draftSubDiv,       setDraftSubDiv]       = useState(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
+  const [draftFromDate,     setDraftFromDate]     = useState('2026-01-01');
+  const [draftToDate,       setDraftToDate]       = useState(filters.as_of_date || filters.as_on_date || '2026-09-25');
+
+  // Applied filter state
+  const [appliedRegionalFilters, setAppliedRegionalFilters] = useState({
+    as_of_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
+    as_on_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
+    reporting_currency: currency,
+    legal_group_id: filters.legal_group_id || undefined,
+    legal_entity_id: filters.legal_entity_id || undefined,
+    parent_division_id: filters.parent_division_id || undefined,
+    subdivision_id: filters.subdivision_id || undefined,
+  });
+
+  // Load cached hierarchy options
+  useEffect(() => {
+    let cancelled = false;
+    fetchHierarchyOptions().then(opts => {
+      if (cancelled || !opts) return;
+      setLegalGroups(opts.legalGroups);
+      setLegalEntities(opts.legalEntities);
+      setParentDivs(opts.parentDivs);
+      setSubDivs(opts.subDivs);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Sync draft states when initial filters prop changes
+  useEffect(() => {
+    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    setDraftLegalGroup(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+    setDraftLegalEntity(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+    setDraftParentDiv(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+    setDraftSubDiv(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
+    setDraftToDate(defaultDate);
+    setAppliedRegionalFilters({
+      as_of_date: defaultDate,
+      as_on_date: defaultDate,
+      reporting_currency: currency,
+      legal_group_id: filters.legal_group_id || undefined,
+      legal_entity_id: filters.legal_entity_id || undefined,
+      parent_division_id: filters.parent_division_id || undefined,
+      subdivision_id: filters.subdivision_id || undefined,
+    });
+  }, [filters, currency]);
+
+  // Cascading options
+  const filteredLegalEntities = useMemo(() => {
+    let list = legalEntities;
+    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
+      const gIds = draftLegalGroup.map(String);
+      list = legalEntities.filter(e => {
+        const gId = String(e.legal_group_id ?? e.group_id ?? '');
+        return !gId || gIds.includes(gId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(e => {
+      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [legalEntities, draftLegalGroup]);
+
+  const filteredParentDivs = useMemo(() => {
+    let list = parentDivs;
+    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
+      const eIds = draftLegalEntity.map(String);
+      list = parentDivs.filter(p => {
+        const eId = String(p.legal_entity_id ?? '');
+        return !eId || eIds.includes(eId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(p => {
+      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [parentDivs, draftLegalEntity]);
+
+  const filteredSubDivs = useMemo(() => {
+    let source = subDivs;
+    if (draftParentDiv && !draftParentDiv.includes('All')) {
+      const pIds = draftParentDiv.map(String);
+      source = subDivs.filter(s => {
+        const pId = String(s.parent_division_id ?? '');
+        return !pId || pIds.includes(pId);
+      });
+    }
+    const seen = new Set();
+    return source.filter(s => {
+      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [subDivs, draftParentDiv]);
+
+  // Fetch data
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    getExecRevenueByRegion(filters)
+    getExecRevenueByRegion(appliedRegionalFilters)
       .then(payload => {
         if (cancelled) return;
         const raw = getRows(payload);
@@ -1116,49 +2099,190 @@ function RevenueByRegion({ filters, currency }) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [filters, currency]);
+  }, [appliedRegionalFilters, currency]);
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
-  if (!rows.length) return <EmptyState />;
+  const handleApply = () => {
+    setAppliedRegionalFilters({
+      as_of_date: draftToDate || '2026-09-25',
+      as_on_date: draftToDate || '2026-09-25',
+      reporting_currency: currency,
+      legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
+      legal_entity_id:    (!draftLegalEntity || draftLegalEntity.includes('All') || draftLegalEntity.length === 0) ? undefined : draftLegalEntity,
+      parent_division_id: (!draftParentDiv || draftParentDiv.includes('All') || draftParentDiv.length === 0) ? undefined : draftParentDiv,
+      subdivision_id:     (!draftSubDiv || draftSubDiv.includes('All') || draftSubDiv.length === 0) ? undefined : draftSubDiv,
+    });
+  };
 
-  const total = rows.reduce((s, r) => s + (Number(r.revenue ?? r.total_revenue ?? 0)), 0);
+  const handleReset = () => {
+    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    setDraftLegalGroup(['All']);
+    setDraftLegalEntity(['All']);
+    setDraftParentDiv(['All']);
+    setDraftSubDiv(['All']);
+    setDraftFromDate('2026-01-01');
+    setDraftToDate(defaultDate);
+    setSearch('');
+    setAppliedRegionalFilters({
+      as_of_date: defaultDate,
+      as_on_date: defaultDate,
+      reporting_currency: currency,
+    });
+  };
+
+  // Client-side search filtering
+  const displayRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => {
+      const reg = String(r.region ?? r.country ?? r.country_name ?? '').toLowerCase();
+      return reg.includes(q);
+    });
+  }, [rows, search]);
+
+  const total = displayRows.reduce((s, r) => s + (Number(r.revenue ?? r.total_revenue ?? 0)), 0);
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(format);
+    try {
+      if (format === 'excel') {
+        const XLSX = await import('xlsx');
+        const exportData = displayRows.map(r => {
+          const rev = r.revenue ?? r.total_revenue ?? 0;
+          const pct = r.revenue_pct ?? r.percentage ?? (total > 0 ? ((Number(rev) / total) * 100) : 0);
+          return {
+            'Region / Country': r.region ?? r.country ?? r.country_name ?? '–',
+            [`Revenue (${currency})`]: Number(rev),
+            '% of Total': pct !== null ? `${Number(pct).toFixed(2)}%` : '–',
+          };
+        });
+        if (displayRows.length > 0) {
+          exportData.push({
+            'Region / Country': 'Total',
+            [`Revenue (${currency})`]: Number(total),
+            '% of Total': '100.00%',
+          });
+        }
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Revenue_by_Region');
+        XLSX.writeFile(wb, `Revenue_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.xlsx`);
+        showToast('Excel export started — check Downloads', 'success');
+      } else if (format === 'pdf') {
+        const { default: jsPDF } = await import('jspdf');
+        const { default: autoTable } = await import('jspdf-autotable');
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        doc.setFontSize(16);
+        doc.setTextColor(30, 58, 138);
+        doc.text('Revenue by Region', 40, 45);
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Reporting Currency: ${currency}   |   As on Date: ${appliedRegionalFilters.as_of_date || 'latest'}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
+
+        const tableHeaders = [['Region / Country', `Revenue (${currency})`, '% of Total']];
+        const tableBody = displayRows.map(r => {
+          const rev = r.revenue ?? r.total_revenue ?? null;
+          const pct = r.revenue_pct ?? r.percentage ?? (rev !== null && total > 0 ? ((Number(rev) / total) * 100) : null);
+          return [
+            r.region ?? r.country ?? r.country_name ?? '–',
+            fmtNum(rev),
+            pct !== null ? `${Number(pct).toFixed(2)}%` : '–',
+          ];
+        });
+        if (displayRows.length > 0) {
+          tableBody.push([
+            'Total',
+            fmtNum(total),
+            '100.00%',
+          ]);
+        }
+        autoTable(doc, {
+          head: tableHeaders,
+          body: tableBody,
+          startY: 75,
+          styles: { fontSize: 8, cellPadding: 5 },
+          headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+        });
+        doc.save(`Revenue_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.pdf`);
+        showToast('PDF export started — check Downloads', 'success');
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      showToast(err?.message || 'Export failed', 'error');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
-    <div style={{ paddingTop: 12, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScrollTable minWidth={650}>
-        <thead>
-          <tr>
-            <TH>Region / Country</TH>
-            <TH align="right">Revenue ({currency})</TH>
-            <TH align="right">% of Total</TH>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            const rev = r.revenue ?? r.total_revenue ?? null;
-            const pct = r.revenue_pct ?? r.percentage ?? (rev !== null && total > 0 ? ((Number(rev) / total) * 100) : null);
-            return (
-              <tr key={i}
-                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                onMouseLeave={e => e.currentTarget.style.background = ''}>
-                <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
-                <TD align="right">{fmtNum(rev)}</TD>
-                <TD align="right">{pct !== null ? `${Number(pct).toFixed(2)}%` : '–'}</TD>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <RegionalFilterToolbar
+        search={search}
+        setSearch={setSearch}
+        searchPlaceholder="Search regions..."
+        legalGroups={legalGroups}
+        draftLegalGroup={draftLegalGroup}
+        setDraftLegalGroup={setDraftLegalGroup}
+        filteredLegalEntities={filteredLegalEntities}
+        draftLegalEntity={draftLegalEntity}
+        setDraftLegalEntity={setDraftLegalEntity}
+        filteredParentDivs={filteredParentDivs}
+        draftParentDiv={draftParentDiv}
+        setDraftParentDiv={setDraftParentDiv}
+        filteredSubDivs={filteredSubDivs}
+        draftSubDiv={draftSubDiv}
+        setDraftSubDiv={setDraftSubDiv}
+        draftFromDate={draftFromDate}
+        setDraftFromDate={setDraftFromDate}
+        draftToDate={draftToDate}
+        setDraftToDate={setDraftToDate}
+        fromDateId="rev-period-from"
+        toDateId="rev-period-to"
+        onApply={handleApply}
+        onReset={handleReset}
+        onExport={handleExport}
+        exporting={exporting}
+      />
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
+
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 10 }}>
+        {loading ? <Spinner /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState message={search ? "No matching regions found." : undefined} /> : (
+          <ScrollTable minWidth={650}>
+            <thead>
+              <tr>
+                <TH>Region / Country</TH>
+                <TH align="right">Revenue ({currency})</TH>
+                <TH align="right">% of Total</TH>
               </tr>
-            );
-          })}
-        </tbody>
-        {rows.length > 1 && (
-          <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
-            <tr>
-              <TF bold style={{ color: '#1e293b' }}>Total</TF>
-              <TF align="right" bold color="#2563eb">{fmtNum(total)}</TF>
-              <TF align="right" bold>100.00%</TF>
-            </tr>
-          </tfoot>
+            </thead>
+            <tbody>
+              {displayRows.map((r, i) => {
+                const rev = r.revenue ?? r.total_revenue ?? null;
+                const pct = r.revenue_pct ?? r.percentage ?? (rev !== null && total > 0 ? ((Number(rev) / total) * 100) : null);
+                return (
+                  <tr key={i}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
+                    <TD align="right">{fmtNum(rev)}</TD>
+                    <TD align="right">{pct !== null ? `${Number(pct).toFixed(2)}%` : '–'}</TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+            {displayRows.length > 0 && (
+              <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
+                <tr>
+                  <TF bold style={{ color: '#1e293b' }}>Total</TF>
+                  <TF align="right" bold color="#2563eb">{fmtNum(total)}</TF>
+                  <TF align="right" bold>100.00%</TF>
+                </tr>
+              </tfoot>
+            )}
+          </ScrollTable>
         )}
-      </ScrollTable>
+      </div>
     </div>
   );
 }
@@ -1167,17 +2291,145 @@ function RevenueByRegion({ filters, currency }) {
    SECTION 4: Profitability by Region
 ───────────────────────────────────────────────────────────────────────────── */
 
-function ProfitabilityByRegion({ filters, currency }) {
+function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
+  // Export & Toast state
+  const [exporting, setExporting] = useState(null);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const showToast = (msg, type = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, type });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+  };
+
+  // Dropdown options
+  const [legalGroups,   setLegalGroups]   = useState([]);
+  const [legalEntities, setLegalEntities] = useState([]);
+  const [parentDivs,    setParentDivs]    = useState([]);
+  const [subDivs,       setSubDivs]       = useState([]);
+
+  // Multi-select draft filters
+  const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+  const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+  const [draftParentDiv,    setDraftParentDiv]    = useState(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+  const [draftSubDiv,       setDraftSubDiv]       = useState(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
+  const [draftFromDate,     setDraftFromDate]     = useState('2026-01-01');
+  const [draftToDate,       setDraftToDate]       = useState(filters.as_of_date || filters.as_on_date || '2026-09-25');
+
+  // Applied filter state
+  const [appliedRegionalFilters, setAppliedRegionalFilters] = useState({
+    as_of_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
+    as_on_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
+    reporting_currency: currency,
+    legal_group_id: filters.legal_group_id || undefined,
+    legal_entity_id: filters.legal_entity_id || undefined,
+    parent_division_id: filters.parent_division_id || undefined,
+    subdivision_id: filters.subdivision_id || undefined,
+  });
+
+  // Load cached hierarchy options
+  useEffect(() => {
+    let cancelled = false;
+    fetchHierarchyOptions().then(opts => {
+      if (cancelled || !opts) return;
+      setLegalGroups(opts.legalGroups);
+      setLegalEntities(opts.legalEntities);
+      setParentDivs(opts.parentDivs);
+      setSubDivs(opts.subDivs);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Sync draft states when initial filters prop changes
+  useEffect(() => {
+    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    setDraftLegalGroup(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+    setDraftLegalEntity(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+    setDraftParentDiv(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+    setDraftSubDiv(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
+    setDraftToDate(defaultDate);
+    setAppliedRegionalFilters({
+      as_of_date: defaultDate,
+      as_on_date: defaultDate,
+      reporting_currency: currency,
+      legal_group_id: filters.legal_group_id || undefined,
+      legal_entity_id: filters.legal_entity_id || undefined,
+      parent_division_id: filters.parent_division_id || undefined,
+      subdivision_id: filters.subdivision_id || undefined,
+    });
+  }, [filters, currency]);
+
+  // Cascading options
+  const filteredLegalEntities = useMemo(() => {
+    let list = legalEntities;
+    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
+      const gIds = draftLegalGroup.map(String);
+      list = legalEntities.filter(e => {
+        const gId = String(e.legal_group_id ?? e.group_id ?? '');
+        return !gId || gIds.includes(gId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(e => {
+      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [legalEntities, draftLegalGroup]);
+
+  const filteredParentDivs = useMemo(() => {
+    let list = parentDivs;
+    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
+      const eIds = draftLegalEntity.map(String);
+      list = parentDivs.filter(p => {
+        const eId = String(p.legal_entity_id ?? '');
+        return !eId || eIds.includes(eId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(p => {
+      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [parentDivs, draftLegalEntity]);
+
+  const filteredSubDivs = useMemo(() => {
+    let source = subDivs;
+    if (draftParentDiv && !draftParentDiv.includes('All')) {
+      const pIds = draftParentDiv.map(String);
+      source = subDivs.filter(s => {
+        const pId = String(s.parent_division_id ?? '');
+        return !pId || pIds.includes(pId);
+      });
+    }
+    const seen = new Set();
+    return source.filter(s => {
+      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [subDivs, draftParentDiv]);
+
+  // Fetch data
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    getExecProfitabilityByRegion(filters)
+    getExecProfitabilityByRegion(appliedRegionalFilters)
       .then(payload => {
         if (cancelled) return;
         const raw = getRows(payload);
@@ -1194,59 +2446,218 @@ function ProfitabilityByRegion({ filters, currency }) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [filters, currency]);
+  }, [appliedRegionalFilters, currency]);
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
-  if (!rows.length) return <EmptyState />;
+  const handleApply = () => {
+    setAppliedRegionalFilters({
+      as_of_date: draftToDate || '2026-09-25',
+      as_on_date: draftToDate || '2026-09-25',
+      reporting_currency: currency,
+      legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
+      legal_entity_id:    (!draftLegalEntity || draftLegalEntity.includes('All') || draftLegalEntity.length === 0) ? undefined : draftLegalEntity,
+      parent_division_id: (!draftParentDiv || draftParentDiv.includes('All') || draftParentDiv.length === 0) ? undefined : draftParentDiv,
+      subdivision_id:     (!draftSubDiv || draftSubDiv.includes('All') || draftSubDiv.length === 0) ? undefined : draftSubDiv,
+    });
+  };
 
-  const totalNp = rows.reduce((s, r) => s + (Number(r.net_profit ?? 0)), 0);
+  const handleReset = () => {
+    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    setDraftLegalGroup(['All']);
+    setDraftLegalEntity(['All']);
+    setDraftParentDiv(['All']);
+    setDraftSubDiv(['All']);
+    setDraftFromDate('2026-01-01');
+    setDraftToDate(defaultDate);
+    setSearch('');
+    setAppliedRegionalFilters({
+      as_of_date: defaultDate,
+      as_on_date: defaultDate,
+      reporting_currency: currency,
+    });
+  };
+
+  // Client-side search filtering
+  const displayRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => {
+      const reg = String(r.region ?? r.country ?? r.country_name ?? '').toLowerCase();
+      return reg.includes(q);
+    });
+  }, [rows, search]);
+
+  const totalGp = displayRows.reduce((s, r) => s + (Number(r.gross_profit ?? 0)), 0);
+  const totalEbitda = displayRows.reduce((s, r) => s + (Number(r.ebitda ?? 0)), 0);
+  const totalNp = displayRows.reduce((s, r) => s + (Number(r.net_profit ?? 0)), 0);
+  const totalRevForGp = displayRows.reduce((s, r) => s + (Number(r.revenue ?? r.revenue_aed ?? 0)), 0);
+  const totalGpPctRegion = totalRevForGp > 0 ? (totalGp / totalRevForGp) * 100 : null;
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(format);
+    try {
+      if (format === 'excel') {
+        const XLSX = await import('xlsx');
+        const exportData = displayRows.map(r => {
+          const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
+          return {
+            'Region / Country': r.region ?? r.country ?? r.country_name ?? '–',
+            [`Gross Profit (${currency})`]: Number(r.gross_profit ?? 0),
+            'Gross Profit %': (() => { const rev = Number(r.revenue ?? r.revenue_aed ?? 0); const gp = Number(r.gross_profit ?? 0); return rev > 0 ? `${((gp / rev) * 100).toFixed(2)}%` : '–'; })(),
+            [`EBITDA (${currency})`]: Number(r.ebitda ?? 0),
+            [`Net Profit (${currency})`]: Number(r.net_profit ?? 0),
+            'Net Margin %': netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–',
+          };
+        });
+        if (displayRows.length > 0) {
+          exportData.push({
+            'Region / Country': 'Total',
+            [`Gross Profit (${currency})`]: Number(totalGp),
+            'Gross Profit %': totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–',
+            [`EBITDA (${currency})`]: Number(totalEbitda),
+            [`Net Profit (${currency})`]: Number(totalNp),
+            'Net Margin %': '–',
+          });
+        }
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Profitability_by_Region');
+        XLSX.writeFile(wb, `Profitability_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.xlsx`);
+        showToast('Excel export started — check Downloads', 'success');
+      } else if (format === 'pdf') {
+        const { default: jsPDF } = await import('jspdf');
+        const { default: autoTable } = await import('jspdf-autotable');
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        doc.setFontSize(16);
+        doc.setTextColor(30, 58, 138);
+        doc.text('Profitability by Region', 40, 45);
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Reporting Currency: ${currency}   |   As on Date: ${appliedRegionalFilters.as_of_date || 'latest'}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
+
+        const tableHeaders = [['Region / Country', `Gross Profit (${currency})`, 'Gross Profit %', `EBITDA (${currency})`, `Net Profit (${currency})`, 'Net Margin %']];
+        const tableBody = displayRows.map(r => {
+          const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
+          return [
+            r.region ?? r.country ?? r.country_name ?? '–',
+            fmtNum(r.gross_profit),
+            (() => { const rev = Number(r.revenue ?? r.revenue_aed ?? 0); const gp = Number(r.gross_profit ?? 0); return rev > 0 ? `${((gp / rev) * 100).toFixed(2)}%` : '–'; })(),
+            fmtNum(r.ebitda),
+            fmtNum(r.net_profit),
+            netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–',
+          ];
+        });
+        if (displayRows.length > 0) {
+          tableBody.push([
+            'Total',
+            fmtNum(totalGp),
+            totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–',
+            fmtNum(totalEbitda),
+            fmtNum(totalNp),
+            '–',
+          ]);
+        }
+        autoTable(doc, {
+          head: tableHeaders,
+          body: tableBody,
+          startY: 75,
+          styles: { fontSize: 8, cellPadding: 5 },
+          headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+        });
+        doc.save(`Profitability_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.pdf`);
+        showToast('PDF export started — check Downloads', 'success');
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      showToast(err?.message || 'Export failed', 'error');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
-    <div style={{ paddingTop: 12, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScrollTable minWidth={750}>
-        <thead>
-          <tr>
-            <TH>Region / Country</TH>
-            <TH align="right">Gross Profit ({currency})</TH>
-            <TH align="right">EBITDA ({currency})</TH>
-            <TH align="right">Net Profit ({currency})</TH>
-            <TH align="right">Net Margin %</TH>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
-            return (
-              <tr key={i}
-                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                onMouseLeave={e => e.currentTarget.style.background = ''}>
-                <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
-                <TD align="right">{fmtNum(r.gross_profit)}</TD>
-                <TD align="right">{fmtNum(r.ebitda)}</TD>
-                <TD align="right" color={r.net_profit === null ? undefined : (Number(r.net_profit) >= 0 ? '#10b981' : '#ef4444')}>
-                  {fmtNum(r.net_profit)}
-                </TD>
-                <TD align="right">{netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–'}</TD>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <RegionalFilterToolbar
+        search={search}
+        setSearch={setSearch}
+        searchPlaceholder="Search regions..."
+        legalGroups={legalGroups}
+        draftLegalGroup={draftLegalGroup}
+        setDraftLegalGroup={setDraftLegalGroup}
+        filteredLegalEntities={filteredLegalEntities}
+        draftLegalEntity={draftLegalEntity}
+        setDraftLegalEntity={setDraftLegalEntity}
+        filteredParentDivs={filteredParentDivs}
+        draftParentDiv={draftParentDiv}
+        setDraftParentDiv={setDraftParentDiv}
+        filteredSubDivs={filteredSubDivs}
+        draftSubDiv={draftSubDiv}
+        setDraftSubDiv={setDraftSubDiv}
+        draftFromDate={draftFromDate}
+        setDraftFromDate={setDraftFromDate}
+        draftToDate={draftToDate}
+        setDraftToDate={setDraftToDate}
+        fromDateId="profit-period-from"
+        toDateId="profit-period-to"
+        onApply={handleApply}
+        onReset={handleReset}
+        onExport={handleExport}
+        exporting={exporting}
+      />
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
+
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 10 }}>
+        {loading ? <Spinner /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState message={search ? "No matching regions found." : undefined} /> : (
+          <ScrollTable minWidth={750}>
+            <thead>
+              <tr>
+                <TH>Region / Country</TH>
+                <TH align="right">Gross Profit ({currency})</TH>
+                <TH align="right">Gross Profit %</TH>
+                <TH align="right">EBITDA ({currency})</TH>
+                <TH align="right">Net Profit ({currency})</TH>
+                <TH align="right">Net Margin %</TH>
               </tr>
-            );
-          })}
-        </tbody>
-        {rows.length > 1 && (
-          <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
-            <tr>
-              <TF bold style={{ color: '#1e293b' }}>Total</TF>
-              <TF align="right" bold color="#2563eb">{fmtNum(rows.reduce((s, r) => s + (Number(r.gross_profit ?? 0)), 0))}</TF>
-              <TF align="right" bold color="#2563eb">{fmtNum(rows.reduce((s, r) => s + (Number(r.ebitda ?? 0)), 0))}</TF>
-              <TF align="right" bold color="#10b981">{fmtNum(totalNp)}</TF>
-              <TF align="right" bold>–</TF>
-            </tr>
-          </tfoot>
+            </thead>
+            <tbody>
+              {displayRows.map((r, i) => {
+                const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
+                return (
+                  <tr key={i}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
+                    <TD align="right">{fmtNum(r.gross_profit)}</TD>
+                    <TD align="right" color="#2563eb">{(() => { const rev = Number(r.revenue ?? r.revenue_aed ?? 0); const gp = Number(r.gross_profit ?? 0); return rev > 0 ? `${((gp / rev) * 100).toFixed(2)}%` : (r.gross_profit_margin_pct != null ? `${Number(r.gross_profit_margin_pct).toFixed(2)}%` : '–'); })()}</TD>
+                    <TD align="right">{fmtNum(r.ebitda)}</TD>
+                    <TD align="right" color={r.net_profit === null ? undefined : (Number(r.net_profit) >= 0 ? '#10b981' : '#ef4444')}>
+                      {fmtNum(r.net_profit)}
+                    </TD>
+                    <TD align="right">{netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–'}</TD>
+                  </tr>
+                );
+              })}
+            </tbody>
+            {displayRows.length > 0 && (
+              <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
+                <tr>
+                  <TF bold style={{ color: '#1e293b' }}>Total</TF>
+                  <TF align="right" bold color="#2563eb">{fmtNum(totalGp)}</TF>
+                  <TF align="right" bold color="#2563eb">{totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–'}</TF>
+                  <TF align="right" bold color="#2563eb">{fmtNum(totalEbitda)}</TF>
+                  <TF align="right" bold color="#10b981">{fmtNum(totalNp)}</TF>
+                  <TF align="right" bold>–</TF>
+                </tr>
+              </tfoot>
+            )}
+          </ScrollTable>
         )}
-      </ScrollTable>
+      </div>
     </div>
   );
 }
+
 
 /* ─────────────────────────────────────────────────────────────────────────────
    SECTION 5: Profitability at a Glance (with Toggles, Graph & Table)
@@ -2008,7 +3419,14 @@ export default function ExecDashboardViewAll({
               onExportPdf={handleExportPdf}
             />
           )}
-          {activeSection === 'twc_trend' && <TwcTrendTable filters={filters} currency={currency} />}
+          {activeSection === 'twc_trend' && (
+            <TwcTrendTable
+              filters={filters}
+              currency={currency}
+              onExportExcel={handleExportExcel}
+              onExportPdf={handleExportPdf}
+            />
+          )}
           {activeSection === 'rev_region' && <RevenueByRegion filters={filters} currency={currency} />}
           {activeSection === 'profit_region' && <ProfitabilityByRegion filters={filters} currency={currency} />}
         </div>

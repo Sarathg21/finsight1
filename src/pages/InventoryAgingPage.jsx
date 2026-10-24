@@ -1684,7 +1684,7 @@ const [loading, setLoading] = useState(true);
               page_size: 500,
           };
 
-          const [filterRes, dashRes, detailsRes, momRes, divWiseRes] = await Promise.all([
+          const [filterRes, dashRes, detailsRes, momRes, divWiseRes, trendViewAllRes] = await Promise.all([
               getInventoryFilters(apiFilters).catch(() => ({ data: {} })),
               getInventoryDashboard(apiFilters).catch(() => ({ data: {} })),
               getInventoryDetails(detailsApiFilters).catch(() => ({ data: { items: [] } })),
@@ -1693,7 +1693,8 @@ const [loading, setLoading] = useState(true);
                   year: momYear || 2026, 
                   metric: 'slow_moving' 
               }).catch(() => ({ data: { rows: [] } })),
-              getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } }))
+              getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } })),
+              getInventoryDetails({ ...apiFilters, section: 'trend' }).catch(() => ({ data: { rows: [] } }))
           ]);
 
           // Guard against race conditions: if a newer loadData request started, ignore this stale response
@@ -1703,6 +1704,11 @@ const [loading, setLoading] = useState(true);
 
           const momRows = momRes.data?.rows || momRes.data?.items || (Array.isArray(momRes.data) ? momRes.data : []);
           setMomData(momRows);
+
+          const trendViewAllRows = trendViewAllRes?.data?.rows || (Array.isArray(trendViewAllRes?.data) ? trendViewAllRes.data : []);
+          if (trendViewAllRows.length > 0 && (!viewAllData || viewAllData.length === 0)) {
+              setViewAllData(trendViewAllRows);
+          }
           
           const fData = filterRes.data?.data || filterRes.data || {};
           const dData = dashRes.data?.data || dashRes.data || {};
@@ -2063,18 +2069,25 @@ const [loading, setLoading] = useState(true);
                       return { ...item, month, current: curr, previous: prev, variance, growth, as_on_date };
                   });
 
-                  turnoverDioTrend.rawItems = dData.trend;
-                  turnoverDioTrend.labels = trend.labels;
-                  turnoverDioTrend.turnover = dData.trend.map(item =>
-                      item.inventory_turnover !== undefined && item.inventory_turnover !== null
-                          ? Number(item.inventory_turnover)
-                          : (item.turnover !== undefined && item.turnover !== null ? Number(item.turnover) : (dData.kpis?.inventory_turnover ? Number(dData.kpis.inventory_turnover) : 0))
-                  );
-                  turnoverDioTrend.dio = dData.trend.map(item =>
-                      item.dio_days !== undefined && item.dio_days !== null
-                          ? Number(item.dio_days)
-                          : (item.dio !== undefined && item.dio !== null ? Number(item.dio) : (dData.kpis?.dio_days ? Number(dData.kpis.dio_days) : 0))
-                  );
+                  if (trendViewAllRows.length > 0) {
+                      turnoverDioTrend.rawItems = trendViewAllRows;
+                      turnoverDioTrend.labels = trendViewAllRows.map(r => formatTrendMonthName(r.month_start || r.as_on_date));
+                      turnoverDioTrend.turnover = trendViewAllRows.map(r => (r.inventory_turnover !== undefined && r.inventory_turnover !== null) ? Number(r.inventory_turnover) : 0);
+                      turnoverDioTrend.dio = trendViewAllRows.map(r => (r.dio_days !== undefined && r.dio_days !== null) ? Number(r.dio_days) : 0);
+                  } else {
+                      turnoverDioTrend.rawItems = dData.trend;
+                      turnoverDioTrend.labels = trend.labels;
+                      turnoverDioTrend.turnover = dData.trend.map(item =>
+                          item.inventory_turnover !== undefined && item.inventory_turnover !== null
+                              ? Number(item.inventory_turnover)
+                              : (item.turnover !== undefined && item.turnover !== null ? Number(item.turnover) : null)
+                      );
+                      turnoverDioTrend.dio = dData.trend.map(item =>
+                          item.dio_days !== undefined && item.dio_days !== null
+                              ? Number(item.dio_days)
+                              : (item.dio !== undefined && item.dio !== null ? Number(item.dio) : null)
+                      );
+                  }
               } else if (momData && Array.isArray(momData) && momData.length > 0) {
                   turnoverDioTrend.rawItems = momData;
                   turnoverDioTrend.labels = momData.map(item => formatTrendMonthName(item.month || item.month_start || ""));
@@ -2402,11 +2415,11 @@ const [loading, setLoading] = useState(true);
           }
         }
         const apiFilters = {};
-        const effectiveLG = toApiLegalGroupId(modalDetailsFilters?.legalGroup) || toApiLegalGroupId(appliedFilters.legalGroup);
-        const effectiveLE = toApiIdList(modalDetailsFilters?.legalEntity) || toApiIdList(appliedFilters.legalEntity);
-        const effectivePD = toApiIdList(modalDetailsFilters?.parentDivision) || toApiIdList(appliedFilters.parentDivision);
-        const effectiveSD = toApiIdList(modalDetailsFilters?.subdivision) || toApiIdList(appliedFilters.subdivision);
-        const effectiveSI = toApiIdList(modalDetailsFilters?.subinventory) || toApiIdList(appliedFilters.subinventory) || (viewAllDetailFilters?.subinventory_id ? [viewAllDetailFilters.subinventory_id] : null) || (viewAllDetailFilters?.subinventory ? [viewAllDetailFilters.subinventory] : null);
+        const effectiveLG = toApiLegalGroupId(slowMovingFilters?.legalGroup) || toApiLegalGroupId(modalDetailsFilters?.legalGroup) || toApiLegalGroupId(appliedFilters.legalGroup);
+        const effectiveLE = toApiIdList(slowMovingFilters?.legalEntity) || toApiIdList(modalDetailsFilters?.legalEntity) || toApiIdList(appliedFilters.legalEntity);
+        const effectivePD = toApiIdList(slowMovingFilters?.parentDivision) || toApiIdList(modalDetailsFilters?.parentDivision) || toApiIdList(appliedFilters.parentDivision);
+        const effectiveSD = toApiIdList(slowMovingFilters?.subdivision) || toApiIdList(modalDetailsFilters?.subdivision) || toApiIdList(appliedFilters.subdivision);
+        const effectiveSI = toApiIdList(slowMovingFilters?.subinventory) || toApiIdList(modalDetailsFilters?.subinventory) || toApiIdList(appliedFilters.subinventory) || (viewAllDetailFilters?.subinventory_id ? [viewAllDetailFilters.subinventory_id] : null) || (viewAllDetailFilters?.subinventory ? [viewAllDetailFilters.subinventory] : null);
 
         if (effectiveLG) apiFilters.legal_group_id = effectiveLG;
         if (effectiveLE) apiFilters.legal_entity_id = effectiveLE;
@@ -6002,6 +6015,7 @@ const detailsSource = modalFilteredDetails || [];
                         type="button"
                         onClick={() => {
                           setSlowMovingFilters({ ...slowMovingDraftFilters });
+                          setModalDetailsFilters({ ...slowMovingDraftFilters });
                           toast.success("Filters applied");
                         }}
                         style={{
@@ -6423,19 +6437,48 @@ const detailsSource = modalFilteredDetails || [];
 
                       {/* CONTEXT TAB 2: INVENTORY TREND ANALYSIS */}
                       {modalActiveTab === "trend" && (() => {
-                        const trendList = (mockData.trend?.list && mockData.trend.list.length > 0)
-                          ? mockData.trend.list
-                          : ((mockData.trend?.rawItems && mockData.trend.rawItems.length > 0)
-                            ? mockData.trend.rawItems.map((item, idx) => {
-                                const month = mockData.trend.labels?.[idx] || `Month ${idx + 1}`;
-                                const curr = Number(item.inventory_value || 0) / 10000000;
-                                const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : (idx > 0 ? Number(mockData.trend.rawItems[idx-1].inventory_value || 0) / 10000000 : null);
-                                const variance = prev !== null ? curr - prev : null;
-                                const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
-                                const as_on_date = item.as_on_date || (typeof item.month_start === 'object' ? item.month_start?.as_on_date || item.month_start?.name : item.month_start);
-                                return { ...item, month, current: curr, previous: prev, variance, growth, as_on_date };
-                              })
-                            : (viewAllData && viewAllData.length > 0 ? viewAllData : []));
+                        const hasTrendViewAll = viewAllData && viewAllData.length > 0 && viewAllData.some(item => item.month_start || item.inventory_turnover !== undefined || item.dio_days !== undefined);
+                        const trendSource = hasTrendViewAll
+                          ? viewAllData
+                          : ((mockData.turnoverDioTrend?.rawItems && mockData.turnoverDioTrend.rawItems.length > 0 && mockData.turnoverDioTrend.rawItems.some(item => item.inventory_turnover !== undefined))
+                            ? mockData.turnoverDioTrend.rawItems
+                            : ((mockData.trend?.list && mockData.trend.list.length > 0)
+                              ? mockData.trend.list
+                              : ((mockData.trend?.rawItems && mockData.trend.rawItems.length > 0) ? mockData.trend.rawItems : [])));
+
+                        const trendList = trendSource.map((item, idx, arr) => {
+                          const month = item.month || formatTrendMonthName(item.month_start || item.as_on_date);
+                          const curr = Number(item.total_stock_value !== undefined && item.total_stock_value !== null ? item.total_stock_value : (item.inventory_value !== undefined && item.inventory_value !== null ? item.inventory_value : (item.current !== undefined && item.current !== null ? (item.current < 1000 ? item.current * 10000000 : item.current) : 0)));
+                          const prev = (item.previous_value !== undefined && item.previous_value !== null)
+                            ? Number(item.previous_value)
+                            : (item.previous !== undefined && item.previous !== null
+                              ? (item.previous < 1000 ? Number(item.previous) * 10000000 : Number(item.previous))
+                              : (idx > 0
+                                ? Number(arr[idx - 1].total_stock_value !== undefined && arr[idx - 1].total_stock_value !== null
+                                  ? arr[idx - 1].total_stock_value
+                                  : (arr[idx - 1].inventory_value !== undefined && arr[idx - 1].inventory_value !== null
+                                    ? arr[idx - 1].inventory_value
+                                    : (arr[idx - 1].current !== undefined && arr[idx - 1].current !== null
+                                      ? (arr[idx - 1].current < 1000 ? arr[idx - 1].current * 10000000 : arr[idx - 1].current)
+                                      : 0)))
+                                : null));
+                          const variance = prev !== null ? curr - prev : null;
+                          const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
+                          const as_on_date = item.as_on_date || (typeof item.month_start === 'object' ? item.month_start?.as_on_date || item.month_start?.name : item.month_start);
+                          return {
+                            ...item,
+                            month,
+                            current: curr,
+                            previous: prev,
+                            variance,
+                            growth,
+                            as_on_date,
+                            average_inventory: (item.average_inventory !== undefined && item.average_inventory !== null) ? Number(item.average_inventory) : null,
+                            cost_of_material_monthly: (item.cost_of_material_monthly !== undefined && item.cost_of_material_monthly !== null) ? Number(item.cost_of_material_monthly) : null,
+                            inventory_turnover: (item.inventory_turnover !== undefined && item.inventory_turnover !== null) ? Number(item.inventory_turnover) : null,
+                            dio_days: (item.dio_days !== undefined && item.dio_days !== null) ? Number(item.dio_days) : (item.dio !== undefined && item.dio !== null ? Number(item.dio) : null),
+                          };
+                        });
 
                         const rows = trendList.filter(item => {
                           if (!viewAllSearch) return true;
@@ -6448,27 +6491,58 @@ const detailsSource = modalFilteredDetails || [];
                           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.25 }}>Period /<br />Month</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Snapshot<br />Date</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>Period /<br />Month</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Snapshot<br />Date</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Inventory Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Previous Month<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.3 }}>Monthly Variance<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Variance<br />%</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>Variance<br />%</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Average Inventory<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 150, verticalAlign: "bottom", lineHeight: 1.3 }}>Monthly Material Cost<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Turnover<br />Ratio</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>DIO<br />(Days)</th>
-                                </tr>
+                              </tr>
                             </thead>
                             <tbody>
-                              {rows.length === 0 ? (
-                                <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend records found</td></tr>
+                              {viewAllLoading ? (
+                                <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#64748b" }}>Loading trend analysis...</td></tr>
+                              ) : rows.length === 0 ? (
+                                <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend records found</td></tr>
                               ) : (
                                 rows.map((row, idx) => {
-                                  const rawVal = Number(row.inventory_value !== undefined ? row.inventory_value : (row.current !== undefined ? (row.current < 1000 ? row.current * 10000000 : row.current) : (row.total_stock_value || 0)));
-                                  const rawPrev = (row.previous_value !== undefined && row.previous_value !== null) ? Number(row.previous_value) : (row.previous !== undefined && row.previous !== null ? (row.previous < 1000 ? Number(row.previous) * 10000000 : Number(row.previous)) : (idx > 0 ? Number(rows[idx-1].inventory_value !== undefined ? rows[idx-1].inventory_value : (rows[idx-1].current !== undefined ? (rows[idx-1].current < 1000 ? rows[idx-1].current * 10000000 : rows[idx-1].current) : 0)) : null));
+                                  const rawVal = Number(row.total_stock_value !== undefined && row.total_stock_value !== null ? row.total_stock_value : (row.inventory_value !== undefined && row.inventory_value !== null ? row.inventory_value : (row.current !== undefined && row.current !== null ? (row.current < 1000 ? row.current * 10000000 : row.current) : 0)));
+                                  const rawPrev = (row.previous_value !== undefined && row.previous_value !== null)
+                                    ? Number(row.previous_value)
+                                    : (row.previous !== undefined && row.previous !== null
+                                      ? (row.previous < 1000 ? Number(row.previous) * 10000000 : Number(row.previous))
+                                      : (idx > 0
+                                        ? Number(rows[idx - 1].total_stock_value !== undefined && rows[idx - 1].total_stock_value !== null
+                                          ? rows[idx - 1].total_stock_value
+                                          : (rows[idx - 1].inventory_value !== undefined && rows[idx - 1].inventory_value !== null
+                                            ? rows[idx - 1].inventory_value
+                                            : (rows[idx - 1].current !== undefined && rows[idx - 1].current !== null
+                                              ? (rows[idx - 1].current < 1000 ? rows[idx - 1].current * 10000000 : rows[idx - 1].current)
+                                              : 0)))
+                                        : null));
                                   const variance = rawPrev !== null ? (rawVal - rawPrev) : null;
                                   const variancePct = (rawPrev !== null && rawPrev !== 0) ? ((rawVal - rawPrev) / rawPrev) * 100 : null;
-                                  const turnover = row.inventory_turnover ?? mockData.turnoverDioTrend?.turnover?.[idx] ?? 4.2;
-                                  const dio = row.dio_days ?? row.dio ?? mockData.turnoverDioTrend?.dio?.[idx] ?? 86;
+                                  
+                                  const turnover = (row.inventory_turnover !== null && row.inventory_turnover !== undefined && !isNaN(row.inventory_turnover))
+                                    ? Number(row.inventory_turnover)
+                                    : (row.turnover !== null && row.turnover !== undefined && !isNaN(row.turnover) ? Number(row.turnover) : null);
+                                  
+                                  const dio = (row.dio_days !== null && row.dio_days !== undefined && !isNaN(row.dio_days))
+                                    ? Number(row.dio_days)
+                                    : (row.dio !== null && row.dio !== undefined && !isNaN(row.dio) ? Number(row.dio) : null);
+                                  
+                                  const avgInv = (row.average_inventory !== null && row.average_inventory !== undefined && !isNaN(row.average_inventory))
+                                    ? Number(row.average_inventory)
+                                    : null;
+                                  
+                                  const costMo = (row.cost_of_material_monthly !== null && row.cost_of_material_monthly !== undefined && !isNaN(row.cost_of_material_monthly))
+                                    ? Number(row.cost_of_material_monthly)
+                                    : null;
+
                                   const snapDate = row.as_on_date || "2026-09-25";
                                   const isFiltered = viewAllDetailFilters.as_on_date && toApiDate(viewAllDetailFilters.as_on_date) === toApiDate(snapDate);
 
@@ -6518,13 +6592,19 @@ const detailsSource = modalFilteredDetails || [];
                                           </div>
                                         ) : "-"}
                                       </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
+                                        {avgInv !== null ? Math.round(avgInv / scale).toLocaleString("en-US") : "-"}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
+                                        {costMo !== null ? Math.round(costMo / scale).toLocaleString("en-US") : "-"}
+                                      </td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
-                                        {typeof turnover === "number" ? turnover.toFixed(1) : turnover}x
+                                        {turnover !== null ? `${turnover.toFixed(2)}x` : "-"}
                                       </td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#475569", fontVariantNumeric: "tabular-nums" }}>
-                                        {Math.round(Number(dio))}
+                                        {dio !== null ? dio.toFixed(1) : "-"}
                                       </td>
-                                      </tr>
+                                    </tr>
                                   );
                                 })
                               )}

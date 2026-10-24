@@ -28,9 +28,14 @@ function parseNum(val) {
     return isNaN(n) ? null : n;
 }
 
-function formatValue(val, isDays, unitMode) {
+function formatValue(val, isDays, unitMode, isPct) {
     const n = parseNum(val);
     if (n === null) return '—';
+    if (isPct) {
+        // Percentage rows — display as "XX.X%"
+        if (n < 0) return `(${Math.abs(n).toFixed(1)}%)`;
+        return `${n.toFixed(1)}%`;
+    }
     if (isDays) {
         // Ratios (DSO, DIO, DPO, CCC) always stay in Days
         return n.toFixed(1);
@@ -485,6 +490,40 @@ export default function KeyFinancialParameters({
                 ...getPlVals('Gross Profit'),
             },
             {
+                id: 5.5,
+                category: 'Profitability',
+                param: 'Gross Profit %',
+                unit: '%',
+                isDays: false,
+                isPct: true,
+                isLowerBetter: false,
+                // GP% = (Gross Profit / Revenue) * 100
+                actualVal: (() => {
+                    const gp = getPlVals('Gross Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(gp.actualVal); const r = parseNum(rv.actualVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+                targetVal: (() => {
+                    const gp = getPlVals('Gross Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(gp.targetVal); const r = parseNum(rv.targetVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+                prevVal: (() => {
+                    const gp = getPlVals('Gross Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(gp.prevVal); const r = parseNum(rv.prevVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+                pyVal: (() => {
+                    const gp = getPlVals('Gross Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(gp.pyVal); const r = parseNum(rv.pyVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+            },
+            {
                 id: 6,
                 category: 'Profitability',
                 param: 'Operating Expenses',
@@ -502,8 +541,42 @@ export default function KeyFinancialParameters({
                 isLowerBetter: false,
                 ...getPlVals('Net Profit'),
             },
+            {
+                id: 7.5,
+                category: 'Profitability',
+                param: 'Net Profit %',
+                unit: '%',
+                isDays: false,
+                isPct: true,
+                isLowerBetter: false,
+                // NP% = (Net Profit / Revenue) * 100
+                actualVal: (() => {
+                    const np = getPlVals('Net Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(np.actualVal); const r = parseNum(rv.actualVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+                targetVal: (() => {
+                    const np = getPlVals('Net Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(np.targetVal); const r = parseNum(rv.targetVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+                prevVal: (() => {
+                    const np = getPlVals('Net Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(np.prevVal); const r = parseNum(rv.prevVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+                pyVal: (() => {
+                    const np = getPlVals('Net Profit');
+                    const rv = getPlVals('Total Revenue');
+                    const a = parseNum(np.pyVal); const r = parseNum(rv.pyVal);
+                    return (r && r !== 0) ? (a / r) * 100 : null;
+                })(),
+            },
 
-            // ================= WORKING CAPITAL =================
+                        // ================= WORKING CAPITAL =================
             {
                 id: 8,
                 category: 'Working Capital',
@@ -519,6 +592,18 @@ export default function KeyFinancialParameters({
             {
                 id: 9,
                 category: 'Working Capital',
+                param: 'CCC',
+                unit: 'Days',
+                isDays: true,
+                isLowerBetter: true,
+                targetVal: 150.0,
+                actualVal: curTwcRow?.cash_conversion_cycle_days ?? curTwcRow?.ccc ?? kpisCurrent?.ccc,
+                prevVal: prevTwcRow?.cash_conversion_cycle_days ?? prevTwcRow?.ccc ?? kpisPrev?.ccc,
+                pyVal: pyTwcRow?.cash_conversion_cycle_days ?? pyTwcRow?.ccc ?? kpisPy?.ccc,
+            },
+            {
+                id: 10,
+                category: 'Working Capital',
                 param: 'Trade Receivables',
                 unit: 'AED M',
                 isDays: false,
@@ -529,7 +614,7 @@ export default function KeyFinancialParameters({
                 pyVal: pyTwcRow?.total_receivables ?? (pyTwcRow?.tr != null ? pyTwcRow.tr * 1_000_000 : null),
             },
             {
-                id: 10,
+                id: 11,
                 category: 'Working Capital',
                 param: 'DSO',
                 unit: 'Days',
@@ -541,7 +626,7 @@ export default function KeyFinancialParameters({
                 pyVal: pyTwcRow?.dso_days ?? kpisPy?.dso,
             },
             {
-                id: 11,
+                id: 12,
                 category: 'Working Capital',
                 param: 'Inventory',
                 unit: 'AED M',
@@ -553,7 +638,7 @@ export default function KeyFinancialParameters({
                 pyVal: pyTwcRow?.total_inventory ?? (pyTwcRow?.inv != null ? pyTwcRow.inv * 1_000_000 : null),
             },
             {
-                id: 12,
+                id: 13,
                 category: 'Working Capital',
                 param: 'DIO',
                 unit: 'Days',
@@ -565,7 +650,7 @@ export default function KeyFinancialParameters({
                 pyVal: pyTwcRow?.dio_days ?? kpisPy?.dio,
             },
             {
-                id: 13,
+                id: 14,
                 category: 'Working Capital',
                 param: 'Trade Payables',
                 unit: 'AED M',
@@ -577,7 +662,7 @@ export default function KeyFinancialParameters({
                 pyVal: pyTwcRow?.total_payables ?? (pyTwcRow?.tp != null ? pyTwcRow.tp * 1_000_000 : null),
             },
             {
-                id: 14,
+                id: 15,
                 category: 'Working Capital',
                 param: 'DPO',
                 unit: 'Days',
@@ -588,20 +673,8 @@ export default function KeyFinancialParameters({
                 prevVal: prevTwcRow?.dpo_days ?? kpisPrev?.dpo,
                 pyVal: pyTwcRow?.dpo_days ?? kpisPy?.dpo,
             },
-            {
-                id: 15,
-                category: 'Working Capital',
-                param: 'CCC',
-                unit: 'Days',
-                isDays: true,
-                isLowerBetter: true,
-                targetVal: 150.0,
-                actualVal: curTwcRow?.cash_conversion_cycle_days ?? curTwcRow?.ccc ?? kpisCurrent?.ccc,
-                prevVal: prevTwcRow?.cash_conversion_cycle_days ?? prevTwcRow?.ccc ?? kpisPrev?.ccc,
-                pyVal: pyTwcRow?.cash_conversion_cycle_days ?? pyTwcRow?.ccc ?? kpisPy?.ccc,
-            },
 
-            // ================= INVESTMENTS =================
+// ================= INVESTMENTS =================
             {
                 id: 16,
                 category: 'Investments',
@@ -713,7 +786,7 @@ export default function KeyFinancialParameters({
     const CATEGORIES = [
         {
             name: 'Profitability',
-            count: 7,
+            count: 9,
             bg: '#eff6ff',
             text: '#1e40af',
             icon: BarChart3,
@@ -808,6 +881,7 @@ export default function KeyFinancialParameters({
 
     // Dynamic row unit helper (AED / Millions / Days)
     const getRowUnit = (row) => {
+        if (row.isPct) return '%';
         if (row.isDays) return 'Days';
         return displayUnit === 'aed' ? (currency || 'AED') : `${currency || 'AED'} M`;
     };
@@ -1195,7 +1269,7 @@ export default function KeyFinancialParameters({
                                     </td>
 
                                     {/* Parameter Name */}
-                                    <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 7 || row.id === 8 || row.id === 18 || row.id === 19) ? 800 : 600, color: '#1e293b' }}>
+                                    <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 5.5 || row.id === 7 || row.id === 7.5 || row.id === 8 || row.id === 18 || row.id === 19) ? 800 : 600, color: '#1e293b' }}>
                                         {row.param}
                                     </td>
 
@@ -1205,24 +1279,24 @@ export default function KeyFinancialParameters({
                                     </td>
 
                                     {/* Actual */}
-                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
-                                        {formatValue(row.actualVal, row.isDays, displayUnit)}
+                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: row.isPct ? '#2563eb' : '#0f172a' }}>
+                                        {formatValue(row.actualVal, row.isDays, displayUnit, row.isPct)}
                                     </td>
 
                                     {/* Target */}
                                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                                        {formatValue(row.targetVal, row.isDays, displayUnit)}
+                                        {formatValue(row.targetVal, row.isDays, displayUnit, row.isPct)}
                                     </td>
 
                                     {/* Previous Month */}
                                     <td style={{ ...tdStyle, textAlign: 'right', color: '#334155', fontWeight: 600 }}>
-                                        {formatValue(row.prevVal, row.isDays, displayUnit)}
+                                        {formatValue(row.prevVal, row.isDays, displayUnit, row.isPct)}
                                     </td>
 
                                     {/* Previous Year (YTD only) */}
                                     {isYtd && (
                                         <td style={{ ...tdStyle, textAlign: 'right', color: '#334155', fontWeight: 600 }}>
-                                            {formatValue(row.pyVal, row.isDays, displayUnit)}
+                                            {formatValue(row.pyVal, row.isDays, displayUnit, row.isPct)}
                                         </td>
                                     )}
 
