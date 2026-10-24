@@ -702,7 +702,7 @@ export default function KeyFinancialParameters({
             {
                 id: 18,
                 category: 'Investments',
-                param: 'Total Investments',
+                param: 'Total Investments (16+17)',
                 unit: 'AED M',
                 isDays: false,
                 isLowerBetter: false,
@@ -754,7 +754,7 @@ export default function KeyFinancialParameters({
             {
                 id: 22,
                 category: 'Short Term Borrowings',
-                param: 'Short Term Loans',
+                param: 'Short Term Loans (18-19+20+21)',
                 unit: 'AED M',
                 isDays: false,
                 isLowerBetter: true,
