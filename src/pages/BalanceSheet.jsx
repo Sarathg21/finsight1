@@ -3206,25 +3206,25 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
             <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.15rem', cursor: 'pointer', color: C.slate, padding: '2px 6px', lineHeight: 1 }}>{'\u2715'}</button>
           </div>
         </div>
-        <div style={{ padding: '6px 14px', overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
+        <div style={{ padding: '0 14px', overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
           {!rows.length ? (
             <div style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
                 <tr>
-                  <th style={{ ...MTH_L, minWidth: 0, width: hasLegalEntity && hasSubDivision ? '19%' : '30%', padding: '6px 8px', fontSize: '0.70rem' }}>Account</th>
-                  <th style={{ ...MTH, minWidth: 0, width: 68, textAlign: 'center', padding: '6px 6px', fontSize: '0.70rem' }}>Code</th>
+                  <th style={{ ...MTH_L, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: hasLegalEntity && hasSubDivision ? '19%' : '30%', padding: '7px 8px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>Account</th>
+                  <th style={{ ...MTH, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: 68, textAlign: 'center', padding: '7px 6px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>Code</th>
                   {hasLegalEntity && (
-                    <th style={{ ...MTH_L, minWidth: 0, width: hasSubDivision ? '28%' : '42%', padding: '6px 8px', fontSize: '0.70rem' }}>Legal Entity</th>
+                    <th style={{ ...MTH_L, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: hasSubDivision ? '28%' : '42%', padding: '7px 8px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>Legal Entity</th>
                   )}
                   {hasSubDivision && (
-                    <th style={{ ...MTH_L, minWidth: 0, width: '17%', padding: '6px 8px', fontSize: '0.70rem' }}>Sub-Division</th>
+                    <th style={{ ...MTH_L, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: '17%', padding: '7px 8px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>Sub-Division</th>
                   )}
-                  {hasLedger && <th style={{ ...MTH, minWidth: 0, width: 64, textAlign: 'center', padding: '6px 6px', fontSize: '0.70rem' }}>Ledger</th>}
-                  {hasDrCr && <th style={{ ...MTH, minWidth: 0, width: 48, textAlign: 'center', padding: '6px 4px', fontSize: '0.70rem' }}>DR/CR</th>}
-                  <th style={{ ...MTH, minWidth: 0, width: 118, textAlign: 'right', padding: '6px 8px', fontSize: '0.70rem' }}>Balance Amount</th>
-                  <th style={{ ...MTH, minWidth: 0, width: 104, textAlign: 'right', padding: '6px 8px', fontSize: '0.70rem' }}>% of Total</th>
+                  {hasLedger && <th style={{ ...MTH, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: 64, textAlign: 'center', padding: '7px 6px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>Ledger</th>}
+                  {hasDrCr && <th style={{ ...MTH, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: 48, textAlign: 'center', padding: '7px 4px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>DR/CR</th>}
+                  <th style={{ ...MTH, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: 118, textAlign: 'right', padding: '7px 8px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>Balance Amount</th>
+                  <th style={{ ...MTH, position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', minWidth: 0, width: 104, textAlign: 'right', padding: '7px 8px', fontSize: '0.70rem', borderBottom: '2px solid #cbd5e1' }}>% of Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -3305,23 +3305,24 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                   );
                 })}
               </tbody>
-              <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 2 }}>
-                <tr style={{
-                  background: '#f8fafc',
-                  borderTop: '2px solid #cbd5e1',
-                  borderBottom: '1px solid #cbd5e1',
-                  boxShadow: '0 -2px 6px rgba(0,0,0,0.03)',
-                }}>
+              <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 10 }}>
+                <tr>
                   <td
                     colSpan={labelColSpan}
                     style={{
                       ...MTD_L,
+                      position: 'sticky',
+                      bottom: 0,
+                      zIndex: 10,
                       background: '#f8fafc',
                       fontWeight: 800,
                       color: C.navy,
                       fontSize: '0.74rem',
                       letterSpacing: '0.04em',
                       padding: '8px 8px',
+                      borderTop: '2px solid #cbd5e1',
+                      borderBottom: 'none',
+                      boxShadow: '0 -2px 6px rgba(0,0,0,0.04)',
                     }}
                   >
                     TOTAL
@@ -3329,6 +3330,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                   <td
                     style={{
                       ...MTD,
+                      position: 'sticky',
+                      bottom: 0,
+                      zIndex: 10,
                       background: '#f8fafc',
                       minWidth: 0,
                       textAlign: 'right',
@@ -3337,6 +3341,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                       color: C.navy,
                       whiteSpace: 'nowrap',
                       padding: '8px 8px',
+                      borderTop: '2px solid #cbd5e1',
+                      borderBottom: 'none',
+                      boxShadow: '0 -2px 6px rgba(0,0,0,0.04)',
                     }}
                   >
                     {fmtNum(Math.abs(total), currency)}
@@ -3344,6 +3351,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                   <td
                     style={{
                       ...MTD,
+                      position: 'sticky',
+                      bottom: 0,
+                      zIndex: 10,
                       background: '#f8fafc',
                       minWidth: 0,
                       textAlign: 'right',
@@ -3352,6 +3362,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                       color: C.navy,
                       whiteSpace: 'nowrap',
                       padding: '8px 8px',
+                      borderTop: '2px solid #cbd5e1',
+                      borderBottom: 'none',
+                      boxShadow: '0 -2px 6px rgba(0,0,0,0.04)',
                     }}
                   >
                     100.0%
