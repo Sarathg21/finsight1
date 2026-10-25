@@ -3138,7 +3138,8 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
   // Detect what columns are available in the data
   const hasSubDivision = rows.some(r => r.sub_division_name);
   const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
-  const hasDrCr = rows.some(r => r.dr_cr);
+  // DR/CR column is always shown when drilldown rows are present (derived from signed balance)
+  const hasDrCr = rows.length > 0;
   const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '\u2014');
   const labelColSpan = 2 + (hasLegalEntity ? 1 : 0) + (hasSubDivision ? 1 : 0) + (hasLedger ? 1 : 0) + (hasDrCr ? 1 : 0);
 
@@ -3232,9 +3233,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
                   const isOpposing = row.is_opposing !== undefined
                     ? row.is_opposing
                     : (total !== 0 ? (total > 0 ? amt < 0 : amt > 0) : amt < 0);
-                  const displayDrCr = isOpposing
-                    ? (total >= 0 ? 'CR' : 'DR')
-                    : (row.dr_cr || (total >= 0 ? 'DR' : 'CR'));
+                  // DR/CR derived from the actual signed balance of this row (not account normal nature)
+                  // amt >= 0 → DR (debit balance)   |   amt < 0 → CR (credit balance)
+                  const displayDrCr = amt >= 0 ? 'DR' : 'CR';
                   const pctVal = Math.abs(row.abs_pct_of_total ?? (total !== 0 ? Math.round((Math.abs(amt) / Math.abs(total)) * 100 * 10) / 10 : 0));
 
                   return (

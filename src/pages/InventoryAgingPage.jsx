@@ -1,4 +1,4 @@
-﻿/* ================================================================
+/* ================================================================
    DATE FORMAT HELPERS
    ================================================================ */
 function formatDisplayDateGlobal(d, fallback = null) {
@@ -1718,7 +1718,8 @@ const [loading, setLoading] = useState(true);
 
               
                             let kpis = [];
-              const rawKpiSource = { ...kData, ...(dData.kpis || {}) };
+              // Merge: dedicated /api/inventory/kpis (kData) takes precedence over dashboard's embedded kpis
+              const rawKpiSource = { ...(dData.kpis || {}), ...kData };
               const prevSnapshotDate = rawKpiSource.previous_as_on_date 
                   || rawKpiSource.previous_date 
                   || dData.previous_as_on_date 
@@ -1891,6 +1892,7 @@ const [loading, setLoading] = useState(true);
                       lastMonthVariance: rawKpiSource.dio_days_variance ?? null,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
+                      dioTargetStatus,
                   },
                   {
                       key: "target_dio",
@@ -1905,6 +1907,7 @@ const [loading, setLoading] = useState(true);
                       lastMonthVariance: null,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
+                      dioTargetStatus,
                   },
                   {
                       key: "dio_variance",
@@ -1919,6 +1922,7 @@ const [loading, setLoading] = useState(true);
                       lastMonthVariance: rawKpiSource.dio_variance_lm_pct ?? null,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
+                      dioTargetStatus,
                   }
               ];
 
@@ -2043,8 +2047,8 @@ const [loading, setLoading] = useState(true);
                       ...item,
                       subdivision_id: item.subdivision_id ?? item.id ?? (typeof item.subdivision_name === 'object' ? item.subdivision_name?.id : undefined),
                       name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : (item.subdivision_name || item.sub_division_name),
-                      parent_division: item.parent_division || item.parent_division_name || (typeof item.parent_division_name === 'object' ? item.parent_division_name?.name : "-"),
-                      parent_division_name: item.parent_division_name || item.parent_division || "-",
+                      parent_division: item.parent_division || (typeof item.parent_division_name === 'object' ? (item.parent_division_name?.name || "-") : (item.parent_division_name || "-")),
+                      parent_division_name: typeof item.parent_division_name === 'object' ? (item.parent_division_name?.name || "-") : (item.parent_division_name || item.parent_division || "-"),
                       value: Number(item.inventory_value || 0) / 10000000,
                       inventory_value: Number(item.inventory_value || 0),
                       current_0_180: item.current_0_180 !== undefined && item.current_0_180 !== null ? Number(item.current_0_180) : undefined,
@@ -2685,7 +2689,8 @@ const [loading, setLoading] = useState(true);
       row2Right = <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>;
     }
 
-    const isDioStatus = Boolean(item.dioTargetStatus);
+    // Only show badge for recognized status values; unknown/unexpected values are hidden
+    const isDioStatus = item.dioTargetStatus === "ABOVE_TARGET" || item.dioTargetStatus === "ON_TARGET" || item.dioTargetStatus === "ABOVE TARGET";
     const isAboveTarget = item.dioTargetStatus === "ABOVE_TARGET" || item.dioTargetStatus === "ABOVE TARGET";
 
     return (

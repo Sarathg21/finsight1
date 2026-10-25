@@ -464,7 +464,8 @@ export function exportDrilldownToExcel(drilldownData, currency = 'AED', metadata
 
   const hasSubDivision = rows.some(r => r.sub_division_name);
   const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
-  const hasDrCr = rows.some(r => r.dr_cr);
+  // DR/CR column always shown (derived from signed balance, not account normal nature)
+  const hasDrCr = rows.length > 0;
   const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '—');
 
   // Build headers
@@ -488,9 +489,8 @@ export function exportDrilldownToExcel(drilldownData, currency = 'AED', metadata
     const isOpposing = r.is_opposing !== undefined
       ? r.is_opposing
       : (total !== 0 ? (total > 0 ? amt < 0 : amt > 0) : amt < 0);
-    const displayDrCr = isOpposing
-      ? (total >= 0 ? 'CR' : 'DR')
-      : (r.dr_cr || (total >= 0 ? 'DR' : 'CR'));
+    // DR/CR derived from signed balance_amount (not account normal nature)
+    const displayDrCr = amt >= 0 ? 'DR' : 'CR';
     const pctVal = Math.abs(r.abs_pct_of_total ?? (total !== 0 ? Math.round((Math.abs(amt) / Math.abs(total)) * 100 * 10) / 10 : 0));
     const finalAmt = isOpposing ? -Math.abs(amt) : Math.abs(amt);
 
@@ -549,7 +549,8 @@ export function exportDrilldownToPDF(drilldownData, currency = 'AED', metadata =
 
   const hasSubDivision = rows.some(r => r.sub_division_name);
   const hasLegalEntity = rows.some(r => r.legal_entity_name || r.legal_entity || r.entity_name || r.entity) || hasSubDivision;
-  const hasDrCr = rows.some(r => r.dr_cr);
+  // DR/CR column always shown (derived from signed balance, not account normal nature)
+  const hasDrCr = rows.length > 0;
   const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '—');
 
   const doc = new jsPDF({ orientation: hasSubDivision ? 'landscape' : 'portrait' });
@@ -573,9 +574,8 @@ export function exportDrilldownToPDF(drilldownData, currency = 'AED', metadata =
     const isOpposing = r.is_opposing !== undefined
       ? r.is_opposing
       : (total !== 0 ? (total > 0 ? amt < 0 : amt > 0) : amt < 0);
-    const displayDrCr = isOpposing
-      ? (total >= 0 ? 'CR' : 'DR')
-      : (r.dr_cr || (total >= 0 ? 'DR' : 'CR'));
+    // DR/CR derived from signed balance_amount (not account normal nature)
+    const displayDrCr = amt >= 0 ? 'DR' : 'CR';
     const pctVal = Math.abs(r.abs_pct_of_total ?? (total !== 0 ? Math.round((Math.abs(amt) / Math.abs(total)) * 100 * 10) / 10 : 0));
     const finalAmt = isOpposing ? -Math.abs(amt) : Math.abs(amt);
 
