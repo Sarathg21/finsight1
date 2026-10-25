@@ -1217,6 +1217,139 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
   const [toast, setToast] = useState(null);
   const [exporting, setExporting] = useState(false);
 
+  // Hierarchy filter options
+  const [legalGroups,   setLegalGroups]   = useState([]);
+  const [legalEntities, setLegalEntities] = useState([]);
+  const [parentDivs,    setParentDivs]    = useState([]);
+  const [subDivs,       setSubDivs]       = useState([]);
+
+  // Multi-select draft filters (arrays matching SalesRevenueReport / TwcViewAllTable pattern)
+  const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters?.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+  const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters?.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+  const [draftParentDiv,    setDraftParentDiv]    = useState(filters?.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+  const [draftSubDiv,       setDraftSubDiv]       = useState(filters?.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
+
+  // Applied filter state
+  const [appliedTrendFilters, setAppliedTrendFilters] = useState(() => ({
+    as_on_date: filters?.as_on_date || filters?.as_of_date || '2026-10-31',
+    legal_group_id: filters?.legal_group_id || undefined,
+    legal_entity_id: filters?.legal_entity_id || undefined,
+    parent_division_id: filters?.parent_division_id || undefined,
+    subdivision_id: filters?.subdivision_id || undefined,
+  }));
+
+  // Load cached hierarchy options
+  useEffect(() => {
+    let cancelled = false;
+    fetchHierarchyOptions().then(opts => {
+      if (cancelled || !opts) return;
+      setLegalGroups(opts.legalGroups);
+      setLegalEntities(opts.legalEntities);
+      setParentDivs(opts.parentDivs);
+      setSubDivs(opts.subDivs);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Sync when initial filters prop changes
+  useEffect(() => {
+    if (filters) {
+      setDraftLegalGroup(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+      setDraftLegalEntity(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+      setDraftParentDiv(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+      setDraftSubDiv(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
+      setAppliedTrendFilters({
+        as_on_date: filters.as_on_date || filters.as_of_date || '2026-10-31',
+        legal_group_id: filters.legal_group_id || undefined,
+        legal_entity_id: filters.legal_entity_id || undefined,
+        parent_division_id: filters.parent_division_id || undefined,
+        subdivision_id: filters.subdivision_id || undefined,
+      });
+    }
+  }, [filters]);
+
+  // Cascading options based on selection, ensuring only active and non-duplicate names
+  const filteredLegalEntities = useMemo(() => {
+    let list = legalEntities;
+    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
+      const gIds = draftLegalGroup.map(String);
+      list = legalEntities.filter(e => {
+        const gId = String(e.legal_group_id ?? e.group_id ?? '');
+        return !gId || gIds.includes(gId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(e => {
+      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [legalEntities, draftLegalGroup]);
+
+  const filteredParentDivs = useMemo(() => {
+    let list = parentDivs;
+    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
+      const eIds = draftLegalEntity.map(String);
+      list = parentDivs.filter(p => {
+        const eId = String(p.legal_entity_id ?? '');
+        return !eId || eIds.includes(eId);
+      });
+    }
+    const seen = new Set();
+    return list.filter(p => {
+      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
+      if (!name) return true;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [parentDivs, draftLegalEntity]);
+
+  const filteredSubDivs = useMemo(() => {
+    let source = subDivs;
+    if (draftParentDiv && !draftParentDiv.includes('All')) {
+      const pIds = draftParentDiv.map(String);
+      source = subDivs.filter(s => {
+        const pId = String(s.parent_division_id ?? '');
+        return !pId || pIds.includes(pId);
+      });
+    }
+    const seen = new Set();
+    return source.filter(s => {
+      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [subDivs, draftParentDiv]);
+
+  const handleApply = () => {
+    setAppliedTrendFilters({
+      as_on_date: filters?.as_on_date || filters?.as_of_date || '2026-10-31',
+      legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
+      legal_entity_id:    (!draftLegalEntity || draftLegalEntity.includes('All') || draftLegalEntity.length === 0) ? undefined : draftLegalEntity,
+      parent_division_id: (!draftParentDiv || draftParentDiv.includes('All') || draftParentDiv.length === 0) ? undefined : draftParentDiv,
+      subdivision_id:     (!draftSubDiv || draftSubDiv.includes('All') || draftSubDiv.length === 0) ? undefined : draftSubDiv,
+    });
+  };
+
+  const handleReset = () => {
+    setDraftLegalGroup(['All']);
+    setDraftLegalEntity(['All']);
+    setDraftParentDiv(['All']);
+    setDraftSubDiv(['All']);
+    setAppliedTrendFilters({
+      as_on_date: filters?.as_on_date || filters?.as_of_date || '2026-10-31',
+      legal_group_id: undefined,
+      legal_entity_id: undefined,
+      parent_division_id: undefined,
+      subdivision_id: undefined,
+    });
+  };
+
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
@@ -1227,7 +1360,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
     setLoading(true);
     setError(null);
 
-    getExecTwcTrend(filters)
+    getExecTwcTrend(appliedTrendFilters)
       .then(payload => {
         if (cancelled) return;
         setRows(getRows(payload));
@@ -1240,7 +1373,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [filters]);
+  }, [appliedTrendFilters]);
 
   // Extract unique available years from returned trend records
   const availableYears = useMemo(() => {
@@ -1350,7 +1483,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
   // e.g. for Sept 2026 = (Jan26 + Feb26 + ... + Sept26) / 9
   // e.g. for Jan 26 = Jan26 / 1; Feb 26 = (Jan26 + Feb26) / 2; Aug = (Jan26 + ... + Aug26) / 8
   const completedMonthCount = useMemo(() => {
-    const rawDate = filters?.as_on_date || filters?.as_of_date || '';
+    const rawDate = appliedTrendFilters?.as_on_date || appliedTrendFilters?.as_of_date || filters?.as_on_date || filters?.as_of_date || '';
     let filterYr = 2026;
     let filterMo = 9; // Default September if not parseable
 
@@ -1375,7 +1508,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
     if (selYr < filterYr) return 12; // Past year: all 12 months completed
     if (selYr > filterYr) return 0;  // Future year: not started
     return Math.min(12, Math.max(1, filterMo));
-  }, [filters, selectedYear]);
+  }, [appliedTrendFilters, filters, selectedYear]);
 
   // Calculate YTD Average = (Month 1 + Month 2 + ... + Month N) / Completed No. of months (N)
   const getMetricAverage = (metric) => {
@@ -1468,15 +1601,11 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
     }
   };
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
-  if (!rows.length) return <EmptyState message="No month-on-month trend data available for the selected filters." />;
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#f8fafc' }}>
-      {/* Top Controls Toolbar: Search + Year + Unit Toggle + Export (matching other MoM pages) */}
+      {/* Top Controls Toolbar: Title + Year + Unit Toggle + Export */}
       <div style={{
-        padding: '12px 20px', background: '#fff', borderBottom: '1px solid #e2e8f0',
+        padding: '10px 20px', background: '#fff', borderBottom: '1px solid #e2e8f0',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
         flexShrink: 0
       }}>
@@ -1490,24 +1619,8 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
           </div>
         </div>
 
-        {/* Right controls: Search + Year + AED / AED Millions + Export */}
+        {/* Right controls: Year + AED / AED Millions + Export */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Search box */}
-          <div style={{ position: 'relative', width: 170 }}>
-            <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{
-                width: '100%', border: '1px solid #cbd5e1', borderRadius: 6,
-                padding: '5px 10px 5px 28px', fontSize: '0.72rem', color: '#334155', outline: 'none',
-                background: '#fff', boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
           {/* Year Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: '0.70rem', fontWeight: 700, color: '#64748b' }}>Year:</span>
@@ -1517,7 +1630,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
               style={{
                 padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1',
                 fontSize: '0.72rem', fontWeight: 700, color: '#1e3a8a', background: '#fff',
-                cursor: 'pointer', outline: 'none', height: 30, boxSizing: 'border-box'
+                cursor: 'pointer', outline: 'none', height: 28, boxSizing: 'border-box'
               }}
             >
               {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
@@ -1526,7 +1639,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
 
           {/* AED / AED Millions Toggle */}
           <div style={{
-            display: 'inline-flex', alignItems: 'center', height: 30,
+            display: 'inline-flex', alignItems: 'center', height: 28,
             border: '1px solid #d6deeb', borderRadius: 6, background: '#f8fafc', overflow: 'hidden'
           }}>
             <button
@@ -1568,7 +1681,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
                 display: 'flex', alignItems: 'center', gap: 4,
                 border: '1px solid #bbf7d0', borderRadius: 6, cursor: exporting ? 'not-allowed' : 'pointer',
                 fontWeight: 700, transition: 'all 0.15s', outline: 'none',
-                fontSize: '0.70rem', height: 30, padding: '0 10px',
+                fontSize: '0.70rem', height: 28, padding: '0 10px',
                 background: exporting ? '#d1fae5' : '#f0fdf4', color: '#15803d',
                 opacity: exporting ? 0.7 : 1,
               }}
@@ -1584,7 +1697,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
                 display: 'flex', alignItems: 'center', gap: 4,
                 border: '1px solid #fecdd3', borderRadius: 6, cursor: exporting ? 'not-allowed' : 'pointer',
                 fontWeight: 700, transition: 'all 0.15s', outline: 'none',
-                fontSize: '0.70rem', height: 30, padding: '0 10px',
+                fontSize: '0.70rem', height: 28, padding: '0 10px',
                 background: exporting ? '#fee2e2' : '#fff1f2', color: '#be123c',
                 opacity: exporting ? 0.7 : 1,
               }}
@@ -1595,10 +1708,159 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
         </div>
       </div>
 
-      {/* Main Table: Transposed (Rows = Metrics, Columns = Months) */}
-      <div className="exec-modal-scroll" style={{
-        flex: 1, minHeight: 0, overflow: 'auto', padding: '16px 20px', background: '#f8fafc'
+      {/* ── Hierarchy Filter Toolbar: Search + Legal Group + Legal Entity + Parent Division + Sub-Division + Apply + Reset ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px 20px',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#fff',
+        flexShrink: 0,
+        gap: 6,
+        flexWrap: 'wrap',
+        position: 'relative',
+        zIndex: 90,
       }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+          {/* Search box with green magnifying glass icon */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 8, pointerEvents: 'none' }}>
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search metrics..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                padding: '4px 8px 4px 26px',
+                borderRadius: 7,
+                border: '1px solid #cbd5e1',
+                fontSize: '0.74rem',
+                width: 135,
+                outline: 'none',
+                height: 28,
+                boxSizing: 'border-box',
+                background: '#fff',
+                color: '#334155',
+              }}
+            />
+          </div>
+
+          {/* Legal Group Multi-Select */}
+          <ExecMultiSelect
+            options={legalGroups}
+            value={draftLegalGroup}
+            onChange={(vals) => {
+              setDraftLegalGroup(vals);
+              setDraftLegalEntity(['All']);
+              setDraftParentDiv(['All']);
+              setDraftSubDiv(['All']);
+            }}
+            placeholder="All Legal Group"
+            style={{ width: 125, minWidth: 115 }}
+          />
+
+          {/* Legal Entity Multi-Select */}
+          <ExecMultiSelect
+            options={filteredLegalEntities}
+            value={draftLegalEntity}
+            onChange={(vals) => {
+              setDraftLegalEntity(vals);
+              setDraftParentDiv(['All']);
+              setDraftSubDiv(['All']);
+            }}
+            placeholder="All Legal Entity"
+            style={{ width: 135, minWidth: 125 }}
+          />
+
+          {/* Parent Division Multi-Select */}
+          <ExecMultiSelect
+            options={filteredParentDivs}
+            value={draftParentDiv}
+            onChange={(vals) => {
+              setDraftParentDiv(vals);
+              setDraftSubDiv(['All']);
+            }}
+            placeholder="All Parent Division"
+            style={{ width: 145, minWidth: 135 }}
+          />
+
+          {/* Sub-Division Multi-Select */}
+          <ExecMultiSelect
+            options={filteredSubDivs}
+            value={draftSubDiv}
+            onChange={(vals) => setDraftSubDiv(vals)}
+            placeholder="All Sub-Division"
+            style={{ width: 135, minWidth: 125 }}
+          />
+
+          {/* Apply Button (Blue) */}
+          <button
+            onClick={handleApply}
+            style={{
+              height: 28,
+              padding: '0 16px',
+              borderRadius: 7,
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
+            onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+          >
+            Apply
+          </button>
+
+          {/* Reset Button */}
+          <button
+            onClick={handleReset}
+            style={{
+              height: 28,
+              padding: '0 12px',
+              borderRadius: 7,
+              background: '#f1f5f9',
+              color: '#475569',
+              border: '1px solid #e2e8f0',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+            onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+          >
+            ↺ Reset
+          </button>
+        </div>
+      </div>
+
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
+
+      {/* Content: loading spinner, error, empty state, or table */}
+      {loading ? (
+        <Spinner />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : !rows.length ? (
+        <EmptyState message="No month-on-month trend data available for the selected filters." />
+      ) : (
+        /* Main Table: Transposed (Rows = Metrics, Columns = Months) */
+        <div className="exec-modal-scroll" style={{
+          flex: 1, minHeight: 0, overflow: 'auto', padding: '16px 20px', background: '#f8fafc'
+        }}>
         <div style={{
           background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
           overflow: 'hidden', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)'
@@ -1757,8 +2019,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
           </div>
         </div>
       </div>
-
-      {toast && <ExportToast message={toast.msg} type={toast.type} />}
+      )}
     </div>
   );
 }
@@ -3187,7 +3448,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', paddingTop: 4 }}>
           {/* Report Selection */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b' }}>Item:</span>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b' }}>{currentCritLabel}:</span>
             <select
               value={staged.reportSel}
               onChange={e => setStaged(s => ({ ...s, reportSel: e.target.value }))}
