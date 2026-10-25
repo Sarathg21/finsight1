@@ -1,5 +1,5 @@
-import { getApiBaseUrl } from '../utils/apiBase';
 
+import { getApiBaseUrl } from '../utils/apiBase';
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Search, Maximize2, Minimize2 } from "lucide-react";
@@ -2383,7 +2383,7 @@ function KpiCard({
     title, value, variance, previousDate, icon, iconBg, iconColor, titleColor,
     cardBg, currency, suffix, onClick, forceMillions = false,
     varianceType = "liability", targetVariance, lastMonthVariance,
-    targetUnit, lastMonthUnit,
+    targetUnit, lastMonthUnit, hideComparisons = false,
 }) {
     const formatValue = (raw) => {
         if (raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw))) return "—";
@@ -2428,7 +2428,11 @@ function KpiCard({
                     </div>
                 </div>
             </div>
-            <div className="payables-kpi-comparison-row" style={{
+            {hideComparisons ? (
+                /* Keep the same bottom footprint as the comparison panel so the
+                   Target DPO title/value stay in their original position. */
+                <div aria-hidden="true" style={{ height: 42, minHeight: 42, flexShrink: 0, marginTop: "auto" }} />
+            ) : <div className="payables-kpi-comparison-row" style={{
                 background: "rgba(255,255,255,.68)",
                 borderRadius: 8,
                 padding: "5px 8px",
@@ -2450,7 +2454,7 @@ function KpiCard({
                     <span className="payables-kpi-comparison-label" style={{ color: "#64748b", fontWeight: 600 }}>vs Last Month</span>
                     <span className="payables-kpi-comparison-value" style={{ minWidth: 0, fontSize: 9 }}>{renderChange(monthChange, resolvedLastMonthUnit)}</span>
                 </div>
-            </div>
+            </div>}
         </div>
     );
 }
@@ -8259,6 +8263,10 @@ export default function PayablesDashboard() {
   font-weight: 900 !important;
   border-top: 2px solid #cbd5e1 !important;
 }
+.sales-style-view-all-modal .payables-view-all-detail-table tbody tr.payables-fixed-total-row td[style*="left"],
+.sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row td[style*="left"] {
+  z-index: 70 !important;
+}
 @media (max-width: 900px) {
   .payables-sales-ui table thead th {
     padding: 9px 12px !important;
@@ -9316,6 +9324,53 @@ export default function PayablesDashboard() {
           .payables-sales-ui .payables-kpi-grid .sales-style-kpi .payables-kpi-comparison-value > span { font-size: 8px !important; }
         }
 
+
+/* FINAL OVERRIDE — Payables View All only.
+   Fix the actual cause of the blank gap: earlier !important rules added
+   bottom padding back to the scrollport after the inline style was changed.
+   Keep the main scrollport for vertical + horizontal scrolling, and keep all
+   View All Total rows pinned to its bottom edge. */
+.sales-style-view-all-modal > .payables-view-all-scroll {
+  padding-bottom: 0 !important;
+  padding-block-end: 0 !important;
+  margin-bottom: 0 !important;
+  scroll-padding-bottom: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table tbody tr.payables-fixed-total-row,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row,
+.sales-style-view-all-modal .payables-view-all-scroll table tbody tr.payables-fixed-total-row,
+.sales-style-view-all-modal .payables-mom-table-scroll table tbody tr.payables-fixed-total-row {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 100 !important;
+}
+.sales-style-view-all-modal .payables-view-all-detail-table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-scroll table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-mom-table-scroll table tbody tr.payables-fixed-total-row td,
+.sales-style-view-all-modal .payables-view-all-detail-table tfoot td,
+.sales-style-view-all-modal .payables-view-all-table-scroll table tfoot td,
+.sales-style-view-all-modal .payables-view-all-scroll table tfoot td,
+.sales-style-view-all-modal .payables-mom-table-scroll table tfoot td {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 101 !important;
+  background: #eef4ff !important;
+  background-clip: padding-box !important;
+  border-top: 2px solid #cbd5e1 !important;
+  box-shadow: 0 -1px 0 rgba(203, 213, 225, .35) !important;
+}
+/* Keep the first-column cells above the rest of the pinned Total row while
+   preserving their existing left offsets and horizontal scrolling. */
+.sales-style-view-all-modal .payables-view-all-detail-table tbody tr.payables-fixed-total-row td[style*="left"],
+.sales-style-view-all-modal .payables-view-all-table-scroll table tbody tr.payables-fixed-total-row td[style*="left"],
+.sales-style-view-all-modal .payables-view-all-scroll table tbody tr.payables-fixed-total-row td[style*="left"],
+.sales-style-view-all-modal .payables-mom-table-scroll table tbody tr.payables-fixed-total-row td[style*="left"] {
+  z-index: 120 !important;
+}
+
       `}</style>
             {/* ======================================================
           PAGE CONTENT
@@ -9815,7 +9870,7 @@ export default function PayablesDashboard() {
                                 previousDate={kpis.previous_date} suffix="Days" currency={currency}
                                 icon="▦" iconBg="#dbeafe" iconColor="#0284c7" titleColor="#0369a1" cardBg="#EAFBFC" />
                             <KpiCard title="Target DPO" value={targetDpoValue}
-                                targetVariance={null} lastMonthVariance={null}
+                                hideComparisons={true} targetVariance={null} lastMonthVariance={null}
                                 suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#d97706" titleColor="#b45309" cardBg="#FFF0F7" />
                             <KpiCard title="DPO Variance" value={dpoTargetVariance} suffix="Days"
                                 targetVariance={null} lastMonthVariance={null}
@@ -12258,17 +12313,23 @@ function PayablesViewAll({
         }).format(number);
     };
 
+    const formatAccountingPeriod = (value) => {
+        if (value === null || value === undefined || value === "") return "—";
+        const text = String(value).trim();
+        // Full backend dates display as dd-mm-yyyy.
+        if (/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(text)) return formatFilterDate(text);
+        // A year-month accounting period is displayed as the first day of that month.
+        if (/^\d{4}-\d{2}$/.test(text)) {
+            const [year, month] = text.split("-");
+            return `01-${month}-${year}`;
+        }
+        return text;
+    };
+
     const getNonAgingPeriodLabel = (row) => {
-        const period =
-            row?.accounting_period ??
-            row?.period ??
-            "";
-
-        if (period) return String(period);
-
-        return row?.otbi_report_date
-            ? formatFilterDate(row.otbi_report_date)
-            : "—";
+        const period = row?.accounting_period ?? row?.period ?? "";
+        if (period) return formatAccountingPeriod(period);
+        return row?.otbi_report_date ? formatFilterDate(row.otbi_report_date) : "—";
     };
 
     /* ============================================================ 
@@ -13811,7 +13872,7 @@ function PayablesViewAll({
                         overflowY:
                             "auto",
                         padding:
-                            "18px 18px 30px",
+                            "18px 18px 0",
                         boxSizing:
                             "border-box",
                         color:
@@ -15035,9 +15096,9 @@ function PayablesViewAll({
                                                 <tr>
                                                     {[
                                                         "Accounting Period",
-                                                        "OTBI Report Date",
+                                                        "Report Date",
                                                         "Source Rows",
-                                                        "Signed Balance",
+                                                        "Balance",
                                                     ].map((label) => (
                                                         <th
                                                             key={label}
@@ -15049,7 +15110,7 @@ function PayablesViewAll({
                                                                 fontSize: 10,
                                                                 fontWeight: 800,
                                                                 textAlign:
-                                                                    label === "Signed Balance"
+                                                                    label === "Balance" || label === "Source Rows"
                                                                         ? "right"
                                                                         : "left",
                                                                 whiteSpace: "nowrap",
@@ -15228,8 +15289,8 @@ function PayablesViewAll({
                                                         {[
                                                             "Parent Division",
                                                             "Accounting Period",
-                                                            "OTBI Report Date",
-                                                            "Signed Balance",
+                                                            "Report Date",
+                                                            "Balance",
                                                         ].map((label) => (
                                                             <th
                                                                 key={label}
@@ -15241,7 +15302,7 @@ function PayablesViewAll({
                                                                     fontSize: 10,
                                                                     fontWeight: 800,
                                                                     textAlign:
-                                                                        label === "Signed Balance"
+                                                                        label === "Balance"
                                                                             ? "right"
                                                                             : "left",
                                                                     whiteSpace: "nowrap",
@@ -15279,7 +15340,7 @@ function PayablesViewAll({
                                                                     fontSize: 10.5,
                                                                     whiteSpace: "nowrap",
                                                                 }}>
-                                                                    {row?.accounting_period || "—"}
+                                                                    {formatAccountingPeriod(row?.accounting_period ?? row?.period)}
                                                                 </td>
                                                                 <td style={{
                                                                     padding: "9px 10px",
