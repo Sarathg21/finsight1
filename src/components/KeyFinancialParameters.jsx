@@ -412,10 +412,16 @@ export default function KeyFinancialParameters({
         // 1. Profitability Helpers
         const findPl = (rows, matchStr) => {
             if (!Array.isArray(rows)) return null;
-            return rows.find(r => {
-                const p = String(r.particulars || r.name || r.label || '');
-                return p.toLowerCase().includes(matchStr.toLowerCase()) && !p.includes('%');
-            }) || null;
+            const matches = Array.isArray(matchStr) ? matchStr : [matchStr];
+            for (const m of matches) {
+                const mLower = m.toLowerCase();
+                const found = rows.find(r => {
+                    const p = String(r.particulars || r.name || r.label || '').toLowerCase();
+                    return !p.includes('%') && (p === mLower || p.includes(mLower));
+                });
+                if (found) return found;
+            }
+            return null;
         };
 
         const getPlVals = (matchStr) => {
@@ -429,6 +435,50 @@ export default function KeyFinancialParameters({
             const pyVal = isYtd ? py?.current_ytd : null;
 
             return { targetVal, actualVal, prevVal, pyVal };
+        };
+
+        const getCostOfMaterialPctVals = () => {
+            const computePct = (periodKey) => {
+                const com = parseNum(getPlVals('Cost of Material')[periodKey]);
+                const rv = parseNum(getPlVals('Total Revenue')[periodKey]);
+                return (rv && rv !== 0 && com != null) ? (com / rv) * 100 : null;
+            };
+
+            return {
+                actualVal: computePct('actualVal'),
+                targetVal: computePct('targetVal'),
+                prevVal: computePct('prevVal'),
+                pyVal: isYtd ? computePct('pyVal') : null,
+            };
+        };
+
+        const getDirectLabourVals = () => {
+            const pl = getPlVals(['Direct Labour', 'Direct Labor', 'Labour', 'Labor']);
+
+            const computeLabour = (periodKey) => {
+                const plVal = pl[periodKey];
+                if (plVal !== undefined && plVal !== null) return plVal;
+
+                // Reconciled fallback: Revenue - Cost of Material - Mfg Overhead - OH Absorption - Gross Profit
+                const rv = parseNum(getPlVals('Total Revenue')[periodKey]);
+                const com = parseNum(getPlVals('Cost of Material')[periodKey]);
+                const mfg = parseNum(getPlVals('Manufacturing')[periodKey]);
+                const abs = parseNum(getPlVals('Overhead Absorption')[periodKey]) || 0;
+                const gp = parseNum(getPlVals('Gross Profit')[periodKey]);
+
+                if (rv != null && com != null && mfg != null && gp != null) {
+                    const diff = rv - com - mfg - abs - gp;
+                    return diff > 0 ? diff : null;
+                }
+                return null;
+            };
+
+            return {
+                actualVal: computeLabour('actualVal'),
+                targetVal: computeLabour('targetVal'),
+                prevVal: computeLabour('prevVal'),
+                pyVal: isYtd ? computeLabour('pyVal') : null,
+            };
         };
 
         // 2. Working Capital Helpers
@@ -461,6 +511,25 @@ export default function KeyFinancialParameters({
                 isDays: false,
                 isLowerBetter: true,
                 ...getPlVals('Cost of Material'),
+            },
+            {
+                id: 2.1,
+                category: 'Profitability',
+                param: 'Cost of Material %',
+                unit: '%',
+                isDays: false,
+                isPct: true,
+                isLowerBetter: true,
+                ...getCostOfMaterialPctVals(),
+            },
+            {
+                id: 2.2,
+                category: 'Profitability',
+                param: 'Direct Labour',
+                unit: 'AED M',
+                isDays: false,
+                isLowerBetter: true,
+                ...getDirectLabourVals(),
             },
             {
                 id: 3,
@@ -786,7 +855,7 @@ export default function KeyFinancialParameters({
     const CATEGORIES = [
         {
             name: 'Profitability',
-            count: 9,
+            count: 11,
             bg: '#eff6ff',
             text: '#1e40af',
             icon: BarChart3,
@@ -827,7 +896,7 @@ export default function KeyFinancialParameters({
     ];
 
     // Helper to render variance cell pair (Var & %)
-    const renderVariancePair = (diff, pct, isLowerBetter, isDays) => {
+    const renderVariancePair = (diff, pct, isLowerBetter, isDays, isPct) => {
         if (diff === null || isNaN(diff)) {
             return (
                 <>
@@ -844,7 +913,7 @@ export default function KeyFinancialParameters({
         const color = isFavorable ? '#16a34a' : '#dc2626';
 
         let displayDiff;
-        if (isDays) {
+        if (isPct || isDays) {
             displayDiff = Math.abs(diff).toFixed(1);
         } else if (displayUnit === 'aed') {
             displayDiff = Math.round(Math.abs(diff)).toLocaleString('en-US');
@@ -1269,7 +1338,7 @@ export default function KeyFinancialParameters({
                                     </td>
 
                                     {/* Parameter Name */}
-                                    <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 5.1 || row.id === 7 || row.id === 7.1 || row.id === 8 || row.id === 18 || row.id === 19) ? 800 : 600, color: '#1e293b' }}>
+                                    <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 5.1 || row.id === 7 || row.id === 7.1 || row.id === 8 || row.id === 18 || row.id === 19 || row.isPct) ? 800 : 600, color: '#1e293b' }}>
                                         {row.param}
                                     </td>
 
@@ -1301,13 +1370,13 @@ export default function KeyFinancialParameters({
                                     )}
 
                                     {/* Actual vs Target (Var, %) */}
-                                    {renderVariancePair(row.varTarget, row.pctTarget, row.isLowerBetter, row.isDays)}
+                                    {renderVariancePair(row.varTarget, row.pctTarget, row.isLowerBetter, row.isDays, row.isPct)}
 
                                     {/* Actual vs Prev Month (Var, %) */}
-                                    {renderVariancePair(row.varPrev, row.pctPrev, row.isLowerBetter, row.isDays)}
+                                    {renderVariancePair(row.varPrev, row.pctPrev, row.isLowerBetter, row.isDays, row.isPct)}
 
                                     {/* Actual vs Prev Year (Var, %) (YTD only) */}
-                                    {isYtd && renderVariancePair(row.varPy, row.pctPy, row.isLowerBetter, row.isDays)}
+                                    {isYtd && renderVariancePair(row.varPy, row.pctPy, row.isLowerBetter, row.isDays, row.isPct)}
                                 </tr>
                             );
                         })}
