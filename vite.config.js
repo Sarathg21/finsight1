@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
 
   // ── Backend target ────────────────────────────────────────────────────────────
   // Default: http://13.233.207.68:8000 (AWS backend)
-  const BACKEND = process.env.VITE_BACKEND || env.VITE_BACKEND || env.VITE_API_BASE_URL || 'http://13.233.207.68:8000';
+  const BACKEND = process.env.VITE_BACKEND || env.VITE_BACKEND || env.VITE_API_BASE_URL || 'http://13.204.174.81:8000';
 
   const proxyConfig = {
     target: BACKEND,
