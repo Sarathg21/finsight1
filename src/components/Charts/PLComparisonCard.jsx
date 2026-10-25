@@ -1,5 +1,4 @@
 
-
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   BarChart,
@@ -1347,37 +1346,35 @@ function ComparisonTable({
       };
     }
 
+    /*
+      View All comparison API fields are used first:
+      current_value, compare_value, variance_amount,
+      variance_pct and favourability.
+      Legacy/normalized aliases remain supported for compatibility.
+    */
     const current =
+      item.current_value ??
+      item.current_value_aed ??
       item.current ??
       item.current_period ??
-      item.current_value ??
       item.currentPeriod ??
       item['Current Period'] ??
       null;
 
     const compare =
+      item.compare_value ??
+      item.compare_value_aed ??
       item.compare ??
       item.compare_period ??
-      item.compare_value ??
       item.comparePeriod ??
       item['Compare Period'] ??
       null;
 
-    /*
-      Use backend favourability directly.
-  
-      Backend response:
-        favourability: "favourable"
-        favourability: "unfavourable"
-        favourability: "neutral"
-  
-      Do NOT calculate favourability from variance.
-    */
     const backendFavourability = String(
       item.favourability ??
       item.Favourability ??
       'neutral'
-    ).toLowerCase();
+    ).trim().toLowerCase();
 
     let favourability = 'Neutral';
     let favourabilityColor = '#64748b';
@@ -1393,50 +1390,57 @@ function ComparisonTable({
       favourabilityBg = '#fee2e2';
     }
 
-    const hasCurrent =
-      current !== null &&
-      current !== undefined &&
-      current !== '' &&
-      !Number.isNaN(Number(current));
+    const isValidNumber = (value) =>
+      value !== null &&
+      value !== undefined &&
+      value !== '' &&
+      Number.isFinite(Number(value));
 
-    const hasCompare =
-      compare !== null &&
-      compare !== undefined &&
-      compare !== '' &&
-      !Number.isNaN(Number(compare));
+    const hasCurrent = isValidNumber(current);
+    const hasCompare = isValidNumber(compare);
 
-    /*
-      If comparison value is unavailable, keep:
-        Variance     = —
-        Variance %   = —
-        Favourability = backend value
-    */
-    if (!hasCurrent || !hasCompare) {
-      return {
-        current,
-        compare: hasCompare ? compare : null,
-        variance: null,
-        variancePct: null,
-        favourability,
-        favourabilityColor,
-        favourabilityBg
-      };
-    }
+    // Prefer the exact backend variance amount when provided.
+    const backendVariance =
+      item.variance_amount ??
+      item.variance_amount_aed ??
+      item.variance ??
+      item.Variance ??
+      null;
 
-    const numericCurrent = Number(current);
-    const numericCompare = Number(compare);
-
-    const variance =
-      numericCurrent - numericCompare;
-
-    const variancePct =
-      numericCompare !== 0
-        ? (variance / Math.abs(numericCompare)) * 100
+    const variance = isValidNumber(backendVariance)
+      ? Number(backendVariance)
+      : hasCurrent && hasCompare
+        ? Number(current) - Number(compare)
         : null;
 
+    // Prefer the backend percentage. The response sends this as a string,
+    // e.g. "-52.26" or "129.05"; null is intentionally treated as absent.
+    const backendVariancePct =
+      item.variance_pct ??
+      item.variance_percentage ??
+      item.variancePct ??
+      item['Variance %'] ??
+      null;
+
+    let variancePct = isValidNumber(backendVariancePct)
+      ? Number(String(backendVariancePct).replace(/%$/, '').trim())
+      : null;
+
+    // Compatibility fallback only when backend percentage is absent/null.
+    if (
+      variancePct === null &&
+      hasCurrent &&
+      hasCompare &&
+      Number(compare) !== 0
+    ) {
+      variancePct =
+        ((Number(current) - Number(compare)) /
+          Math.abs(Number(compare))) * 100;
+    }
+
     return {
-      current,
-      compare,
+      current: hasCurrent ? Number(current) : current,
+      compare: hasCompare ? Number(compare) : null,
       variance,
       variancePct,
       favourability,
@@ -1444,7 +1448,6 @@ function ComparisonTable({
       favourabilityBg
     };
   };
-
 
 
   return (
@@ -1550,7 +1553,7 @@ function ComparisonTable({
 
               <th
                 style={{
-                   width: '12%',
+                  width: '12%',
                   padding: '10px',
                   textAlign: 'right',
                   fontSize: '0.61rem',

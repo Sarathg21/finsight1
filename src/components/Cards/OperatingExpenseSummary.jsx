@@ -168,6 +168,9 @@ function OpexKpiCard({
     targetValue = null,
     varianceValue = null,
     varianceStatus = null,
+    showTargetVarianceRow = true,
+    showTooltip = true,
+    tooltipValueOnly = false,
 }) {
     const [isHovered, setIsHovered] = useState(false);
     const cardRef = useRef(null);
@@ -239,6 +242,7 @@ function OpexKpiCard({
             <div
                 ref={cardRef}
                 onMouseEnter={() => {
+                    if (!showTooltip) return;
                     updateTooltipPosition();
                     setIsHovered(true);
                 }}
@@ -333,55 +337,57 @@ function OpexKpiCard({
                         />
                     </div>
 
-                    {/* Target gets the remaining width; variance stays visible. Full target is available on hover. */}
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 5,
-                            marginTop: 3,
-                            padding: "3px 5px",
-                            borderRadius: 5,
-                            background: "rgba(255,255,255,0.68)",
-                            fontSize: 9.5,
-                            lineHeight: "12px",
-                            fontWeight: 600,
-                            width: "100%",
-                            minWidth: 0,
-                            maxWidth: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                        }}
-                    >
-                        <span
-                            title={hasTarget ? `Target: ${formatCurrency(targetValue, reportingCurrency)}` : "Target: —"}
+                    {/* Target/variance strip is optional for target-only KPI cards. */}
+                    {showTargetVarianceRow && (
+                        <div
                             style={{
-                                color: "#64748B",
-                                flex: "1 1 auto",
-                                minWidth: 0,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                marginTop: 3,
+                                padding: "3px 5px",
+                                borderRadius: 5,
+                                background: "rgba(255,255,255,0.68)",
                                 fontSize: 9.5,
+                                lineHeight: "12px",
                                 fontWeight: 600,
+                                width: "100%",
+                                minWidth: 0,
+                                maxWidth: "100%",
+                                boxSizing: "border-box",
+                                overflow: "hidden",
                             }}
                         >
-                            Target: {hasTarget ? formatCompactTarget(targetValue) : "—"}
-                        </span>
+                            <span
+                                title={hasTarget ? `Target: ${formatCurrency(targetValue, reportingCurrency)}` : "Target: —"}
+                                style={{
+                                    color: "#64748B",
+                                    flex: "1 1 auto",
+                                    minWidth: 0,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    fontSize: 9.5,
+                                    fontWeight: 600,
+                                }}
+                            >
+                                Target: {hasTarget ? formatCompactTarget(targetValue) : "—"}
+                            </span>
 
-                        <span
-                            title={hasVariance ? `Variance: ${formatVariance(varianceValue)}` : "Variance: —"}
-                            style={{
-                                color: varianceColor,
-                                fontWeight: 700,
-                                flex: "0 0 auto",
-                                whiteSpace: "nowrap",
-                                fontSize: 9.5,
-                            }}
-                        >
-                            {formatVariance(varianceValue)}
-                        </span>
-                    </div>
+                            <span
+                                title={hasVariance ? `Variance: ${formatVariance(varianceValue)}` : "Variance: —"}
+                                style={{
+                                    color: varianceColor,
+                                    fontWeight: 700,
+                                    flex: "0 0 auto",
+                                    whiteSpace: "nowrap",
+                                    fontSize: 9.5,
+                                }}
+                            >
+                                {formatVariance(varianceValue)}
+                            </span>
+                        </div>
+                    )}
 
                     {showUnfavorable && (
                         <div
@@ -400,7 +406,7 @@ function OpexKpiCard({
                 </div>
             </div>
 
-            {typeof document !== "undefined" &&
+            {showTooltip && typeof document !== "undefined" &&
                 createPortal(
                     <div
                         ref={tooltipRef}
@@ -531,82 +537,84 @@ function OpexKpiCard({
                             </div>
                         </div>
 
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-                                gap: 7,
-                                marginBottom: 8,
-                            }}
-                        >
+                        {!tooltipValueOnly && (
                             <div
                                 style={{
-                                    padding: "8px 9px",
-                                    borderRadius: 8,
-                                    background: "rgba(255, 255, 255, 0.045)",
-                                    border: "1px solid rgba(255, 255, 255, 0.055)",
-                                    minWidth: 0,
+                                    display: "grid",
+                                    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                                    gap: 7,
+                                    marginBottom: 8,
                                 }}
                             >
                                 <div
                                     style={{
-                                        fontSize: 8,
-                                        fontWeight: 700,
-                                        color: "#94A3B8",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.4px",
-                                        marginBottom: 4,
+                                        padding: "8px 9px",
+                                        borderRadius: 8,
+                                        background: "rgba(255, 255, 255, 0.045)",
+                                        border: "1px solid rgba(255, 255, 255, 0.055)",
+                                        minWidth: 0,
                                     }}
                                 >
-                                    Target
+                                    <div
+                                        style={{
+                                            fontSize: 8,
+                                            fontWeight: 700,
+                                            color: "#94A3B8",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.4px",
+                                            marginBottom: 4,
+                                        }}
+                                    >
+                                        Target
+                                    </div>
+                                    <div
+                                        title={modernTargetValue}
+                                        style={{
+                                            fontSize: 10.5,
+                                            fontWeight: 700,
+                                            color: "#E2E8F0",
+                                            whiteSpace: "normal",
+                                            overflowWrap: "anywhere",
+                                        }}
+                                    >
+                                        {modernTargetValue}
+                                    </div>
                                 </div>
-                                <div
-                                    title={modernTargetValue}
-                                    style={{
-                                        fontSize: 10.5,
-                                        fontWeight: 700,
-                                        color: "#E2E8F0",
-                                        whiteSpace: "normal",
-                                        overflowWrap: "anywhere",
-                                    }}
-                                >
-                                    {modernTargetValue}
-                                </div>
-                            </div>
 
-                            <div
-                                style={{
-                                    padding: "8px 9px",
-                                    borderRadius: 8,
-                                    background: `${varianceColor}12`,
-                                    border: `1px solid ${varianceColor}25`,
-                                    minWidth: 0,
-                                }}
-                            >
                                 <div
                                     style={{
-                                        fontSize: 8,
-                                        fontWeight: 700,
-                                        color: "#94A3B8",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.4px",
-                                        marginBottom: 4,
+                                        padding: "8px 9px",
+                                        borderRadius: 8,
+                                        background: `${varianceColor}12`,
+                                        border: `1px solid ${varianceColor}25`,
+                                        minWidth: 0,
                                     }}
                                 >
-                                    Variance
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 10.5,
-                                        fontWeight: 800,
-                                        color: varianceColor,
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    {modernVarianceValue}
+                                    <div
+                                        style={{
+                                            fontSize: 8,
+                                            fontWeight: 700,
+                                            color: "#94A3B8",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.4px",
+                                            marginBottom: 4,
+                                        }}
+                                    >
+                                        Variance
+                                    </div>
+                                    <div
+                                        style={{
+                                            fontSize: 10.5,
+                                            fontWeight: 800,
+                                            color: varianceColor,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {modernVarianceValue}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>,
                     document.body
                 )}
@@ -823,6 +831,8 @@ export default function OperatingExpenseSummary({
                         varianceValue={kpiData.actualOpexRatioYTDVariance}
                     />
 
+                    {/* Target-only cards: intentionally hide the lower Target/Variance strip
+        and the custom hover tooltip on these three cards only. */}
                     {/* Row 2 — Target PTD, Target YTD, Variance YTD,
         Variance YTD %, Target OPEX Ratio YTD */}
                     <OpexKpiCard
@@ -837,6 +847,8 @@ export default function OperatingExpenseSummary({
                         targetValue={kpiData.targetPTD}
                         varianceValue={kpiData.variancePTDPercent}
                         varianceStatus={kpiData.variancePTDStatus}
+                        showTargetVarianceRow={false}
+                        tooltipValueOnly={true}
                     />
 
                     <OpexKpiCard
@@ -851,6 +863,8 @@ export default function OperatingExpenseSummary({
                         targetValue={kpiData.targetYTD}
                         varianceValue={kpiData.varianceYTDPercent}
                         varianceStatus={kpiData.varianceYTDStatus}
+                        showTargetVarianceRow={false}
+                        tooltipValueOnly={true}
                     />
 
                     <OpexKpiCard
@@ -894,6 +908,8 @@ export default function OperatingExpenseSummary({
                         reportingCurrency={reportingCurrency}
                         targetValue={kpiData.targetOpexRatioYTD}
                         varianceValue={kpiData.targetOpexRatioYTDVariance}
+                        showTargetVarianceRow={false}
+                        tooltipValueOnly={true}
                     />
                 </div>
 

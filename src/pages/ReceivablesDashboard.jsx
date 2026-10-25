@@ -1903,6 +1903,7 @@ function DonutChart({
 
     return (
         <div
+            className={compactAgingLegend ? "receivables-aging-summary-donut" : undefined}
             style={{
                 display: "flex",
 
@@ -2480,14 +2481,14 @@ function DonutChart({
 
                                     gap:
                                         largeOverdueChart
-                                            ? 10
+                                            ? 14
                                             : 4,
 
                                     marginBottom:
                                         compactAgingLegend
                                             ? 5
                                             : largeOverdueChart
-                                                ? 8
+                                                ? 16
                                                 : 16,
 
                                     fontSize: compactAgingLegend ? 10 : 12,
@@ -7784,10 +7785,19 @@ export default function ReceivablesDashboard() {
         /* Sub-Division table only: add breathing room between data rows. */
         .receivables-sales-ui .receivables-subdivision-table-gap tbody td { padding-top: 13px !important; padding-bottom: 13px !important; }
         /* Only the Overdue Summary donut: increase space between chart and its legend. */
-        .receivables-sales-ui .receivables-overdue-summary-chart { gap: 42px !important; }
-        .receivables-sales-ui .receivables-overdue-summary-chart > div { row-gap: 42px; }
+        .receivables-sales-ui .receivables-overdue-summary-chart { gap: 18px !important; }
+        .receivables-sales-ui .receivables-overdue-summary-chart > div { row-gap: 18px; }
         .receivables-sales-ui .receivables-overdue-summary-chart [aria-label*="legend"],
-        .receivables-sales-ui .receivables-overdue-summary-chart .donut-legend { gap: 24px !important; row-gap: 24px !important; }
+        .receivables-sales-ui .receivables-overdue-summary-chart .donut-legend { gap: 10px !important; row-gap: 8px !important; }
+        /* Aging Summary: keep donut and legend usable at browser zoom levels such as 90%. */
+        .receivables-sales-ui .receivables-aging-summary-donut { width: 100%; min-width: 0; flex-wrap: wrap; align-items: flex-start; column-gap: 12px !important; row-gap: 8px !important; }
+        .receivables-sales-ui .receivables-aging-summary-donut > div { min-width: 0 !important; max-width: 100% !important; }
+        .receivables-sales-ui .receivables-aging-summary-donut > div:nth-child(2) { flex: 1 1 180px; width: auto !important; }
+        .receivables-sales-ui .receivables-aging-summary-donut svg { max-width: 100%; height: auto; }
+        @media (min-width: 1100px) {
+          .receivables-sales-ui .receivables-aging-summary-donut { flex-wrap: nowrap; }
+          .receivables-sales-ui .receivables-aging-summary-donut > div:nth-child(2) { flex-basis: 0; }
+        }
 
         /* ============================================================
            GLOBAL RECEIVABLES SCROLLBAR
@@ -8245,9 +8255,20 @@ export default function ReceivablesDashboard() {
           background-clip: padding-box;
         }
         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap tbody tr:last-child td {
+          position: sticky !important;
+          bottom: 0 !important;
           color: #000000 !important;
           font-weight: 900 !important;
+          background: #f1f5f9 !important;
+          z-index: 12 !important;
+          background-clip: padding-box !important;
         }
+        /* Total row's first column stays above ordinary cells while preserving horizontal scroll. */
+        .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap tbody tr:last-child td[style*="left"] {
+          left: 0 !important;
+          z-index: 25 !important;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-main-scroll { padding-bottom: 0 !important; }
         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-scroll table tbody tr:last-child td { color: #000000; font-weight: 900; }
         .receivables-sales-ui .sales-style-view-all-modal button:hover { transform: translateY(-1px); }
         /*
@@ -8288,6 +8309,11 @@ export default function ReceivablesDashboard() {
         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead th[style*="left"] {
           z-index: 30 !important;
         }
+        .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap tbody tr:last-child td {
+          position: sticky !important; bottom: 0 !important; background: #f1f5f9 !important;
+          color: #000 !important; font-weight: 900 !important; z-index: 12 !important;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap tbody tr:last-child td[style*="left"] { left: 0 !important; z-index: 25 !important; }
         /* Month-on-Month: preserve both header levels while scrolling vertically. */
         .receivables-sales-ui .sales-style-view-all-modal .receivables-view-all-table-wrap thead tr:nth-child(2) th {
           top: 33px !important;
@@ -8708,7 +8734,7 @@ export default function ReceivablesDashboard() {
                             <KpiCard title="Overdue > 90 Days" value={kpis.overdue_gt_90} onClick={openOverdueAbove90Drilldown} variance={kpis.overdue_gt_90_variance} previousDate={kpis.previous_date} currency={currency} icon="⚠" iconBg="#ede9fe" iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#f5f1ff" targetVariance={kpis.overdue_gt_90_target_variance ?? null} lastMonthVariance={kpis.overdue_gt_90_variance ?? null} />
                             <KpiCard title="Overdue %" value={kpis.overdue_percentage ?? (Number.isFinite(Number(kpis.overdue_receivables)) && Number(kpis.total_receivables) ? Number(kpis.overdue_receivables) / Number(kpis.total_receivables) * 100 : null)} variance={kpis.overdue_percentage_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="％" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff9e9" targetVariance={kpis.overdue_percentage_target_variance ?? null} lastMonthVariance={kpis.overdue_percentage_variance ?? null} comparisonUnit="%" />
                             <KpiCard title="DSO (Actual)" value={kpis.dso} variance={kpis.dso_variance} previousDate={kpis.previous_date} suffix="Days" currency={currency} icon="▮" iconBg="#ffe4e6" iconColor="#e11d48" titleColor="#be123c" cardBg="#fff0f1" targetVariance={kpis.dso_target_variance ?? null} lastMonthVariance={kpis.dso_variance ?? null} comparisonUnit="%" />
-                            <KpiCard title="Target DSO" value={kpis.target_dso} variance={null} previousDate={null} suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff8e8" targetVariance={null} lastMonthVariance={null} />
+                            <KpiCard title="Target DSO" value={kpis.target_dso} suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#b45309" titleColor="#a16207" cardBg="#fff8e8" />
                             <KpiCard title="DSO Variance" value={kpis.dso != null && kpis.target_dso != null ? Number(kpis.dso) - Number(kpis.target_dso) : null} suffix="Days" currency={currency} icon="⚖" iconBg="#cffafe" iconColor="#0284c7" titleColor="#0369a1" cardBg="#edfbff" targetVariance={kpis.dso_target_variance ?? null} lastMonthVariance={null} />
                             <KpiCard title="Collections PTD" value={kpis.collections_mtd} variance={kpis.collections_mtd_variance} previousDate={kpis.previous_date} currency={currency} icon="＄" iconBg="#ffedd5" iconColor="#c2410c" titleColor="#b45309" cardBg="#fff4eb" targetVariance={kpis.collections_mtd_target_variance ?? null} lastMonthVariance={kpis.collections_mtd_variance ?? null} />
                             <KpiCard title="Collection Efficiency" value={kpis.collection_efficiency} variance={kpis.collection_efficiency_variance} previousDate={kpis.previous_date} suffix="%" currency={currency} icon="↗" iconBg="#dcfce7" iconColor="#16a34a" titleColor="#166534" cardBg="#effcf5" targetVariance={kpis.collection_efficiency_target_variance ?? null} lastMonthVariance={kpis.collection_efficiency_variance ?? null} comparisonUnit="%" />
@@ -12700,7 +12726,7 @@ function ReceivablesViewAll({
                         overflowY: "auto",
                         overflowX: "auto",
                         overscrollBehavior: "contain",
-                        padding: "18px 18px 30px",
+                        padding: "18px 18px 0",
                         boxSizing: "border-box",
                         color: "#17213c",
                     }}

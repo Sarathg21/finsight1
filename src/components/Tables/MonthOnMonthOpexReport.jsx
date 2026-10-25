@@ -1,5 +1,4 @@
 
-
 import React, {
     useEffect,
     useMemo,
@@ -4517,7 +4516,19 @@ export default function MonthOnMonthOpexReport({
                                                                             Actual
                                                                             YTD
                                                                         </th>
-                                                                        <th style={{ padding: "0 10px" }}></th>
+                                                                        <th
+                                                                            style={{
+                                                                                padding: "0 10px",
+                                                                                textAlign: "right",
+                                                                                color: "#1E3A8A",
+                                                                                fontSize: detailHeaderFontSize,
+                                                                                lineHeight: "16px",
+                                                                                fontWeight: 700,
+                                                                                whiteSpace: "nowrap",
+                                                                            }}
+                                                                        >
+                                                                            Target YTD
+                                                                        </th>
                                                                         <th style={{ padding: "0 10px" }}></th>
                                                                         <th style={{ padding: "0 10px" }}></th>
                                                                     </tr>
@@ -4538,6 +4549,11 @@ export default function MonthOnMonthOpexReport({
                                                                                 getActualYTD(
                                                                                     account
                                                                                 );
+
+                                                                            // Natural-account detail endpoint may return target YTD
+                                                                            // using the same field aliases as category-level OPEX data.
+                                                                            const accountTargetYTD =
+                                                                                getTargetYTD(account);
 
                                                                             const naturalAccountLabel =
                                                                                 getNaturalAccountLabel(
@@ -4673,7 +4689,21 @@ export default function MonthOnMonthOpexReport({
                                                                                             )
                                                                                         }
                                                                                     </td>
-                                                                                    <td style={{ padding: "0 10px" }}></td>
+                                                                                    <td
+                                                                                        style={{
+                                                                                            padding: "0 10px",
+                                                                                            textAlign: "right",
+                                                                                            fontSize: detailBodyFontSize,
+                                                                                            lineHeight: "18px",
+                                                                                            fontWeight: 600,
+                                                                                            color: getValueColor(accountTargetYTD, "#94A3B8", "#334155"),
+                                                                                            whiteSpace: "nowrap",
+                                                                                            overflow: "hidden",
+                                                                                            textOverflow: "clip",
+                                                                                        }}
+                                                                                    >
+                                                                                        {displayTarget(accountTargetYTD, tableUnit)}
+                                                                                    </td>
                                                                                     <td style={{ padding: "0 10px" }}></td>
                                                                                     <td style={{ padding: "0 10px" }}></td>
                                                                                 </tr>

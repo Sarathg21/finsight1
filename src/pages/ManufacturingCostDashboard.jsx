@@ -1,10 +1,9 @@
 
-
-
 import React, { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, Minimize2, MoreVertical, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchPLDirectCostBreakdown, fetchPLDirectCostDetail } from "../services/plApi";
 import {
     getManufacturingFilterOptions,
     getManufacturingDashboard,
@@ -37,6 +36,22 @@ const COLORS = {
 
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthsForYear = (year) => monthNames.map((month) => `${month}-${String(year || new Date().getFullYear()).slice(-2)}`);
+const monthIndexFromPeriod = (value) => {
+    const match = String(value ?? "").trim().match(/^([A-Za-z]{3,})[- /,]?(\\d{2,4})?$/);
+    return match ? monthNames.findIndex((month) => month.toLowerCase() === match[1].slice(0, 3).toLowerCase()) : -1;
+};
+const periodYearFromPeriod = (value, fallbackYear) => {
+    const match = String(value ?? "").trim().match(/^([A-Za-z]{3,})[- /,]?(\\d{2,4})?$/);
+    if (!match?.[2]) return Number(fallbackYear);
+    return Number(match[2].length === 2 ? `20${match[2]}` : match[2]);
+};
+const sortPeriodsChronologically = (items, year) => {
+    const labels = asArray(items).map(labelOf).filter(Boolean);
+    return [...new Set(labels)].sort((a, b) => {
+        const ay = periodYearFromPeriod(a, year), by = periodYearFromPeriod(b, year);
+        return ay - by || monthIndexFromPeriod(a) - monthIndexFromPeriod(b);
+    });
+};
 const numberOrNull = (value) => value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
 const first = (obj, keys, fallback = null) => {
     for (const key of keys) if (obj && obj[key] !== undefined && obj[key] !== null) return obj[key];
@@ -215,9 +230,9 @@ const extractSummaryRows = (response, expectedPeriod = null, expectedYear = null
     const source = root?.sections || root?.data?.sections || root?.data || root || {};
     const rows = asArray(
         Array.isArray(root) ? root :
-        Array.isArray(source) ? source :
-        source?.summary || source?.kpis || source?.rows ||
-        root?.summary || root?.kpis || root?.rows
+            Array.isArray(source) ? source :
+                source?.summary || source?.kpis || source?.rows ||
+                root?.summary || root?.kpis || root?.rows
     ).slice();
 
     const controls = source?.controls || root?.controls || root?.data?.controls;
@@ -320,52 +335,136 @@ function KpiCard({ item, delay, currency = "AED" }) {
     </motion.div>;
 }
 
-function Filter({ label, value, onChange, options, showAll = false }) {
-    const safeOptions = withoutAllOptions(options).filter((item) => { const optionValue = String(idOf(item) ?? "").trim(); const optionLabel = labelOf(item).trim(); return optionValue !== "" && !/^select(?:\.{3}|…)?$/i.test(optionLabel); });
-    const hasCurrentValue = safeOptions.some((item) => String(idOf(item)) === String(value));
-    const displayOptions = value && !hasCurrentValue
-        ? [{ id: value, name: safeOptions.find((item) => String(idOf(item)) === String(value)) ? labelOf(safeOptions.find((item) => String(idOf(item)) === String(value))) : String(value) }, ...safeOptions]
+function Filter({ label, value, onChange, options, showAll = false, hidePlaceholder = false }) {
+    const [open, setOpen] = useState(false);
+    const [optionSearch, setOptionSearch] = useState("");
+    const triggerRef = React.useRef(null);
+    const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0, width: 220, maxHeight: 280 });
+    const safeOptions = withoutAllOptions(options).map((item) => {
+        if (item && typeof item === "object") return item;
+        return { id: String(item ?? ""), name: String(item ?? "") };
+    }).filter((item) => {
+        const optionValue = String(idOf(item) ?? "").trim();
+        const optionLabel = labelOf(item).trim();
+        return optionValue !== "" && !/^select(?:\.{3}|…)?$/i.test(optionLabel);
+    });
+    const selectedOption = safeOptions.find((item) => String(idOf(item)) === String(value ?? ""));
+    const displayOptions = value != null && String(value) !== "" && !selectedOption
+        ? [{ id: String(value), name: String(value) }, ...safeOptions]
         : safeOptions;
-    return <label className="mfg-filter-field" style={{ display: "block", minWidth: 0 }}>
-        <span style={{ display: "block", color: "#0b2d67", fontSize: "0.68rem", fontWeight: 700, margin: "0 0 4px 1px", whiteSpace: "nowrap" }}>{label}</span>
-        <span style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="mfg-select" style={{ appearance: "none", width: "100%", height: 33, borderRadius: 7, border: "1px solid #d7e0f0", background: "#fff", color: "#26364f", padding: "0 27px 0 9px", fontSize: "0.72rem", fontWeight: 500, outline: "none", cursor: "pointer", minWidth: 0 }}>
-                {showAll ? <option value="">All</option> : <option value="">Select…</option>}
-                {displayOptions.map((o) => { const optionValue = typeof o === "object" ? String(idOf(o)) : String(o); const optionLabel = typeof o === "object" ? labelOf(o) : String(o); return <option key={`${optionValue}-${optionLabel}`} value={optionValue}>{optionLabel}</option>; })}
-            </select>
-            <span style={{ position: "absolute", right: 10, color: "#526b91", pointerEvents: "none", fontSize: 12 }}>▾</span>
-        </span>
-    </label>;
+    const selectedLabel = selectedOption ? labelOf(selectedOption) : (value == null || value === "" ? "" : String(value));
+    const filteredOptions = displayOptions.filter((item) =>
+        labelOf(item).toLowerCase().includes(optionSearch.trim().toLowerCase())
+    );
+    const updatePopupPosition = React.useCallback(() => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (!rect || typeof window === "undefined") return;
+        const pad = 12;
+        const width = Math.min(Math.max(rect.width, 210), Math.max(210, window.innerWidth - pad * 2));
+        const left = Math.max(pad, Math.min(rect.left, window.innerWidth - width - pad));
+        const below = Math.max(0, window.innerHeight - rect.bottom - pad - 6);
+        const above = Math.max(0, rect.top - pad - 6);
+        const openAbove = below < 190 && above > below;
+        const available = openAbove ? above : below;
+        const maxHeight = Math.max(80, Math.min(300, available));
+        const proposedTop = openAbove ? rect.top - maxHeight - 6 : rect.bottom + 6;
+        const top = Math.max(pad, Math.min(proposedTop, window.innerHeight - maxHeight - pad));
+        setPopupPosition({ top, left, width, maxHeight });
+    }, []);
+    React.useEffect(() => {
+        if (!open) return undefined;
+        updatePopupPosition();
+        const reposition = () => updatePopupPosition();
+        const onKeyDown = (event) => { if (event.key === "Escape") setOpen(false); };
+        window.addEventListener("resize", reposition);
+        window.addEventListener("scroll", reposition, true);
+        document.addEventListener("keydown", onKeyDown);
+        return () => {
+            window.removeEventListener("resize", reposition);
+            window.removeEventListener("scroll", reposition, true);
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [open, updatePopupPosition]);
+    const choose = (option) => {
+        onChange(String(idOf(option)));
+        setOpen(false);
+        setOptionSearch("");
+    };
+    return <>
+        <label className="mfg-filter-field" style={{ display: "block", minWidth: 0 }}>
+            <span style={{ display: "block", color: "#0b2d67", fontSize: "0.68rem", fontWeight: 700, margin: "0 0 4px 1px", whiteSpace: "nowrap" }}>{label}</span>
+            <button ref={triggerRef} type="button" className="mfg-select" aria-haspopup="listbox" aria-expanded={open}
+                onClick={() => { if (!open) updatePopupPosition(); setOpen((v) => !v); }}
+                title={selectedLabel || (showAll ? "All" : "Select…")}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%", minWidth: 0, minHeight: 33, height: "auto", boxSizing: "border-box", borderRadius: 7, border: "1px solid #d7e0f0", background: "#fff", color: "#26364f", padding: "6px 9px", fontSize: "0.72rem", fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", lineHeight: 1.25 }}>
+                <span style={{ minWidth: 0, flex: "1 1 auto", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>{selectedLabel || (showAll ? "All" : hidePlaceholder ? "—" : "Select…")}</span>
+                <span aria-hidden="true" style={{ color: "#526b91", flex: "0 0 auto" }}>▾</span>
+            </button>
+        </label>
+        {open && typeof document !== "undefined" && createPortal(<>
+            <div onMouseDown={(e) => { e.preventDefault(); setOpen(false); }} style={{ position: "fixed", inset: 0, zIndex: 9998, background: "transparent" }} />
+            <div role="listbox" onMouseDown={(e) => e.stopPropagation()} style={{ position: "fixed", zIndex: 9999, top: popupPosition.top, left: popupPosition.left, width: popupPosition.width, maxWidth: "calc(100vw - 24px)", maxHeight: popupPosition.maxHeight, boxSizing: "border-box", display: "flex", flexDirection: "column", background: "#fff", border: "1px solid #dbe5f5", borderRadius: 10, boxShadow: "0 14px 32px rgba(15,23,42,.18)", padding: 9, overflow: "hidden" }}>
+                <input autoFocus value={optionSearch} onChange={(e) => setOptionSearch(e.target.value)} placeholder={`🔍 Search ${label}...`} aria-label={`Search ${label}`} style={{ width: "100%", boxSizing: "border-box", height: 31, border: "1px solid #c7d2fe", borderRadius: 7, padding: "0 8px", marginBottom: 7, fontSize: 11, outline: "none" }} />
+                {showAll && <button type="button" onClick={() => { onChange(""); setOpen(false); setOptionSearch(""); }} style={{ border: 0, background: "transparent", padding: "7px 5px", textAlign: "left", color: "#173b68", fontSize: 11, cursor: "pointer" }}>All</button>}
+                <div style={{ minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}>
+                    {filteredOptions.map((item) => {
+                        const optionValue = String(idOf(item));
+                        const optionLabel = labelOf(item);
+                        const active = optionValue === String(value ?? "");
+                        return <button key={`${optionValue}-${optionLabel}`} type="button" role="option" aria-selected={active} onClick={() => choose(item)}
+                            style={{ display: "block", width: "100%", border: 0, borderBottom: "1px solid #f1f5f9", borderRadius: 4, padding: "8px 6px", background: active ? "#eff6ff" : "#fff", color: active ? "#173b8f" : "#173b68", fontSize: 11, fontWeight: active ? 750 : 500, textAlign: "left", cursor: "pointer", whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.35 }}>
+                            {optionLabel}
+                        </button>;
+                    })}
+                    {!filteredOptions.length && <div style={{ padding: "9px 4px", fontSize: 11, color: "#64748b" }}>No matching options</div>}
+                </div>
+            </div>
+        </>, document.body)}
+    </>;
 }
 
 function MultiSelectFilter({ label, value, onChange, options, allowAll = true }) {
     const [open, setOpen] = useState(false);
     const [optionSearch, setOptionSearch] = useState("");
     const triggerRef = React.useRef(null);
-    const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0, width: 220 });
+    const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0, width: 220, maxHeight: 300 });
     const updatePopupPosition = React.useCallback(() => {
         const rect = triggerRef.current?.getBoundingClientRect();
         if (!rect || typeof window === "undefined") return;
-        const width = Math.min(Math.max(rect.width, 210), Math.max(210, window.innerWidth - 24));
-        const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
-        const estimatedHeight = 285;
-        const top = rect.bottom + estimatedHeight > window.innerHeight - 8
-            ? Math.max(8, rect.top - estimatedHeight - 6)
-            : rect.bottom + 6;
-        setPopupPosition({ top, left, width });
+        const viewportPadding = 12;
+        const width = Math.min(Math.max(rect.width, 210), Math.max(210, window.innerWidth - viewportPadding * 2));
+        const left = Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - width - viewportPadding));
+        const availableBelow = Math.max(0, window.innerHeight - rect.bottom - viewportPadding - 6);
+        const availableAbove = Math.max(0, rect.top - viewportPadding - 6);
+        const openAbove = availableBelow < 210 && availableAbove > availableBelow;
+        const available = openAbove ? availableAbove : availableBelow;
+        // Respect the real available viewport space. Never force a 120px popup
+        // into a smaller gap, which caused the menu to overlap/mis-anchor.
+        const maxHeight = Math.max(80, Math.min(320, available));
+        const proposedTop = openAbove ? rect.top - maxHeight - 6 : rect.bottom + 6;
+        const top = Math.max(viewportPadding, Math.min(proposedTop, window.innerHeight - maxHeight - viewportPadding));
+        setPopupPosition({ top, left, width, maxHeight });
     }, []);
+    const selected = Array.isArray(value) ? value.map(String) : (value ? [String(value)] : []);
     React.useEffect(() => {
         if (!open) return undefined;
-        updatePopupPosition();
+        // Keep the popup anchored to its trigger when selected labels wrap,
+        // cascading options refresh, or the dashboard layout changes.
         const reposition = () => updatePopupPosition();
+        reposition();
         window.addEventListener("resize", reposition);
         window.addEventListener("scroll", reposition, true);
+        let observer;
+        if (typeof ResizeObserver !== "undefined" && triggerRef.current) {
+            observer = new ResizeObserver(reposition);
+            observer.observe(triggerRef.current);
+        }
         return () => {
             window.removeEventListener("resize", reposition);
             window.removeEventListener("scroll", reposition, true);
+            observer?.disconnect();
         };
-    }, [open, updatePopupPosition]);
-    const selected = Array.isArray(value) ? value.map(String) : (value ? [String(value)] : []);
+    }, [open, updatePopupPosition, selected.join("|")]);
     const safeOptions = asArray(options).filter((item) => {
         const id = String(idOf(item) ?? "").trim();
         const text = labelOf(item).trim();
@@ -373,24 +472,36 @@ function MultiSelectFilter({ label, value, onChange, options, allowAll = true })
     });
     const filteredOptions = safeOptions.filter((item) => labelOf(item).toLowerCase().includes(optionSearch.toLowerCase()));
     const toggle = (id) => onChange(selected.includes(String(id)) ? selected.filter((x) => x !== String(id)) : [...selected, String(id)]);
-    const summary = selected.length === 0 ? (allowAll ? "All" : "Select…") : selected.length === 1 ? labelOf(safeOptions.find((item) => String(idOf(item)) === selected[0]) || selected[0]) : `${selected.length} selected`;
+    const selectedLabels = selected.map((id) => labelOf(safeOptions.find((item) => String(idOf(item)) === id) || id));
+    // Match the OPEX filter behaviour: an empty selection means All, and selecting
+    // every available option must also display All instead of dumping every label
+    // into the small trigger and overlapping the dashboard content.
+    const allOptionsSelected = safeOptions.length > 0 && selected.length >= safeOptions.length &&
+        safeOptions.every((item) => selected.includes(String(idOf(item))));
+    const summary = safeOptions.length === 0
+        ? "Loading…"
+        : allOptionsSelected || selected.length === 0
+            ? (allowAll ? "All" : "Select…")
+            : selected.length === 1
+                ? selectedLabels[0]
+                : `${selected.length} selected`;
     return <>
         <div className="mfg-filter-field mfg-multiselect-field" style={{ position: "relative", minWidth: 0, zIndex: open ? 120 : 1 }}>
             <span style={{ display: "block", color: "#0b2d67", fontSize: "0.68rem", fontWeight: 700, margin: "0 0 4px 1px", whiteSpace: "nowrap" }}>{label}</span>
-            <button ref={triggerRef} type="button" className="mfg-select" aria-expanded={open} onClick={() => { if (!open) updatePopupPosition(); setOpen((v) => !v); }} style={{ appearance: "none", width: "100%", height: 33, borderRadius: 7, border: "1px solid #d7e0f0", background: "#fff", color: "#26364f", padding: "0 26px 0 9px", fontSize: "0.72rem", fontWeight: 500, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", position: "relative" }} title={summary}>{summary}<span style={{ position: "absolute", right: 9, color: "#526b91" }}>▾</span></button>
+            <button ref={triggerRef} type="button" className="mfg-select mfg-multiselect-trigger" aria-expanded={open} disabled={safeOptions.length === 0} onClick={() => { if (!open && safeOptions.length) updatePopupPosition(); if (safeOptions.length) setOpen((v) => !v); }} style={{ appearance: "none", display: "flex", alignItems: "center", width: "100%", minWidth: 0, minHeight: 38, height: 38, maxHeight: 38, boxSizing: "border-box", borderRadius: 7, border: "1px solid #d7e0f0", background: "#fff", color: "#26364f", padding: "7px 27px 7px 9px", fontSize: "0.72rem", fontWeight: 500, textAlign: "left", cursor: safeOptions.length ? "pointer" : "wait", opacity: safeOptions.length ? 1 : 0.72, overflow: "hidden", lineHeight: 1.25, position: "relative" }} title={safeOptions.length === 0 ? "Loading filter options" : allOptionsSelected || selected.length === 0 ? "All" : selectedLabels.join(", ") || summary}><span style={{ display: "block", flex: "1 1 auto", minWidth: 0, maxWidth: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 2, lineHeight: 1.25 }}>{summary}</span><span aria-hidden="true" style={{ position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)", color: "#526b91", background: "#fff", lineHeight: 1 }}>▾</span></button>
         </div>
         {open && typeof document !== "undefined" && createPortal(<>
             <div onMouseDown={(e) => { e.preventDefault(); setOpen(false); }} style={{ position: "fixed", inset: 0, zIndex: 9998, background: "transparent" }} />
-            <div onMouseDown={(e) => e.stopPropagation()} style={{ position: "fixed", zIndex: 9999, top: popupPosition.top, left: popupPosition.left, width: popupPosition.width, maxWidth: "calc(100vw - 24px)", background: "#fff", border: "1px solid #dbe5f5", borderRadius: 10, boxShadow: "0 14px 32px rgba(15,23,42,.18)", padding: 9, overflow: "visible" }}>
+            <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} style={{ position: "fixed", zIndex: 9999, top: popupPosition.top, left: popupPosition.left, width: popupPosition.width, maxWidth: "calc(100vw - 24px)", maxHeight: popupPosition.maxHeight, boxSizing: "border-box", display: "flex", flexDirection: "column", background: "#fff", border: "1px solid #dbe5f5", borderRadius: 10, boxShadow: "0 14px 32px rgba(15,23,42,.18)", padding: 9, overflow: "hidden" }}>
                 <input value={optionSearch} onChange={(e) => setOptionSearch(e.target.value)} placeholder={`🔍 Search ${label}...`} style={{ width: "100%", height: 30, border: "1px solid #c7d2fe", borderRadius: 7, padding: "0 8px", marginBottom: 7, fontSize: 11, outline: "none" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, margin: "0 1px 7px", padding: "0 1px" }}>
                     <button type="button" onClick={() => onChange(safeOptions.map((item) => String(idOf(item))))} style={{ border: 0, padding: "2px 0", background: "transparent", color: "#5B3FE4", fontSize: 10, fontWeight: 700, cursor: "pointer", textAlign: "left" }}>Select All</button>
                     <button type="button" onClick={() => onChange([])} style={{ border: 0, padding: "2px 0", background: "transparent", color: "#64748b", fontSize: 10, fontWeight: 700, cursor: "pointer", textAlign: "right" }}>Clear</button>
                 </div>
-                <div style={{ maxHeight: 210, overflowY: "auto" }}>
+                <div style={{ minHeight: 0, maxHeight: Math.max(80, popupPosition.maxHeight - 92), overflowY: "auto", overscrollBehavior: "contain" }}>
                     {filteredOptions.map((item) => {
                         const id = String(idOf(item));
-                        return <label key={id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 4px", fontSize: 11, color: "#334155", cursor: "pointer" }}><input type="checkbox" checked={selected.includes(id)} onChange={() => toggle(id)} /> <span>{labelOf(item)}</span></label>;
+                        return <div key={id} style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "7px 4px", fontSize: 11, lineHeight: 1.35, color: "#173b68", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}><input type="checkbox" checked={selected.includes(id)} onChange={() => toggle(id)} style={{ flex: "0 0 auto", marginTop: 2 }} /><button type="button" onClick={() => toggle(id)} style={{ minWidth: 0, flex: 1, border: 0, padding: 0, background: "transparent", color: "inherit", textAlign: "left", fontSize: "inherit", lineHeight: "inherit", cursor: "pointer", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>{labelOf(item)}</button></div>;
                     })}
                     {!filteredOptions.length && <div style={{ padding: "9px 4px", fontSize: 11, color: "#64748b" }}>No matching options</div>}
                 </div>
@@ -437,8 +548,122 @@ function ProductionOverheadTooltip({ active, payload, label, groupBy, currency =
     </div>;
 }
 
+
+function ManufacturingDirectCostTable({ filters }) {
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [expanded, setExpanded] = useState({});
+    const [details, setDetails] = useState({});
+    const [loadingDetails, setLoadingDetails] = useState({});
+    const [retry, setRetry] = useState(0);
+    const plFilters = useMemo(() => ({
+        legalGroupId: Array.isArray(filters.legalGroup) ? filters.legalGroup : (filters.legalGroup ? [filters.legalGroup] : []),
+        legalEntityId: Array.isArray(filters.legalEntity) ? filters.legalEntity : (filters.legalEntity ? [filters.legalEntity] : []),
+        parentDivisionId: Array.isArray(filters.parent) ? filters.parent : (filters.parent ? [filters.parent] : []),
+        subdivisionId: Array.isArray(filters.sub) ? filters.sub : (filters.sub ? [filters.sub] : []),
+        year: filters.year, periodName: filters.period, currency: filters.currency || "AED",
+    }), [JSON.stringify(filters)]);
+    const unwrap = (payload) => {
+        const root = payload?.data ?? payload;
+        if (Array.isArray(root)) return root;
+        for (const key of ["rows", "data", "items", "results", "breakdown", "categories"]) if (Array.isArray(root?.[key])) return root[key];
+        return [];
+    };
+    const read = (row, keys) => { for (const key of keys) if (row?.[key] != null) return row[key]; return null; };
+    const label = (row) => String(read(row, ["category", "cost_category", "costCategory", "classification", "label", "name", "particulars"]) ?? "—");
+    const num = (v) => v == null || v === "" || !Number.isFinite(Number(String(v).replace(/,/g, ""))) ? null : Number(String(v).replace(/,/g, ""));
+    const money = (v) => num(v) == null ? (v == null || v === "" ? "—" : String(v)) : num(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
+    const getters = [
+        (r) => read(r, ["actual_ptd", "current_ptd", "ptd", "ptd_value", "actual", "current", "value", "amount"]),
+        (r) => read(r, ["target_ptd", "target_ptd_aed", "target_period", "target_period_aed", "target", "target_aed"]),
+        (r) => read(r, ["variance_ptd", "variance_ptd_value", "variance"]),
+        (r) => read(r, ["actual_ytd", "current_ytd", "ytd", "ytd_value"]),
+        (r) => read(r, ["target_ytd", "ytd_target"]),
+        (r) => read(r, ["variance_ytd", "variance_ytd_value"]),
+    ];
+    const valueColor = (v, variance) => {
+        const value = num(v);
+        // Only variance columns are color-coded: positive green, negative red,
+        // and zero/missing values neutral. Other table values retain their base color.
+        if (!variance) return "#334155";
+        if (value == null || value === 0) return "#64748b";
+        return value > 0 ? "#15803d" : "#dc2626";
+    };
+
+    React.useEffect(() => {
+        let active = true;
+        if (!plFilters.periodName) { setRows([]); setLoading(false); return () => { active = false; }; }
+        setLoading(true); setError("");
+        fetchPLDirectCostBreakdown(plFilters)
+            .then((result) => { if (active) { setRows(unwrap(result)); setDetails({}); setExpanded({}); } })
+            .catch((err) => { if (active) { setRows([]); setError(err?.message || "Failed to load Direct Cost Drill-Down."); } })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, [plFilters, retry]);
+
+    const onExpand = async (row, key) => {
+        const category = label(row), open = !expanded[key];
+        setExpanded((old) => ({ ...old, [key]: open }));
+        if (!open || Object.prototype.hasOwnProperty.call(details, category)) return;
+        setLoadingDetails((old) => ({ ...old, [category]: true }));
+        try {
+            const response = await fetchPLDirectCostDetail(plFilters, category);
+            setDetails((old) => ({ ...old, [category]: unwrap(response) }));
+        } catch (err) {
+            setDetails((old) => ({ ...old, [category]: [] }));
+            setError(err?.message || `Failed to load details for ${category}.`);
+        } finally { setLoadingDetails((old) => ({ ...old, [category]: false })); }
+    };
+
+    return <Panel title="Direct Cost Drill-Down" subtitle="Actual, target and variance by cost category" className="mfg-direct-cost-panel">
+        {loading && <div style={{ padding: "12px 8px", color: "#64748b", fontSize: 11 }}>Loading Direct Cost Drill-Down…</div>}
+        {error && <div role="alert" style={{ padding: "8px", color: "#b91c1c", fontSize: 11 }}>{error} <button type="button" onClick={() => setRetry((v) => v + 1)}>Retry</button></div>}
+        <div style={{ overflowX: "auto" }}>
+            <table className="cost-structure-table mfg-direct-cost-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 12, minWidth: 900 }}>
+                <colgroup><col style={{ width: 30 }} /><col style={{ width: "24%" }} />{Array.from({ length: 6 }).map((_, i) => <col key={i} style={{ width: "12.1667%" }} />)}</colgroup>
+                <thead><tr style={{ background: "#fff" }}><th style={{ width: 30, borderTop: "1px solid #e4e9ef", borderBottom: "1px solid #e4e9ef" }} />{["Cost Category", "Actual PTD", "Target PTD", "Variance PTD", "Actual YTD", "Target YTD", "Variance YTD"].map((h) => <th key={h} style={{ padding: 8, textAlign: h === "Cost Category" ? "left" : "right", fontWeight: 800, fontSize: 11, letterSpacing: ".02em", color: "#173b68", background: "#f1f5f9", borderRight: "1px solid #e4e9ef", borderBottom: "1px solid #e4e9ef", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <tbody>
+                    {rows.map((row, index) => {
+                        const category = label(row), key = `${category}-${index}`, isOpen = !!expanded[key], children = details[category] || [];
+                        return <React.Fragment key={key}>
+                            <tr style={{ borderBottom: "1px solid #edf0f4", background: "#fff" }}>
+                                <td style={{ textAlign: "center", padding: "9px 3px", borderRight: "1px solid #edf0f4" }}><button type="button" onClick={() => onExpand(row, key)} aria-label={`${isOpen ? "Collapse" : "Expand"} ${category}`} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", color: "#364152", fontSize: 16 }}>{isOpen ? "⌄" : "›"}</button></td>
+                                <td style={{ padding: "9px 8px", color: "#344054", borderRight: "1px solid #edf0f4", fontSize: 11, fontWeight: 800, textTransform: "uppercase", overflowWrap: "anywhere", lineHeight: 1.3 }}>{category}</td>
+                                {getters.map((get, i) => { const v = get(row); const isVariance = i === 2 || i === 5; const colorClass = !isVariance || num(v) == null || num(v) === 0 ? "mfg-variance-neutral" : num(v) > 0 ? "mfg-variance-positive" : "mfg-variance-negative"; return <td key={i} className={isVariance ? `mfg-variance-cell ${colorClass}` : undefined} style={{ padding: "9px 8px", textAlign: "right", color: valueColor(v, isVariance), fontWeight: isVariance ? 800 : 500, borderRight: "1px solid #edf0f4", whiteSpace: "nowrap" }}>{money(v)}</td>; })}
+                            </tr>
+                            {isOpen && <tr style={{ background: "#fafbfd" }}><td colSpan={8} style={{ padding: 0 }}>
+                                {loadingDetails[category] ? <div style={{ padding: "12px 28px", color: "#64748b", fontSize: 11 }}>Loading account details…</div> : children.length ? <table className="cost-structure-table cost-detail-table mfg-direct-cost-table mfg-direct-cost-detail-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 12 }}>
+                                    <colgroup>
+                                        <col style={{ width: "3%" }} />
+                                        <col style={{ width: "9%" }} />
+                                        <col style={{ width: "15%" }} />
+                                        {Array.from({ length: 6 }).map((_, i) => <col key={i} style={{ width: "12.1667%" }} />)}
+                                    </colgroup>
+                                    <thead><tr>{["", "Account Code", "Account Name", "Actual PTD", "Target PTD", "Variance PTD", "Actual YTD", "Target YTD", "Variance YTD"].map((h, i) => <th key={h || "blank"} style={{ padding: 7, textAlign: i < 3 ? "left" : "right", color: "#173b68", background: "#fff", fontWeight: 700 }}>{h}</th>)}</tr></thead>
+                                    <tbody>{children.map((detail, i) => <tr key={i} className="mfg-direct-cost-detail-row" style={{ borderTop: "1px solid #edf0f4", background: i % 2 ? "#f8fafc" : "#fff" }}>
+                                        <td aria-hidden="true" style={{ padding: 0 }} />
+                                        <td style={{ padding: "10px 10px", color: "#475569", fontWeight: 500, textAlign: "left", verticalAlign: "middle", whiteSpace: "nowrap" }}>{read(detail, ["account_code", "accountCode", "code", "account"]) ?? "—"}</td>
+                                        <td title={read(detail, ["account_name", "accountName", "name", "particulars"]) ?? "—"} style={{ padding: "9px 10px", color: "#475569", fontWeight: 500, textAlign: "left", verticalAlign: "middle", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word", lineHeight: 1.3 }}>{read(detail, ["account_name", "accountName", "name", "particulars"]) ?? "—"}</td>
+                                        {getters.map((get, j) => { const v = get(detail); const isVariance = j === 2 || j === 5; const colorClass = !isVariance || num(v) == null || num(v) === 0 ? "mfg-variance-neutral" : num(v) > 0 ? "mfg-variance-positive" : "mfg-variance-negative"; return <td key={j} className={isVariance ? `mfg-variance-cell ${colorClass}` : undefined} style={{ padding: "10px 8px", textAlign: "right", verticalAlign: "middle", fontWeight: isVariance ? 800 : 500, whiteSpace: "nowrap", color: valueColor(v, isVariance) }}>{money(v)}</td>; })}
+                                    </tr>)}</tbody>
+                                </table> : <div style={{ padding: "12px 28px", color: "#94a3b8", fontSize: 11 }}>No account details returned by backend.</div>}
+                            </td></tr>}
+                        </React.Fragment>;
+                    })}
+                    {!loading && !rows.length && !error && <tr><td colSpan={8} style={{ padding: 30, textAlign: "center", color: "#94a3b8" }}>No data available</td></tr>}
+                    {!!rows.length && <tr style={{ background: "#f1f5f9", fontWeight: 800 }}><td /><td style={{ padding: "9px 8px", color: "#182338" }}>Total Cost of Sales</td>{getters.map((get, i) => { const vals = rows.map((r) => num(get(r))).filter((v) => v != null); const total = vals.length ? vals.reduce((a, b) => a + b, 0) : null; const isVariance = i === 2 || i === 5; const colorClass = !isVariance || total == null || total === 0 ? "mfg-variance-neutral" : total > 0 ? "mfg-variance-positive" : "mfg-variance-negative"; return <td key={i} className={isVariance ? `mfg-variance-cell ${colorClass}` : undefined} style={{ padding: "9px 8px", textAlign: "right", color: valueColor(total, isVariance), fontWeight: 800 }}>{money(total)}</td>; })}</tr>}
+                </tbody>
+            </table>
+        </div>
+    </Panel>;
+}
+
+
 export default function ManufacturingCostDashboard() {
     const [filters, setFilters] = useState(FILTER_DEFAULTS);
+    const filtersRef = React.useRef(FILTER_DEFAULTS);
+    filtersRef.current = filters;
     const [appliedFilters, setAppliedFilters] = useState(FILTER_DEFAULTS);
     const [viewAll, setViewAll] = useState("");
     const [viewAllMaximized, setViewAllMaximized] = useState(false);
@@ -449,6 +674,8 @@ export default function ManufacturingCostDashboard() {
     const [inlineCategoryDetails, setInlineCategoryDetails] = useState({});
     const [inlineCategoryLoading, setInlineCategoryLoading] = useState({});
     const [viewAllFilters, setViewAllFilters] = useState(FILTER_DEFAULTS);
+    const viewAllFiltersRef = React.useRef(FILTER_DEFAULTS);
+    viewAllFiltersRef.current = viewAllFilters;
     const [viewAllUnit, setViewAllUnit] = useState("millions");
     const [drillMenuOpen, setDrillMenuOpen] = useState(false);
     const [trendMenuOpen, setTrendMenuOpen] = useState(false);
@@ -503,20 +730,24 @@ export default function ManufacturingCostDashboard() {
     const mainOptionsRequestId = React.useRef(0);
     const viewOptionsRequestId = React.useRef(0);
 
-    const update = (key, value) => setFilters((old) => {
+    const update = (key, value) => {
+        const old = filtersRef.current || filters;
         const next = { ...old, [key]: value };
         if (key === "legalGroup") { next.legalEntity = []; next.parent = []; next.sub = []; }
         if (key === "legalEntity") { next.parent = []; next.sub = []; }
         if (key === "parent") next.sub = [];
-        return next;
-    });
-    const updateViewAll = (key, value) => setViewAllFilters((old) => {
+        filtersRef.current = next;
+        setFilters(next);
+    };
+    const updateViewAll = (key, value) => {
+        const old = viewAllFiltersRef.current || viewAllFilters;
         const next = { ...old, [key]: value };
         if (key === "legalGroup") { next.legalEntity = []; next.parent = []; next.sub = []; }
         if (key === "legalEntity") { next.parent = []; next.sub = []; }
         if (key === "parent") next.sub = [];
-        return next;
-    });
+        viewAllFiltersRef.current = next;
+        setViewAllFilters(next);
+    };
     const optionsQuery = useMemo(() => buildQuery(filters), [filters]);
 
     React.useEffect(() => {
@@ -534,32 +765,72 @@ export default function ManufacturingCostDashboard() {
         previousMainHierarchy.current = currentScope;
         // One options request per hierarchy change. Keep parent-level option lists cached
         // when only a descendant changes, so returning to Legal Entity shows every option.
-        getManufacturingFilterOptions(manufacturingFilters(filters)).then((response) => {
+        getManufacturingFilterOptions(manufacturingFilters(filters)).then(async (response) => {
             if (cancelled || requestId !== mainOptionsRequestId.current) return;
             const options = parseManufacturingFilterOptions(response);
-            // Replace hierarchy lists with the response for this exact selected scope.
-            // Retaining old lists here leaked FJ Group entities into RKME after switching groups.
-            setFilterOptions((old) => ({
-                ...options,
-                years: options.years.length ? options.years : old.years,
-                periods: options.periods.length ? options.periods : old.periods,
-            }));
             const { legalGroups: groups, years, periods } = options;
+
+            // On first page load, resolve the default hierarchy scope before publishing
+            // the filter options. This prevents Legal Group/Year/Period from appearing
+            // populated while Legal Entity and lower hierarchy options are still waiting
+            // on a second, sequential request. The controls become ready together.
             if (!initialFilterOptionsResolved.current) {
                 const fjGroup = groups.find((x) => /\bfj\s*group\b/i.test(labelOf(x)));
                 const markedGroup = groups.find((x) => x?.is_default || x?.default);
                 const groupDefault = fjGroup || markedGroup || (groups.length === 1 ? groups[0] : null);
                 const markedYear = years.find((x) => x?.is_default || x?.default);
-                const markedPeriod = periods.find((x) => x?.is_default || x?.default);
+                const markedPeriod = periods.find((x) => x?.is_default || x?.default || x?.is_latest || x?.latest);
+                const sortedPeriods = sortPeriodsChronologically(periods, filters.year);
+                const latestPeriod = sortedPeriods.length ? sortedPeriods[sortedPeriods.length - 1] : FILTER_DEFAULTS.period;
+                const defaultYear = String(idOf(markedYear || (years.length === 1 ? years[0] : new Date().getFullYear())));
+                const periodForDefaultYear = sortedPeriods.filter((period) => periodYearFromPeriod(period, defaultYear) === Number(defaultYear));
                 const defaultValues = {
                     legalGroup: groupDefault ? [String(idOf(groupDefault))] : (Array.isArray(filters.legalGroup) ? filters.legalGroup : []),
-                    year: filters.year || String(idOf(markedYear || (years.length === 1 ? years[0] : new Date().getFullYear()))),
-                    period: filters.period || String(labelOf(markedPeriod || (periods.length === 1 ? periods[0] : FILTER_DEFAULTS.period))),
+                    year: filters.year || defaultYear,
+                    period: filters.period || String(labelOf(markedPeriod) || periodForDefaultYear[periodForDefaultYear.length - 1] || latestPeriod),
                 };
-                setFilters((old) => ({ ...old, ...defaultValues }));
+                const initializedFilters = { ...(filtersRef.current || filters), ...defaultValues };
+                let initialOptions = options;
+                if (groupDefault) {
+                    try {
+                        const scopedResponse = await getManufacturingFilterOptions(manufacturingFilters(initializedFilters));
+                        if (cancelled || requestId !== mainOptionsRequestId.current) return;
+                        const scopedOptions = parseManufacturingFilterOptions(scopedResponse);
+                        // Merge scoped hierarchy lists with the initial global lists so
+                        // dimensions omitted by a scoped response still remain available.
+                        initialOptions = {
+                            legalGroups: options.legalGroups,
+                            legalEntities: scopedOptions.legalEntities.length ? scopedOptions.legalEntities : options.legalEntities,
+                            parentDivisions: scopedOptions.parentDivisions.length ? scopedOptions.parentDivisions : options.parentDivisions,
+                            subdivisions: scopedOptions.subdivisions.length ? scopedOptions.subdivisions : options.subdivisions,
+                            years: options.years.length ? options.years : scopedOptions.years,
+                            periods: options.periods.length ? options.periods : scopedOptions.periods,
+                        };
+                    } catch (scopeError) {
+                        // Preserve the first response if scoped options fail; do not block
+                        // the dashboard or alter the filter API's established error path.
+                    }
+                }
+                if (cancelled || requestId !== mainOptionsRequestId.current) return;
+                setFilterOptions(initialOptions);
+                filtersRef.current = initializedFilters;
+                setFilters(initializedFilters);
                 setAppliedFilters((old) => ({ ...old, ...defaultValues }));
                 initialFilterOptionsResolved.current = true;
+                return;
             }
+
+            // Subsequent hierarchy changes retain the existing cascade and multi-select
+            // stability behavior; only the initial options publication is synchronized.
+            setFilterOptions((old) => ({
+                ...options,
+                legalGroups: options.legalGroups.length ? options.legalGroups : old.legalGroups,
+                legalEntities: groupChanged ? options.legalEntities : (options.legalEntities.length ? old.legalEntities : old.legalEntities),
+                parentDivisions: (groupChanged || entityChanged) ? options.parentDivisions : (options.parentDivisions.length ? old.parentDivisions : old.parentDivisions),
+                subdivisions: (groupChanged || entityChanged || parentChanged) ? options.subdivisions : (options.subdivisions.length ? old.subdivisions : old.subdivisions),
+                years: options.years.length ? options.years : old.years,
+                periods: options.periods.length ? options.periods : old.periods,
+            }));
         }).catch((e) => {
             if (!cancelled) setError((old) => old || `Unable to load manufacturing filter options: ${e?.response?.data?.detail || e?.response?.data?.message || e.message}`);
         });
@@ -587,6 +858,17 @@ export default function ManufacturingCostDashboard() {
             const options = parseManufacturingFilterOptions(response);
             setViewAllFilterOptions((old) => ({
                 ...options,
+                // Keep ancestor options stable while selecting multiple values.
+                legalGroups: options.legalGroups.length ? options.legalGroups : old.legalGroups,
+                legalEntities: groupChanged
+                    ? options.legalEntities
+                    : (options.legalEntities.length ? old.legalEntities : old.legalEntities),
+                parentDivisions: (groupChanged || entityChanged)
+                    ? options.parentDivisions
+                    : (options.parentDivisions.length ? old.parentDivisions : old.parentDivisions),
+                subdivisions: (groupChanged || entityChanged || parentChanged)
+                    ? options.subdivisions
+                    : (options.subdivisions.length ? old.subdivisions : old.subdivisions),
                 years: options.years.length ? options.years : old.years,
                 periods: options.periods.length ? options.periods : old.periods,
             }));
@@ -940,7 +1222,7 @@ export default function ManufacturingCostDashboard() {
             setDetailError("");
             const apiReportName = reportName === "category-breakdown" ? "category-breakdown-by-hierarchy"
                 : reportName === "category-detail" ? "category-detail-by-hierarchy"
-                : reportName === "production-overhead-monthly" ? "monthly-by-dimension" : reportName;
+                    : reportName === "production-overhead-monthly" ? "monthly-by-dimension" : reportName;
             const exportFilters = {
                 ...manufacturingFilters(filterSet), search,
                 ...(reportName === "production-overhead-monthly" ? { group_by: overheadGroupBy, metric: "production_overhead" } : {})
@@ -985,7 +1267,14 @@ export default function ManufacturingCostDashboard() {
     const openViewAll = async (reportName = "category-breakdown", category = "", filterOverride = appliedFilters) => {
         setViewAll(reportName);
         setSelectedDetailCategory(reportName === "category-detail" ? category : "");
-        setViewAllFilters({ ...filterOverride });
+        viewAllFiltersRef.current = {
+            ...filterOverride,
+            legalGroup: [...(filterOverride.legalGroup || [])],
+            legalEntity: [...(filterOverride.legalEntity || [])],
+            parent: [...(filterOverride.parent || [])],
+            sub: [...(filterOverride.sub || [])],
+        };
+        setViewAllFilters(viewAllFiltersRef.current);
         setViewAllUnit("millions");
         setSearch("");
         setViewAllPage(1);
@@ -1087,26 +1376,28 @@ export default function ManufacturingCostDashboard() {
     };
     const applyViewAllFilters = async () => {
         const reportName = viewAll || "category-breakdown";
-        const selectedFilters = { ...viewAllFilters };
+        const currentViewFilters = viewAllFiltersRef.current || viewAllFilters;
+        const selectedFilters = {
+            ...currentViewFilters,
+            legalGroup: [...(currentViewFilters.legalGroup || [])],
+            legalEntity: [...(currentViewFilters.legalEntity || [])],
+            parent: [...(currentViewFilters.parent || [])],
+            sub: [...(currentViewFilters.sub || [])],
+        };
         setDetailError("");
         setViewAllPage(1);
         setDetailLoading(true);
         setViewAllRows([]);
         const requestId = ++viewOptionsRequestId.current;
         try {
-            // Wait for the currently selected View All hierarchy scope to resolve before
-            // requesting rows; this avoids stale cascade options on the first Apply click.
-            const optionsResponse = await getManufacturingFilterOptions(manufacturingFilters(selectedFilters));
-            if (requestId !== viewOptionsRequestId.current) return;
-            const scopedOptions = parseManufacturingFilterOptions(optionsResponse);
-            setViewAllFilterOptions((old) => ({ ...scopedOptions, years: scopedOptions.years.length ? scopedOptions.years : old.years, periods: scopedOptions.periods.length ? scopedOptions.periods : old.periods }));
-            const validEntityIds = new Set(scopedOptions.legalEntities.map((x) => String(idOf(x))));
-            const validParentIds = new Set(scopedOptions.parentDivisions.map((x) => String(idOf(x))));
-            const validSubdivisionIds = new Set(scopedOptions.subdivisions.map((x) => String(idOf(x))));
-            selectedFilters.legalEntity = (selectedFilters.legalEntity || []).filter((id) => validEntityIds.has(String(id)));
-            selectedFilters.parent = (selectedFilters.parent || []).filter((id) => validParentIds.has(String(id)));
-            selectedFilters.sub = (selectedFilters.sub || []).filter((id) => validSubdivisionIds.has(String(id)));
-            setViewAllFilters(selectedFilters);
+            // Refresh cascade options asynchronously, but never make the first Apply click
+            // wait for that request. Use the values selected in the View All controls now.
+            const optionsRequestId = requestId;
+            getManufacturingFilterOptions(manufacturingFilters(selectedFilters)).then((optionsResponse) => {
+                if (optionsRequestId !== viewOptionsRequestId.current) return;
+                const scopedOptions = parseManufacturingFilterOptions(optionsResponse);
+                setViewAllFilterOptions((old) => ({ ...scopedOptions, years: scopedOptions.years.length ? scopedOptions.years : old.years, periods: scopedOptions.periods.length ? scopedOptions.periods : old.periods }));
+            }).catch(() => { /* Keep applying the selected report filters even if option refresh fails. */ });
             if (reportName === "production-overhead-monthly") {
                 const response = await getManufacturingMonthlyByDimension({ ...manufacturingFilters(selectedFilters), metric: "production_overhead" }, overheadGroupBy);
                 let payload = unwrapApiResponse(response);
@@ -1213,6 +1504,7 @@ export default function ManufacturingCostDashboard() {
     };
     const resetFilters = () => {
         const resetValues = getResetFilters();
+        filtersRef.current = resetValues;
         setFilters(resetValues);
         setAppliedFilters(resetValues);
         setSearch("");
@@ -1224,7 +1516,7 @@ export default function ManufacturingCostDashboard() {
     const unitLabel = viewAllUnit === "aed" ? "AED" : "AED Millions";
     const productionOverheadMonths = Array.from(new Set(viewAllRows[0]?.monthColumns || []));
     const viewAllHeaders = viewAll === "monthly-trend"
-        ? ["Month", "Material Actual", "Material Target", "Material Variance", "Labour Actual", "Labour Target", "Labour Variance", "Overheads Actual", "Overheads Target", "Overheads Variance"]
+        ? ["Month", "Material Actual", "Material Target", "Material Variance", "Labour Actual", "Labour Target", "Labour Variance", "MFG EXP ACTUAL", "MFG EXP TARGET", "MFG EXP VARIANCE"]
         : viewAll === "production-overhead-monthly"
             ? [overheadGroupBy === "legal_entity" ? "Legal Entity" : overheadGroupBy === "parent_division" ? "Parent Division" : "Subdivision", ...productionOverheadMonths, "Actual YTD", "Target YTD", "Variance", "Variance %"]
             : viewAll === "category-detail"
@@ -1238,6 +1530,41 @@ export default function ManufacturingCostDashboard() {
     const viewAllPageCount = Math.max(1, Math.ceil(viewAllFilteredRows.length / viewAllPageSize));
     const safeViewAllPage = Math.min(viewAllPage, viewAllPageCount);
     const pagedViewAllRows = viewAllFilteredRows.slice((safeViewAllPage - 1) * viewAllPageSize, safeViewAllPage * viewAllPageSize);
+    // Totals are calculated from every filtered record, not just the current page.
+    // Monthly values are already normalized to millions in the production-overhead pivot.
+    const productionOverheadTotalRow = viewAll === "production-overhead-monthly" ? {
+        months: productionOverheadMonths.map((month) => {
+            const values = viewAllFilteredRows
+                .map((row) => numberOrNull(row[`month__${month}`]))
+                .filter((value) => value != null);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+        }),
+        actual: (() => {
+            const values = viewAllFilteredRows.map((row) => numberOrNull(row.actualPtd)).filter((value) => value != null);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+        })(),
+        target: (() => {
+            const values = viewAllFilteredRows.map((row) => numberOrNull(row.targetPtd)).filter((value) => value != null);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+        })(),
+        variance: (() => {
+            const values = viewAllFilteredRows.map((row) => numberOrNull(row.variancePtd)).filter((value) => value != null);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+        })(),
+    } : null;
+    const productionOverheadTotalVariancePct = productionOverheadTotalRow?.variance != null &&
+        productionOverheadTotalRow?.target != null && productionOverheadTotalRow.target !== 0
+        ? productionOverheadTotalRow.variance / Math.abs(productionOverheadTotalRow.target) * 100
+        : null;
+    // Monthly Cost Trend totals are calculated from the full filtered dataset,
+    // never from the current page. Each displayed measure gets its own total.
+    const monthlyTrendTotalRow = viewAll === "monthly-trend" ? [
+        "Total",
+        ...["actualPtd", "targetPtd", "variancePtd", "actualYtd", "targetYtd", "varianceYtd", "overheadActual", "overheadTarget", "overheadVariance"].map((key) => {
+            const values = viewAllFilteredRows.map((row) => numberOrNull(row[key])).filter((value) => value != null);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+        }),
+    ] : null;
 
     return <div className="manufacturing-dashboard" style={{ minHeight: "100vh", background: COLORS.page, padding: "20px 0 32px", color: COLORS.navy, fontFamily: "Inter, Segoe UI, Arial, sans-serif", boxSizing: "border-box" }}>
         <style>{`
@@ -1281,16 +1608,77 @@ export default function ManufacturingCostDashboard() {
       .manufacturing-dashboard th { font-size:.66rem !important; font-weight:700 !important; letter-spacing:.025em; color:#64748b !important; background:#f8fafc !important; }
       .manufacturing-dashboard td { font-size:.72rem; }
       /* Layout: trend and cost mix share the first row; grouped overhead and drill-down each get a full-width row. */
-      .manufacturing-dashboard .mfg-dashboard-panel-grid { grid-template-areas: "trend mix" "overhead overhead" "drilldown drilldown" !important; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid { grid-template-areas: "trend mix" "directcost directcost" "overhead overhead" "drilldown drilldown" !important; }
       .manufacturing-dashboard .mfg-dashboard-panel-grid > .mfg-panel-column { display: contents !important; }
       .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-trend-panel { grid-area: trend; min-width: 0; }
       .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-costmix-panel { grid-area: mix; min-width: 0; }
+      .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-direct-cost-panel { grid-area: directcost; min-width: 0; }
       .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-overhead-panel { grid-area: overhead; min-width: 0; }
       .manufacturing-dashboard .mfg-dashboard-panel-grid .mfg-drilldown-panel { grid-area: drilldown; min-width: 0; }
-      @media (max-width: 1000px) { .manufacturing-dashboard .mfg-dashboard-panel-grid { grid-template-columns:minmax(0,1fr) !important; grid-template-areas: "trend" "mix" "overhead" "drilldown" !important; } }
+      @media (max-width: 1000px) { .manufacturing-dashboard .mfg-dashboard-panel-grid { grid-template-columns:minmax(0,1fr) !important; grid-template-areas: "trend" "mix" "directcost" "overhead" "drilldown" !important; } }
       .manufacturing-dashboard .mfg-modal-table-wrap { scrollbar-width:thin; scrollbar-color:#94a3b8 #f1f5f9; }
       .manufacturing-dashboard .mfg-modal-table-wrap::-webkit-scrollbar { width:8px; height:8px; }
       .manufacturing-dashboard .mfg-modal-table-wrap::-webkit-scrollbar-thumb { background:#94a3b8; border-radius:8px; border:2px solid #f1f5f9; }
+      .manufacturing-dashboard .mfg-modal-table { margin-bottom:0 !important; }
+      .manufacturing-dashboard .mfg-modal-table tfoot { position:sticky !important; bottom:0 !important; z-index:6 !important; }
+      .manufacturing-dashboard .mfg-modal-table tfoot td { position:sticky !important; bottom:0 !important; }
+      .manufacturing-dashboard .mfg-modal-table tfoot td:first-child { left:0 !important; z-index:8 !important; }
+      /* Reference-matched Direct Cost Drill-Down table typography and hierarchy. */
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table {
+        width:100% !important;
+        border-collapse:collapse !important;
+        table-layout:fixed !important;
+        font-size:12px !important;
+        color:#334155 !important;
+        font-variant-numeric:tabular-nums !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table thead th {
+        padding:9px 10px !important;
+        background:#f8fafc !important;
+        color:#234675 !important;
+        font-size:11px !important;
+        font-weight:800 !important;
+        letter-spacing:.025em !important;
+        text-transform:uppercase !important;
+        border-right:1px solid #e4e9ef !important;
+        border-bottom:2px solid #dbe3ef !important;
+        white-space:nowrap !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table tbody > tr:not(:has(.mfg-direct-cost-detail-table)) > td {
+        padding:9px 10px !important;
+        font-size:11.5px !important;
+        font-weight:650 !important;
+        border-bottom:1px solid #edf0f4 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table tbody > tr > td:nth-child(2) {
+        font-size:11.5px !important;
+        font-weight:800 !important;
+        color:#344054 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table tbody > tr:hover > td {
+        background:#f8fbff !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table .mfg-direct-cost-detail-table thead th,
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-detail-table thead th {
+        padding:8px 10px !important;
+        background:#f8fafc !important;
+        font-size:10.5px !important;
+        font-weight:800 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-detail-table tbody td {
+        padding:8px 10px !important;
+        font-size:11px !important;
+        line-height:1.35 !important;
+        border-top:1px solid #edf0f4 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table tbody tr:last-child td {
+        border-bottom:1px solid #e2e8f0 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .mfg-direct-cost-table tbody tr:has(td[colspan="8"]) td {
+        padding:0 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel .cost-structure-table th { background:#f1f5f9 !important; color:#0B2E6F !important; font-weight:800 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel .cost-structure-table td { font-variant-numeric:tabular-nums; }
       /* Match the OPEX Month-on-Month table header across every Manufacturing View All table. */
       .manufacturing-dashboard .mfg-modal-table thead th {
         background:#f1f5f9 !important;
@@ -1366,13 +1754,92 @@ export default function ManufacturingCostDashboard() {
         margin-bottom:4px !important;
       }
       .manufacturing-dashboard .mfg-select {
-        height:34px !important;
+        min-height:34px !important;
+        height:34px;
         border-radius:7px !important;
         border-color:#dbe3ef !important;
         font-family:inherit !important;
         font-size:.72rem !important;
         color:#334155 !important;
+        min-width:0 !important;
       }
+      .manufacturing-dashboard .mfg-multiselect-trigger {
+        height:auto !important;
+        min-height:38px !important;
+        max-height:none !important;
+        box-sizing:border-box !important;
+        white-space:normal !important;
+        overflow:visible !important;
+        text-overflow:clip !important;
+        line-height:1.25 !important;
+        overflow-wrap:anywhere !important;
+      }
+      .manufacturing-dashboard .mfg-filter-grid > *,
+      .manufacturing-dashboard .mfg-filter-grid .mfg-filter-field,
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field { min-width:0 !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-trigger > span:first-child { max-width:100%; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-filter-actions { align-self:end; }
+      /* Keep filter controls inside both dashboard and View All panels at all widths. */
+      .manufacturing-dashboard .mfg-filter-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr)) !important; overflow:visible !important; align-items:end !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-filter-actions { min-width:0 !important; flex-wrap:wrap !important; white-space:nowrap !important; }
+      .manufacturing-dashboard .mfg-multiselect-field { min-width:0 !important; max-width:100% !important; }
+      .manufacturing-dashboard .mfg-multiselect-trigger { box-sizing:border-box !important; width:100% !important; max-width:100% !important; overflow-wrap:anywhere !important; word-break:break-word !important; }
+      .manufacturing-dashboard .mfg-multiselect-trigger > span:first-child { display:block !important; max-width:100% !important; white-space:normal !important; overflow-wrap:anywhere !important; word-break:break-word !important; }
+      /* Selected labels grow vertically so the active filter value is never clipped. */
+      .manufacturing-dashboard button.mfg-multiselect-trigger {
+        display:flex !important;
+        align-items:center !important;
+        min-height:38px !important;
+        height:auto !important;
+        max-height:none !important;
+        box-sizing:border-box !important;
+        padding:7px 30px 7px 9px !important;
+        line-height:1.25 !important;
+        white-space:normal !important;
+        overflow:visible !important;
+        text-overflow:clip !important;
+        overflow-wrap:anywhere !important;
+      }
+      .manufacturing-dashboard button.mfg-multiselect-trigger > span:first-child {
+        flex:1 1 auto !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        white-space:normal !important;
+        overflow:visible !important;
+        text-overflow:clip !important;
+        overflow-wrap:anywhere !important;
+        word-break:break-word !important;
+        padding-right:2px !important;
+      }
+      .manufacturing-dashboard .mfg-filter-grid { align-items:stretch !important; }
+      .manufacturing-dashboard .mfg-filter-field { align-self:stretch !important; }
+      .manufacturing-dashboard .mfg-filter-actions { align-self:end !important; }
+      .manufacturing-dashboard .mfg-multiselect-field { z-index:1; }
+      .manufacturing-dashboard .mfg-multiselect-field:has(button[aria-expanded="true"]) { z-index:150 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table thead th {
+        background:#f1f5f9 !important;
+        color:#173b68 !important;
+        font-size:11px !important;
+        font-weight:800 !important;
+        text-transform:uppercase !important;
+        letter-spacing:.02em !important;
+        border-bottom:2px solid #dbe3ef !important;
+        padding:9px 8px !important;
+        white-space:nowrap !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-table > tbody > tr:nth-child(even) { background:#f8fafc !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table > tbody > tr:hover > td { background:#eef3ff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table > tbody > tr > td { border-bottom:1px solid #edf0f4 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-detail-table thead th { background:#fff !important; color:#173b68 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-detail-table tbody tr.mfg-direct-cost-detail-row td {
+        background:inherit !important;
+        color:#475569 !important;
+        font-size:11px !important;
+        font-weight:500 !important;
+        border-bottom:1px solid #edf0f4 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-detail-table tbody tr.mfg-direct-cost-detail-row:nth-child(even) td { background:#f8fafc !important; }
+      .manufacturing-dashboard .mfg-direct-cost-detail-table tbody tr.mfg-direct-cost-detail-row:hover td { background:#eef3ff !important; }
       .manufacturing-dashboard .mfg-panel {
         border:1px solid #e2e8f0 !important;
         border-radius:12px !important;
@@ -1475,7 +1942,156 @@ export default function ManufacturingCostDashboard() {
         .manufacturing-dashboard .mfg-filter-grid { gap:8px !important; }
         .manufacturing-dashboard .mfg-panel { padding:11px !important; }
       }
+
+      /* FINAL FIX: match the supplied P&L Direct Cost Drill-Down reference.
+         Scope the category table and nested account table independently so global
+         dashboard table rules cannot bold or recolor the detail rows. */
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) {
+        width:100% !important; table-layout:fixed !important; border-collapse:collapse !important;
+        color:#334155 !important; font-family:Inter, "Segoe UI", Arial, sans-serif !important;
+        font-size:11.5px !important; font-variant-numeric:tabular-nums !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > thead > tr > th {
+        padding:9px 10px !important; background:#f1f5f9 !important; color:#234675 !important;
+        font-size:11px !important; font-weight:800 !important; text-transform:uppercase !important;
+        letter-spacing:.025em !important; border-right:1px solid #e4e9ef !important;
+        border-bottom:2px solid #dbe3ef !important; white-space:nowrap !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr > td {
+        padding:10px 9px !important; font-size:11.5px !important; line-height:1.35 !important;
+        font-weight:500 !important; border-right:1px solid #edf0f4 !important;
+        border-bottom:1px solid #e8edf4 !important; vertical-align:middle !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr > td:nth-child(2) {
+        color:#344054 !important; font-weight:800 !important; text-transform:uppercase !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr:hover > td { background:#eef3ff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table {
+        width:100% !important; table-layout:fixed !important; border-collapse:collapse !important;
+        margin:0 !important; font-family:Inter, "Segoe UI", Arial, sans-serif !important;
+        font-size:11px !important; font-variant-numeric:tabular-nums !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > thead > tr > th {
+        padding:8px 10px !important; background:#f1f5f9 !important; color:#234675 !important;
+        font-size:10.5px !important; font-weight:800 !important; text-transform:uppercase !important;
+        letter-spacing:.02em !important; line-height:1.25 !important; border-right:1px solid #e4e9ef !important;
+        border-bottom:2px solid #dbe3ef !important; white-space:nowrap !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr > td {
+        padding:10px 10px !important; background:#fff !important;
+        font-size:11px !important; font-weight:500 !important; line-height:1.35 !important;
+        border-right:1px solid #edf0f4 !important; border-bottom:1px solid #edf0f4 !important;
+        vertical-align:middle !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr:nth-child(even) > td { background:#f8fafc !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr:hover > td { background:#eef3ff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr > td:nth-child(2),
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr > td:nth-child(3) {
+        color:#475569 !important; font-weight:500 !important; text-align:left !important; white-space:normal !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr > td:nth-child(n+4) {
+        text-align:right !important; white-space:nowrap !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr > td:nth-child(6),
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr > td:nth-child(9) { font-weight:800 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr:last-child > td {
+        background:#f1f5f9 !important; font-weight:850 !important;
+        border-top:1px solid #cbd5e1 !important; border-bottom:1px solid #dbe3ef !important;
+      }
+      /* Keep filter triggers stable while showing up to two lines of a selected value. */
+      .manufacturing-dashboard .mfg-filter-grid { align-items:end !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field { min-height:58px !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field > span:first-child { height:14px !important; line-height:14px !important; overflow:hidden !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-trigger > span:first-child { max-height:29px !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-filter-actions { align-self:end !important; }
       @media print { body { background:#fff !important; } .manufacturing-dashboard .no-print { display:none !important; } .manufacturing-dashboard .print-panel { break-inside:avoid; box-shadow:none !important; } }
+
+      /* Final filter alignment: content-sized selected labels and a viewport-level dropdown. */
+      .manufacturing-dashboard .mfg-filter-grid,
+      .manufacturing-dashboard .mfg-filter-grid .mfg-filter-field,
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field { min-width:0 !important; overflow:visible !important; }
+      .manufacturing-dashboard .mfg-filter-grid { position:relative !important; z-index:20 !important; }
+      .manufacturing-dashboard button.mfg-multiselect-trigger {
+        width:100% !important; height:auto !important; min-height:38px !important; max-height:none !important;
+        display:flex !important; align-items:center !important; box-sizing:border-box !important;
+        overflow:visible !important; white-space:normal !important; text-overflow:clip !important;
+        padding:7px 28px 7px 9px !important; line-height:1.25 !important; overflow-wrap:anywhere !important;
+      }
+      .manufacturing-dashboard button.mfg-multiselect-trigger > span:first-child {
+        display:block !important; flex:1 1 auto !important; min-width:0 !important; max-width:100% !important;
+        overflow:visible !important; white-space:normal !important; text-overflow:clip !important;
+        overflow-wrap:anywhere !important; word-break:break-word !important;
+        line-height:1.25 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-panel { overflow:visible !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table { width:100% !important; border-collapse:collapse !important; table-layout:fixed !important; color:#334155 !important; font-family:Inter, "Segoe UI", Arial, sans-serif !important; font-variant-numeric:tabular-nums !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table > thead > tr > th {
+        height:36px !important; padding:9px 8px !important; background:#f1f5f9 !important; color:#173b68 !important;
+        font-size:11px !important; font-weight:800 !important; text-transform:uppercase !important; letter-spacing:.02em !important;
+        line-height:1.25 !important; border-right:1px solid #e4e9ef !important; border-bottom:2px solid #dbe3ef !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-table > tbody > tr:not(.mfg-direct-cost-detail-row) > td {
+        padding:10px 9px !important; min-height:40px !important; font-size:11px !important; line-height:1.35 !important;
+        font-weight:750 !important; border-right:1px solid #edf0f4 !important; border-bottom:1px solid #edf0f4 !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-table > tbody > tr:not(.mfg-direct-cost-detail-row):hover > td { background:#eef3ff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table .mfg-direct-cost-detail-row > td {
+        padding:10px 9px !important; font-size:11px !important; line-height:1.35 !important; font-weight:500 !important;
+        color:#475569 !important; border-right:1px solid #edf0f4 !important; border-bottom:1px solid #edf0f4 !important;
+        vertical-align:middle !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-table .mfg-direct-cost-detail-row:nth-child(odd) > td { background:#fff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table .mfg-direct-cost-detail-row:nth-child(even) > td { background:#f8fafc !important; }
+      .manufacturing-dashboard .mfg-direct-cost-detail-table > thead > tr > th {
+        height:35px !important; padding:8px 9px !important; background:#fff !important; color:#173b68 !important;
+        font-size:11px !important; font-weight:800 !important; text-transform:uppercase !important;
+        border-bottom:2px solid #dbe3ef !important; border-right:1px solid #e4e9ef !important;
+      }
+      .manufacturing-dashboard .mfg-direct-cost-detail-table { margin:0 !important; background:#fff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table .mfg-direct-cost-detail-row > td:nth-child(2),
+      .manufacturing-dashboard .mfg-direct-cost-table .mfg-direct-cost-detail-row > td:nth-child(3) { text-align:left !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table .mfg-direct-cost-detail-row > td:nth-child(n+4) { text-align:right !important; white-space:nowrap !important; }
+      .manufacturing-dashboard .mfg-direct-cost-table > tbody > tr:last-child:not(.mfg-direct-cost-detail-row) > td { background:#f1f5f9 !important; color:#182338 !important; font-weight:850 !important; border-top:1px solid #dbe3ef !important; }
+
+      /* Last-in-cascade corrections for the supplied reference screenshot. */
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr > td { font-size:11.5px !important; line-height:1.35 !important; font-weight:500 !important; border-bottom:1px solid #e8edf4 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr > td:nth-child(2) { font-weight:800 !important; text-transform:uppercase !important; color:#344054 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > thead > tr > th { padding:8px 10px !important; background:#f1f5f9 !important; color:#234675 !important; font-size:10.5px !important; font-weight:800 !important; text-transform:uppercase !important; border-bottom:2px solid #dbe3ef !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr.mfg-direct-cost-detail-row > td { padding:10px 10px !important; font-size:11px !important; line-height:1.35 !important; font-weight:500 !important; border-bottom:1px solid #edf0f4 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr.mfg-direct-cost-detail-row:nth-child(odd) > td { background:#fff !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr.mfg-direct-cost-detail-row:nth-child(even) > td { background:#f8fafc !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr.mfg-direct-cost-detail-row > td:nth-child(2),
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr.mfg-direct-cost-detail-row > td:nth-child(3) { text-align:left !important; font-weight:500 !important; white-space:normal !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-detail-table > tbody > tr.mfg-direct-cost-detail-row > td:nth-child(n+4) { text-align:right !important; white-space:nowrap !important; font-weight:500 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel table.mfg-direct-cost-table:not(.mfg-direct-cost-detail-table) > tbody > tr:last-child > td { background:#f1f5f9 !important; font-weight:850 !important; border-top:1px solid #cbd5e1 !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field { min-height:58px !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field > span:first-child { height:14px !important; line-height:14px !important; }
+      .manufacturing-dashboard button.mfg-multiselect-trigger { height:auto !important; min-height:38px !important; max-height:none !important; align-items:center !important; white-space:normal !important; overflow:visible !important; }
+      .manufacturing-dashboard button.mfg-multiselect-trigger > span:first-child { display:block !important; white-space:normal !important; overflow:visible !important; text-overflow:clip !important; overflow-wrap:anywhere !important; word-break:break-word !important; max-height:none !important; }
+      /* Variance styling must beat legacy detail-table !important declarations. */
+      .manufacturing-dashboard .mfg-direct-cost-panel td.mfg-variance-cell.mfg-variance-positive,
+      .manufacturing-dashboard .mfg-direct-cost-panel td.mfg-variance-cell.mfg-variance-positive * { color:#15803d !important; font-weight:800 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel td.mfg-variance-cell.mfg-variance-negative,
+      .manufacturing-dashboard .mfg-direct-cost-panel td.mfg-variance-cell.mfg-variance-negative * { color:#dc2626 !important; font-weight:800 !important; }
+      .manufacturing-dashboard .mfg-direct-cost-panel td.mfg-variance-cell.mfg-variance-neutral,
+      .manufacturing-dashboard .mfg-direct-cost-panel td.mfg-variance-cell.mfg-variance-neutral * { color:#64748b !important; font-weight:800 !important; }
+      /* Stable OPEX-style filter triggers: selected labels stay inside the control. */
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field { min-width:0 !important; width:100% !important; }
+      .manufacturing-dashboard button.mfg-multiselect-trigger {
+        display:flex !important; width:100% !important; min-width:0 !important;
+        height:38px !important; min-height:38px !important; max-height:38px !important;
+        overflow:hidden !important; white-space:nowrap !important; align-items:center !important;
+        flex-wrap:nowrap !important; position:relative !important;
+      }
+      .manufacturing-dashboard button.mfg-multiselect-trigger > span:first-child {
+        display:block !important; flex:1 1 auto !important; min-width:0 !important; max-width:100% !important;
+        height:auto !important; max-height:100% !important; line-height:18px !important;
+        white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
+        overflow-wrap:normal !important; word-break:normal !important;
+      }
+      .manufacturing-dashboard .mfg-filter-grid { align-items:start !important; }
+      .manufacturing-dashboard .mfg-filter-grid .mfg-multiselect-field > span:first-child { height:14px !important; line-height:14px !important; }
+
     `}</style>
 
         <header className="mfg-header print-panel" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, background: "transparent", border: 0, borderRadius: 12, padding: "0 0 12px", marginBottom: 12, boxShadow: "none" }}>
@@ -1496,39 +2112,34 @@ export default function ManufacturingCostDashboard() {
             </div>
         </header>
 
-        <section className="mfg-filter-grid print-panel" style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr)) auto", gap: 7, padding: "10px 12px", marginBottom: 14, borderRadius: 12, border: `1px solid ${COLORS.border}`, background: "#fff" }}>
-            {legalGroups.length > 0 && <MultiSelectFilter label="Legal Group" value={filters.legalGroup} onChange={v => update("legalGroup", v)} options={legalGroups} />}
-            {legalEntities.length > 0 && <MultiSelectFilter label="Legal Entity" value={filters.legalEntity} onChange={v => update("legalEntity", v)} options={legalEntities} />}
+        <section className="mfg-filter-grid print-panel" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr)) auto", gap: 7, padding: "10px 12px", marginBottom: 14, borderRadius: 12, border: `1px solid ${COLORS.border}`, background: "#fff" }}>
+            <MultiSelectFilter label="Legal Group" value={filters.legalGroup} onChange={v => update("legalGroup", v)} options={legalGroups} />
+            <MultiSelectFilter label="Legal Entity" value={filters.legalEntity} onChange={v => update("legalEntity", v)} options={legalEntities} />
             <MultiSelectFilter label="Parent Division" value={filters.parent} onChange={v => update("parent", v)} options={parentDivisions} />
             <MultiSelectFilter label="Sub-Division" value={filters.sub} onChange={v => update("sub", v)} options={subdivisions} />
             <Filter label="Year" value={filters.year} onChange={v => update("year", v)} options={[...new Set([filters.year, ...filterOptions.years.map((x) => String(idOf(x)))].filter(Boolean))]} icon="▦" />
-            <Filter label="Period" value={filters.period} onChange={v => update("period", v)} options={[...new Set([filters.period, ...filterOptions.periods.map(labelOf), ...monthsForYear(filters.year)].filter(Boolean))]} icon="▦" />
+            <Filter label="Period" value={filters.period} onChange={v => update("period", v)} options={sortPeriodsChronologically(filterOptions.periods, filters.year)} hidePlaceholder icon="▦" />
             <Filter label="Reporting Currency" value={filters.currency} onChange={v => update("currency", v)} options={["AED", "USD", "EUR", "GBP"]} icon="¤" />
             <div className="mfg-filter-actions" style={{ display: "flex", justifyContent: "flex-end", alignItems: "flex-end", gap: 7, paddingBottom: 0 }}>
-                <button type="button" onClick={async () => {
-                    const selected = { ...filters, legalGroup: [...(filters.legalGroup || [])], legalEntity: [...(filters.legalEntity || [])], parent: [...(filters.parent || [])], sub: [...(filters.sub || [])] };
+                <button type="button" aria-label="Apply Manufacturing Cost filters" onClick={() => {
+                    // Apply the exact values currently shown in the controls immediately.
+                    // Do not block the first click on a second hierarchy-options request.
+                    const currentFilters = filtersRef.current || filters;
+                    const selected = { ...currentFilters, legalGroup: [...(currentFilters.legalGroup || [])], legalEntity: [...(currentFilters.legalEntity || [])], parent: [...(currentFilters.parent || [])], sub: [...(currentFilters.sub || [])] };
                     setError("");
-                    setLoading(true);
+                    filtersRef.current = selected;
+                    setAppliedFilters(selected);
+                    setDashboardRefreshKey((x) => x + 1);
+                    // Refresh cascade options in the background; this must not delay applying
+                    // the user's selected scope or overwrite their current selections.
                     const requestId = ++mainOptionsRequestId.current;
-                    try {
-                        const optionsResponse = await getManufacturingFilterOptions(manufacturingFilters(selected));
+                    getManufacturingFilterOptions(manufacturingFilters(selected)).then((optionsResponse) => {
                         if (requestId !== mainOptionsRequestId.current) return;
                         const scopedOptions = parseManufacturingFilterOptions(optionsResponse);
                         setFilterOptions((old) => ({ ...scopedOptions, years: scopedOptions.years.length ? scopedOptions.years : old.years, periods: scopedOptions.periods.length ? scopedOptions.periods : old.periods }));
-                        const validEntityIds = new Set(scopedOptions.legalEntities.map((x) => String(idOf(x))));
-                        const validParentIds = new Set(scopedOptions.parentDivisions.map((x) => String(idOf(x))));
-                        const validSubdivisionIds = new Set(scopedOptions.subdivisions.map((x) => String(idOf(x))));
-                        selected.legalEntity = selected.legalEntity.filter((id) => validEntityIds.has(String(id)));
-                        selected.parent = selected.parent.filter((id) => validParentIds.has(String(id)));
-                        selected.sub = selected.sub.filter((id) => validSubdivisionIds.has(String(id)));
-                        setFilters(selected);
-                    } catch (e) {
+                    }).catch((e) => {
                         setError(`Unable to refresh hierarchy filters: ${e?.response?.data?.detail || e?.response?.data?.message || e.message}`);
-                        setLoading(false);
-                        return;
-                    }
-                    setAppliedFilters(selected);
-                    setDashboardRefreshKey((x) => x + 1);
+                    });
                 }} className="mfg-action" style={{ ...filterActionStyle, height: 33, border: "1px solid #5B3FE4", background: "#5B3FE4", color: "#fff", padding: "0 13px" }}>Apply</button>
                 <button type="button" onClick={resetFilters} className="mfg-action" style={{ ...filterActionStyle, height: 33, border: 0, background: "transparent", color: "#475569", padding: "0 8px" }}>Reset</button>
             </div>
@@ -1557,7 +2168,7 @@ export default function ManufacturingCostDashboard() {
 
         {!loading && <div className="mfg-content-grid mfg-dashboard-panel-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, alignItems: "stretch" }}>
             <div className="mfg-panel-column" style={{ display: "grid", gap: 10, minWidth: 0 }}>
-                <Panel title="Monthly Manufacturing Cost Trend" subtitle="Actual vs Target by cost category" style={{ minHeight: 265 }} className="mfg-chart-panel mfg-trend-panel" action={<div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Monthly trend options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19 }} onClick={() => setTrendMenuOpen(v => !v)}><MoreVertical size={17} strokeWidth={1.8} /></button>{trendMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 165, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("monthly-trend"); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div>}>
+                <Panel title="Monthly Cost Trend" subtitle="Actual vs Target by cost category" style={{ minHeight: 265 }} className="mfg-chart-panel mfg-trend-panel" action={<div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Monthly trend options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19 }} onClick={() => setTrendMenuOpen(v => !v)}><MoreVertical size={17} strokeWidth={1.8} /></button>{trendMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 165, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("monthly-trend"); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "monthly-trend", appliedFilters); setTrendMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div>}>
 
                     <div style={{ display: "flex", justifyContent: "flex-start", gap: 14, flexWrap: "wrap", margin: "0 0 3px 12px", paddingLeft: 4, fontSize: 10.5, color: "#475569" }}>
                         {[["#14b8a6", "Material (Actual)", false], ["#14b8a6", "Material (Target)", true], ["#8b5cf6", "Labour (Actual)", false], ["#8b5cf6", "Labour (Target)", true], ["#f59e0b", "Overheads (Actual)", false], ["#f59e0b", "Overheads (Target)", true]].map(([c, t, target]) => <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><i style={{ width: 10, height: 10, background: target ? `${c}20` : c, border: target ? `1px dashed ${c}` : `1px solid ${c}`, borderRadius: 3 }} />{t}</span>)}
@@ -1580,6 +2191,8 @@ export default function ManufacturingCostDashboard() {
                     </motion.div>
                 </Panel>
 
+                <ManufacturingDirectCostTable filters={appliedFilters} />
+
                 <Panel title="Manufacturing Cost Drill-Down" subtitle="Actual, target and variance by cost category" className="mfg-drilldown-panel" action={<div style={{ display: "flex", alignItems: "center", gap: 7 }}><div role="group" aria-label="Manufacturing drill-down amount unit" style={{ display: "inline-flex", alignItems: "center", padding: 3, gap: 2, border: "1px solid #dbe3ef", borderRadius: 8, background: "#f1f5f9" }}><button type="button" onClick={() => setDrilldownUnit("aed")} aria-pressed={drilldownUnit === "aed"} style={{ border: 0, borderRadius: 6, padding: "5px 9px", background: drilldownUnit === "aed" ? "#0B2E6F" : "transparent", color: drilldownUnit === "aed" ? "#fff" : "#0B2E6F", fontSize: 10.5, fontWeight: 800, cursor: "pointer" }}>AED</button><button type="button" onClick={() => setDrilldownUnit("millions")} aria-pressed={drilldownUnit === "millions"} style={{ border: 0, borderRadius: 6, padding: "5px 9px", background: drilldownUnit === "millions" ? "#0B2E6F" : "transparent", color: drilldownUnit === "millions" ? "#fff" : "#0B2E6F", fontSize: 10.5, fontWeight: 800, cursor: "pointer" }}>AED Million</button></div><button type="button" onClick={() => setDrilldownCollapsed((collapsed) => !collapsed)} style={{ ...panelButton, height: 30, padding: "0 10px", color: "#0B2E6F", borderColor: "#0B2E6F", whiteSpace: "nowrap" }}>{drilldownCollapsed ? "⌄ Expand" : "⌃ Collapse"}</button><div className="mfg-menu-container" style={{ position: "relative" }}><button className="mfg-action" aria-label="Manufacturing drill-down options" title="More options" style={{ ...panelButton, width: 32, height: 30, padding: 0, fontSize: 19, lineHeight: 1 }} onClick={() => setDrillMenuOpen((v) => !v)}><MoreVertical size={17} strokeWidth={1.8} /></button>{drillMenuOpen && <div style={{ position: "absolute", right: 0, top: 35, zIndex: 50, width: 170, background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 9, boxShadow: "0 10px 26px rgba(15,23,42,.16)", overflow: "hidden" }}><button onClick={() => { openViewAll("category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, fontSize: 12, fontWeight: 800, cursor: "pointer", color: "#334155" }}>🔎 View All</button><button onClick={() => { exportReport("excel", "category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, borderTop: "1px solid #f1f5f9", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📊 Export Excel</button><button onClick={() => { exportReport("pdf", "category-breakdown"); setDrillMenuOpen(false); }} style={{ display: "block", width: "100%", padding: "9px 11px", textAlign: "left", background: "#fff", border: 0, borderTop: "1px solid #f1f5f9", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>📄 Export PDF</button></div>}</div></div>}>
                     {!drilldownCollapsed && <div style={{ overflowX: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 12, minWidth: 650 }}>
@@ -1590,22 +2203,21 @@ export default function ManufacturingCostDashboard() {
                                     const isVariance = i === 2 || i === 5;
                                     const status = i === 2 ? r.varianceStatusPtd : i === 5 ? r.varianceStatusYtd : null;
                                     const absorption = /absorption/i.test(r.category);
-                                    const color = isVariance ? varianceColor(status, v, !absorption) : "#334155";
-                                    const favorable = isVariance ? (isFavorableStatus(status) ?? (v == null ? null : absorption ? v >= 0 : v <= 0)) : null;
-                                    return <td key={i} style={{ textAlign: "right", padding: "10px 9px", borderBottom: "1px solid #e8edf5", whiteSpace: "nowrap", fontWeight: isVariance ? 700 : 500, color }}>{v == null ? "—" : drilldownUnit === "millions" ? `${(Number(v) / 1_000_000).toFixed(2)}M` : fmtNum(v)}{isVariance && v != null ? (favorable === true ? " F" : favorable === false ? " U" : "") : ""}</td>;
+                                    const color = isVariance ? (v == null || Number(v) === 0 ? "#64748b" : Number(v) > 0 ? "#15803d" : "#dc2626") : "#334155";
+                                    return <td key={i} style={{ textAlign: "right", padding: "10px 9px", borderBottom: "1px solid #e8edf5", whiteSpace: "nowrap", fontWeight: isVariance ? 800 : 500, color: isVariance && (v == null || Number(v) === 0) ? "#64748b" : color }}>{v == null ? "—" : drilldownUnit === "millions" ? `${(Number(v) / 1_000_000).toFixed(2)}M` : fmtNum(v)}</td>;
                                 })}
                             </tr>)}</tbody>
                             <tfoot><tr style={{ background: "#f1efff", fontWeight: 900 }}>{["Net Cost of Sales", ...[
                                 ["actualPtd", "actual"], ["targetPtd", "target"], ["variancePtd", "variance"],
                                 ["actualYtd", "actual"], ["targetYtd", "target"], ["varianceYtd", "variance"]
-                             ].map(([key, kind]) => {
+                            ].map(([key, kind]) => {
                                 if (!drillRows.length || !drillRows.every((r) => r[key] != null)) return null;
                                 const total = drillRows.reduce((sum, r) => sum + r[key], 0);
                                 // Absorption is a recovery and must be deducted from net cost of sales.
                                 const absorption = drillRows.filter((r) => /absorption/i.test(r.category));
                                 return key.startsWith("variance") ? total : total - absorption.reduce((sum, r) => sum + (numberOrNull(r[key]) || 0), 0);
                             })
-                            ].map((v, i) => <td key={i} style={{ padding: "7px 6px", textAlign: i ? "right" : "left", color: i === 0 ? COLORS.navy : (i === 3 || i === 6) ? (v == null ? COLORS.navy : v <= 0 ? "#15803d" : "#dc2626") : COLORS.navy, whiteSpace: "nowrap" }}>{i === 0 ? v : v == null ? "—" : drilldownUnit === "millions" ? `${(Number(v) / 1_000_000).toFixed(2)}M` : fmtNum(v)}</td>)}</tr></tfoot>
+                            ].map((v, i) => <td key={i} style={{ padding: "7px 6px", textAlign: i ? "right" : "left", color: i === 0 ? COLORS.navy : (i === 3 || i === 6) ? (v == null || Number(v) === 0 ? "#64748b" : Number(v) > 0 ? "#15803d" : "#dc2626") : COLORS.navy, fontWeight: i === 3 || i === 6 ? 900 : 800, whiteSpace: "nowrap" }}>{i === 0 ? v : v == null ? "—" : drilldownUnit === "millions" ? `${(Number(v) / 1_000_000).toFixed(2)}M` : fmtNum(v)}</td>)}</tr></tfoot>
                         </table>
                     </div>}
                 </Panel>
@@ -1680,23 +2292,23 @@ export default function ManufacturingCostDashboard() {
             {viewAll && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,.42)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: viewAllMaximized ? 0 : 16 }} onMouseDown={e => { if (e.target === e.currentTarget) setViewAll(""); }}>
                 <motion.div initial={{ y: 15, scale: .98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 10, scale: .98 }} style={{ width: viewAllMaximized ? "100vw" : "min(1400px, 96vw)", height: viewAllMaximized ? "100vh" : "auto", maxHeight: viewAllMaximized ? "100vh" : "92vh", background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: viewAllMaximized ? 0 : 12, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(15,23,42,.18)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, background: "#fff" }}>
-                        <div><div style={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.navy }}>{viewAll === "category-breakdown" ? "Manufacturing Cost Drill-Down — Detailed View" : viewAll === "category-detail" ? `Manufacturing Account Detail${selectedDetailCategory ? ` — ${selectedDetailCategory}` : ""}` : viewAll === "monthly-trend" ? "Monthly Manufacturing Cost Trend — Detailed View" : viewAll === "production-overhead-monthly" ? "Month-on-Month Production Overhead — Detailed View" : viewAll}</div><div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3 }}>Current filters · {(Array.isArray(viewAllFilters.legalGroup) ? viewAllFilters.legalGroup : (viewAllFilters.legalGroup ? [viewAllFilters.legalGroup] : [])).map((id) => labelOf(legalGroups.find((x) => String(idOf(x)) === String(id)) || id)).join(", ") || "All Legal Groups"} · {viewAllFilters.period} · Reporting Currency: {viewAllFilters.currency || "AED"}{viewAll === "production-overhead-monthly" ? ` · Grouping: ${overheadGroupBy === "legal_entity" ? "Legal Entity" : overheadGroupBy === "parent_division" ? "Parent Division" : "Subdivision"} · View All/exports include the full filtered scope` : ""}</div></div>
+                        <div><div style={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.navy }}>{viewAll === "category-breakdown" ? "Manufacturing Cost Drill-Down — Detailed View" : viewAll === "category-detail" ? `Manufacturing Account Detail${selectedDetailCategory ? ` — ${selectedDetailCategory}` : ""}` : viewAll === "monthly-trend" ? "Monthly Cost Trend- Detailed View" : viewAll === "production-overhead-monthly" ? "Month-on-Month Production Overhead — Detailed View" : viewAll}</div><div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3 }}>Current filters · {(Array.isArray(viewAllFilters.legalGroup) ? viewAllFilters.legalGroup : (viewAllFilters.legalGroup ? [viewAllFilters.legalGroup] : [])).map((id) => labelOf(legalGroups.find((x) => String(idOf(x)) === String(id)) || id)).join(", ") || "All Legal Groups"} · {viewAllFilters.period} · Reporting Currency: {viewAllFilters.currency || "AED"}{viewAll === "production-overhead-monthly" ? ` · Grouping: ${overheadGroupBy === "legal_entity" ? "Legal Entity" : overheadGroupBy === "parent_division" ? "Parent Division" : "Subdivision"} · View All/exports include the full filtered scope` : ""}</div></div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                             <button type="button" onClick={() => setViewAllMaximized((current) => !current)} title={viewAllMaximized ? "Restore window size" : "Maximize to full screen"} aria-label={viewAllMaximized ? "Restore window size" : "Maximize to full screen"} style={{ border: "1px solid #dbe3ef", background: "#f8fafc", color: COLORS.navy, borderRadius: 8, minWidth: 34, height: 32, padding: "0 8px", fontSize: 16, cursor: "pointer", lineHeight: 1 }}>{viewAllMaximized ? <Minimize2 size={16} strokeWidth={1.8} /> : <Maximize2 size={16} strokeWidth={1.8} />}</button>
                             <button type="button" onClick={() => { setViewAll(""); setViewAllMaximized(false); }} title="Close" aria-label="Close View All" style={{ border: "1px solid #dbe3ef", background: "#fff", color: COLORS.navy, borderRadius: 8, width: 32, height: 32, display: "grid", placeItems: "center", cursor: "pointer" }}><X size={16} strokeWidth={1.8} /></button>
                         </div>
                     </div>
-                    <div className="no-print mfg-filter-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr)) auto", alignItems: "end", gap: 7, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: "#fff" }}>
-                        {legalGroups.length > 0 && <MultiSelectFilter label="Legal Group" value={viewAllFilters.legalGroup} onChange={v => updateViewAll("legalGroup", v)} options={viewGroups} />}
-                        {legalEntities.length > 0 && <MultiSelectFilter label="Legal Entity" value={viewAllFilters.legalEntity} onChange={v => updateViewAll("legalEntity", v)} options={viewAllLegalEntities} />}
+                    <div className="no-print mfg-filter-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr)) auto", alignItems: "end", gap: 7, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: "#fff" }}>
+                        <MultiSelectFilter label="Legal Group" value={viewAllFilters.legalGroup} onChange={v => updateViewAll("legalGroup", v)} options={viewGroups} />
+                        <MultiSelectFilter label="Legal Entity" value={viewAllFilters.legalEntity} onChange={v => updateViewAll("legalEntity", v)} options={viewAllLegalEntities} />
                         <MultiSelectFilter label="Parent Division" value={viewAllFilters.parent} onChange={v => updateViewAll("parent", v)} options={viewAllParentDivisions} />
                         <MultiSelectFilter label="Sub-Division" value={viewAllFilters.sub} onChange={v => updateViewAll("sub", v)} options={viewAllSubdivisions} />
                         <Filter label="Year" value={viewAllFilters.year} onChange={v => updateViewAll("year", v)} options={[...new Set([viewAllFilters.year, ...(viewAllFilterOptions.years.length ? viewAllFilterOptions.years : filterOptions.years).map((x) => String(idOf(x)))].filter(Boolean))]} />
-                        <Filter label="Period" value={viewAllFilters.period} onChange={v => updateViewAll("period", v)} options={[...new Set([viewAllFilters.period, ...(viewAllFilterOptions.periods.length ? viewAllFilterOptions.periods : filterOptions.periods).map(labelOf), ...monthsForYear(viewAllFilters.year)].filter(Boolean))]} />
+                        <Filter label="Period" value={viewAllFilters.period} onChange={v => updateViewAll("period", v)} options={sortPeriodsChronologically(viewAllFilterOptions.periods.length ? viewAllFilterOptions.periods : filterOptions.periods, viewAllFilters.year)} hidePlaceholder />
                         <Filter label="Reporting Currency" value={viewAllFilters.currency} onChange={v => updateViewAll("currency", v)} options={["AED", "USD", "EUR", "GBP"]} />
                         <div className="mfg-filter-actions" style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
-                            <button type="button" onClick={applyViewAllFilters} style={{ ...filterActionStyle, height: 33, border: "1px solid #5B3FE4", background: "#5B3FE4", color: "#fff", padding: "0 12px" }}>Apply</button>
-                            <button type="button" onClick={() => { const fj = viewGroups.find((x) => /\bfj\s*group\b/i.test(labelOf(x))); const marked = viewGroups.find((x) => x?.is_default || x?.default); const resetValues = { ...FILTER_DEFAULTS, legalGroup: (fj || marked) ? [String(idOf(fj || marked))] : [] }; setViewAllFilters(resetValues); setSearch(""); openViewAll(viewAll || "category-breakdown", "", resetValues); }} style={{ ...filterActionStyle, height: 33, border: 0, background: "transparent", color: "#475569", padding: "0 7px" }}>Reset</button>
+                            <button type="button" onClick={applyViewAllFilters} disabled={detailLoading} style={{ ...filterActionStyle, height: 33, border: "1px solid #5B3FE4", background: detailLoading ? "#8b7bf0" : "#5B3FE4", color: "#fff", padding: "0 12px", opacity: detailLoading ? .9 : 1, cursor: detailLoading ? "wait" : "pointer" }}>{detailLoading ? "Applying…" : "Apply"}</button>
+                            <button type="button" onClick={() => { const fj = viewGroups.find((x) => /\bfj\s*group\b/i.test(labelOf(x))); const marked = viewGroups.find((x) => x?.is_default || x?.default); const resetValues = { ...FILTER_DEFAULTS, legalGroup: (fj || marked) ? [String(idOf(fj || marked))] : [] }; viewAllFiltersRef.current = resetValues; setViewAllFilters(resetValues); setSearch(""); openViewAll(viewAll || "category-breakdown", "", resetValues); }} style={{ ...filterActionStyle, height: 33, border: 0, background: "transparent", color: "#475569", padding: "0 7px" }}>Reset</button>
                         </div>
                     </div>
                     <div className="no-print" style={{ padding: "10px 16px", display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", borderBottom: `1px solid ${COLORS.border}`, background: "#f8fafc" }}>
@@ -1706,18 +2318,37 @@ export default function ManufacturingCostDashboard() {
                         </div>
                     </div>
                     {detailLoading && <div style={{ padding: 12, fontSize: 12, color: COLORS.muted }}>Loading report details…</div>}
-                    <div className="mfg-modal-table-wrap" style={{ overflow: "auto", padding: "0 16px 12px" }}>
+                    <div className="mfg-modal-table-wrap" style={{ overflow: "auto", padding: "0 16px 0", marginBottom: 0, paddingBottom: 0 }}>
                         <table className="mfg-modal-table" style={{ width: "100%", tableLayout: "auto", borderCollapse: "separate", borderSpacing: 0, minWidth: viewAll === "monthly-trend" ? 1100 : viewAll === "production-overhead-monthly" ? Math.max(1100, 190 + productionOverheadMonths.length * 100 + 420) : (viewAll === "category-breakdown" || viewAll === "category-detail" ? 1120 : 720), fontSize: 11 }}>
                             <thead style={{ position: "sticky", top: 0, zIndex: 3 }}><tr>{viewAllHeaders.map((h, i) => {
                                 const firstNumericColumn = viewAll === "production-overhead-monthly" ? 1 : viewAll === "monthly-trend" ? 1 : viewAll === "category-detail" ? 5 : viewAll === "category-breakdown" ? 4 : 1;
                                 const numericColumn = i >= firstNumericColumn;
-                                return <th key={h} className={viewAll === "production-overhead-monthly" && i === 0 ? "mfg-sticky-first-col" : undefined} scope="col" title={h} style={{ position: "sticky", top: 0, left: viewAll === "production-overhead-monthly" && i === 0 ? 0 : undefined, zIndex: viewAll === "production-overhead-monthly" && i === 0 ? 7 : 3, background: "#f1f5f9", color: "#061b49", textAlign: numericColumn ? "right" : "left", padding: "11px 9px", borderBottom: "2px solid #dbe3ef", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", textTransform: "uppercase", letterSpacing: ".025em", fontWeight: 850, lineHeight: 1.25, fontVariantNumeric: "tabular-nums", minWidth: viewAll === "production-overhead-monthly" && i === 0 ? 190 : undefined, maxWidth: viewAll === "production-overhead-monthly" && i === 0 ? 220 : undefined }}>{h}</th>;
+                                return <th key={h} className={i === 0 ? "mfg-sticky-first-col" : undefined} scope="col" title={h} style={{ position: "sticky", top: 0, left: i === 0 ? 0 : undefined, zIndex: i === 0 ? 7 : 3, background: "#f1f5f9", color: "#061b49", textAlign: numericColumn ? "right" : "left", padding: "11px 9px", borderBottom: "2px solid #dbe3ef", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", textTransform: "uppercase", letterSpacing: ".025em", fontWeight: 850, lineHeight: 1.25, fontVariantNumeric: "tabular-nums", minWidth: viewAll === "production-overhead-monthly" && i === 0 ? 190 : undefined, maxWidth: viewAll === "production-overhead-monthly" && i === 0 ? 220 : undefined }}>{h}</th>;
                             })}</tr></thead>
-                            <tbody>{pagedViewAllRows.map((r, idx) => <tr className="mfg-row" key={`${first(r.raw, ["legal_entity_id", "legal_entity_code"], r.legalEntity || "")}-${first(r.raw, ["parent_division_id", "parent_division_code"], r.parentDivision || "")}-${first(r.raw, ["subdivision_id", "subdivision_code"], r.subDivision || "")}-${first(r.raw, ["source_code", "source_id", "category_id"], r.category || "")}-${r.accountCode || ""}-${r.accountName || ""}-${idx}`} style={{ background: idx % 2 ? "#f8fafc" : "#fff" }}>{viewAll === "category-breakdown" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.category].map((v, i) => <td key={`breakdown-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : 150, maxWidth: i < 3 ? 210 : 260, lineHeight: 1.4, color: i === 3 ? COLORS.navy : "#475569", fontWeight: i === 3 ? 750 : 500 }}>{v || "—"}</td>)}</> : viewAll === "category-detail" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.accountCode, r.accountName].map((v, i) => <td key={`detail-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : i === 3 ? 105 : 180, maxWidth: i < 3 ? 210 : 280, lineHeight: 1.4, color: i >= 3 ? COLORS.navy : "#475569", fontWeight: i >= 3 ? 650 : 500 }}>{v || "—"}</td>)}</> : viewAll === "production-overhead-monthly" ? <td className="mfg-sticky-first-col" title={r.dimension || "—"} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "middle", fontWeight: 750, background: idx % 2 ? "#f8fafc" : "#fff", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", lineHeight: 1.35, minWidth: 190, maxWidth: 220 }}>{r.dimension || r.category || "—"}</td> : <td style={{ padding: "10px 9px", fontWeight: 750, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{r.category}</td>}{(viewAll === "monthly-trend" ? [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd, r.overheadActual, r.overheadTarget, r.overheadVariance] : viewAll === "production-overhead-monthly" ? [...productionOverheadMonths.map((month) => r[`month__${month}`]), r.actualPtd, r.targetPtd, r.variancePtd, r.actualPtd != null && r.targetPtd != null && r.targetPtd !== 0 ? (r.variancePtd / Math.abs(r.targetPtd)) * 100 : null] : [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd]).map((v, i) => <td key={i} style={{ padding: "10px 9px", textAlign: "right", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap", color: (viewAll === "monthly-trend" ? [2, 5, 8].includes(i) : viewAll === "production-overhead-monthly" ? i >= productionOverheadMonths.length + 2 : [2, 5].includes(i))
+                            <tbody>{pagedViewAllRows.map((r, idx) => <tr className="mfg-row" key={`${first(r.raw, ["legal_entity_id", "legal_entity_code"], r.legalEntity || "")}-${first(r.raw, ["parent_division_id", "parent_division_code"], r.parentDivision || "")}-${first(r.raw, ["subdivision_id", "subdivision_code"], r.subDivision || "")}-${first(r.raw, ["source_code", "source_id", "category_id"], r.category || "")}-${r.accountCode || ""}-${r.accountName || ""}-${idx}`} style={{ background: idx % 2 ? "#f8fafc" : "#fff" }}>{viewAll === "category-breakdown" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.category].map((v, i) => <td key={`breakdown-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : 150, maxWidth: i < 3 ? 210 : 260, lineHeight: 1.4, color: i === 3 ? COLORS.navy : "#475569", fontWeight: i === 3 ? 750 : 500 }}>{v || "—"}</td>)}</> : viewAll === "category-detail" ? <>{[r.legalEntity, r.parentDivision, r.subDivision, r.accountCode, r.accountName].map((v, i) => <td key={`detail-${i}`} title={v} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "top", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", minWidth: i === 0 ? 145 : i === 1 ? 145 : i === 2 ? 135 : i === 3 ? 105 : 180, maxWidth: i < 3 ? 210 : 280, lineHeight: 1.4, color: i >= 3 ? COLORS.navy : "#475569", fontWeight: i >= 3 ? 650 : 500 }}>{v || "—"}</td>)}</> : viewAll === "production-overhead-monthly" ? <td className="mfg-sticky-first-col" title={r.dimension || "—"} style={{ padding: "10px 9px", textAlign: "left", verticalAlign: "middle", fontWeight: 750, background: idx % 2 ? "#f8fafc" : "#fff", borderBottom: "1px solid #e2e8f0", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", lineHeight: 1.35, minWidth: 190, maxWidth: 220 }}>{r.dimension || r.category || "—"}</td> : <td style={{ padding: "10px 9px", fontWeight: 750, borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{r.category}</td>}{(viewAll === "monthly-trend" ? [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd, r.overheadActual, r.overheadTarget, r.overheadVariance] : viewAll === "production-overhead-monthly" ? [...productionOverheadMonths.map((month) => r[`month__${month}`]), r.actualPtd, r.targetPtd, r.variancePtd, r.actualPtd != null && r.targetPtd != null && r.targetPtd !== 0 ? (r.variancePtd / Math.abs(r.targetPtd)) * 100 : null] : [r.actualPtd, r.targetPtd, r.variancePtd, r.actualYtd, r.targetYtd, r.varianceYtd]).map((v, i) => <td key={i} style={{
+                                padding: "10px 9px", textAlign: "right", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap", color: (viewAll === "monthly-trend" ? [2, 5, 8].includes(i) : viewAll === "production-overhead-monthly" ? i >= productionOverheadMonths.length + 2 : [2, 5].includes(i))
                                     ? (v == null ? "#64748b" : (viewAll === "category-breakdown" || viewAll === "category-detail")
-                                        ? varianceColor(i === 2 ? r.varianceStatusPtd : r.varianceStatusYtd, v, !/absorption/i.test(r.category))
-                                        : v <= 0 ? "#15803d" : "#dc2626")
-                                    : "#334155", fontWeight: viewAll === "production-overhead-monthly" ? (i >= productionOverheadMonths.length + 2 ? 750 : 500) : (viewAll === "monthly-trend" ? [2, 5, 8].includes(i) : [2, 5].includes(i)) ? 750 : 500 }}>{viewAll === "production-overhead-monthly" && i === productionOverheadMonths.length + 3 ? (v == null ? "—" : `${Number(v).toFixed(1)}%`) : formatViewAllValue(v, viewAll, viewAllUnit)}</td>)}</tr>)}</tbody>
+                                        ? (numberOrNull(v) == null || Number(v) === 0 ? "#64748b" : Number(v) > 0 ? "#15803d" : "#dc2626")
+                                        : (numberOrNull(v) == null || Number(v) === 0 ? "#64748b" : Number(v) > 0 ? "#15803d" : "#dc2626"))
+                                    : "#334155", fontWeight: viewAll === "production-overhead-monthly" ? (i >= productionOverheadMonths.length + 2 ? 750 : 500) : (viewAll === "monthly-trend" ? [2, 5, 8].includes(i) : [2, 5].includes(i)) ? 750 : 500
+                            }}>{viewAll === "production-overhead-monthly" && i === productionOverheadMonths.length + 3 ? (v == null ? "—" : `${Number(v).toFixed(1)}%`) : formatViewAllValue(v, viewAll, viewAllUnit)}</td>)}</tr>)}</tbody>
+                            {viewAll === "monthly-trend" && <tfoot><tr>
+                                {monthlyTrendTotalRow.map((value, index) => <td key={`monthly-trend-total-${index}`} className={index === 0 ? "mfg-sticky-first-col" : undefined} style={{ position: "sticky", bottom: 0, left: index === 0 ? 0 : undefined, zIndex: index === 0 ? 8 : 6, background: "#e8eef8", borderTop: "2px solid #94a3b8", boxShadow: "0 -3px 8px rgba(15,23,42,.06)", padding: "10px 9px", textAlign: index ? "right" : "left", fontWeight: 900, color: index === 0 ? COLORS.navy : [3, 6, 9].includes(index) ? (value == null ? COLORS.navy : value <= 0 ? "#15803d" : "#dc2626") : COLORS.navy, whiteSpace: "nowrap" }}>
+                                    {index === 0 ? value : value == null ? "—" : formatViewAllValue(value, viewAll, viewAllUnit)}
+                                </td>)}
+                            </tr></tfoot>}
+                            {viewAll === "production-overhead-monthly" && <tfoot><tr>
+                                {[
+                                    "Total",
+                                    ...productionOverheadTotalRow.months,
+                                    productionOverheadTotalRow.actual,
+                                    productionOverheadTotalRow.target,
+                                    productionOverheadTotalRow.variance,
+                                    productionOverheadTotalVariancePct,
+                                ].map((value, index) => <td key={`production-overhead-total-${index}`} className={index === 0 ? "mfg-sticky-first-col" : undefined} style={{ position: "sticky", bottom: 0, left: index === 0 ? 0 : undefined, zIndex: index === 0 ? 8 : 6, background: "#e8eef8", borderTop: "2px solid #94a3b8", boxShadow: "0 -3px 8px rgba(15,23,42,.06)", padding: "11px 9px", textAlign: index ? "right" : "left", fontWeight: 900, color: index === 0 ? COLORS.navy : index === productionOverheadMonths.length + 3 ? (value == null ? COLORS.navy : value <= 0 ? "#15803d" : "#dc2626") : COLORS.navy, whiteSpace: "nowrap" }}>
+                                    {index === 0 ? value : value == null ? "—" : index === productionOverheadMonths.length + 4 ? `${Number(value).toFixed(1)}%` : formatViewAllValue(value, viewAll, viewAllUnit)}
+                                </td>)}
+                            </tr></tfoot>}
                             {!(["monthly-trend", "production-overhead-monthly"].includes(viewAll)) && <tfoot><tr>{[
                                 viewAll === "category-breakdown" ? "Net Cost of Sales" : "Category Total",
                                 ...(viewAll === "category-detail" ? ["", "", "", ""] : ["", "", ""]),
@@ -1726,7 +2357,7 @@ export default function ManufacturingCostDashboard() {
                                     const value = numberOrNull(first(viewAllTotals?.ytd, [key, `${key}_reporting_currency`, `${key}_amount`]));
                                     return value == null ? null : value;
                                 })
-                            ].map((v, i) => <td key={i} style={{ position: "sticky", bottom: 0, zIndex: 4, background: "#f1f5f9", borderTop: "2px solid #cbd5e1", padding: "11px 9px", textAlign: i ? "right" : "left", fontWeight: 900, color: i === 3 || i === 6 ? (v == null ? COLORS.navy : v <= 0 ? "#15803d" : "#dc2626") : COLORS.navy, whiteSpace: "nowrap" }}>{i === 0 ? v : v == null ? "—" : formatViewAllValue(v, viewAll, viewAllUnit)}</td>)}</tr></tfoot>}
+                            ].map((v, i) => <td key={i} className={i === 0 ? "mfg-sticky-first-col" : undefined} style={{ position: "sticky", bottom: 0, left: i === 0 ? 0 : undefined, zIndex: i === 0 ? 8 : 6, background: "#f1f5f9", borderTop: "2px solid #cbd5e1", padding: "11px 9px", textAlign: i ? "right" : "left", fontWeight: 900, color: i === 3 || i === 6 ? (v == null ? COLORS.navy : v <= 0 ? "#15803d" : "#dc2626") : COLORS.navy, whiteSpace: "nowrap" }}>{i === 0 ? v : v == null ? "—" : formatViewAllValue(v, viewAll, viewAllUnit)}</td>)}</tr></tfoot>}
                         </table>
                     </div>
                     <div style={{ padding: "9px 18px", borderTop: `1px solid ${COLORS.border}`, background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontSize: 11, color: COLORS.muted }}>
