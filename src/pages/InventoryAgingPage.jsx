@@ -1,4 +1,4 @@
-/* ================================================================
+﻿/* ================================================================
    DATE FORMAT HELPERS
    ================================================================ */
 function formatDisplayDateGlobal(d, fallback = null) {
@@ -111,7 +111,7 @@ import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Box, Coins, BarChart3, Clock, AlertTriangle, Percent, RotateCw, Calendar, Target, Scale, Info, ChevronDown } from "lucide-react";
 import useFullscreen from "../hooks/useFullscreen";
 import FullscreenToggleButton from "../components/Common/FullscreenToggleButton";
-import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
+import { getInventoryFilters, getInventoryDashboard, getInventorySummary, getInventorySubDivisionWise, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
@@ -1684,7 +1684,7 @@ const [loading, setLoading] = useState(true);
               page_size: 500,
           };
 
-          const [filterRes, dashRes, detailsRes, momRes, divWiseRes, trendViewAllRes] = await Promise.all([
+          const [filterRes, dashRes, detailsRes, momRes, divWiseRes, trendViewAllRes, kpiRes, subDivWiseRes] = await Promise.all([
               getInventoryFilters(apiFilters).catch(() => ({ data: {} })),
               getInventoryDashboard(apiFilters).catch(() => ({ data: {} })),
               getInventoryDetails(detailsApiFilters).catch(() => ({ data: { items: [] } })),
@@ -1694,7 +1694,9 @@ const [loading, setLoading] = useState(true);
                   metric: 'slow_moving' 
               }).catch(() => ({ data: { rows: [] } })),
               getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } })),
-              getInventoryDetails({ ...apiFilters, section: 'trend' }).catch(() => ({ data: { rows: [] } }))
+              getInventoryDetails({ ...apiFilters, section: 'trend' }).catch(() => ({ data: { rows: [] } })),
+              getInventorySummary(apiFilters).catch(() => ({ data: {} })),
+              getInventorySubDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } })),
           ]);
 
           // Guard against race conditions: if a newer loadData request started, ignore this stale response
@@ -1712,10 +1714,11 @@ const [loading, setLoading] = useState(true);
           
           const fData = filterRes.data?.data || filterRes.data || {};
           const dData = dashRes.data?.data || dashRes.data || {};
+          const kData = kpiRes?.data?.data || kpiRes?.data || {};
 
               
                             let kpis = [];
-              const rawKpiSource = dData.kpis || {};
+              const rawKpiSource = { ...kData, ...(dData.kpis || {}) };
               const prevSnapshotDate = rawKpiSource.previous_as_on_date 
                   || rawKpiSource.previous_date 
                   || dData.previous_as_on_date 
@@ -1755,10 +1758,16 @@ const [loading, setLoading] = useState(true);
 
               // 8, 9, 10. DIO (real from API), Target DIO, DIO Variance
               const rawDio = rawKpiSource.dio_days;
-              const targetDio = rawKpiSource.target_dio;
-              const dioVarianceDays = (rawDio !== undefined && rawDio !== null && targetDio !== undefined && targetDio !== null) 
-                ? Math.round(Number(rawDio) - Number(targetDio)) 
-                : null;
+              // Prefer new backend field target_dio_days; fall back to old target_dio if absent
+              const targetDio = rawKpiSource.target_dio_days ?? rawKpiSource.target_dio;
+              // Prefer backend-computed variance; fall back to frontend calculation
+              const dioVarianceDays = rawKpiSource.dio_variance_days !== undefined && rawKpiSource.dio_variance_days !== null
+                ? Math.round(Number(rawKpiSource.dio_variance_days))
+                : ((rawDio !== undefined && rawDio !== null && targetDio !== undefined && targetDio !== null)
+                  ? Math.round(Number(rawDio) - Number(targetDio))
+                  : null);
+              // DIO target status from backend: 'ABOVE_TARGET' | 'ON_TARGET' (uppercase)
+              const dioTargetStatus = rawKpiSource.dio_target_status ? String(rawKpiSource.dio_target_status).toUpperCase() : null;
 
               kpis = [
                   // Row 1
@@ -2025,12 +2034,24 @@ const [loading, setLoading] = useState(true);
 
               let allSubdivisions = [];
               let bySubdivision = [];
-              if (dData.by_subdivision) {
-                  allSubdivisions = dData.by_subdivision.map((item) => ({
+              const rawSubdivSource = Array.isArray(subDivWiseRes?.data?.items) && subDivWiseRes.data.items.length > 0
+                ? subDivWiseRes.data.items
+                : (Array.isArray(dData.by_subdivision) ? dData.by_subdivision : []);
+
+              if (rawSubdivSource && rawSubdivSource.length > 0) {
+                  allSubdivisions = rawSubdivSource.map((item) => ({
                       ...item,
                       subdivision_id: item.subdivision_id ?? item.id ?? (typeof item.subdivision_name === 'object' ? item.subdivision_name?.id : undefined),
                       name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : (item.subdivision_name || item.sub_division_name),
-                      value: Number(item.inventory_value) / 10000000,
+                      parent_division: item.parent_division || item.parent_division_name || (typeof item.parent_division_name === 'object' ? item.parent_division_name?.name : "-"),
+                      parent_division_name: item.parent_division_name || item.parent_division || "-",
+                      value: Number(item.inventory_value || 0) / 10000000,
+                      inventory_value: Number(item.inventory_value || 0),
+                      current_0_180: item.current_0_180 !== undefined && item.current_0_180 !== null ? Number(item.current_0_180) : undefined,
+                      slow_moving_181_365: item.slow_moving_181_365 !== undefined && item.slow_moving_181_365 !== null ? Number(item.slow_moving_181_365) : undefined,
+                      obsolete_above_365: item.obsolete_above_365 !== undefined && item.obsolete_above_365 !== null ? Number(item.obsolete_above_365) : undefined,
+                      obsolete_percentage: item.obsolete_percentage !== undefined && item.obsolete_percentage !== null ? Number(item.obsolete_percentage) : undefined,
+                      quantity: Number(item.quantity || 0),
                       percentage: Number(item.percentage_of_total || 0),
                   })).sort((a,b) => b.value - a.value);
 
@@ -2434,6 +2455,20 @@ const [loading, setLoading] = useState(true);
         else if (viewAllModal === "parentDivision") section = "parent-divisions";
         else if (viewAllModal === "slowMoving") section = "slow-moving";
 
+        if (viewAllModal === "subdivision") {
+          try {
+            const subRes = await getInventorySubDivisionWise({ ...apiFilters, limit: 500 });
+            if (active) {
+              const items = subRes.data?.items || subRes.data?.rows || (Array.isArray(subRes.data) ? subRes.data : []);
+              if (items.length > 0) {
+                setViewAllData(items);
+              }
+            }
+          } catch (e) {
+            console.error('[Subdivision] viewAll error', e);
+          }
+        }
+
         // Determine MoM metric: parentDivision origin always uses total_inventory; slowMoving / momObsolete use slow_moving
         const momMetric = (viewAllSection === "parentDivision") ? "total_inventory" : "slow_moving";
         const needsMom = viewAllModal === "parentDivision" || viewAllModal === "slowMoving" ||
@@ -2650,6 +2685,9 @@ const [loading, setLoading] = useState(true);
       row2Right = <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>;
     }
 
+    const isDioStatus = Boolean(item.dioTargetStatus);
+    const isAboveTarget = item.dioTargetStatus === "ABOVE_TARGET" || item.dioTargetStatus === "ABOVE TARGET";
+
     return (
       <div
         onMouseEnter={() => setHover(true)}
@@ -2670,6 +2708,39 @@ const [loading, setLoading] = useState(true);
           cursor: "default",
         }}
       >
+        {isDioStatus && (
+          <div
+            style={{
+              position: "absolute",
+              top: 7,
+              right: 8,
+              fontSize: "0.56rem",
+              fontWeight: 800,
+              padding: "2px 6px",
+              borderRadius: 6,
+              letterSpacing: "0.02em",
+              background: isAboveTarget ? "#fee2e2" : "#dcfce7",
+              color: isAboveTarget ? "#dc2626" : "#16a34a",
+              border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 3.5,
+              zIndex: 2,
+            }}
+            title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
+          >
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: isAboveTarget ? "#dc2626" : "#16a34a",
+                display: "inline-block",
+              }}
+            />
+            {isAboveTarget ? "Above Target" : "On Target"}
+          </div>
+        )}
         {/* Top: Icon + Title + Value */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {/* Round Icon Circle */}
@@ -3997,6 +4068,22 @@ const [loading, setLoading] = useState(true);
                 {typeof hoveredSubdiv.percentage === "number" ? `${Math.round(hoveredSubdiv.percentage)}%` : (hoveredSubdiv.percentage || "0%")}
               </span>
             </div>
+            {hoveredSubdiv.current_0_180 !== undefined && (
+              <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed #e2e8f0", display: "flex", flexDirection: "column", gap: 3, fontSize: "0.68rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#16a34a", fontWeight: 600 }}>Current (0-180d)</span>
+                  <span style={{ fontWeight: 700, color: "#1e293b" }}>{formatChartValueCompact(hoveredSubdiv.current_0_180, currentCurrency)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#ea580c", fontWeight: 600 }}>Slow (181-365d)</span>
+                  <span style={{ fontWeight: 700, color: "#1e293b" }}>{formatChartValueCompact(hoveredSubdiv.slow_moving_181_365 || 0, currentCurrency)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#dc2626", fontWeight: 600 }}>Obsolete (&gt;365d)</span>
+                  <span style={{ fontWeight: 700, color: "#dc2626" }}>{formatChartValueCompact(hoveredSubdiv.obsolete_above_365 || 0, currentCurrency)} ({Number(hoveredSubdiv.obsolete_percentage || 0).toFixed(1)}%)</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -6771,11 +6858,20 @@ const detailsSource = modalFilteredDetails || [];
                           const subQty = Number(sub.quantity || sub.qty || 0);
                           const parentDiv = sub.parent_division || sub.parent_division_name || "-";
                           
-                          const currentVal = Number(sub.aging_0_30 || Math.round(subVal * 0.45));
-                          const slowVal = Number(sub.aging_91_120 || 0) + Number(sub.aging_121_180 || 0) + Number(sub.aging_181_365 || 0) || Math.round(subVal * 0.15);
-                          const obsVal = Number(sub.aging_366_730 || 0) + Number(sub.aging_above_730 || 0) || Math.round(subVal * 0.08);
+                          // Prefer real backend breakdown fields; fall back to estimates only if absent
+                          const currentVal = sub.current_0_180 !== undefined && sub.current_0_180 !== null
+                            ? Number(sub.current_0_180)
+                            : Number(sub.aging_0_30 || Math.round(subVal * 0.45));
+                          const slowVal = sub.slow_moving_181_365 !== undefined && sub.slow_moving_181_365 !== null
+                            ? Number(sub.slow_moving_181_365)
+                            : (Number(sub.aging_91_120 || 0) + Number(sub.aging_121_180 || 0) + Number(sub.aging_181_365 || 0) || Math.round(subVal * 0.15));
+                          const obsVal = sub.obsolete_above_365 !== undefined && sub.obsolete_above_365 !== null
+                            ? Number(sub.obsolete_above_365)
+                            : (Number(sub.aging_366_730 || 0) + Number(sub.aging_above_730 || 0) || Math.round(subVal * 0.08));
                           
-                          const pctObs = subVal > 0 ? (obsVal / subVal) * 100 : 0;
+                          const pctObs = sub.obsolete_percentage !== undefined && sub.obsolete_percentage !== null
+                            ? Number(sub.obsolete_percentage)
+                            : (subVal > 0 ? (obsVal / subVal) * 100 : 0);
                           const pctTotal = totalInventoryVal > 0 ? (subVal / totalInventoryVal) * 100 : Number(sub.percentage || 0);
                           
                           const isFiltered = viewAllDetailFilters.subdivision_id && (
@@ -8514,6 +8610,11 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       </div>
     );
   };
+
+
+
+
+
 
 
 
