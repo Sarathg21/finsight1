@@ -45,17 +45,19 @@ const MASTER_NAV_CATALOG = [
   // Overview
   { to: '/exec-dashboard',      label: 'Executive Dashboard',  pinned: true, group: 'Overview'          },
 
-  // Financial Reports
-  { to: '/pl',                  label: 'P&L Report',                         group: 'Financial Reports'  },
-  { to: '/balance-sheet',       label: 'Balance Sheet',                      group: 'Financial Reports'  },
-  { to: '/operating-expenses',  label: 'Operating Expenses',                 group: 'Financial Reports'  },
-  { to: '/revenue',             label: 'Sales Revenue',                      group: 'Financial Reports'  },
-  { to: '/receivables',         label: 'Receivables Report',                 group: 'Financial Reports'  },
-  { to: '/payables',            label: 'Payables Report',                    group: 'Financial Reports'  },
-  { to: '/inventory',           label: 'Inventory Overview',                 group: 'Financial Reports'  },
-  { to: '/WorkingCapital',      label: 'Working Capital Report',             group: 'Financial Reports'  },
-  { to: '/financial-position',  label: 'Financial Position',                 group: 'Financial Reports'  },
-  { to: '/manufacturing-cost',  label: 'Manufacturing Cost',                 group: 'Financial Reports'  },
+  // Operational Performance
+  { to: '/revenue',             label: 'Sales Revenue',                      group: 'Operational Performance' },
+  { to: '/manufacturing-cost',  label: 'Manufacturing Cost',                 group: 'Operational Performance' },
+  { to: '/operating-expenses',  label: 'Operating Expenses',                 group: 'Operational Performance' },
+  { to: '/pl',                  label: 'P&L Report',                         group: 'Operational Performance' },
+
+  // Financial Performance
+  { to: '/receivables',         label: 'Receivables Report',                 group: 'Financial Performance'   },
+  { to: '/inventory',           label: 'Inventory Overview',                 group: 'Financial Performance'   },
+  { to: '/payables',            label: 'Payable Report',                     group: 'Financial Performance'   },
+  { to: '/WorkingCapital',      label: 'Working Capital Report',             group: 'Financial Performance'   },
+  { to: '/financial-position',  label: 'Financial Position',                 group: 'Financial Performance'   },
+  { to: '/balance-sheet',       label: 'Balance Sheet',                      group: 'Financial Performance'   },
 
   // Admin
   { to: '/admin/dashboard',     label: 'Dashboard',                          group: 'Admin'              },
@@ -146,7 +148,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
   /* Filter by search query */
   const filtered = query.trim()
-    ? permittedNavItems.filter(i => i.label.toLowerCase().includes(query.toLowerCase()))
+    ? permittedNavItems.filter(i =>
+        i.label.toLowerCase().includes(query.toLowerCase()) ||
+        (i.to && i.to.toLowerCase().includes(query.toLowerCase()))
+      )
     : permittedNavItems;
 
   /* Group filtered items */
