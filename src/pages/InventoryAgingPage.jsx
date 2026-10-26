@@ -1189,7 +1189,7 @@ const [loading, setLoading] = useState(true);
       iconBg: "#dbeafe",
       iconColor: "#2563eb",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
       lowerIsBetter: true,
       previousDate: null,
     },
@@ -1202,11 +1202,15 @@ const [loading, setLoading] = useState(true);
       icon: BarChart3,
       iconBg: "#ede9fe",
       iconColor: "#7c3aed",
-      targetVariance: null,
-      lastMonthVariance: null,
+      hasTargetDetails: true,
+      targetValue: null,
+      targetVarianceAmount: null,
+      targetVariancePct: null,
       targetLowerIsBetter: true,
-      lastMonthLowerIsBetter: false,
-      lowerIsBetter: false,
+      momVariance: null,
+      momLowerIsBetter: true,
+      lowerIsBetter: true,
+      refDateBadge: null,
       previousDate: null,
     },
     {
@@ -1219,9 +1223,9 @@ const [loading, setLoading] = useState(true);
       iconBg: "#dcfce7",
       iconColor: "#16a34a",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
       targetLowerIsBetter: true,
-      lastMonthLowerIsBetter: false,
+      momLowerIsBetter: false,
       lowerIsBetter: false,
       previousDate: null,
     },
@@ -1235,7 +1239,7 @@ const [loading, setLoading] = useState(true);
       iconBg: "#fef3c7",
       iconColor: "#d97706",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
       lowerIsBetter: true,
       previousDate: null,
     },
@@ -1249,7 +1253,7 @@ const [loading, setLoading] = useState(true);
       iconBg: "#fee2e2",
       iconColor: "#dc2626",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
       lowerIsBetter: true,
       previousDate: null,
     },
@@ -1263,7 +1267,8 @@ const [loading, setLoading] = useState(true);
       iconBg: "#ffedd5",
       iconColor: "#ea580c",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
+      momUnit: "pp",
       isPercentage: true,
       lowerIsBetter: true,
       previousDate: null,
@@ -1278,7 +1283,9 @@ const [loading, setLoading] = useState(true);
       iconBg: "#fef3c7",
       iconColor: "#b45309",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
+      momLowerIsBetter: false,
+      refDateBadge: null,
       lowerIsBetter: false,
       previousDate: null,
     },
@@ -1291,8 +1298,15 @@ const [loading, setLoading] = useState(true);
       icon: Calendar,
       iconBg: "#dcfce7",
       iconColor: "#16a34a",
-      targetVariance: null,
-      lastMonthVariance: null,
+      hasTargetDetails: true,
+      targetValue: null,
+      targetVarianceAmount: null,
+      targetVariancePct: null,
+      targetLowerIsBetter: true,
+      momVariance: null,
+      momLowerIsBetter: true,
+      refDateBadge: null,
+      dioTargetStatus: null,
       lowerIsBetter: true,
       previousDate: null,
     },
@@ -1306,7 +1320,9 @@ const [loading, setLoading] = useState(true);
       iconBg: "#dbeafe",
       iconColor: "#2563eb",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
+      refDateBadge: null,
+      dioTargetStatus: null,
       lowerIsBetter: true,
       previousDate: null,
     },
@@ -1320,7 +1336,10 @@ const [loading, setLoading] = useState(true);
       iconBg: "#fce7f3",
       iconColor: "#db2777",
       targetVariance: null,
-      lastMonthVariance: null,
+      momVariance: null,
+      momUnit: "Days",
+      refDateBadge: null,
+      dioTargetStatus: null,
       lowerIsBetter: true,
       previousDate: null,
     },
@@ -1360,15 +1379,29 @@ const [loading, setLoading] = useState(true);
 
   const currentCurrency = (appliedFilters.currency && appliedFilters.currency !== "All") ? appliedFilters.currency : (mockData.reporting_currency || "AED");
 
-  const fmtAED = (v) => {
+  const fmtAED = (v, withSign = false) => {
       if (v === null || v === undefined) return "—";
       const n = Number(v);
       if (isNaN(n)) return "—";
       const cur = currentCurrency;
-      if (Math.abs(n) >= 1_000_000_000) return `${cur} ${(n / 1_000_000_000).toFixed(2)}B`;
-      if (Math.abs(n) >= 1_000_000) return `${cur} ${(n / 1_000_000).toFixed(2)}M`;
-      if (Math.abs(n) >= 1_000) return `${cur} ${(n / 1_000).toFixed(1)}K`;
-      return `${cur} ${Math.round(n).toLocaleString()}`;
+      const sign = withSign && n > 0 ? "+" : (n < 0 ? "-" : "");
+      const absN = Math.abs(n);
+      if (absN >= 1_000_000_000) return `${sign}${cur} ${(absN / 1_000_000_000).toFixed(2)}B`;
+      if (absN >= 1_000_000) return `${sign}${cur} ${(absN / 1_000_000).toFixed(2)}M`;
+      if (absN >= 1_000) return `${sign}${cur} ${(absN / 1_000).toFixed(1)}K`;
+      return `${sign}${cur} ${Math.round(absN).toLocaleString()}`;
+  };
+
+  const formatMonthShort = (d) => {
+    if (!d) return null;
+    const s = String(d).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return s;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthIdx = parseInt(m[2], 10) - 1;
+    if (monthIdx < 0 || monthIdx > 11) return s;
+    const yr = m[1].slice(-2);
+    return `${months[monthIdx]}-${yr}`;
   };
 
   // Golden UI VarBadge convention (matches SalesRevenueReport.jsx VarBadge):
@@ -1377,27 +1410,34 @@ const [loading, setLoading] = useState(true);
   //   (applies to inventory value, overdue, DIO, obsolete stock)
   // - lowerIsBetter=false: increase is favorable (green #16a34a), decrease is unfavorable (red #dc2626)
   //   (applies to turnover, collection efficiency)
-  // - isPercentage=true: formatted as Percentage Points ("PP"):
-  //   e.g. increase from 72.9% to 80.9% -> "+8.0 PP" (red), decrease -> "-8.0 PP" (green)
-  const fmtVarBadge = (val, lowerIsBetter = false, isPercentage = false) => {
+  // - unit: "%" (default), "pp" (percentage points), or "Days"
+  const fmtVarBadge = (val, lowerIsBetter = false, unit = "%", decimals = 2) => {
     if (val === null || val === undefined || val === "" || isNaN(Number(val))) {
-      return { display: "—", color: "#64748b", arrow: "" };
+      return { display: "—", color: "#64748b", arrow: "", num: null };
     }
     const n = Number(val);
+    const isPp = unit === true || unit === "pp";
+    const actualUnit = isPp ? "pp" : (unit === "Days" || unit === "days" ? "Days" : "%");
+
     if (n === 0) {
-      return { display: isPercentage ? "0.0 pp" : "0.00%", color: "#64748b", arrow: "" };
+      const zeroText = actualUnit === "pp" ? "0.00 pp" : (actualUnit === "Days" ? "0.00 Days" : "0.00%");
+      return { display: zeroText, color: "#64748b", arrow: "", num: 0 };
     }
     const isUp = n > 0;
     const isFavorable = lowerIsBetter ? !isUp : isUp;
     const color = isFavorable ? "#16a34a" : "#dc2626";
     const arrow = isUp ? "\u25B2" : "\u25BC";
+    const sign = isUp ? "+" : "-";
     
-    const formattedNum = Math.abs(n) < 0.1 && Math.abs(n) > 0 ? Math.abs(n).toFixed(2) : Math.abs(n).toFixed(1);
+    const formattedNum = Math.abs(n).toFixed(decimals);
 
-    if (isPercentage) {
-      return { display: `${formattedNum} pp`, color, arrow };
+    if (actualUnit === "pp") {
+      return { display: `${sign}${formattedNum} pp`, color, arrow, num: n };
     }
-    return { display: `${formattedNum}%`, color, arrow };
+    if (actualUnit === "Days") {
+      return { display: `${sign}${formattedNum} Days`, color, arrow, num: n };
+    }
+    return { display: `${sign}${formattedNum}%`, color, arrow, num: n };
   };
 
   const formatChartValueCompact = (value, currency = null) => {
@@ -1763,12 +1803,28 @@ const [loading, setLoading] = useState(true);
               const targetDio = rawKpiSource.target_dio_days ?? rawKpiSource.target_dio;
               // Prefer backend-computed variance; fall back to frontend calculation
               const dioVarianceDays = rawKpiSource.dio_variance_days !== undefined && rawKpiSource.dio_variance_days !== null
-                ? Math.round(Number(rawKpiSource.dio_variance_days))
+                ? Number(rawKpiSource.dio_variance_days)
                 : ((rawDio !== undefined && rawDio !== null && targetDio !== undefined && targetDio !== null)
-                  ? Math.round(Number(rawDio) - Number(targetDio))
+                  ? (Number(rawDio) - Number(targetDio))
+                  : null);
+              const dioVariancePercentage = rawKpiSource.dio_variance_percentage !== undefined && rawKpiSource.dio_variance_percentage !== null
+                ? Number(rawKpiSource.dio_variance_percentage)
+                : ((rawDio !== null && rawDio !== undefined && targetDio !== null && targetDio !== undefined && Number(targetDio) > 0)
+                  ? (((Number(rawDio) - Number(targetDio)) / Number(targetDio)) * 100)
                   : null);
               // DIO target status from backend: 'ABOVE_TARGET' | 'ON_TARGET' (uppercase)
               const dioTargetStatus = rawKpiSource.dio_target_status ? String(rawKpiSource.dio_target_status).toUpperCase() : null;
+
+              // Comparison month label & financial KPI reference date badge
+              const prevMonthLabel = formatMonthShort(rawKpiSource.previous_month_as_on_date);
+              const momLabel = prevMonthLabel ? `vs Last Month (${prevMonthLabel})` : "vs Last Month";
+              const dioRefMonth = formatMonthShort(rawKpiSource.dio_as_on_date);
+              const dioRefBadge = dioRefMonth ? `Ref: ${dioRefMonth}` : null;
+
+              // Target Average Inventory & Variance calculations
+              const targetAvgInv = rawKpiSource.target_average_inventory;
+              const avgInvVariance = rawKpiSource.average_inventory_variance;
+              const avgInvVariancePct = rawKpiSource.average_inventory_variance_percentage;
 
               kpis = [
                   // Row 1
@@ -1782,7 +1838,8 @@ const [loading, setLoading] = useState(true);
                       iconBg: "#dbeafe",
                       iconColor: "#2563eb",
                       targetVariance: rawKpiSource.total_inventory_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.total_inventory_variance ?? rawKpiSource.total_change_percentage ?? null,
+                      momVariance: rawKpiSource.total_inventory_mom_percentage ?? rawKpiSource.total_inventory_variance ?? rawKpiSource.total_change_percentage ?? null,
+                      momLabel,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
                   },
@@ -1795,11 +1852,16 @@ const [loading, setLoading] = useState(true);
                       icon: BarChart3,
                       iconBg: "#ede9fe",
                       iconColor: "#7c3aed",
-                      targetVariance: rawKpiSource.average_inventory_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.average_inventory_variance ?? rawKpiSource.average_inventory_change_percentage ?? null,
+                      hasTargetDetails: Boolean(targetAvgInv !== undefined && targetAvgInv !== null),
+                      targetValue: targetAvgInv !== undefined && targetAvgInv !== null ? fmtAED(targetAvgInv) : null,
+                      targetVarianceAmount: avgInvVariance !== undefined && avgInvVariance !== null ? fmtAED(avgInvVariance, true) : null,
+                      targetVariancePct: avgInvVariancePct ?? rawKpiSource.average_inventory_target_variance ?? null,
                       targetLowerIsBetter: true,
-                      lastMonthLowerIsBetter: false,
-                      lowerIsBetter: false,
+                      momVariance: rawKpiSource.average_inventory_mom_percentage ?? rawKpiSource.average_inventory_variance ?? rawKpiSource.average_inventory_change_percentage ?? null,
+                      momLowerIsBetter: true,
+                      momLabel,
+                      lowerIsBetter: true,
+                      refDateBadge: dioRefBadge,
                       previousDate: prevSnapshotDate,
                   },
                   {
@@ -1812,9 +1874,10 @@ const [loading, setLoading] = useState(true);
                       iconBg: "#dcfce7",
                       iconColor: "#16a34a",
                       targetVariance: rawKpiSource.current_stock_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.current_stock_variance ?? rawKpiSource.inventory_0_180_change_percentage ?? null,
+                      momVariance: rawKpiSource.current_stock_mom_percentage ?? rawKpiSource.current_stock_variance ?? rawKpiSource.inventory_0_180_change_percentage ?? null,
+                      momLowerIsBetter: false,
+                      momLabel,
                       targetLowerIsBetter: true,
-                      lastMonthLowerIsBetter: false,
                       lowerIsBetter: false,
                       previousDate: prevSnapshotDate,
                   },
@@ -1828,7 +1891,9 @@ const [loading, setLoading] = useState(true);
                       iconBg: "#fef3c7",
                       iconColor: "#d97706",
                       targetVariance: rawKpiSource.slow_moving_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.slow_moving_variance ?? rawKpiSource.slow_moving_change_percentage ?? null,
+                      momVariance: rawKpiSource.slow_moving_stock_mom_percentage ?? rawKpiSource.slow_moving_variance ?? rawKpiSource.slow_moving_change_percentage ?? null,
+                      momLowerIsBetter: true,
+                      momLabel,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
                   },
@@ -1842,7 +1907,9 @@ const [loading, setLoading] = useState(true);
                       iconBg: "#fee2e2",
                       iconColor: "#dc2626",
                       targetVariance: rawKpiSource.obsolete_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.obsolete_variance ?? rawKpiSource.above_730_change_percentage ?? null,
+                      momVariance: rawKpiSource.obsolete_stock_mom_percentage ?? rawKpiSource.obsolete_variance ?? rawKpiSource.above_730_change_percentage ?? null,
+                      momLowerIsBetter: true,
+                      momLabel,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
                   },
@@ -1858,7 +1925,10 @@ const [loading, setLoading] = useState(true);
                       iconBg: "#ffedd5",
                       iconColor: "#ea580c",
                       targetVariance: rawKpiSource.slow_obsolete_pct_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.slow_obsolete_pct_variance ?? rawKpiSource.above_365_change_percentage ?? null,
+                      momVariance: rawKpiSource.slow_obsolete_mom_percentage_points ?? rawKpiSource.slow_obsolete_pct_variance ?? rawKpiSource.above_365_change_percentage ?? null,
+                      momUnit: "pp",
+                      momLowerIsBetter: true,
+                      momLabel,
                       isPercentage: true,
                       lowerIsBetter: true,
                       previousDate: prevSnapshotDate,
@@ -1868,12 +1938,15 @@ const [loading, setLoading] = useState(true);
                       title: "Inventory Turnover",
                       titleColor: "#b45309",
                       cardBg: "#fffbeb",
-                      value: rawTurnover !== null && rawTurnover !== undefined ? `${Number(rawTurnover).toFixed(1)} Times` : "—",
+                      value: rawTurnover !== null && rawTurnover !== undefined ? `${Number(rawTurnover).toFixed(2)} Times` : "—",
                       icon: RotateCw,
                       iconBg: "#fef3c7",
                       iconColor: "#b45309",
                       targetVariance: rawKpiSource.turnover_target_variance ?? null,
-                      lastMonthVariance: rawKpiSource.turnover_variance ?? null,
+                      momVariance: rawKpiSource.inventory_turnover_mom_percentage ?? rawKpiSource.turnover_variance ?? null,
+                      momLowerIsBetter: false,
+                      momLabel,
+                      refDateBadge: dioRefBadge,
                       lowerIsBetter: false,
                       previousDate: prevSnapshotDate,
                   },
@@ -1882,15 +1955,20 @@ const [loading, setLoading] = useState(true);
                       title: "Stock Holding Days (DIO)",
                       titleColor: "#16a34a",
                       cardBg: "#f0fdf4",
-                      value: rawDio !== null && rawDio !== undefined ? `${Math.round(Number(rawDio))} Days` : "—",
+                      value: rawDio !== null && rawDio !== undefined ? `${Number(rawDio).toFixed(2)} Days` : "—",
                       icon: Calendar,
                       iconBg: "#dcfce7",
                       iconColor: "#16a34a",
-                      targetVariance: (rawDio !== null && rawDio !== undefined && targetDio !== null && targetDio !== undefined && Number(targetDio) > 0)
-                        ? (((Number(rawDio) - Number(targetDio)) / Number(targetDio)) * 100)
-                        : (rawKpiSource.dio_target_variance ?? null),
-                      lastMonthVariance: rawKpiSource.dio_days_variance ?? null,
+                      hasTargetDetails: Boolean(targetDio !== undefined && targetDio !== null),
+                      targetValue: targetDio !== null && targetDio !== undefined ? `${Number(targetDio).toFixed(2)} Days` : null,
+                      targetVarianceAmount: dioVarianceDays !== null ? `${Number(dioVarianceDays) >= 0 ? '+' : ''}${Number(dioVarianceDays).toFixed(2)} Days` : null,
+                      targetVariancePct: dioVariancePercentage,
+                      targetLowerIsBetter: true,
+                      momVariance: rawKpiSource.dio_mom_percentage ?? rawKpiSource.dio_days_variance ?? null,
+                      momLowerIsBetter: true,
+                      momLabel,
                       lowerIsBetter: true,
+                      refDateBadge: dioRefBadge,
                       previousDate: prevSnapshotDate,
                       dioTargetStatus,
                   },
@@ -1899,13 +1977,15 @@ const [loading, setLoading] = useState(true);
                       title: "Target DIO",
                       titleColor: "#2563eb",
                       cardBg: "#f0f7ff",
-                      value: targetDio !== null && targetDio !== undefined ? `${Math.round(Number(targetDio))} Days` : "—",
+                      value: targetDio !== null && targetDio !== undefined ? `${Number(targetDio).toFixed(2)} Days` : "—",
                       icon: Target,
                       iconBg: "#dbeafe",
                       iconColor: "#2563eb",
                       targetVariance: null,
-                      lastMonthVariance: null,
+                      momVariance: null,
+                      targetDisplay: "Baseline Target",
                       lowerIsBetter: true,
+                      refDateBadge: dioRefBadge,
                       previousDate: prevSnapshotDate,
                       dioTargetStatus,
                   },
@@ -1914,13 +1994,17 @@ const [loading, setLoading] = useState(true);
                       title: "DIO Variance",
                       titleColor: "#db2777",
                       cardBg: "#fdf2f8",
-                      value: dioVarianceDays !== null ? `${dioVarianceDays >= 0 ? '+' : ''}${dioVarianceDays} Days` : "—",
+                      value: dioVarianceDays !== null ? `${Number(dioVarianceDays) >= 0 ? '+' : ''}${Number(dioVarianceDays).toFixed(2)} Days` : "—",
                       icon: Scale,
                       iconBg: "#fce7f3",
                       iconColor: "#db2777",
-                      targetVariance: rawKpiSource.dio_variance_target_pct ?? null,
-                      lastMonthVariance: rawKpiSource.dio_variance_lm_pct ?? null,
+                      targetVariance: dioVariancePercentage ?? rawKpiSource.dio_variance_target_pct ?? null,
+                      momVariance: rawKpiSource.dio_variance_mom_days ?? rawKpiSource.dio_variance_lm_pct ?? null,
+                      momUnit: "Days",
+                      momLowerIsBetter: true,
+                      momLabel,
                       lowerIsBetter: true,
+                      refDateBadge: dioRefBadge,
                       previousDate: prevSnapshotDate,
                       dioTargetStatus,
                   }
@@ -2635,59 +2719,19 @@ const [loading, setLoading] = useState(true);
     const accent = item.titleColor || "#2563eb";
     const lowerIsBetter = item.lowerIsBetter ?? (item.key !== "turnover");
     const targetLowerIsBetter = item.targetLowerIsBetter !== undefined ? item.targetLowerIsBetter : lowerIsBetter;
-    const lastMonthLowerIsBetter = item.lastMonthLowerIsBetter !== undefined ? item.lastMonthLowerIsBetter : lowerIsBetter;
+    const momLowerIsBetter = item.momLowerIsBetter !== undefined ? item.momLowerIsBetter : (item.lastMonthLowerIsBetter !== undefined ? item.lastMonthLowerIsBetter : lowerIsBetter);
     const isPercentage = Boolean(item.isPercentage || item.suffix === "%" || String(item.title).includes("%"));
 
     // Target variance calculation if present
     const hasTargetVariance = item.targetVariance !== null && item.targetVariance !== undefined && item.targetVariance !== "" && !isNaN(Number(item.targetVariance));
-    const targetBadge = hasTargetVariance ? fmtVarBadge(item.targetVariance, targetLowerIsBetter, isPercentage) : null;
+    const targetBadge = hasTargetVariance ? fmtVarBadge(item.targetVariance, targetLowerIsBetter, item.targetUnit || "%") : null;
 
-    // Last Month variance calculation if present
-    const rawLmVar = item.lastMonthVariance ?? item.variance;
-    const hasLmVariance = rawLmVar !== null && rawLmVar !== undefined && rawLmVar !== "" && !isNaN(Number(rawLmVar));
-    const lmBadge = hasLmVariance ? fmtVarBadge(rawLmVar, lastMonthLowerIsBetter, isPercentage) : null;
-
-    // Format previous snapshot date to DD-MM-YYYY fallback if needed
-    const formatPrevDate = (d) => {
-      if (!d) return "30-09-2026";
-      const s = String(d).trim();
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-      const m2 = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
-      if (m2) return s;
-      return s;
-    };
-    const prevDateDisplay = formatPrevDate(item.previousDate);
-
-    // Resolving row 1 (vs Target) and row 2 (vs Last Month) to exactly match design mockup
-    let row1Right = null;
-    let row2Right = null;
-
-    if (targetBadge) {
-      row1Right = (
-        <span style={{ color: targetBadge.color, fontWeight: 700 }}>
-          {targetBadge.arrow} {targetBadge.display}
-        </span>
-      );
-    } else if (item.targetDisplay) {
-      row1Right = <span style={{ color: "#64748b", fontWeight: 600 }}>{item.targetDisplay}</span>;
-    } else {
-      row1Right = <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>;
-    }
-
-    if (lmBadge) {
-      row2Right = (
-        <span style={{ color: lmBadge.color, fontWeight: 700 }}>
-          {lmBadge.arrow} {lmBadge.display}
-        </span>
-      );
-    } else if (item.lastMonthDisplay) {
-      row2Right = <span style={{ color: "#64748b", fontWeight: 600 }}>{item.lastMonthDisplay}</span>;
-    } else if (item.subtitle) {
-      row2Right = <span style={{ color: "#64748b", fontWeight: 600 }}>{item.subtitle}</span>;
-    } else {
-      row2Right = <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>;
-    }
+    // MoM variance calculation if present
+    const rawMomVar = item.momVariance ?? item.lastMonthVariance ?? item.variance;
+    const hasMomVariance = rawMomVar !== null && rawMomVar !== undefined && rawMomVar !== "" && !isNaN(Number(rawMomVar));
+    const momUnit = item.momUnit || (isPercentage ? "pp" : "%");
+    const momBadge = hasMomVariance ? fmtVarBadge(rawMomVar, momLowerIsBetter, momUnit) : null;
+    const momLabel = item.momLabel || "vs Last Month";
 
     // Only show badge for recognized status values; unknown/unexpected values are hidden
     const isDioStatus = item.dioTargetStatus === "ABOVE_TARGET" || item.dioTargetStatus === "ON_TARGET" || item.dioTargetStatus === "ABOVE TARGET";
@@ -2707,47 +2751,14 @@ const [loading, setLoading] = useState(true);
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          minHeight: 88,
+          minHeight: 96,
           boxSizing: "border-box",
           position: "relative",
           cursor: "default",
         }}
       >
-        {isDioStatus && (
-          <div
-            style={{
-              position: "absolute",
-              top: 7,
-              right: 8,
-              fontSize: "0.56rem",
-              fontWeight: 800,
-              padding: "2px 6px",
-              borderRadius: 6,
-              letterSpacing: "0.02em",
-              background: isAboveTarget ? "#fee2e2" : "#dcfce7",
-              color: isAboveTarget ? "#dc2626" : "#16a34a",
-              border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 3.5,
-              zIndex: 2,
-            }}
-            title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
-          >
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: "50%",
-                background: isAboveTarget ? "#dc2626" : "#16a34a",
-                display: "inline-block",
-              }}
-            />
-            {isAboveTarget ? "Above Target" : "On Target"}
-          </div>
-        )}
         {/* Top: Icon + Title + Value */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           {/* Round Icon Circle */}
           <div
             style={{
@@ -2760,6 +2771,7 @@ const [loading, setLoading] = useState(true);
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
+              marginTop: 1,
             }}
           >
             {typeof item.icon === "string" ? (
@@ -2770,25 +2782,81 @@ const [loading, setLoading] = useState(true);
           </div>
 
           {/* Vertical Text Stack */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1, justifyContent: "center" }}>
-            <span
-              style={{
-                fontSize: "0.66rem",
-                fontWeight: 700,
-                color: accent,
-                lineHeight: 1.2,
-                letterSpacing: "-0.01em",
-                display: "-webkit-box",
-                WebkitLineClamp: 1,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={item.title}
-            >
-              {item.title}
-            </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
+            {/* Header row with Title and Badges */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+              <span
+                style={{
+                  fontSize: "0.66rem",
+                  fontWeight: 700,
+                  color: accent,
+                  lineHeight: 1.2,
+                  letterSpacing: "-0.01em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={item.title}
+              >
+                {item.title}
+              </span>
+
+              {/* Badges container (Ref Date and/or Target Status) */}
+              {(item.refDateBadge || isDioStatus) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                  {item.refDateBadge && (
+                    <span
+                      style={{
+                        fontSize: "0.52rem",
+                        fontWeight: 700,
+                        padding: "1px 4px",
+                        borderRadius: 4,
+                        letterSpacing: "0.01em",
+                        background: "rgba(100, 116, 139, 0.12)",
+                        color: "#475569",
+                        border: "1px solid rgba(100, 116, 139, 0.2)",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.3,
+                      }}
+                      title="Financial KPI reference date based on available accounting month-end books"
+                    >
+                      {item.refDateBadge}
+                    </span>
+                  )}
+                  {isDioStatus && (
+                    <span
+                      style={{
+                        fontSize: "0.52rem",
+                        fontWeight: 800,
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        letterSpacing: "0.01em",
+                        background: isAboveTarget ? "#fee2e2" : "#dcfce7",
+                        color: isAboveTarget ? "#dc2626" : "#16a34a",
+                        border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 3,
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.3,
+                      }}
+                      title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
+                    >
+                      <span
+                        style={{
+                          width: 4.5,
+                          height: 4.5,
+                          borderRadius: "50%",
+                          background: isAboveTarget ? "#dc2626" : "#16a34a",
+                          display: "inline-block",
+                        }}
+                      />
+                      {isAboveTarget ? "Above Target" : "On Target"}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div
               style={{
@@ -2807,7 +2875,7 @@ const [loading, setLoading] = useState(true);
           </div>
         </div>
 
-        {/* Bottom: vs Target & vs Last Month comparison rows matching Receivables page */}
+        {/* Bottom Section */}
         <div
           style={{
             marginTop: 7,
@@ -2818,19 +2886,76 @@ const [loading, setLoading] = useState(true);
             gap: 2.5,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              fontSize: "0.62rem",
-              lineHeight: 1.2,
-            }}
-          >
-            <span style={{ color: "#64748b", fontWeight: 500 }}>vs Target</span>
-            {row1Right}
-          </div>
+          {item.hasTargetDetails ? (
+            <>
+              {/* Target Row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: "0.62rem",
+                  lineHeight: 1.2,
+                }}
+              >
+                <span style={{ color: "#64748b", fontWeight: 500 }}>Target</span>
+                <span style={{ color: "#334155", fontWeight: 700 }}>{item.targetValue || "—"}</span>
+              </div>
 
+              {/* Variance Row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: "0.62rem",
+                  lineHeight: 1.2,
+                }}
+              >
+                <span style={{ color: "#64748b", fontWeight: 500 }}>Variance</span>
+                {item.targetVariancePct !== null && item.targetVariancePct !== undefined ? (
+                  (() => {
+                    const badge = fmtVarBadge(item.targetVariancePct, targetLowerIsBetter, "%", 2);
+                    const amtStr = item.targetVarianceAmount ? ` (${item.targetVarianceAmount})` : "";
+                    const displayStr = item.key === "dio" && item.targetVarianceAmount
+                      ? `${item.targetVarianceAmount} (${badge.display})`
+                      : `${badge.display}${amtStr}`;
+                    return (
+                      <span style={{ color: badge.color, fontWeight: 700, whiteSpace: "nowrap" }}>
+                        {badge.arrow} {displayStr}
+                      </span>
+                    );
+                  })()
+                ) : (
+                  <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Standard vs Target Row */
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: "0.62rem",
+                lineHeight: 1.2,
+              }}
+            >
+              <span style={{ color: "#64748b", fontWeight: 500 }}>vs Target</span>
+              {targetBadge ? (
+                <span style={{ color: targetBadge.color, fontWeight: 700 }}>
+                  {targetBadge.arrow} {targetBadge.display}
+                </span>
+              ) : item.targetDisplay ? (
+                <span style={{ color: "#64748b", fontWeight: 600 }}>{item.targetDisplay}</span>
+              ) : (
+                <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>
+              )}
+            </div>
+          )}
+
+          {/* vs Last Month (MoM) Row */}
           <div
             style={{
               display: "flex",
@@ -2840,8 +2965,18 @@ const [loading, setLoading] = useState(true);
               lineHeight: 1.2,
             }}
           >
-            <span style={{ color: "#64748b", fontWeight: 500 }}>vs Last Month</span>
-            {row2Right}
+            <span style={{ color: "#64748b", fontWeight: 500 }}>{momLabel}</span>
+            {momBadge ? (
+              <span style={{ color: momBadge.color, fontWeight: 700, whiteSpace: "nowrap" }}>
+                {momBadge.arrow} {momBadge.display}
+              </span>
+            ) : item.lastMonthDisplay ? (
+              <span style={{ color: "#64748b", fontWeight: 600 }}>{item.lastMonthDisplay}</span>
+            ) : item.subtitle ? (
+              <span style={{ color: "#64748b", fontWeight: 600 }}>{item.subtitle}</span>
+            ) : (
+              <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>
+            )}
           </div>
         </div>
       </div>
