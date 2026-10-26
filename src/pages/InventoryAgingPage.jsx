@@ -1987,7 +1987,6 @@ const [loading, setLoading] = useState(true);
                       lowerIsBetter: true,
                       refDateBadge: dioRefBadge,
                       previousDate: prevSnapshotDate,
-                      dioTargetStatus,
                   },
                   {
                       key: "dio_variance",
@@ -2006,7 +2005,6 @@ const [loading, setLoading] = useState(true);
                       lowerIsBetter: true,
                       refDateBadge: dioRefBadge,
                       previousDate: prevSnapshotDate,
-                      dioTargetStatus,
                   }
               ];
 
@@ -2783,8 +2781,8 @@ const [loading, setLoading] = useState(true);
 
           {/* Vertical Text Stack */}
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
-            {/* Header row with Title and Badges */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+            {/* Header row with Title */}
+            <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
               <span
                 style={{
                   fontSize: "0.66rem",
@@ -2795,11 +2793,30 @@ const [loading, setLoading] = useState(true);
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  width: "100%",
                 }}
                 title={item.title}
               >
                 {item.title}
               </span>
+            </div>
+
+            {/* Value + Badges Row */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: "1.08rem",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                  lineHeight: 1.18,
+                  letterSpacing: "-0.02em",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {item.value || "—"}
+              </div>
 
               {/* Badges container (Ref Date and/or Target Status) */}
               {(item.refDateBadge || isDioStatus) && (
@@ -2809,14 +2826,14 @@ const [loading, setLoading] = useState(true);
                       style={{
                         fontSize: "0.52rem",
                         fontWeight: 700,
-                        padding: "1px 4px",
+                        padding: "1.5px 4.5px",
                         borderRadius: 4,
                         letterSpacing: "0.01em",
                         background: "rgba(100, 116, 139, 0.12)",
                         color: "#475569",
                         border: "1px solid rgba(100, 116, 139, 0.2)",
                         whiteSpace: "nowrap",
-                        lineHeight: 1.3,
+                        lineHeight: 1.2,
                       }}
                       title="Financial KPI reference date based on available accounting month-end books"
                     >
@@ -2828,7 +2845,7 @@ const [loading, setLoading] = useState(true);
                       style={{
                         fontSize: "0.52rem",
                         fontWeight: 800,
-                        padding: "1px 5px",
+                        padding: "1.5px 5px",
                         borderRadius: 4,
                         letterSpacing: "0.01em",
                         background: isAboveTarget ? "#fee2e2" : "#dcfce7",
@@ -2838,7 +2855,7 @@ const [loading, setLoading] = useState(true);
                         alignItems: "center",
                         gap: 3,
                         whiteSpace: "nowrap",
-                        lineHeight: 1.3,
+                        lineHeight: 1.2,
                       }}
                       title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
                     >
@@ -2856,21 +2873,6 @@ const [loading, setLoading] = useState(true);
                   )}
                 </div>
               )}
-            </div>
-
-            <div
-              style={{
-                fontSize: "1.08rem",
-                fontWeight: 800,
-                color: "#0f172a",
-                lineHeight: 1.18,
-                letterSpacing: "-0.02em",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {item.value || "—"}
             </div>
           </div>
         </div>
