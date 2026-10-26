@@ -2801,7 +2801,7 @@ const [loading, setLoading] = useState(true);
               </span>
             </div>
 
-            {/* Value + Badges Row */}
+            {/* Value + Ref Date Badge Row */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, minWidth: 0 }}>
               <div
                 style={{
@@ -2818,60 +2818,26 @@ const [loading, setLoading] = useState(true);
                 {item.value || "—"}
               </div>
 
-              {/* Badges container (Ref Date and/or Target Status) */}
-              {(item.refDateBadge || isDioStatus) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                  {item.refDateBadge && (
-                    <span
-                      style={{
-                        fontSize: "0.52rem",
-                        fontWeight: 700,
-                        padding: "1.5px 4.5px",
-                        borderRadius: 4,
-                        letterSpacing: "0.01em",
-                        background: "rgba(100, 116, 139, 0.12)",
-                        color: "#475569",
-                        border: "1px solid rgba(100, 116, 139, 0.2)",
-                        whiteSpace: "nowrap",
-                        lineHeight: 1.2,
-                      }}
-                      title="Financial KPI reference date based on available accounting month-end books"
-                    >
-                      {item.refDateBadge}
-                    </span>
-                  )}
-                  {isDioStatus && (
-                    <span
-                      style={{
-                        fontSize: "0.52rem",
-                        fontWeight: 800,
-                        padding: "1.5px 5px",
-                        borderRadius: 4,
-                        letterSpacing: "0.01em",
-                        background: isAboveTarget ? "#fee2e2" : "#dcfce7",
-                        color: isAboveTarget ? "#dc2626" : "#16a34a",
-                        border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 3,
-                        whiteSpace: "nowrap",
-                        lineHeight: 1.2,
-                      }}
-                      title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
-                    >
-                      <span
-                        style={{
-                          width: 4.5,
-                          height: 4.5,
-                          borderRadius: "50%",
-                          background: isAboveTarget ? "#dc2626" : "#16a34a",
-                          display: "inline-block",
-                        }}
-                      />
-                      {isAboveTarget ? "Above Target" : "On Target"}
-                    </span>
-                  )}
-                </div>
+              {/* Reference Date Badge */}
+              {item.refDateBadge && (
+                <span
+                  style={{
+                    fontSize: "0.52rem",
+                    fontWeight: 700,
+                    padding: "1.5px 4.5px",
+                    borderRadius: 4,
+                    letterSpacing: "0.01em",
+                    background: "rgba(100, 116, 139, 0.12)",
+                    color: "#475569",
+                    border: "1px solid rgba(100, 116, 139, 0.2)",
+                    whiteSpace: "nowrap",
+                    lineHeight: 1.2,
+                    flexShrink: 0,
+                  }}
+                  title="Financial KPI reference date based on available accounting month-end books"
+                >
+                  {item.refDateBadge}
+                </span>
               )}
             </div>
           </div>
@@ -2901,7 +2867,40 @@ const [loading, setLoading] = useState(true);
                 }}
               >
                 <span style={{ color: "#64748b", fontWeight: 500 }}>Target</span>
-                <span style={{ color: "#334155", fontWeight: 700 }}>{item.targetValue || "—"}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ color: "#334155", fontWeight: 700 }}>{item.targetValue || "—"}</span>
+                  {isDioStatus && (
+                    <span
+                      style={{
+                        fontSize: "0.50rem",
+                        fontWeight: 800,
+                        padding: "1px 4.5px",
+                        borderRadius: 4,
+                        letterSpacing: "0.01em",
+                        background: isAboveTarget ? "#fee2e2" : "#dcfce7",
+                        color: isAboveTarget ? "#dc2626" : "#16a34a",
+                        border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 2.5,
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.2,
+                      }}
+                      title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
+                    >
+                      <span
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: "50%",
+                          background: isAboveTarget ? "#dc2626" : "#16a34a",
+                          display: "inline-block",
+                        }}
+                      />
+                      {isAboveTarget ? "Above Target" : "On Target"}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Variance Row */}
