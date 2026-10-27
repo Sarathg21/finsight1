@@ -1968,7 +1968,7 @@ const [loading, setLoading] = useState(true);
                       momLowerIsBetter: true,
                       momLabel,
                       lowerIsBetter: true,
-                      refDateBadge: dioRefBadge,
+                      refDateBadge: null,
                       previousDate: prevSnapshotDate,
                       dioTargetStatus,
                   },
@@ -1983,9 +1983,9 @@ const [loading, setLoading] = useState(true);
                       iconColor: "#2563eb",
                       targetVariance: null,
                       momVariance: null,
-                      targetDisplay: "Baseline Target",
+                      targetDisplay: null,
                       lowerIsBetter: true,
-                      refDateBadge: dioRefBadge,
+                      refDateBadge: null,
                       previousDate: prevSnapshotDate,
                   },
                   {
@@ -2003,7 +2003,7 @@ const [loading, setLoading] = useState(true);
                       momLowerIsBetter: true,
                       momLabel,
                       lowerIsBetter: true,
-                      refDateBadge: dioRefBadge,
+                      refDateBadge: null,
                       previousDate: prevSnapshotDate,
                   }
               ];
@@ -2805,7 +2805,7 @@ const [loading, setLoading] = useState(true);
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: "1.08rem",
+                  fontSize: item.refDateBadge ? "0.96rem" : "1.08rem",
                   fontWeight: 800,
                   color: "#0f172a",
                   lineHeight: 1.18,
@@ -2855,83 +2855,52 @@ const [loading, setLoading] = useState(true);
           }}
         >
           {item.hasTargetDetails ? (
-            <>
-              {/* Target Row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: "0.62rem",
-                  lineHeight: 1.2,
-                }}
-              >
-                <span style={{ color: "#64748b", fontWeight: 500 }}>Target</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ color: "#334155", fontWeight: 700 }}>{item.targetValue || "—"}</span>
-                  {isDioStatus && (
+            /* Target Row */
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: "0.62rem",
+                lineHeight: 1.2,
+              }}
+            >
+              <span style={{ color: "#64748b", fontWeight: 500 }}>Target</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ color: "#334155", fontWeight: 700 }}>{item.targetValue || "—"}</span>
+                {isDioStatus && (
+                  <span
+                    style={{
+                      fontSize: "0.50rem",
+                      fontWeight: 800,
+                      padding: "1px 4.5px",
+                      borderRadius: 4,
+                      letterSpacing: "0.01em",
+                      background: isAboveTarget ? "#fee2e2" : "#dcfce7",
+                      color: isAboveTarget ? "#dc2626" : "#16a34a",
+                      border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 2.5,
+                      whiteSpace: "nowrap",
+                      lineHeight: 1.2,
+                    }}
+                    title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
+                  >
                     <span
                       style={{
-                        fontSize: "0.50rem",
-                        fontWeight: 800,
-                        padding: "1px 4.5px",
-                        borderRadius: 4,
-                        letterSpacing: "0.01em",
-                        background: isAboveTarget ? "#fee2e2" : "#dcfce7",
-                        color: isAboveTarget ? "#dc2626" : "#16a34a",
-                        border: `1px solid ${isAboveTarget ? "#fecaca" : "#bbf7d0"}`,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 2.5,
-                        whiteSpace: "nowrap",
-                        lineHeight: 1.2,
+                        width: 4,
+                        height: 4,
+                        borderRadius: "50%",
+                        background: isAboveTarget ? "#dc2626" : "#16a34a",
+                        display: "inline-block",
                       }}
-                      title={isAboveTarget ? "Unfavourable: Actual DIO exceeds target" : "Favourable: Actual DIO meets target"}
-                    >
-                      <span
-                        style={{
-                          width: 4,
-                          height: 4,
-                          borderRadius: "50%",
-                          background: isAboveTarget ? "#dc2626" : "#16a34a",
-                          display: "inline-block",
-                        }}
-                      />
-                      {isAboveTarget ? "Above Target" : "On Target"}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Variance Row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: "0.62rem",
-                  lineHeight: 1.2,
-                }}
-              >
-                <span style={{ color: "#64748b", fontWeight: 500 }}>Variance</span>
-                {item.targetVariancePct !== null && item.targetVariancePct !== undefined ? (
-                  (() => {
-                    const badge = fmtVarBadge(item.targetVariancePct, targetLowerIsBetter, "%", 2);
-                    const amtStr = item.targetVarianceAmount ? ` (${item.targetVarianceAmount})` : "";
-                    const displayStr = item.key === "dio" && item.targetVarianceAmount
-                      ? `${item.targetVarianceAmount} (${badge.display})`
-                      : `${badge.display}${amtStr}`;
-                    return (
-                      <span style={{ color: badge.color, fontWeight: 700, whiteSpace: "nowrap" }}>
-                        {badge.arrow} {displayStr}
-                      </span>
-                    );
-                  })()
-                ) : (
-                  <span style={{ color: "#94a3b8", fontWeight: 600 }}>—</span>
+                    />
+                    {isAboveTarget ? "Above Target" : "On Target"}
+                  </span>
                 )}
               </div>
-            </>
+            </div>
           ) : (
             /* Standard vs Target Row */
             <div
