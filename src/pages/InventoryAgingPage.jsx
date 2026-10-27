@@ -640,10 +640,11 @@ export default function InventoryOverview() {
             : (mockData.slowMoving || []));
       rawList = slowSource.map(item => {
         const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
-        const curVal = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || (slowMovingFilteredStats.map[divName]?.obs) || 0));
+        const curVal = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || (slowMovingFilteredStats?.map?.[divName]?.obs) || 0));
         const momMatch = (momData || []).find(m => (m.parent_division_name || m.name) === divName);
         const momCur = Number(momMatch?.latest_value ?? momMatch?.current_value ?? 0);
         const momPrev = Number(momMatch?.previous_value ?? 0);
+        let prevVal = 0;
         if (item.previous_obsolete_stock !== undefined) {
           prevVal = Number(item.previous_obsolete_stock);
         } else if (momMatch && momCur > 0) {
