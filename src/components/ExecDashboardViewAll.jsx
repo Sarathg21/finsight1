@@ -37,6 +37,7 @@ import {
   getSubDivision,
 } from '../api/masterLegalApi';
 import { getOpexFilterOptions } from '../api/opexApi';
+import * as XLSX from 'xlsx';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS & FORMATTERS
