@@ -613,8 +613,8 @@ export default function ExecutiveDashboard() {
 
     // ── Filter state ──
     const [filters, setFilters] = useState({
-        as_of_date: '2026-09-25',
-        as_on_date: '2026-09-25',
+        as_of_date: '2026-10-31',
+        as_on_date: '2026-10-31',
         period_type: 'PTD',
         reporting_currency: 'AED',
         legal_group_id: null,
@@ -638,7 +638,7 @@ export default function ExecutiveDashboard() {
     }, []);
 
     const handleApplyFilters = (applied) => {
-        let dateVal = appliedFilters.as_of_date || '2026-09-30';
+        let dateVal = appliedFilters.as_of_date || '2026-10-31';
         let periodTypeVal = 'PTD';
 
         if (applied && applied.period) {
@@ -712,8 +712,8 @@ export default function ExecutiveDashboard() {
 
     const handleResetFilters = () => {
         const defaultState = {
-            as_of_date: '2026-09-30',
-            as_on_date: '2026-09-30',
+            as_of_date: '2026-10-31',
+            as_on_date: '2026-10-31',
             period_type: 'PTD',
             reporting_currency: 'AED',
             legal_group_id: null,
@@ -754,7 +754,7 @@ export default function ExecutiveDashboard() {
         setKpiLoading(true);
         setKpiError(null);
 
-        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || '2026-09-30';
+        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || '2026-10-31';
         const parts = asOf.split('-');
         const yr = parseInt(parts[0] || '2026', 10);
         const mo = parseInt(parts[1] || '9', 10);
@@ -1029,13 +1029,13 @@ export default function ExecutiveDashboard() {
         { key: 'gross_profit',                title: 'Gross Profit',                   icon: TrendingUp,cardBg: '#f0fdf4', iconBg: '#dcfce7', accent: '#16a34a', colorClass: 'green', isRed: false, compareType: 'mom' },
         { key: 'ebitda',                      title: 'EBITDA',                         icon: Briefcase, cardBg: '#faf5ff', iconBg: '#ede9fe', accent: '#7c3aed', colorClass: 'blue', isRed: false, compareType: 'mom' },
         { key: 'net_profit',                  title: 'Net Profit',                     icon: Coins,     cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false, compareType: 'mom' },
-        { key: 'trade_working_capital',       title: 'Trade Working Capital',          icon: RefreshCw, cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true,  compareType: 'target', target: 42_000_000 },
-        { key: 'overdue_receivables',         title: 'Overdue Receivables',            icon: Wallet,    cardBg: '#fff1f2', iconBg: '#ffe4e6', accent: '#dc2626', colorClass: 'red',  isRed: true,  compareType: 'target', target: 20_000_000 },
-        { key: 'slow_moving_obsolete_stock',  title: 'Slow Moving & Obsolete Stock',   icon: Layers,    cardBg: '#fffbeb', iconBg: '#fef3c7', accent: '#d97706', colorClass: 'green', isRed: false, compareType: 'target', target: 5_000_000 },
-        { key: 'cash_collection',             title: 'Cash Collection',                icon: Wallet,    cardBg: '#ecfeff', iconBg: '#cffafe', accent: '#0891b2', colorClass: 'blue', isRed: false, compareType: 'target', target: 92_000_000 },
-        { key: 'collection_efficiency',       title: 'Collection Efficiency',          icon: Target,    cardBg: '#f0f5ff', iconBg: '#dbeafe', accent: '#2563eb', colorClass: 'blue', isRed: false, isPct: true, compareType: 'target', target: 85.0 },
-        { key: 'total_short_term_borrowing',  title: 'Total Short Term Borrowing',     icon: Landmark,  cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true,  compareType: 'target', target: 16_500_000 },
-        { key: 'roi',                         title: 'ROI %',                          icon: Percent,   cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false, isPct: true, compareType: 'target', target: 12.0 },
+        { key: 'trade_working_capital',       title: 'Trade Working Capital',          icon: RefreshCw, cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true,  compareType: 'mom' },
+        { key: 'overdue_receivables',         title: 'Overdue Receivables',            icon: Wallet,    cardBg: '#fff1f2', iconBg: '#ffe4e6', accent: '#dc2626', colorClass: 'red',  isRed: true,  compareType: 'mom' },
+        { key: 'slow_moving_obsolete_stock',  title: 'Slow Moving & Obsolete Stock',   icon: Layers,    cardBg: '#fffbeb', iconBg: '#fef3c7', accent: '#d97706', colorClass: 'green', isRed: false, compareType: 'mom' },
+        { key: 'cash_collection',             title: 'Cash Collection',                icon: Wallet,    cardBg: '#ecfeff', iconBg: '#cffafe', accent: '#0891b2', colorClass: 'blue', isRed: false, compareType: 'mom' },
+        { key: 'collection_efficiency',       title: 'Collection Efficiency',          icon: Target,    cardBg: '#f0f5ff', iconBg: '#dbeafe', accent: '#2563eb', colorClass: 'blue', isRed: false, isPct: true, compareType: 'mom' },
+        { key: 'total_short_term_borrowing',  title: 'Total Short Term Borrowing',     icon: Landmark,  cardBg: '#fff7ed', iconBg: '#ffedd5', accent: '#ea580c', colorClass: 'red',  isRed: true,  compareType: 'mom' },
+        { key: 'roi',                         title: 'ROI %',                          icon: Percent,   cardBg: '#ecfdf5', iconBg: '#d1fae5', accent: '#059669', colorClass: 'green', isRed: false, isPct: true, compareType: 'mom' },
     ];
 
     // Robust extraction helper supporting both Array [{key: "...", value: ...}] and Object {key: value} payloads
