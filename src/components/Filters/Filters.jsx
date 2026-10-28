@@ -672,6 +672,8 @@ function OpexMultiSelect({
     placeholder = "All",
     searchPlaceholder = "Search...",
     width = 128,
+    isPeriod = false,
+    enableYtdFullYear = false,
 }) {
     const [open, setOpen] =
         useState(false);
@@ -915,7 +917,7 @@ function OpexMultiSelect({
        NORMALIZE
     ======================================================= */
 
-    const normalized =
+    const baseNormalized =
         (options || [])
             .map((option) => {
                 if (
@@ -967,6 +969,14 @@ function OpexMultiSelect({
                 };
             })
             .filter(Boolean);
+
+    const normalized = (isPeriod && enableYtdFullYear)
+        ? [
+            { id: 'YTD', name: 'YTD (Year to Date)' },
+            { id: 'Full Year', name: 'Full Year (FY)' },
+            ...baseNormalized.filter(o => o.id !== 'YTD' && o.id !== 'Full Year')
+          ]
+        : baseNormalized;
 
     const currentValues =
         Array.isArray(value)
@@ -1037,6 +1047,20 @@ function OpexMultiSelect({
     const toggleValue = (id) => {
         const stringId =
             String(id);
+
+        if (isPeriod && enableYtdFullYear) {
+            if (stringId === 'YTD' || stringId === 'Full Year') {
+                onChange?.(currentValues.includes(stringId) ? [] : [stringId]);
+                return;
+            }
+            const filtered = currentValues.filter(v => v !== 'YTD' && v !== 'Full Year');
+            if (filtered.includes(stringId)) {
+                onChange?.(filtered.filter(item => item !== stringId));
+            } else {
+                onChange?.([...filtered, stringId]);
+            }
+            return;
+        }
 
         if (
             currentValues.includes(
@@ -1238,38 +1262,59 @@ function OpexMultiSelect({
                             marginBottom: 1,
                         }}
                     >
-                        <button
-                            type="button"
-                            onClick={
-                                handleSelectAll
-                            }
-                            style={{
-                                border: "none",
-
-                                background:
-                                    "transparent",
-
-                                padding: 0,
-
-                                margin: 0,
-
-                                cursor:
-                                    "pointer",
-
-                                fontSize:
-                                    "0.68rem",
-
-                                lineHeight:
-                                    "18px",
-
-                                fontWeight: 600,
-
-                                color:
-                                    "#4f46e5",
-                            }}
-                        >
-                            Select All
-                        </button>
+                        {isPeriod && enableYtdFullYear ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => onChange?.(['YTD'])}
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        padding: 0,
+                                        cursor: 'pointer',
+                                        fontSize: '0.68rem',
+                                        fontWeight: currentValues.includes('YTD') ? 700 : 600,
+                                        color: currentValues.includes('YTD') ? '#2563eb' : '#4f46e5',
+                                    }}
+                                >
+                                    YTD
+                                </button>
+                                <span style={{ color: '#cbd5e1', fontSize: '0.68rem' }}>|</span>
+                                <button
+                                    type="button"
+                                    onClick={() => onChange?.(['Full Year'])}
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        padding: 0,
+                                        cursor: 'pointer',
+                                        fontSize: '0.68rem',
+                                        fontWeight: currentValues.includes('Full Year') ? 700 : 600,
+                                        color: currentValues.includes('Full Year') ? '#2563eb' : '#4f46e5',
+                                    }}
+                                >
+                                    Full Year
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleSelectAll}
+                                style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    padding: 0,
+                                    margin: 0,
+                                    cursor: "pointer",
+                                    fontSize: "0.68rem",
+                                    lineHeight: "18px",
+                                    fontWeight: 600,
+                                    color: "#4f46e5",
+                                }}
+                            >
+                                Select All
+                            </button>
+                        )}
 
                         <button
                             type="button"
@@ -1312,9 +1357,10 @@ function OpexMultiSelect({
                                     option.id
                                 );
 
+                            const isDividerAfter = isPeriod && enableYtdFullYear && option.id === 'Full Year';
                             return (
+                                <React.Fragment key={option.id}>
                                 <label
-                                    key={option.id}
                                     style={{
                                         display: "flex",
 
@@ -1417,6 +1463,8 @@ function OpexMultiSelect({
                                         {option.name}
                                     </span>
                                 </label>
+                                {isDividerAfter && <div style={{ height: 1, background: '#e2e8f0', margin: '4px 0' }} />}
+                                </React.Fragment>
                             );
                         }
                     )}
@@ -2087,6 +2135,7 @@ export default function OpexFilters({
     // retain their original filter layout.
     showLegalGroupFilter = true,
     showLegalEntityFilter = true,
+    enableYtdFullYear = false,
 }) {
     const [
         opexFilterOptions,
@@ -2985,6 +3034,8 @@ export default function OpexFilters({
                     width={
                         FIELD_WIDTHS.period
                     }
+                    isPeriod={true}
+                    enableYtdFullYear={enableYtdFullYear}
                 />
             </FilterField>
 

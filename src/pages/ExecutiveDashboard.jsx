@@ -639,13 +639,25 @@ export default function ExecutiveDashboard() {
 
     const handleApplyFilters = (applied) => {
         let dateVal = appliedFilters.as_of_date || '2026-09-30';
+        let periodTypeVal = 'PTD';
+
         if (applied && applied.period) {
             const rawItem = Array.isArray(applied.period) ? applied.period[applied.period.length - 1] : applied.period;
             const pStr = (typeof rawItem === 'object' && rawItem !== null)
                 ? (rawItem.period_name || rawItem.value || rawItem.name || rawItem.label || '')
                 : String(rawItem || '');
 
-            if (pStr) {
+            const pUpper = pStr.toUpperCase().trim();
+            const periodArrStr = Array.isArray(applied.period) ? applied.period.join(' ').toUpperCase() : '';
+            const yr = applied?.year || (appliedFilters.as_of_date ? appliedFilters.as_of_date.slice(0, 4) : '2026');
+
+            if (pUpper === 'YTD' || pUpper.includes('YTD') || periodArrStr.includes('YTD')) {
+                periodTypeVal = 'YTD';
+                dateVal = `${yr}-10-31`;
+            } else if (pUpper === 'FULL YEAR' || pUpper === 'FY' || pUpper.includes('FULL YEAR') || periodArrStr.includes('FULL YEAR')) {
+                periodTypeVal = 'YTD';
+                dateVal = `${yr}-12-31`;
+            } else if (pStr) {
                 if (pStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
                     dateVal = pStr;
                 } else {
@@ -658,10 +670,10 @@ export default function ExecutiveDashboard() {
                         rawYr = parts[0];
                     }
                     if (mIdx !== -1) {
-                        let yr = applied?.year || (rawYr ? (rawYr.length === 2 ? `20${rawYr}` : rawYr) : '2026');
+                        let finalYr = applied?.year || (rawYr ? (rawYr.length === 2 ? `20${rawYr}` : rawYr) : yr);
                         const moStr = String(mIdx + 1).padStart(2, '0');
-                        const lastDay = new Date(parseInt(yr, 10), mIdx + 1, 0).getDate();
-                        dateVal = `${yr}-${moStr}-${String(lastDay).padStart(2, '0')}`;
+                        const lastDay = new Date(parseInt(finalYr, 10), mIdx + 1, 0).getDate();
+                        dateVal = `${finalYr}-${moStr}-${String(lastDay).padStart(2, '0')}`;
                     }
                 }
             }
@@ -686,7 +698,7 @@ export default function ExecutiveDashboard() {
         const newFilterState = {
             as_of_date: dateVal,
             as_on_date: dateVal,
-            period_type: 'PTD',
+            period_type: periodTypeVal,
             reporting_currency: applied?.reporting_currency || 'AED',
             legal_group_id: extractIds(applied?.legal_group),
             legal_entity_id: extractIds(applied?.legal_entity),
@@ -746,8 +758,13 @@ export default function ExecutiveDashboard() {
         const parts = asOf.split('-');
         const yr = parseInt(parts[0] || '2026', 10);
         const mo = parseInt(parts[1] || '9', 10);
-        const prevDate = new Date(yr, mo - 1, 0);
-        const prevAsOf = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
+        const isYtd = appliedFilters.period_type === 'YTD';
+        const prevAsOf = isYtd
+            ? `${yr - 1}-${String(mo).padStart(2, '0')}-${String(parts[2] || '30')}`
+            : (() => {
+                const prevDate = new Date(yr, mo - 1, 0);
+                return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
+            })();
         const moIdx = mo - 1;
         const periodName = `${MONTHS_SHORT[moIdx] || 'Sep'}-${String(yr).slice(2)}`;
 
@@ -1388,6 +1405,7 @@ export default function ExecutiveDashboard() {
                 filterOptions={filterOptions}
                 onApply={handleApplyFilters}
                 onReset={handleResetFilters}
+                enableYtdFullYear={true}
             />
 
             {/* 2. KPI CARDS */}
