@@ -1974,27 +1974,28 @@ function SearchableSalesmanSelect({ options = [], value, onChange, disabled, sty
                     setSearchQuery('');
                   }}
                   style={{
-                    padding: '7px 12px',
+                    padding: '8px 12px',
                     cursor: 'pointer',
                     fontSize: '0.78rem',
                     background: isSelected ? '#eff6ff' : '#fff',
                     color: isSelected ? '#2563eb' : '#334155',
                     fontWeight: isSelected ? 700 : 400,
                     borderBottom: '1px solid #f8fafc',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    lineHeight: '1.35',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    gap: 8,
                   }}
                   onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
                   onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = '#fff'; }}
                 >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={opt.name}>
+                  <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: '1.35' }} title={opt.name}>
                     {opt.name}
                   </span>
-                  {isSelected && <span style={{ color: '#2563eb', fontSize: '0.75rem', fontWeight: 700, marginLeft: 8 }}>✓</span>}
+                  {isSelected && <span style={{ color: '#2563eb', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>✓</span>}
                 </div>
               );
             })}
