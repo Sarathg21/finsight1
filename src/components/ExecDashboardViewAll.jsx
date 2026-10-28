@@ -595,6 +595,102 @@ function fetchHierarchyOptions() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   HIERARCHY CASCADING HOOK
+   Cascades: Legal Group -> Legal Entity -> Parent Division -> Sub-Division
+   Properly handles master relationships (legal_groups array, legal_entities array,
+   and parent_division_id) so sub-divisions are strictly scoped under Parent Division.
+───────────────────────────────────────────────────────────────────────────── */
+
+function useCascadingHierarchy({
+  legalEntities = [],
+  parentDivs = [],
+  subDivs = [],
+  draftLegalGroup = ['All'],
+  draftLegalEntity = ['All'],
+  draftParentDiv = ['All'],
+}) {
+  const filteredLegalEntities = useMemo(() => {
+    let list = legalEntities;
+    if (draftLegalGroup && !draftLegalGroup.includes('All') && draftLegalGroup.length > 0) {
+      const gIds = draftLegalGroup.map(String);
+      list = legalEntities.filter(e => {
+        const directId = e.legal_group_id ?? e.group_id ?? e.legalGroupId;
+        if (directId != null && String(directId).trim() !== '') {
+          return gIds.includes(String(directId));
+        }
+        if (Array.isArray(e.legal_groups)) {
+          return e.legal_groups.some(g => {
+            const gid = g?.legal_group_id ?? g?.id ?? g?.value;
+            return gid != null && gIds.includes(String(gid));
+          });
+        }
+        return false;
+      });
+    }
+    const seen = new Set();
+    return list.filter(e => {
+      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [legalEntities, draftLegalGroup]);
+
+  const filteredParentDivs = useMemo(() => {
+    let list = parentDivs;
+    if (draftLegalEntity && !draftLegalEntity.includes('All') && draftLegalEntity.length > 0) {
+      const eIds = draftLegalEntity.map(String);
+      list = parentDivs.filter(p => {
+        const directId = p.legal_entity_id ?? p.entity_id ?? p.legalEntityId;
+        if (directId != null && String(directId).trim() !== '') {
+          return eIds.includes(String(directId));
+        }
+        if (Array.isArray(p.legal_entities)) {
+          return p.legal_entities.some(e => {
+            const eid = e?.legal_entity_id ?? e?.id ?? e?.value;
+            return eid != null && eIds.includes(String(eid));
+          });
+        }
+        return false;
+      });
+    }
+    const seen = new Set();
+    return list.filter(p => {
+      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [parentDivs, draftLegalEntity]);
+
+  const filteredSubDivs = useMemo(() => {
+    let source = subDivs;
+    if (draftParentDiv && !draftParentDiv.includes('All') && draftParentDiv.length > 0) {
+      const pIds = draftParentDiv.map(String);
+      source = subDivs.filter(s => {
+        const pId = s.parent_division_id ?? s.division_id ?? s.parentDivisionId;
+        if (pId != null && String(pId).trim() !== '') {
+          return pIds.includes(String(pId).trim());
+        }
+        return false;
+      });
+    }
+    const seen = new Set();
+    return source.filter(s => {
+      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
+      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [subDivs, draftParentDiv]);
+
+  return { filteredLegalEntities, filteredParentDivs, filteredSubDivs };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    SECTION 1: TWC View All Table
 ───────────────────────────────────────────────────────────────────────────── */
 
@@ -644,10 +740,10 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
   const [subDivs,       setSubDivs]       = useState([]);
 
   // Multi-select draft filters (arrays matching SalesRevenueReport pattern)
-  const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters.legal_group_id ? [filters.legal_group_id] : ['All']);
-  const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters.legal_entity_id ? [filters.legal_entity_id] : ['All']);
-  const [draftParentDiv,    setDraftParentDiv]    = useState(filters.parent_division_id ? [filters.parent_division_id] : ['All']);
-  const [draftSubDiv,       setDraftSubDiv]       = useState(filters.subdivision_id ? [filters.subdivision_id] : ['All']);
+  const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters?.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
+  const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters?.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
+  const [draftParentDiv,    setDraftParentDiv]    = useState(filters?.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
+  const [draftSubDiv,       setDraftSubDiv]       = useState(filters?.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
   const [draftFromDate,     setDraftFromDate]     = useState('2026-01-01');
   const [draftToDate,       setDraftToDate]       = useState(filters.as_on_date || filters.as_of_date || '2026-10-31');
 
@@ -673,64 +769,15 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Cascading options based on selection, ensuring only active and non-duplicate names
-  const filteredLegalEntities = useMemo(() => {
-    let list = legalEntities;
-    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
-      const gIds = draftLegalGroup.map(String);
-      list = legalEntities.filter(e => {
-        const gId = String(e.legal_group_id ?? e.group_id ?? '');
-        return !gId || gIds.includes(gId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(e => {
-      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [legalEntities, draftLegalGroup]);
-
-  const filteredParentDivs = useMemo(() => {
-    let list = parentDivs;
-    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
-      const eIds = draftLegalEntity.map(String);
-      list = parentDivs.filter(p => {
-        const eId = String(p.legal_entity_id ?? '');
-        return !eId || eIds.includes(eId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(p => {
-      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [parentDivs, draftLegalEntity]);
-
-  const filteredSubDivs = useMemo(() => {
-    let source = subDivs;
-    if (draftParentDiv && !draftParentDiv.includes('All')) {
-      const pIds = draftParentDiv.map(String);
-      source = subDivs.filter(s => {
-        const pId = String(s.parent_division_id ?? '');
-        return !pId || pIds.includes(pId);
-      });
-    }
-    // Deduplicate by name so subdivision names are never repeated
-    const seen = new Set();
-    return source.filter(s => {
-      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
-      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [subDivs, draftParentDiv]);
+  // Cascading options based on selection, strictly scoping sub-divisions to parent division
+  const { filteredLegalEntities, filteredParentDivs, filteredSubDivs } = useCascadingHierarchy({
+    legalEntities,
+    parentDivs,
+    subDivs,
+    draftLegalGroup,
+    draftLegalEntity,
+    draftParentDiv,
+  });
 
   // Fetch table data whenever appliedTwcFilters change
   useEffect(() => {
@@ -1269,63 +1316,15 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
     }
   }, [filters]);
 
-  // Cascading options based on selection, ensuring only active and non-duplicate names
-  const filteredLegalEntities = useMemo(() => {
-    let list = legalEntities;
-    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
-      const gIds = draftLegalGroup.map(String);
-      list = legalEntities.filter(e => {
-        const gId = String(e.legal_group_id ?? e.group_id ?? '');
-        return !gId || gIds.includes(gId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(e => {
-      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [legalEntities, draftLegalGroup]);
-
-  const filteredParentDivs = useMemo(() => {
-    let list = parentDivs;
-    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
-      const eIds = draftLegalEntity.map(String);
-      list = parentDivs.filter(p => {
-        const eId = String(p.legal_entity_id ?? '');
-        return !eId || eIds.includes(eId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(p => {
-      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [parentDivs, draftLegalEntity]);
-
-  const filteredSubDivs = useMemo(() => {
-    let source = subDivs;
-    if (draftParentDiv && !draftParentDiv.includes('All')) {
-      const pIds = draftParentDiv.map(String);
-      source = subDivs.filter(s => {
-        const pId = String(s.parent_division_id ?? '');
-        return !pId || pIds.includes(pId);
-      });
-    }
-    const seen = new Set();
-    return source.filter(s => {
-      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
-      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [subDivs, draftParentDiv]);
+  // Cascading options based on selection, strictly scoping sub-divisions to parent division
+  const { filteredLegalEntities, filteredParentDivs, filteredSubDivs } = useCascadingHierarchy({
+    legalEntities,
+    parentDivs,
+    subDivs,
+    draftLegalGroup,
+    draftLegalEntity,
+    draftParentDiv,
+  });
 
   const handleApply = () => {
     setAppliedTrendFilters({
@@ -2330,63 +2329,15 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
     });
   }, [filters, currency]);
 
-  // Cascading options
-  const filteredLegalEntities = useMemo(() => {
-    let list = legalEntities;
-    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
-      const gIds = draftLegalGroup.map(String);
-      list = legalEntities.filter(e => {
-        const gId = String(e.legal_group_id ?? e.group_id ?? '');
-        return !gId || gIds.includes(gId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(e => {
-      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [legalEntities, draftLegalGroup]);
-
-  const filteredParentDivs = useMemo(() => {
-    let list = parentDivs;
-    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
-      const eIds = draftLegalEntity.map(String);
-      list = parentDivs.filter(p => {
-        const eId = String(p.legal_entity_id ?? '');
-        return !eId || eIds.includes(eId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(p => {
-      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [parentDivs, draftLegalEntity]);
-
-  const filteredSubDivs = useMemo(() => {
-    let source = subDivs;
-    if (draftParentDiv && !draftParentDiv.includes('All')) {
-      const pIds = draftParentDiv.map(String);
-      source = subDivs.filter(s => {
-        const pId = String(s.parent_division_id ?? '');
-        return !pId || pIds.includes(pId);
-      });
-    }
-    const seen = new Set();
-    return source.filter(s => {
-      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
-      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [subDivs, draftParentDiv]);
+  // Cascading options based on selection, strictly scoping sub-divisions to parent division
+  const { filteredLegalEntities, filteredParentDivs, filteredSubDivs } = useCascadingHierarchy({
+    legalEntities,
+    parentDivs,
+    subDivs,
+    draftLegalGroup,
+    draftLegalEntity,
+    draftParentDiv,
+  });
 
   // Fetch data
   useEffect(() => {
@@ -2678,63 +2629,15 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
     });
   }, [filters, currency]);
 
-  // Cascading options
-  const filteredLegalEntities = useMemo(() => {
-    let list = legalEntities;
-    if (draftLegalGroup && !draftLegalGroup.includes('All')) {
-      const gIds = draftLegalGroup.map(String);
-      list = legalEntities.filter(e => {
-        const gId = String(e.legal_group_id ?? e.group_id ?? '');
-        return !gId || gIds.includes(gId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(e => {
-      const name = (e.legal_entity_name || e.name || e.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [legalEntities, draftLegalGroup]);
-
-  const filteredParentDivs = useMemo(() => {
-    let list = parentDivs;
-    if (draftLegalEntity && !draftLegalEntity.includes('All')) {
-      const eIds = draftLegalEntity.map(String);
-      list = parentDivs.filter(p => {
-        const eId = String(p.legal_entity_id ?? '');
-        return !eId || eIds.includes(eId);
-      });
-    }
-    const seen = new Set();
-    return list.filter(p => {
-      const name = (p.parent_division_name || p.name || p.label || '').trim().toLowerCase();
-      if (!name) return true;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [parentDivs, draftLegalEntity]);
-
-  const filteredSubDivs = useMemo(() => {
-    let source = subDivs;
-    if (draftParentDiv && !draftParentDiv.includes('All')) {
-      const pIds = draftParentDiv.map(String);
-      source = subDivs.filter(s => {
-        const pId = String(s.parent_division_id ?? '');
-        return !pId || pIds.includes(pId);
-      });
-    }
-    const seen = new Set();
-    return source.filter(s => {
-      const name = (s.subdivision_name || s.name || s.label || '').trim().toLowerCase();
-      if (!name || name === 'all' || name === 'null' || name === 'undefined') return false;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    });
-  }, [subDivs, draftParentDiv]);
+  // Cascading options based on selection, strictly scoping sub-divisions to parent division
+  const { filteredLegalEntities, filteredParentDivs, filteredSubDivs } = useCascadingHierarchy({
+    legalEntities,
+    parentDivs,
+    subDivs,
+    draftLegalGroup,
+    draftLegalEntity,
+    draftParentDiv,
+  });
 
   // Fetch data
   useEffect(() => {

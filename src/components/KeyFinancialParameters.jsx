@@ -5,6 +5,7 @@ import {
 import { fetchPLStatement } from '../services/plApi';
 import { getExecKpis, getExecTwcTrend } from '../api/executiveDashboardApi';
 import { getFinancialPositionKpis } from '../api/financialPositionApi';
+import { getOpexFilterOptions } from '../api/opexApi';
 import MultiSelectDropdown from './Filters/MultiSelectDropdown';
 
 const MONTHS_LIST = [
@@ -152,45 +153,94 @@ export default function KeyFinancialParameters({
     const [selectedYear, setSelectedYear] = useState('2026');
     const [selectedMonth, setSelectedMonth] = useState('Sep 2026');
 
-    // Cascading options for hierarchy dropdowns
-    const filteredLegalEntities = useMemo(() => {
-        const entities = filterOptions.legal_entities || [];
-        const groupIds = resolveSelectedIds(selectedLegalGroup, filterOptions.legal_groups);
-        if (!groupIds || groupIds.length === 0) return entities;
+    // Cascaded options state for hierarchy dropdowns
+    const [cascadedEntities, setCascadedEntities] = useState(() => filterOptions.legal_entities || []);
+    const [cascadedParentDivisions, setCascadedParentDivisions] = useState(() => filterOptions.parent_divisions || []);
+    const [cascadedSubdivisions, setCascadedSubdivisions] = useState(() => filterOptions.subdivisions || []);
 
-        return entities.filter(item => {
-            if (typeof item !== 'object' || item === null) return true;
-            const gId = item.legal_group_id ?? item.group_id ?? item.legalGroupId;
-            if (gId === undefined || gId === null) return true;
-            return groupIds.includes(String(gId));
-        });
-    }, [filterOptions.legal_entities, filterOptions.legal_groups, selectedLegalGroup]);
+    // Sync with filterOptions when loaded/updated by parent
+    useEffect(() => {
+        if (filterOptions.legal_entities?.length && (!cascadedEntities || cascadedEntities.length === 0)) {
+            setCascadedEntities(filterOptions.legal_entities);
+        }
+        if (filterOptions.parent_divisions?.length && (!cascadedParentDivisions || cascadedParentDivisions.length === 0)) {
+            setCascadedParentDivisions(filterOptions.parent_divisions);
+        }
+        if (filterOptions.subdivisions?.length && (!cascadedSubdivisions || cascadedSubdivisions.length === 0)) {
+            setCascadedSubdivisions(filterOptions.subdivisions);
+        }
+    }, [filterOptions]);
 
-    const filteredParentDivisions = useMemo(() => {
-        const divisions = filterOptions.parent_divisions || [];
-        const entityIds = resolveSelectedIds(selectedLegalEntity, filteredLegalEntities);
-        if (!entityIds || entityIds.length === 0) return divisions;
+    // Sync with initialFilters if parent executive dashboard filters change
+    useEffect(() => {
+        if (initialFilters.legal_group_id !== undefined) {
+            setSelectedLegalGroup(initialFilters.legal_group_id && initialFilters.legal_group_id.length ? (Array.isArray(initialFilters.legal_group_id) ? initialFilters.legal_group_id : [initialFilters.legal_group_id]) : ['All']);
+        }
+        if (initialFilters.legal_entity_id !== undefined) {
+            setSelectedLegalEntity(initialFilters.legal_entity_id && initialFilters.legal_entity_id.length ? (Array.isArray(initialFilters.legal_entity_id) ? initialFilters.legal_entity_id : [initialFilters.legal_entity_id]) : ['All']);
+        }
+        if (initialFilters.parent_division_id !== undefined) {
+            setSelectedParentDivision(initialFilters.parent_division_id && initialFilters.parent_division_id.length ? (Array.isArray(initialFilters.parent_division_id) ? initialFilters.parent_division_id : [initialFilters.parent_division_id]) : ['All']);
+        }
+        if (initialFilters.subdivision_id !== undefined) {
+            setSelectedSubdivision(initialFilters.subdivision_id && initialFilters.subdivision_id.length ? (Array.isArray(initialFilters.subdivision_id) ? initialFilters.subdivision_id : [initialFilters.subdivision_id]) : ['All']);
+        }
+    }, [initialFilters.legal_group_id, initialFilters.legal_entity_id, initialFilters.parent_division_id, initialFilters.subdivision_id]);
 
-        return divisions.filter(item => {
-            if (typeof item !== 'object' || item === null) return true;
-            const eId = item.legal_entity_id ?? item.entity_id ?? item.legalEntityId;
-            if (eId === undefined || eId === null) return true;
-            return entityIds.includes(String(eId));
-        });
-    }, [filterOptions.parent_divisions, filteredLegalEntities, selectedLegalEntity]);
+    // Backend cascading via /api/opex/filter-options to accurately scope children
+    useEffect(() => {
+        let active = true;
+        const lgIds = resolveSelectedIds(selectedLegalGroup, filterOptions.legal_groups);
+        const leIds = resolveSelectedIds(selectedLegalEntity, cascadedEntities);
+        const pdIds = resolveSelectedIds(selectedParentDivision, cascadedParentDivisions);
 
-    const filteredSubdivisions = useMemo(() => {
-        const subs = filterOptions.subdivisions || [];
-        const divisionIds = resolveSelectedIds(selectedParentDivision, filteredParentDivisions);
-        if (!divisionIds || divisionIds.length === 0) return subs;
+        if (!lgIds && !leIds && !pdIds) {
+            setCascadedEntities(filterOptions.legal_entities || []);
+            setCascadedParentDivisions(filterOptions.parent_divisions || []);
+            setCascadedSubdivisions(filterOptions.subdivisions || []);
+            return;
+        }
 
-        return subs.filter(item => {
-            if (typeof item !== 'object' || item === null) return true;
-            const dId = item.parent_division_id ?? item.division_id ?? item.parentDivisionId;
-            if (dId === undefined || dId === null) return true;
-            return divisionIds.includes(String(dId));
-        });
-    }, [filterOptions.subdivisions, filteredParentDivisions, selectedParentDivision]);
+        const params = {};
+        if (lgIds && lgIds.length > 0) params.legal_group_id = lgIds;
+        if (leIds && leIds.length > 0) params.legal_entity_id = leIds;
+        if (pdIds && pdIds.length > 0) params.parent_division_id = pdIds;
+
+        getOpexFilterOptions(params)
+            .then(res => {
+                if (!active || !res) return;
+                if (lgIds && lgIds.length > 0) {
+                    if (res.legal_entities) setCascadedEntities(res.legal_entities);
+                } else {
+                    setCascadedEntities(filterOptions.legal_entities || []);
+                }
+
+                if (leIds && leIds.length > 0) {
+                    if (res.parent_divisions) setCascadedParentDivisions(res.parent_divisions);
+                } else if (lgIds && lgIds.length > 0) {
+                    if (res.parent_divisions) setCascadedParentDivisions(res.parent_divisions);
+                } else {
+                    setCascadedParentDivisions(filterOptions.parent_divisions || []);
+                }
+
+                if (pdIds && pdIds.length > 0) {
+                    if (res.subdivisions) setCascadedSubdivisions(res.subdivisions);
+                } else if (leIds && leIds.length > 0) {
+                    if (res.subdivisions) setCascadedSubdivisions(res.subdivisions);
+                } else {
+                    setCascadedSubdivisions(filterOptions.subdivisions || []);
+                }
+            })
+            .catch(err => {
+                console.error('[KeyFinancialParameters] Failed to cascade filter options:', err);
+            });
+
+        return () => { active = false; };
+    }, [selectedLegalGroup, selectedLegalEntity, selectedParentDivision, filterOptions]);
+
+    const filteredLegalEntities = cascadedEntities;
+    const filteredParentDivisions = cascadedParentDivisions;
+    const filteredSubdivisions = cascadedSubdivisions;
 
     // Data state
     const [loading, setLoading] = useState(true);
