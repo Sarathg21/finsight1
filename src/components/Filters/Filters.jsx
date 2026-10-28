@@ -3014,6 +3014,75 @@ export default function OpexFilters({
                     FIELD_WIDTHS.period
                 }
             >
+                {enableYtdFullYear ? (() => {
+                    /* Sales-Revenue-style native <select> dropdown */
+                    const yr = selectedFilters.year || "2026";
+                    const yr2 = String(yr).slice(-2);
+                    const MONTHS = [
+                        { value: "10", label: `Oct-${yr2}` },
+                        { value: "09", label: `Sep-${yr2}` },
+                        { value: "08", label: `Aug-${yr2}` },
+                        { value: "07", label: `Jul-${yr2}` },
+                        { value: "06", label: `Jun-${yr2}` },
+                        { value: "05", label: `May-${yr2}` },
+                        { value: "04", label: `Apr-${yr2}` },
+                        { value: "03", label: `Mar-${yr2}` },
+                        { value: "02", label: `Feb-${yr2}` },
+                        { value: "01", label: `Jan-${yr2}` },
+                    ];
+                    const currentVal = (() => {
+                        const p = selectedFilters.period;
+                        if (!p || (Array.isArray(p) && p.length === 0)) return "10";
+                        const raw = Array.isArray(p) ? p[p.length - 1] : p;
+                        const s = typeof raw === "object" && raw !== null
+                            ? (raw.period_name || raw.value || raw.name || raw.label || "")
+                            : String(raw || "");
+                        if (s.toUpperCase() === "YTD") return "YTD";
+                        if (s.toUpperCase() === "FULL YEAR" || s.toUpperCase() === "FY") return "FY";
+                        const moMatch = s.match(/^(\d{2})/);
+                        if (moMatch) return moMatch[1];
+                        const MSHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                        const idx = MSHORT.findIndex(m => s.toLowerCase().startsWith(m.toLowerCase()));
+                        if (idx !== -1) return String(idx + 1).padStart(2, "0");
+                        return "10";
+                    })();
+                    return (
+                        <select
+                            style={{
+                                width: "100%",
+                                height: 34,
+                                padding: "0 24px 0 8px",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: 8,
+                                fontSize: "0.78rem",
+                                fontWeight: 600,
+                                color: "#334155",
+                                background: "#fff",
+                                cursor: "pointer",
+                                outline: "none",
+                                appearance: "auto",
+                            }}
+                            value={currentVal}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === "YTD") {
+                                    handleFilterChange("period", ["YTD"]);
+                                } else if (v === "FY") {
+                                    handleFilterChange("period", ["Full Year"]);
+                                } else {
+                                    const moLabel = MONTHS.find(m => m.value === v)?.label || v;
+                                    handleFilterChange("period", [moLabel]);
+                                }
+                            }}
+                        >
+                            {MONTHS.map(m => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                            <option value="YTD">YTD</option>
+                            <option value="FY">Full Year</option>
+                        </select>
+                    );
+                })() : (
                 <OpexMultiSelect
                     options={
                         options.periods ||
@@ -3035,8 +3104,9 @@ export default function OpexFilters({
                         FIELD_WIDTHS.period
                     }
                     isPeriod={true}
-                    enableYtdFullYear={enableYtdFullYear}
+                    enableYtdFullYear={false}
                 />
+                )}
             </FilterField>
 
             {/* ===================================================
