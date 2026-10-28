@@ -1732,6 +1732,59 @@ function StatementCards({
   );
 }
 
+/* ── Hook for modal-local cascading filter options ────────────────── */
+function useModalCascadingFilters(modalFilters, baseFilterOptions) {
+  const [modalOptions, setModalOptions] = useState(baseFilterOptions || {});
+
+  useEffect(() => {
+    setModalOptions(baseFilterOptions || {});
+  }, [baseFilterOptions]);
+
+  const modalHierarchyKey = useMemo(
+    () => JSON.stringify({
+      lg: modalFilters?.legalGroup,
+      le: modalFilters?.legalEntity,
+      pd: modalFilters?.parentDivision,
+    }),
+    [modalFilters?.legalGroup, modalFilters?.legalEntity, modalFilters?.parentDivision]
+  );
+
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+
+    const hasActivePD = modalFilters?.parentDivision && !modalFilters.parentDivision.includes('All') && modalFilters.parentDivision.length > 0;
+    const hasActiveLE = modalFilters?.legalEntity && !modalFilters.legalEntity.includes('All') && modalFilters.legalEntity.length > 0;
+    const hasActiveLG = modalFilters?.legalGroup && !modalFilters.legalGroup.includes('All') && modalFilters.legalGroup.length > 0;
+
+    if (!hasActivePD && !hasActiveLE && !hasActiveLG) {
+      setModalOptions(baseFilterOptions || {});
+      return;
+    }
+
+    fetchBSFilters({
+      legalGroup:     modalFilters?.legalGroup,
+      legalEntity:    modalFilters?.legalEntity,
+      parentDivision: modalFilters?.parentDivision,
+      isCascade: true,
+    }).then(data => {
+      if (!data) return;
+      setModalOptions(prev => ({
+        ...prev,
+        legalEntities:  (hasActivePD || hasActiveLE) && prev.legalEntities?.length ? prev.legalEntities : (data?.legal_entities || prev.legalEntities || []),
+        parentDivisions:hasActivePD && prev.parentDivisions?.length ? prev.parentDivisions : (data?.parent_divisions || prev.parentDivisions || []),
+        subdivisions:   data?.subdivisions || [],
+      }));
+    }).catch(err => {
+      console.warn('[useModalCascadingFilters] cascade error:', err);
+    });
+  }, [modalHierarchyKey, baseFilterOptions]);
+
+  return modalOptions;
+}
 /* ── Statement View All Modal Content (Filters, Split Panels, Hierarchy, Expand/Collapse & Exports) ── */
 function StatementViewAll({
   statementData: initialStatementData,
@@ -1756,6 +1809,8 @@ function StatementViewAll({
     comparePeriod: appliedFilters?.comparePeriod || '',
     currency: currency || 'AED',
   });
+
+  const modalOptions = useModalCascadingFilters(modalFilters, filterOptions);
 
   // Re-sync whenever the parent page's appliedFilters or currency changes
   // (e.g. user changes period/currency on main page then opens View All)
@@ -2025,7 +2080,7 @@ function StatementViewAll({
               Legal Group
             </label>
             <MultiSelect
-              options={filterOptions?.legalGroups || []}
+              options={modalOptions?.legalGroups || []}
               value={modalFilters.legalGroup}
               onChange={v => setModalFilters(f => ({ ...f, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Groups"
@@ -2038,7 +2093,7 @@ function StatementViewAll({
               Legal Entity
             </label>
             <MultiSelect
-              options={filterOptions?.legalEntities || []}
+              options={modalOptions?.legalEntities || []}
               value={modalFilters.legalEntity}
               onChange={v => setModalFilters(f => ({ ...f, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Entities"
@@ -2051,7 +2106,7 @@ function StatementViewAll({
               Parent Division
             </label>
             <MultiSelect
-              options={filterOptions?.parentDivisions || []}
+              options={modalOptions?.parentDivisions || []}
               value={modalFilters.parentDivision}
               onChange={v => setModalFilters(f => ({ ...f, parentDivision: v, subdivision: ['All'] }))}
               placeholder="All Divisions"
@@ -2064,7 +2119,7 @@ function StatementViewAll({
               Sub-Division
             </label>
             <MultiSelect
-              options={filterOptions?.subdivisions || []}
+              options={modalOptions?.subdivisions || []}
               value={modalFilters.subdivision}
               onChange={v => setModalFilters(f => ({ ...f, subdivision: v }))}
               placeholder="All Sub-Divisions"
@@ -2463,6 +2518,8 @@ function TrendViewAll({
     currency:       currency || 'AED',
   });
 
+  const modalOptions = useModalCascadingFilters(modalFilters, filterOptions);
+
   // Re-sync whenever parent appliedFilters or currency changes
   useEffect(() => {
     setModalFilters({
@@ -2510,7 +2567,7 @@ function TrendViewAll({
               Legal Group
             </label>
             <MultiSelect
-              options={filterOptions?.legalGroups || []}
+              options={modalOptions?.legalGroups || []}
               value={modalFilters.legalGroup}
               onChange={v => setModalFilters(f => ({ ...f, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Groups"
@@ -2523,7 +2580,7 @@ function TrendViewAll({
               Legal Entity
             </label>
             <MultiSelect
-              options={filterOptions?.legalEntities || []}
+              options={modalOptions?.legalEntities || []}
               value={modalFilters.legalEntity}
               onChange={v => setModalFilters(f => ({ ...f, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Entities"
@@ -2536,7 +2593,7 @@ function TrendViewAll({
               Parent Division
             </label>
             <MultiSelect
-              options={filterOptions?.parentDivisions || []}
+              options={modalOptions?.parentDivisions || []}
               value={modalFilters.parentDivision}
               onChange={v => setModalFilters(f => ({ ...f, parentDivision: v, subdivision: ['All'] }))}
               placeholder="All Divisions"
@@ -2549,7 +2606,7 @@ function TrendViewAll({
               Sub-Division
             </label>
             <MultiSelect
-              options={filterOptions?.subdivisions || []}
+              options={modalOptions?.subdivisions || []}
               value={modalFilters.subdivision}
               onChange={v => setModalFilters(f => ({ ...f, subdivision: v }))}
               placeholder="All Sub-Divisions"
@@ -2743,6 +2800,8 @@ function CompositionViewAll({
     currency:       currency || 'AED',
   });
 
+  const modalOptions = useModalCascadingFilters(modalFilters, filterOptions);
+
   // Re-sync whenever parent appliedFilters or currency changes
   useEffect(() => {
     setModalFilters({
@@ -2838,7 +2897,7 @@ function CompositionViewAll({
               Legal Group
             </label>
             <MultiSelect
-              options={filterOptions?.legalGroups || []}
+              options={modalOptions?.legalGroups || []}
               value={modalFilters.legalGroup}
               onChange={v => setModalFilters(f => ({ ...f, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Groups"
@@ -2851,7 +2910,7 @@ function CompositionViewAll({
               Legal Entity
             </label>
             <MultiSelect
-              options={filterOptions?.legalEntities || []}
+              options={modalOptions?.legalEntities || []}
               value={modalFilters.legalEntity}
               onChange={v => setModalFilters(f => ({ ...f, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Entities"
@@ -2864,7 +2923,7 @@ function CompositionViewAll({
               Parent Division
             </label>
             <MultiSelect
-              options={filterOptions?.parentDivisions || []}
+              options={modalOptions?.parentDivisions || []}
               value={modalFilters.parentDivision}
               onChange={v => setModalFilters(f => ({ ...f, parentDivision: v, subdivision: ['All'] }))}
               placeholder="All Divisions"
@@ -2877,7 +2936,7 @@ function CompositionViewAll({
               Sub-Division
             </label>
             <MultiSelect
-              options={filterOptions?.subdivisions || []}
+              options={modalOptions?.subdivisions || []}
               value={modalFilters.subdivision}
               onChange={v => setModalFilters(f => ({ ...f, subdivision: v }))}
               placeholder="All Sub-Divisions"
@@ -3633,13 +3692,16 @@ export default function BalanceSheet() {
       const legalGroupsList = data?.legal_groups || [];
       defaultLegalGroupId.current = ['All'];
 
+      const hasActivePD = currentFilters.parentDivision && !currentFilters.parentDivision.includes('All') && currentFilters.parentDivision.length > 0;
+      const hasActiveLE = currentFilters.legalEntity && !currentFilters.legalEntity.includes('All') && currentFilters.legalEntity.length > 0;
+
       setFilterOptions(prev => ({
         ...prev,
         periods: periods.length ? periods : prev.periods,
         currencies:     mergedCurrencies,
         legalGroups:    legalGroupsList.length ? legalGroupsList : prev.legalGroups,
-        legalEntities:  data?.legal_entities || [],
-        parentDivisions:data?.parent_divisions || [],
+        legalEntities:  (hasActivePD || hasActiveLE) && prev.legalEntities?.length ? prev.legalEntities : (data?.legal_entities || []),
+        parentDivisions:hasActivePD && prev.parentDivisions?.length ? prev.parentDivisions : (data?.parent_divisions || []),
         subdivisions:   data?.subdivisions || [],
         ledgers:        ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
@@ -3664,17 +3726,13 @@ export default function BalanceSheet() {
   }, []);
 
   /* ── Cascading filter options on hierarchy change ──────────────── */
-  // NOTE: parentDivision is intentionally excluded from hierarchyKey.
-  // Including it caused a double-fetch blink: when LG/LE changed, setFilters
-  // reset parentDivision to ['All'] which changed hierarchyKey a second time,
-  // triggering another loadFilterOptions and making the PD dropdown flicker.
-  // Subdivisions only cascade from LG + LE, so PD does not need to be a key.
   const hierarchyKey = useMemo(
     () => JSON.stringify({
       lg: filters.legalGroup,
       le: filters.legalEntity,
+      pd: filters.parentDivision,
     }),
-    [filters.legalGroup, filters.legalEntity]
+    [filters.legalGroup, filters.legalEntity, filters.parentDivision]
   );
 
   const isInitialMount = useRef(true);

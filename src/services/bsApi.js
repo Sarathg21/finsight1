@@ -182,7 +182,27 @@ function buildBSParams(filters = {}) {
   // - For users with access to both FJ Group and RKME Group (e.g. CFO, CEO, Admin), pass their allowed groups [4, 3]
   //   so Raphael Khlat is included in the backend aggregation.
   // - For scoped users (e.g. BU Accountant Dileep, GM, FM), pass ONLY their authorized group(s) [4] so 403 errors are prevented.
-  const activeLegalGroup = active(filters.legalGroup);
+  const toActiveHierarchy = (val) => {
+    if (val === null || val === undefined) return undefined;
+    const list = Array.isArray(val) ? val : [val];
+    const cleaned = list
+      .filter(v => v !== null && v !== undefined && v !== 'All' && v !== 'all' && v !== '')
+      .map(v => {
+        if (typeof v === 'object' && v !== null) {
+          const raw = v.id !== undefined ? v.id : (v.value !== undefined ? v.value : null);
+          return raw;
+        }
+        return v;
+      })
+      .filter(v => v !== null && v !== undefined && v !== 'All' && v !== 'all' && v !== '')
+      .map(v => {
+        const num = Number(v);
+        return (!isNaN(num) && String(v).trim() !== '') ? num : v;
+      });
+    return cleaned.length > 0 ? cleaned : undefined;
+  };
+
+  const activeLegalGroup = toActiveHierarchy(filters.legalGroup ?? filters.legalGroupId ?? filters.legal_group_id);
   let resolvedLegalGroup = activeLegalGroup;
   if (resolvedLegalGroup === undefined) {
     const allowed = filters.allowedLegalGroups || getUserAllowedLegalGroups();
@@ -199,9 +219,9 @@ function buildBSParams(filters = {}) {
     as_on_date:          active(filters.asOnDate || filters.period),
     currency:            active(filters.currency),
     legal_group_id:      resolvedLegalGroup,
-    legal_entity_id:     active(filters.legalEntity),
-    parent_division_id:  active(filters.parentDivision),
-    subdivision_id:      active(filters.subdivision),
+    legal_entity_id:     toActiveHierarchy(filters.legalEntity ?? filters.legalEntityId ?? filters.legal_entity_id),
+    parent_division_id:  toActiveHierarchy(filters.parentDivision ?? filters.parentDivisionId ?? filters.parent_division_id),
+    subdivision_id:      toActiveHierarchy(filters.subdivision ?? filters.subdivisionId ?? filters.subdivision_id),
     ledger:              active(filters.ledger),
     section:             active(filters.section),
     sub_section:         active(filters.subSection),
@@ -282,7 +302,7 @@ export async function fetchBSFilters(params = {}) {
   };
   // When discovering filter options (not cascading on a specific legal group selection),
   // NEVER send legal_group_id so the backend returns all legal groups authorized for the user
-  if (!params.isCascade || !params.legalGroup || params.legalGroup.includes('All')) {
+  if (!params.isCascade || !params.legalGroup || (Array.isArray(params.legalGroup) && params.legalGroup.includes('All')) || params.legalGroup === 'All') {
     delete apiParams.legal_group_id;
   }
   if (params.analysisCode) apiParams.analysis_code = params.analysisCode;
@@ -342,7 +362,8 @@ export async function fetchBSFilters(params = {}) {
   // Second, add master entities that are NOT yet in the database, offset by +100 so their IDs never collide with database IDs (e.g. ID 1)
   // On cascade calls (isCascade=true) the backend already restricts to the selected hierarchy,
   // so skip the static merge to avoid reintroducing entities from other Legal Groups.
-  if (!params.isCascade) {
+  // Only fall back to static masterData LEGAL_ENTITIES if the backend returned no entities at all (e.g. offline dev / mock mode)
+  if (valid.length === 0 && !params.isCascade) {
     LEGAL_ENTITIES.forEach(le => {
       if (!map.has(le.name.toLowerCase())) {
         const uniqueId = dbIds.has(le.id) ? (100 + Number(le.id)) : Number(le.id);
