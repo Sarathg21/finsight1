@@ -1839,6 +1839,179 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
   );
 }
 
+/* ─── Searchable Single-Select for Salesperson ────────────────────── */
+function SearchableSalesmanSelect({ options = [], value, onChange, disabled, style }) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const ref = useRef(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (open && searchRef.current) {
+      setTimeout(() => searchRef.current && searchRef.current.focus(), 0);
+    }
+    if (!open) setSearchQuery('');
+  }, [open]);
+
+  const normOptions = useMemo(() => {
+    return (options || []).map(o => {
+      const rawLabel = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o?.value || o));
+      const val = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? rawLabel);
+      const isAll = val === 'All' || String(rawLabel).toLowerCase().includes('all sales');
+      return {
+        id: isAll ? 'All' : String(val),
+        name: isAll ? 'All' : rawLabel,
+      };
+    });
+  }, [options]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const visibleOptions = q
+    ? normOptions.filter(o => o.id === 'All' || String(o.name || '').toLowerCase().includes(q))
+    : normOptions;
+
+  const selectedOpt = normOptions.find(o => String(o.id) === String(value));
+  const displayLabel = (value === 'All' || !value || !selectedOpt) ? 'All' : selectedOpt.name;
+
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      <button
+        type="button"
+        id="filter-salesman"
+        onClick={() => !disabled && setOpen(prev => !prev)}
+        disabled={disabled}
+        title={displayLabel}
+        style={{
+          ...selStyle,
+          width: '100%',
+          minWidth: 92,
+          height: 32,
+          padding: '0 8px',
+          boxSizing: 'border-box',
+          fontSize: '0.78rem',
+          backgroundImage: 'none',
+          appearance: 'none',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+          opacity: disabled ? 0.6 : 1,
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, textAlign: 'left', paddingRight: 4 }}>
+          {displayLabel}
+        </span>
+        <span style={{ fontSize: '0.62rem', color: '#94a3b8', flexShrink: 0 }}>
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          minWidth: 260,
+          maxWidth: 320,
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: 8,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+          zIndex: 9999,
+          marginTop: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          {/* Search bar header */}
+          <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                placeholder="Search salesperson..."
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.75rem', color: '#334155', width: '100%', minWidth: 0 }}
+              />
+              {searchQuery && (
+                <span
+                  onClick={e => { e.stopPropagation(); setSearchQuery(''); }}
+                  style={{ fontSize: '0.65rem', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}
+                >✕</span>
+              )}
+            </div>
+          </div>
+
+          {/* Options list */}
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {visibleOptions.map((opt, idx) => {
+              const isSelected = String(opt.id) === String(value) || (opt.id === 'All' && (!value || value === 'All'));
+              return (
+                <div
+                  key={`salesman-opt-${idx}-${opt.id}`}
+                  onClick={() => {
+                    onChange(opt.id);
+                    setOpen(false);
+                    setSearchQuery('');
+                  }}
+                  style={{
+                    padding: '7px 12px',
+                    cursor: 'pointer',
+                    fontSize: '0.78rem',
+                    background: isSelected ? '#eff6ff' : '#fff',
+                    color: isSelected ? '#2563eb' : '#334155',
+                    fontWeight: isSelected ? 700 : 400,
+                    borderBottom: '1px solid #f8fafc',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = '#fff'; }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={opt.name}>
+                    {opt.name}
+                  </span>
+                  {isSelected && <span style={{ color: '#2563eb', fontSize: '0.75rem', fontWeight: 700, marginLeft: 8 }}>✓</span>}
+                </div>
+              );
+            })}
+
+            {visibleOptions.length === 0 && (
+              <div style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>
+                No salesperson matches &ldquo;{searchQuery}&rdquo;
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 /* ─── External Customer Validator ───────────────────────────────── */
 // CFO UAT: Top Customers card must only display genuine external customers.
 // Related-party / internal entities (tagged with (R) in ERP, e.g., Flowtech (R)) are excluded.
@@ -3492,14 +3665,13 @@ export default function SalesRevenueReport() {
 
           {filterOptions.salesmen.length > 2 && (
             <FilterField label="Salesperson">
-              <select id="filter-salesman" style={{ ...selStyle, width: 84, minWidth: 84, height: 32, padding: '0 16px 0 6px', fontSize: '0.78rem', opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1 }} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
-                {filterOptions.salesmen.map((o, idx) => {
-                  const rawLabel = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
-                  const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? rawLabel);
-                  const label = (val === 'All' || String(rawLabel).toLowerCase().includes('all sales')) ? 'All' : rawLabel;
-                  return <option key={`salesman-${idx}`} value={val} title={rawLabel}>{label}</option>;
-                })}
-              </select>
+              <SearchableSalesmanSelect
+                options={filterOptions.salesmen}
+                value={filters.salesman}
+                onChange={v => updateFilter('salesman', v)}
+                disabled={filterOptions.salesmen.length <= 2}
+                style={{ width: 105 }}
+              />
             </FilterField>
           )}
 
