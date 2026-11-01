@@ -6,7 +6,7 @@ import {
 import { 
     BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye, TrendingUp
 } from 'lucide-react';
-import ExecDashboardViewAll from '../components/ExecDashboardViewAll';
+import ExecDashboardViewAll, { exportRevenueByRegionReport, exportProfitabilityByRegionReport } from '../components/ExecDashboardViewAll';
 import PLComparisonCard from '../components/Charts/PLComparisonCard';
 import KeyFinancialParameters from '../components/KeyFinancialParameters';
 import Filters from '../components/Filters/Filters';
@@ -746,7 +746,9 @@ export default function ExecutiveDashboard() {
 
     // ── Regional state ──
     const [revRegionData, setRevRegionData] = useState([]);
+    const [rawRevRegionRows, setRawRevRegionRows] = useState([]);
     const [profitRegionDataState, setProfitRegionDataState] = useState([]);
+    const [rawProfitRegionRows, setRawProfitRegionRows] = useState([]);
 
     // ── Fetch KPIs & Target Comparison on filter apply ──
     useEffect(() => {
@@ -979,6 +981,7 @@ export default function ExecutiveDashboard() {
             .then(data => {
                 if (!cancelled) {
                     const rows = getRows(data);
+                    setRawRevRegionRows(rows);
                     setRevRegionData(rows.map(r => {
                         const rawVal = Number(r.revenue_aed ?? r.revenue ?? r.total_revenue ?? 0);
                         const value  = Number((rawVal / 1_000_000).toFixed(2));
@@ -1003,6 +1006,7 @@ export default function ExecutiveDashboard() {
             .then(data => {
                 if (!cancelled) {
                     const rows = getRows(data);
+                    setRawProfitRegionRows(rows);
                     setProfitRegionDataState(rows.map(r => {
                         const rawGp = Number(r.gross_profit_aed ?? r.gross_profit ?? r.gp ?? 0);
                         const rawNp = Number(r.net_profit_aed ?? r.net_profit ?? r.np ?? 0);
@@ -1341,6 +1345,38 @@ export default function ExecutiveDashboard() {
             target_net_profit: targetNetProfitM,
         }));
     }, [profitTrend, targetNetProfitM]);
+
+    const handleRevRegionExport = async (format) => {
+        try {
+            let rowsToExport = rawRevRegionRows;
+            if (!rowsToExport || rowsToExport.length === 0) {
+                const data = await getExecRevenueByRegion(appliedFilters);
+                rowsToExport = getRows(data);
+            }
+            await exportRevenueByRegionReport(rowsToExport, format, {
+                currency,
+                asOfDate: appliedFilters.as_of_date || appliedFilters.as_on_date || 'latest',
+            });
+        } catch (err) {
+            console.error('[Export Revenue by Region]', err);
+        }
+    };
+
+    const handleProfitRegionExport = async (format) => {
+        try {
+            let rowsToExport = rawProfitRegionRows;
+            if (!rowsToExport || rowsToExport.length === 0) {
+                const data = await getExecProfitabilityByRegion(appliedFilters);
+                rowsToExport = getRows(data);
+            }
+            await exportProfitabilityByRegionReport(rowsToExport, format, {
+                currency,
+                asOfDate: appliedFilters.as_of_date || appliedFilters.as_on_date || 'latest',
+            });
+        } catch (err) {
+            console.error('[Export Profitability by Region]', err);
+        }
+    };
 
     return (
         <div style={{ background: 'var(--clr-bg)', paddingBottom: 24 }}>
@@ -1909,8 +1945,8 @@ export default function ExecutiveDashboard() {
                             <span style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</span>
                             <ChartMenu menuItems={[
                                 { icon: Eye, label: 'View All', action: () => openViewAll('rev_region') },
-                                { icon: FileText, label: 'Export Excel', action: () => console.log('Exporting Revenue Excel...') },
-                                { icon: Download, label: 'Export PDF', action: () => console.log('Exporting Revenue PDF...') }
+                                { icon: FileText, label: 'Export Excel', action: () => handleRevRegionExport('excel') },
+                                { icon: Download, label: 'Export PDF', action: () => handleRevRegionExport('pdf') }
                             ]} />
                         </div>
                     </div>
@@ -1986,8 +2022,8 @@ export default function ExecutiveDashboard() {
                         <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
                             <ChartMenu menuItems={[
                                 { icon: Eye, label: 'View All', action: () => openViewAll('profit_region') },
-                                { icon: FileText, label: 'Export Excel', action: () => console.log('Exporting Profitability Excel...') },
-                                { icon: Download, label: 'Export PDF', action: () => console.log('Exporting Profitability PDF...') }
+                                { icon: FileText, label: 'Export Excel', action: () => handleProfitRegionExport('excel') },
+                                { icon: Download, label: 'Export PDF', action: () => handleProfitRegionExport('pdf') }
                             ]} />
                         </div>
                     </div>

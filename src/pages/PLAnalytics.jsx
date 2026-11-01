@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -582,6 +581,7 @@ function ViewAllFilterBar({
     exporting = null,
     loading = false,
     showCompare = false,
+    exportSection = 'statement',
 }) {
     const yearOptions = (filterOptions?.years || [])
         .map(year => {
@@ -814,7 +814,7 @@ function ViewAllFilterBar({
                 <ExportButtons
                     endpoint="pl-view-all"
                     exporting={exporting}
-                    handleExport={onExport}
+                    handleExport={(format) => onExport?.(format, exportSection)}
                 />
             </div>
         </div>
@@ -2684,7 +2684,7 @@ export default function PLAnalytics() {
     /* ── Export handler ───────────────────────────────────────────── */
     const [exporting, setExporting] = useState(null);
 
-    const handleExport = (format, section = 'full') => {
+    const handleExport = (format, section = 'statement') => {
         if (exporting) return;
 
         setExporting(format);
@@ -2720,9 +2720,9 @@ export default function PLAnalytics() {
          * export, not a client-generated file. Other View All exports keep
          * their existing report routing unchanged.
          */
-        const reportName = openModal === 'statement'
-            ? 'statement'
-            : (section || 'full');
+        // Each View All modal supplies its own report key. Never fall back to
+        // the unsupported generic `full` key (which caused every export to fail).
+        const reportName = section || (openModal === 'statement' ? 'statement' : openModal);
 
         exportPL(reportName, format, viewAllFilters)
             .then(() => {
@@ -3032,6 +3032,7 @@ export default function PLAnalytics() {
                             loading={viewAllLoading}
                             onExport={handleViewAllExport}
                             exporting={viewAllExporting}
+                            exportSection="kpi"
                         />
                         {viewAllLoading ? <div style={{ padding: 24 }}><Skeleton h={220} /></div> : (
                             <KPISummaryViewAll
@@ -3054,6 +3055,7 @@ export default function PLAnalytics() {
                             loading={viewAllLoading}
                             onExport={handleViewAllExport}
                             exporting={viewAllExporting}
+                            exportSection="trend"
                         />
                         {viewAllLoading ? <div style={{ padding: 24 }}><Skeleton h={220} /></div> : <TrendViewAll data={viewAllData.trend} currency={currency} />}
                     </ViewAllModal>
@@ -3069,6 +3071,7 @@ export default function PLAnalytics() {
                             loading={viewAllLoading}
                             onExport={handleViewAllExport}
                             exporting={viewAllExporting}
+                            exportSection="comparison"
                         />
                         {viewAllLoading ? <div style={{ padding: 24 }}><Skeleton h={220} /></div> : (
                             <ComparisonViewAll
@@ -3095,6 +3098,7 @@ export default function PLAnalytics() {
                             loading={viewAllLoading}
                             onExport={handleViewAllExport}
                             exporting={viewAllExporting}
+                            exportSection="expense"
                         />
                         {viewAllLoading ? <div style={{ padding: 24 }}><Skeleton h={220} /></div> : (
                             <ExpenseViewAll
@@ -3116,6 +3120,7 @@ export default function PLAnalytics() {
                             loading={viewAllLoading}
                             onExport={handleViewAllExport}
                             exporting={viewAllExporting}
+                            exportSection="statement"
                         />
                         {viewAllLoading ? <div style={{ padding: 24 }}><Skeleton h={300} /></div> : (
                             <StatementViewAll

@@ -1,8 +1,7 @@
 
 import axios from "axios";
-import { getApiBaseUrl } from "../utils/apiBase";
 
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -126,8 +125,22 @@ export async function getPayablesDashboard(filters = {}) {
 }
 
 /** Other balances. */
+
 export async function getPayablesOtherBalances(filters = {}) {
-    const params = buildDashboardParams(filters);
+    // The Non-Aging OTBI endpoint does not support supplier filters.
+    // Remove only unsupported parameters for this endpoint.
+    const {
+        supplier_type: _supplierType,
+        supplier_id: _supplierId,
+        supplier_name: _supplierName,
+        search: _search,
+        gl_code: _glCode,
+        source_currency: _sourceCurrency,
+        ...supportedFilters
+    } = filters;
+
+    const params = buildDashboardParams(supportedFilters);
+
     appendParam(params, "year", filters.year);
 
     return api.get("/api/payables/other-balances", {
@@ -135,6 +148,7 @@ export async function getPayablesOtherBalances(filters = {}) {
         headers: getAuthHeaders(),
     });
 }
+
 
 /** View All. */
 export async function getPayablesViewAll(filters = {}) {

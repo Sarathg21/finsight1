@@ -1,6 +1,6 @@
-import { getApiBaseUrl } from '../../utils/apiBase';
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Maximize2, Minimize2 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
 import { exportOpexCategoryBreakdown, getOpexFilterOptions } from "../../api/opexApi";
@@ -224,116 +224,126 @@ const MultiSelectDropdown = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [menuPosition, setMenuPosition] = useState(null);
     const containerRef = useRef(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                containerRef.current &&
-                !containerRef.current.contains(event.target)
-            ) {
-                setIsOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-
-        return () => {
-            document.removeEventListener(
-                "mousedown",
-                handleClickOutside
-            );
-        };
-    }, []);
+    const triggerRef = useRef(null);
+    const menuRef = useRef(null);
 
     const formattedOptions = useMemo(() => {
-        return options.map((opt) => ({
-            id: String(getFilterOptionId(opt)),
-            name: String(getFilterOptionName(opt)),
-        }));
+        const seen = new Set();
+        return (Array.isArray(options) ? options : [])
+            .map((opt) => ({
+                id: String(getFilterOptionId(opt)),
+                name: String(getFilterOptionName(opt)),
+            }))
+            .filter((opt) => {
+                if (!opt.id || seen.has(opt.id)) return false;
+                seen.add(opt.id);
+                return true;
+            });
     }, [options]);
 
-    const normalizedSelectedValues = useMemo(() => {
-        if (!Array.isArray(selectedValues)) {
-            return [];
-        }
-
-        return selectedValues.map((value) => String(value));
-    }, [selectedValues]);
+    const normalizedSelectedValues = useMemo(
+        () => normalizeMultiValue(selectedValues).map(String),
+        [selectedValues]
+    );
 
     const filteredOptions = useMemo(() => {
-        if (!searchTerm.trim()) {
-            return formattedOptions;
-        }
-
+        const keyword = searchTerm.trim().toLowerCase();
+        if (!keyword) return formattedOptions;
         return formattedOptions.filter((opt) =>
-            opt.name
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase())
+            opt.name.toLowerCase().includes(keyword) ||
+            opt.id.toLowerCase().includes(keyword)
         );
     }, [formattedOptions, searchTerm]);
 
+    const updateMenuPosition = () => {
+        const trigger = triggerRef.current;
+        if (!trigger || typeof window === "undefined") return;
+        const rect = trigger.getBoundingClientRect();
+        const viewportPadding = 8;
+        const gap = 4;
+        const width = Math.max(rect.width, 220);
+        const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+        const availableAbove = rect.top - viewportPadding;
+        const openAbove = availableBelow < 220 && availableAbove > availableBelow;
+        const maxHeight = Math.max(
+            140,
+            Math.min(320, openAbove ? availableAbove - gap : availableBelow - gap)
+        );
+        const left = Math.min(
+            Math.max(viewportPadding, rect.left),
+            Math.max(viewportPadding, window.innerWidth - width - viewportPadding)
+        );
+
+        setMenuPosition({
+            left,
+            width: Math.min(width, window.innerWidth - viewportPadding * 2),
+            maxHeight,
+            ...(openAbove
+                ? { bottom: window.innerHeight - rect.top + gap }
+                : { top: rect.bottom + gap }),
+        });
+    };
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        updateMenuPosition();
+
+        const handleOutside = (event) => {
+            const target = event.target;
+            if (
+                containerRef.current?.contains(target) ||
+                menuRef.current?.contains(target)
+            ) {
+                return;
+            }
+            setIsOpen(false);
+        };
+        const handleViewportChange = () => updateMenuPosition();
+
+        document.addEventListener("mousedown", handleOutside);
+        document.addEventListener("touchstart", handleOutside, { passive: true });
+        window.addEventListener("resize", handleViewportChange);
+        // Capture scroll events from modal/table containers as well as the window.
+        window.addEventListener("scroll", handleViewportChange, true);
+
+        return () => {
+            document.removeEventListener("mousedown", handleOutside);
+            document.removeEventListener("touchstart", handleOutside);
+            window.removeEventListener("resize", handleViewportChange);
+            window.removeEventListener("scroll", handleViewportChange, true);
+        };
+    }, [isOpen]);
+
     const handleToggle = (id) => {
         const normalizedId = String(id);
+        const nextValues = normalizedSelectedValues.includes(normalizedId)
+            ? normalizedSelectedValues.filter((value) => value !== normalizedId)
+            : [...normalizedSelectedValues, normalizedId];
 
-        if (
-            normalizedSelectedValues.includes(
-                normalizedId
-            )
-        ) {
-            onChange(
-                normalizedSelectedValues.filter(
-                    (value) =>
-                        value !== normalizedId
-                )
-            );
-        } else {
-            onChange([
-                ...normalizedSelectedValues,
-                normalizedId,
-            ]);
-        }
+        // Keep the menu mounted while the parent updates selected values/cascade data.
+        onChange(nextValues);
     };
 
     const handleSelectAll = () => {
-        const allIds = formattedOptions.map(
-            (opt) => opt.id
-        );
-
-        onChange(allIds);
+        const ids = formattedOptions.map((opt) => opt.id);
+        onChange([...new Set([...normalizedSelectedValues, ...ids])]);
     };
 
-    const handleClear = () => {
-        onChange([]);
-    };
+    const handleClear = () => onChange([]);
 
     const displayLabel = useMemo(() => {
-        if (
-            normalizedSelectedValues.length === 0
-        ) {
-            return "Select";
+        if (!normalizedSelectedValues.length) return "Select";
+        if (normalizedSelectedValues.length === 1) {
+            const found = formattedOptions.find(
+                (opt) => opt.id === normalizedSelectedValues[0]
+            );
+            return found?.name || "1 Selected";
         }
-
-        if (
-            normalizedSelectedValues.length === 1
-        ) {
-            const found =
-                formattedOptions.find(
-                    (opt) =>
-                        opt.id ===
-                        normalizedSelectedValues[0]
-                );
-
-            return found
-                ? found.name
-                : "1 Selected";
-        }
-
         return `${normalizedSelectedValues.length} Selected`;
-    }, [
-        normalizedSelectedValues,
-        formattedOptions,
-    ]);
+    }, [normalizedSelectedValues, formattedOptions]);
 
     return (
         <div
@@ -343,258 +353,170 @@ const MultiSelectDropdown = ({
                 display: "flex",
                 flexDirection: "column",
                 gap: "6px",
+                minWidth: 130,
             }}
         >
-            <label
-                style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#2b3b75",
-                }}
-            >
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#2b3b75" }}>
                 {label}
             </label>
 
             <button
+                ref={triggerRef}
                 type="button"
-                onClick={() =>
-                    setIsOpen((prev) => !prev)
-                }
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
+                onClick={() => {
+                    if (isOpen) {
+                        setIsOpen(false);
+                    } else {
+                        setSearchTerm("");
+                        updateMenuPosition();
+                        setIsOpen(true);
+                    }
+                }}
                 style={{
-                    height: "38px",
-                    minWidth: "130px",
+                    height: 38,
+                    minWidth: 130,
+                    width: "100%",
                     padding: "0 12px",
-                    borderRadius: "10px",
+                    borderRadius: 10,
                     border: "1px solid #e0e6ed",
                     background: "#ffffff",
                     color: "#2b3b75",
-                    fontSize: "13px",
+                    fontSize: 13,
                     fontWeight: 600,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent:
-                        "space-between",
+                    justifyContent: "space-between",
                     cursor: "pointer",
                     outline: "none",
                 }}
             >
-                <span
-                    style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        marginRight: "8px",
-                    }}
-                >
+                <span style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    marginRight: 8,
+                }}>
                     {displayLabel}
                 </span>
-
-                <span
-                    style={{
-                        fontSize: "10px",
-                        color: "#2b3b75",
-                    }}
-                >
-                    ▼
-                </span>
+                <span style={{ fontSize: 10, color: "#2b3b75" }}>▼</span>
             </button>
 
-            {isOpen && (
+            {isOpen && typeof document !== "undefined" && createPortal(
                 <div
+                    ref={menuRef}
+                    role="listbox"
+                    aria-multiselectable="true"
+                    onMouseDown={(event) => event.stopPropagation()}
                     style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        marginTop: "4px",
-                        width: "220px",
+                        position: "fixed",
+                        ...(menuPosition || { left: 8, top: 8, width: 220, maxHeight: 300 }),
                         background: "#ffffff",
                         border: "1px solid #e2e8f0",
-                        borderRadius: "12px",
-                        boxShadow:
-                            "0 10px 25px rgba(0,0,0,0.1)",
-                        zIndex: 1050,
-                        padding: "8px",
+                        borderRadius: 12,
+                        boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
+                        zIndex: 100000,
+                        padding: 8,
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexDirection: "column",
                     }}
                 >
-                    {/* SEARCH */}
-                    <div
-                        style={{
-                            position: "relative",
-                            marginBottom: "8px",
-                        }}
-                    >
-                        <span
-                            style={{
-                                position: "absolute",
-                                left: "10px",
-                                top: "50%",
-                                transform:
-                                    "translateY(-50%)",
-                                color: "#94a3b8",
-                                fontSize: "12px",
-                            }}
-                        >
-                            🔍
-                        </span>
-
+                    <div style={{ position: "relative", marginBottom: 8, flexShrink: 0 }}>
+                        <span style={{
+                            position: "absolute",
+                            left: 10,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#94a3b8",
+                            fontSize: 12,
+                        }}>🔍</span>
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchTerm}
-                            onChange={(e) =>
-                                setSearchTerm(
-                                    e.target.value
-                                )
-                            }
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            onMouseDown={(event) => event.stopPropagation()}
                             style={{
                                 width: "100%",
-                                height: "32px",
-                                paddingLeft: "30px",
-                                paddingRight: "8px",
-                                borderRadius: "6px",
-                                border:
-                                    "1px solid #e2e8f0",
-                                fontSize: "12px",
+                                height: 32,
+                                paddingLeft: 30,
+                                paddingRight: 8,
+                                borderRadius: 6,
+                                border: "1px solid #e2e8f0",
+                                fontSize: 12,
                                 outline: "none",
                                 boxSizing: "border-box",
                             }}
                         />
                     </div>
 
-                    {/* SELECT ALL / CLEAR */}
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent:
-                                "space-between",
-                            padding:
-                                "4px 4px 8px 4px",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                        }}
-                    >
-                        <span
-                            onClick={handleSelectAll}
-                            style={{
-                                color: "#2b3b75",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Select All
-                        </span>
-
-                        <span
-                            onClick={handleClear}
-                            style={{
-                                color: "#64748b",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Clear
-                        </span>
+                    <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "4px 4px 8px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                    }}>
+                        <button type="button" onClick={handleSelectAll} style={{
+                            border: 0, padding: 0, background: "transparent",
+                            color: "#2b3b75", cursor: "pointer", fontWeight: 700,
+                        }}>Select All</button>
+                        <button type="button" onClick={handleClear} style={{
+                            border: 0, padding: 0, background: "transparent",
+                            color: "#64748b", cursor: "pointer", fontWeight: 700,
+                        }}>Clear</button>
                     </div>
 
-                    {/* OPTIONS */}
-                    <div
-                        style={{
-                            maxHeight: "160px",
-                            overflowY: "auto",
-                            display: "flex",
-                            flexDirection:
-                                "column",
-                            gap: "6px",
-                        }}
-                    >
-                        {filteredOptions.length ===
-                            0 ? (
-                            <div
-                                style={{
-                                    fontSize: "12px",
-                                    color: "#94a3b8",
-                                    padding:
-                                        "6px 4px",
-                                }}
-                            >
+                    <div style={{
+                        maxHeight: Math.max(100, (menuPosition?.maxHeight || 300) - 92),
+                        overflowY: "auto",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        overscrollBehavior: "contain",
+                    }}>
+                        {!filteredOptions.length ? (
+                            <div style={{ fontSize: 12, color: "#94a3b8", padding: "6px 4px" }}>
                                 No options
                             </div>
-                        ) : (
-                            filteredOptions.map(
-                                (opt) => {
-                                    /*
-                                     * IMPORTANT:
-                                     * Empty selection means
-                                     * NOTHING is selected.
-                                     */
-                                    const isChecked =
-                                        normalizedSelectedValues.includes(
-                                            opt.id
-                                        );
-
-                                    return (
-                                        <label
-                                            key={opt.id}
-                                            style={{
-                                                display:
-                                                    "flex",
-                                                alignItems:
-                                                    "center",
-                                                gap: "8px",
-                                                fontSize:
-                                                    "12px",
-                                                color:
-                                                    "#2b3b75",
-                                                fontWeight:
-                                                    600,
-                                                cursor:
-                                                    "pointer",
-                                                padding:
-                                                    "2px 4px",
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={
-                                                    isChecked
-                                                }
-                                                onChange={() =>
-                                                    handleToggle(
-                                                        opt.id
-                                                    )
-                                                }
-                                                style={{
-                                                    accentColor:
-                                                        "#5c60f5",
-                                                    cursor:
-                                                        "pointer",
-                                                }}
-                                            />
-
-                                            <span
-                                                style={{
-                                                    overflow:
-                                                        "hidden",
-                                                    textOverflow:
-                                                        "ellipsis",
-                                                    whiteSpace:
-                                                        "nowrap",
-                                                }}
-                                            >
-                                                {
-                                                    opt.name
-                                                }
-                                            </span>
-                                        </label>
-                                    );
-                                }
-                            )
-                        )}
+                        ) : filteredOptions.map((opt) => (
+                            <label
+                                key={opt.id}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 8,
+                                    fontSize: 12,
+                                    color: "#2b3b75",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    padding: "3px 4px",
+                                    minWidth: 0,
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={normalizedSelectedValues.includes(opt.id)}
+                                    onChange={() => handleToggle(opt.id)}
+                                    style={{ accentColor: "#5c60f5", cursor: "pointer", marginTop: 1, flexShrink: 0 }}
+                                />
+                                <span style={{
+                                    overflowWrap: "anywhere",
+                                    lineHeight: 1.35,
+                                    minWidth: 0,
+                                }}>{opt.name}</span>
+                            </label>
+                        ))}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
 };
-
 
 /* =========================================================
    CATEGORY DETAIL API
@@ -603,7 +525,7 @@ const MultiSelectDropdown = ({
    must use /api/opex/category-detail-monthly only.
 ========================================================= */
 const getOpexApiBase = () =>
-    getApiBaseUrl();
+    String(import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
 const appendFilterValues = (params, key, values) => {
     const list = normalizeMultiValue(values).filter(
@@ -775,7 +697,7 @@ export default function ExpenseCategoryDrillDownModal({
         }));
     }, [filterOptions]);
 
-    const loadViewAllOptions = async (filters = {}) => {
+    const loadViewAllOptions = async (filters = {}, refreshLevel = "all") => {
         const requestId = ++viewAllOptionsRequestRef.current;
         setViewAllOptionsLoading(true);
         try {
@@ -787,20 +709,44 @@ export default function ExpenseCategoryDrillDownModal({
                 ...(filters.year?.length ? { year: filters.year } : {}),
                 ...(filters.period?.length ? { period_name: filters.period } : {}),
             });
+
             if (requestId !== viewAllOptionsRequestRef.current) return;
             const normalized = normalizeExpenseFilterOptions(response);
-            setViewAllFilterOptions((previous) => ({
-                ...previous,
-                ...normalized,
-                legal_groups: normalized.legal_groups?.length ? normalized.legal_groups : previous.legal_groups || [],
-                legal_entities: Array.isArray(normalized.legal_entities) ? normalized.legal_entities : previous.legal_entities || [],
-                parent_divisions: Array.isArray(normalized.parent_divisions) ? normalized.parent_divisions : previous.parent_divisions || [],
-                subdivisions: Array.isArray(normalized.subdivisions) ? normalized.subdivisions : previous.subdivisions || [],
-            }));
+
+            setViewAllFilterOptions((previous) => {
+                const next = {
+                    ...previous,
+                    years: normalized.years?.length ? normalized.years : previous.years || [],
+                    periods: normalized.periods?.length ? normalized.periods : previous.periods || [],
+                    legal_groups: normalized.legal_groups?.length ? normalized.legal_groups : previous.legal_groups || [],
+                };
+
+                // A Legal Group change (or initial load/reset) is the only operation
+                // allowed to refresh the Legal Entity list.
+                if (refreshLevel === "all" || refreshLevel === "group") {
+                    next.legal_entities = normalized.legal_entities || [];
+                    next.parent_divisions = normalized.parent_divisions || [];
+                    next.subdivisions = normalized.subdivisions || [];
+                } else if (refreshLevel === "entity") {
+                    // Preserve Legal Entity options while updating dependent divisions.
+                    next.legal_entities = previous.legal_entities || [];
+                    next.parent_divisions = normalized.parent_divisions || [];
+                    next.subdivisions = normalized.subdivisions || [];
+                } else if (refreshLevel === "parent") {
+                    // Preserve both Legal Entity and Parent Division options.
+                    next.legal_entities = previous.legal_entities || [];
+                    next.parent_divisions = previous.parent_divisions || [];
+                    next.subdivisions = normalized.subdivisions || [];
+                }
+
+                return next;
+            });
         } catch (error) {
             console.error("Failed to load Expense Category View All filters:", error);
         } finally {
-            if (requestId === viewAllOptionsRequestRef.current) setViewAllOptionsLoading(false);
+            if (requestId === viewAllOptionsRequestRef.current) {
+                setViewAllOptionsLoading(false);
+            }
         }
     };
 
@@ -933,49 +879,64 @@ export default function ExpenseCategoryDrillDownModal({
 
     const handleFilterChange = (key, values) => {
         const normalizedValues = Array.isArray(values) ? values.map(String) : [];
+
         if (key === "legal_group") {
-            setViewAllFilters((prev) => ({
-                ...prev,
+            const next = {
+                ...viewAllFilters,
                 legal_group: normalizedValues,
                 legal_entity: [],
                 parent_division: [],
                 subdivision: [],
-            }));
+            };
+            setViewAllFilters(next);
             setViewAllFilterOptions((previous) => ({
                 ...previous,
                 legal_entities: [],
                 parent_divisions: [],
                 subdivisions: [],
             }));
-            void loadViewAllOptions({ legal_group: normalizedValues });
+            void loadViewAllOptions(next, "group");
             return;
         }
-        const clearChildren = key === "legal_entity"
-            ? { parent_division: [], subdivision: [] }
-            : key === "parent_division"
-                ? { subdivision: [] }
-                : {};
-        setViewAllFilters((prev) => ({ ...prev, ...clearChildren, [key]: normalizedValues }));
-        if (["legal_entity", "parent_division"].includes(key)) {
+
+        if (key === "legal_entity") {
             const next = {
                 ...viewAllFilters,
-                ...clearChildren,
-                [key]: normalizedValues,
+                legal_entity: normalizedValues,
+                parent_division: [],
+                subdivision: [],
             };
-            if (key === "legal_entity") {
-                setViewAllFilterOptions((previous) => ({ ...previous, parent_divisions: [], subdivisions: [] }));
-            } else {
-                setViewAllFilterOptions((previous) => ({ ...previous, subdivisions: [] }));
-            }
-            void loadViewAllOptions({
-                legal_group: next.legal_group,
-                legal_entity: next.legal_entity,
-                parent_division: next.parent_division,
-                year: next.year,
-                period: next.period,
-            });
+            setViewAllFilters(next);
+            setViewAllFilterOptions((previous) => ({
+                ...previous,
+                parent_divisions: [],
+                subdivisions: [],
+            }));
+            void loadViewAllOptions(next, "entity");
+            return;
         }
+
+        if (key === "parent_division") {
+            const next = {
+                ...viewAllFilters,
+                parent_division: normalizedValues,
+                subdivision: [],
+            };
+            setViewAllFilters(next);
+            setViewAllFilterOptions((previous) => ({
+                ...previous,
+                subdivisions: [],
+            }));
+            void loadViewAllOptions(next, "parent");
+            return;
+        }
+
+        setViewAllFilters((previous) => ({
+            ...previous,
+            [key]: normalizedValues,
+        }));
     };
+
     const cleanFilterValues = (values) => {
         if (!Array.isArray(values)) return [];
 
@@ -1837,6 +1798,26 @@ export default function ExpenseCategoryDrillDownModal({
                             </div>
                         </div>
 
+                        {/* AED / AED MILLIONS display toggle moved to modal header */}
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                height: "38px",
+                                padding: "3px",
+                                border: "1px solid #e0e6ed",
+                                borderRadius: "10px",
+                                background: "#f8fafc",
+                                boxSizing: "border-box",
+                                marginLeft: "auto",
+                                marginRight: "8px",
+                                flexShrink: 0,
+                            }}
+                        >
+                            <button type="button" onClick={() => setDisplayUnit("AED")} style={{ height: "30px", padding: "0 12px", border: "none", borderRadius: "7px", background: displayUnit === "AED" ? "#ffffff" : "transparent", color: displayUnit === "AED" ? "#2b3b75" : "#64748b", fontSize: "12px", fontWeight: displayUnit === "AED" ? 700 : 600, cursor: "pointer", boxShadow: displayUnit === "AED" ? "0 1px 3px rgba(15, 23, 42, 0.10)" : "none", outline: "none" }}>AED</button>
+                            <button type="button" onClick={() => setDisplayUnit("AED_MILLIONS")} style={{ height: "30px", padding: "0 12px", border: "none", borderRadius: "7px", background: displayUnit === "AED_MILLIONS" ? "#ffffff" : "transparent", color: displayUnit === "AED_MILLIONS" ? "#2b3b75" : "#64748b", fontSize: "12px", fontWeight: displayUnit === "AED_MILLIONS" ? 700 : 600, cursor: "pointer", boxShadow: displayUnit === "AED_MILLIONS" ? "0 1px 3px rgba(15, 23, 42, 0.10)" : "none", outline: "none" }}>AED Millions</button>
+                        </div>
+
                         {/* Maximize / Restore and Close stay on the same row */}
                         <div
                             style={{
@@ -1963,97 +1944,13 @@ export default function ExpenseCategoryDrillDownModal({
                             onChange={(vals) => handleFilterChange("period", vals)}
                         />
 
-                        {viewAllOptionsLoading && (
-                            <span style={{ fontSize: "11px", color: "#64748b", alignSelf: "center" }}>
-                                Loading dependent filters…
-                            </span>
-                        )}
-
-                        {/* AED / AED MILLIONS DISPLAY TOGGLE */}
-                        <div
-                            style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                height: "38px",
-                                padding: "3px",
-                                border: "1px solid #e0e6ed",
-                                borderRadius: "10px",
-                                background: "#f8fafc",
-                                boxSizing: "border-box",
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => setDisplayUnit("AED")}
-                                style={{
-                                    height: "30px",
-                                    padding: "0 12px",
-                                    border: "none",
-                                    borderRadius: "7px",
-                                    background:
-                                        displayUnit === "AED"
-                                            ? "#ffffff"
-                                            : "transparent",
-                                    color:
-                                        displayUnit === "AED"
-                                            ? "#2b3b75"
-                                            : "#64748b",
-                                    fontSize: "12px",
-                                    fontWeight:
-                                        displayUnit === "AED" ? 700 : 600,
-                                    cursor: "pointer",
-                                    boxShadow:
-                                        displayUnit === "AED"
-                                            ? "0 1px 3px rgba(15, 23, 42, 0.10)"
-                                            : "none",
-                                    outline: "none",
-                                }}
-                            >
-                                AED
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setDisplayUnit("AED_MILLIONS")
-                                }
-                                style={{
-                                    height: "30px",
-                                    padding: "0 12px",
-                                    border: "none",
-                                    borderRadius: "7px",
-                                    background:
-                                        displayUnit === "AED_MILLIONS"
-                                            ? "#ffffff"
-                                            : "transparent",
-                                    color:
-                                        displayUnit === "AED_MILLIONS"
-                                            ? "#2b3b75"
-                                            : "#64748b",
-                                    fontSize: "12px",
-                                    fontWeight:
-                                        displayUnit === "AED_MILLIONS"
-                                            ? 700
-                                            : 600,
-                                    cursor: "pointer",
-                                    boxShadow:
-                                        displayUnit === "AED_MILLIONS"
-                                            ? "0 1px 3px rgba(15, 23, 42, 0.10)"
-                                            : "none",
-                                    outline: "none",
-                                }}
-                            >
-                                AED Millions
-                            </button>
-                        </div>
-
-                        {/* Apply / Reset & Export Controls */}
+                        {/* Apply / Reset stay immediately after the Period filter */}
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
                                 gap: "8px",
-                                marginLeft: "auto",
+                                flexShrink: 0,
                             }}
                         >
                             <button
@@ -2074,7 +1971,6 @@ export default function ExpenseCategoryDrillDownModal({
                             >
                                 Apply
                             </button>
-
                             <button
                                 type="button"
                                 onClick={handleResetFilters}
@@ -2093,7 +1989,16 @@ export default function ExpenseCategoryDrillDownModal({
                             >
                                 Reset
                             </button>
+                        </div>
 
+                        {viewAllOptionsLoading && (
+                            <span style={{ fontSize: "11px", color: "#64748b", alignSelf: "center" }}>
+                                Loading dependent filters…
+                            </span>
+                        )}
+
+                        {/* Export controls remain at the end of the filter row */}
+                        <div style={{ display: "flex", alignItems: "center", marginLeft: "auto" }}>
                             <ExportButtons
                                 endpoint="expense-category-drill-down"
                                 exporting={

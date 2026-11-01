@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Maximize2, Minimize2 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
 import jsPDF from "jspdf";
@@ -737,128 +738,164 @@ const MultiSelectDropdown = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [menuPosition, setMenuPosition] = useState({
+        top: 0,
+        left: 0,
+        width: 260,
+        maxHeight: 360,
+        optionsMaxHeight: 240,
+    });
+
+    // The menu is rendered in document.body, so keep separate refs for
+    // the trigger and the portaled menu. This prevents option clicks from
+    // being mistaken for outside clicks (the cause of multi-select closing).
     const containerRef = useRef(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                containerRef.current &&
-                !containerRef.current.contains(event.target)
-            ) {
-                setIsOpen(false);
-            }
-        };
-
-        document.addEventListener(
-            "mousedown",
-            handleClickOutside
-        );
-
-        return () => {
-            document.removeEventListener(
-                "mousedown",
-                handleClickOutside
-            );
-        };
-    }, []);
+    const triggerRef = useRef(null);
+    const menuRef = useRef(null);
 
     /* ---------------------------------------------------------
        FORMAT OPTIONS
     --------------------------------------------------------- */
-
     const formattedOptions = useMemo(() => {
-        return options.map((option) => ({
+        return (Array.isArray(options) ? options : []).map((option) => ({
             id: String(getOptionId(option)),
             name: String(getOptionDisplayName(option)),
-        }));
+        })).filter((option) => option.id !== "");
     }, [options]);
 
     /* ---------------------------------------------------------
        NORMALIZE SELECTED VALUES
     --------------------------------------------------------- */
-
     const normalizedSelectedValues = useMemo(() => {
-        if (!Array.isArray(selectedValues)) {
-            return [];
-        }
+        if (!Array.isArray(selectedValues)) return [];
 
-        return selectedValues.map((value) => {
-            if (typeof value === "object") {
+        return [...new Set(selectedValues.map((value) => {
+            if (value && typeof value === "object") {
                 return String(getOptionId(value));
             }
-
             return String(value);
-        });
+        }).filter(Boolean))];
     }, [selectedValues]);
 
     /* ---------------------------------------------------------
        SEARCH
     --------------------------------------------------------- */
-
     const filteredOptions = useMemo(() => {
-        const keyword = searchTerm
-            .trim()
-            .toLowerCase();
+        const keyword = searchTerm.trim().toLowerCase();
+        if (!keyword) return formattedOptions;
 
-        if (!keyword) {
-            return formattedOptions;
-        }
-
-        return formattedOptions.filter(
-            (option) =>
-                option.name
-                    .toLowerCase()
-                    .includes(keyword) ||
-                option.id
-                    .toLowerCase()
-                    .includes(keyword)
+        return formattedOptions.filter((option) =>
+            option.name.toLowerCase().includes(keyword) ||
+            option.id.toLowerCase().includes(keyword)
         );
-    }, [
-        formattedOptions,
-        searchTerm,
-    ]);
+    }, [formattedOptions, searchTerm]);
+
+    /* ---------------------------------------------------------
+       POSITION MENU IN THE VIEWPORT
+    --------------------------------------------------------- */
+    const updateMenuPosition = () => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+
+        const rect = trigger.getBoundingClientRect();
+        const viewportWidth = document.documentElement.clientWidth;
+        const viewportHeight = window.innerHeight;
+        const edge = 8;
+        const gap = 6;
+
+        const width = Math.min(260, Math.max(220, viewportWidth - edge * 2));
+        const left = Math.max(
+            edge,
+            Math.min(rect.left, viewportWidth - width - edge)
+        );
+
+        const availableBelow = Math.max(80, viewportHeight - rect.bottom - gap - edge);
+        const availableAbove = Math.max(80, rect.top - gap - edge);
+        const preferredHeight = Math.min(420, Math.max(180, 112 + filteredOptions.length * 34));
+
+        const openBelow =
+            availableBelow >= Math.min(preferredHeight, 220) ||
+            availableBelow >= availableAbove;
+
+        const available = openBelow ? availableBelow : availableAbove;
+        const maxHeight = Math.max(120, Math.min(520, available));
+        const top = openBelow
+            ? Math.min(rect.bottom + gap, viewportHeight - maxHeight - edge)
+            : Math.max(edge, rect.top - maxHeight - gap);
+
+        setMenuPosition({
+            top,
+            left,
+            width,
+            maxHeight,
+            optionsMaxHeight: Math.max(64, maxHeight - 112),
+        });
+    };
+
+    /* ---------------------------------------------------------
+       OPEN/CLOSE + OUTSIDE CLICK
+       Do not close when clicking anywhere inside the portal.
+    --------------------------------------------------------- */
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        const handlePointerDown = (event) => {
+            const target = event.target;
+            const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+            const clickedTrigger = Boolean(triggerRef.current && (triggerRef.current.contains(target) || path.includes(triggerRef.current)));
+            const clickedMenu = Boolean(menuRef.current && (menuRef.current.contains(target) || path.includes(menuRef.current)));
+
+            if (!clickedTrigger && !clickedMenu) {
+                setIsOpen(false);
+                setSearchTerm("");
+            }
+        };
+
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setIsOpen(false);
+                setSearchTerm("");
+            }
+        };
+
+        // Capture-phase listener is safe because both portal and trigger
+        // are explicitly checked before deciding that a click is outside.
+        document.addEventListener("pointerdown", handlePointerDown, true);
+        document.addEventListener("keydown", handleKeyDown);
+
+        updateMenuPosition();
+        window.addEventListener("resize", updateMenuPosition);
+        window.addEventListener("scroll", updateMenuPosition, true);
+
+        return () => {
+            document.removeEventListener("pointerdown", handlePointerDown, true);
+            document.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("resize", updateMenuPosition);
+            window.removeEventListener("scroll", updateMenuPosition, true);
+        };
+    }, [isOpen, filteredOptions.length, normalizedSelectedValues.length]);
 
     /* ---------------------------------------------------------
        TOGGLE OPTION
+       Keep menu open after each selection so multiple values can
+       be selected consecutively.
     --------------------------------------------------------- */
-
     const handleToggle = (id) => {
         const normalizedId = String(id);
+        const nextValues = normalizedSelectedValues.includes(normalizedId)
+            ? normalizedSelectedValues.filter((value) => value !== normalizedId)
+            : [...normalizedSelectedValues, normalizedId];
 
-        if (
-            normalizedSelectedValues.includes(
-                normalizedId
-            )
-        ) {
-            onChange(
-                normalizedSelectedValues.filter(
-                    (value) =>
-                        value !== normalizedId
-                )
-            );
-        } else {
-            onChange([
-                ...normalizedSelectedValues,
-                normalizedId,
-            ]);
-        }
+        onChange(nextValues);
     };
 
     /* ---------------------------------------------------------
-       SELECT ALL
+       SELECT ALL / CLEAR
     --------------------------------------------------------- */
-
     const handleSelectAll = () => {
-        onChange(
-            formattedOptions.map(
-                (option) => option.id
-            )
-        );
+        // Select all currently available options, not only search results.
+        onChange(formattedOptions.map((option) => option.id));
     };
-
-    /* ---------------------------------------------------------
-       CLEAR
-    --------------------------------------------------------- */
 
     const handleClear = () => {
         onChange([]);
@@ -867,34 +904,192 @@ const MultiSelectDropdown = ({
     /* ---------------------------------------------------------
        DISPLAY LABEL
     --------------------------------------------------------- */
-
     const displayLabel = useMemo(() => {
-        if (
-            normalizedSelectedValues.length === 0
-        ) {
-            return "Select";
-        }
+        if (normalizedSelectedValues.length === 0) return "Select";
 
-        if (
-            normalizedSelectedValues.length === 1
-        ) {
-            const found =
-                formattedOptions.find(
-                    (option) =>
-                        option.id ===
-                        normalizedSelectedValues[0]
-                );
-
-            return found
-                ? found.name
-                : "1 Selected";
+        if (normalizedSelectedValues.length === 1) {
+            const found = formattedOptions.find(
+                (option) => option.id === normalizedSelectedValues[0]
+            );
+            return found ? found.name : "1 Selected";
         }
 
         return `${normalizedSelectedValues.length} Selected`;
-    }, [
-        normalizedSelectedValues,
-        formattedOptions,
-    ]);
+    }, [normalizedSelectedValues, formattedOptions]);
+
+    const dropdownMenu = isOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+                ref={menuRef}
+                role="dialog"
+                aria-label={`${label} options`}
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                    position: "fixed",
+                    top: `${menuPosition.top}px`,
+                    left: `${menuPosition.left}px`,
+                    width: `${menuPosition.width}px`,
+                    maxHeight: `${menuPosition.maxHeight}px`,
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexDirection: "column",
+                    background: "#ffffff",
+                    border: "1px solid #dbe3ef",
+                    borderRadius: "12px",
+                    boxShadow: "0 12px 32px rgba(15, 23, 42, 0.20)",
+                    zIndex: 2147483000,
+                    padding: "8px",
+                    overflow: "hidden",
+                    pointerEvents: "auto",
+                }}
+            >
+                {/* SEARCH */}
+                <div style={{ position: "relative", marginBottom: "8px", flex: "0 0 auto" }}>
+                    <span
+                        aria-hidden="true"
+                        style={{
+                            position: "absolute",
+                            left: "10px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#64748b",
+                            fontSize: "12px",
+                        }}
+                    >
+                        🔍
+                    </span>
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        style={{
+                            width: "100%",
+                            height: "34px",
+                            paddingLeft: "30px",
+                            paddingRight: "8px",
+                            borderRadius: "7px",
+                            border: "1px solid #dbe3ef",
+                            fontSize: "12px",
+                            outline: "none",
+                            boxSizing: "border-box",
+                        }}
+                    />
+                </div>
+
+                {/* SELECT ALL / CLEAR */}
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "4px 4px 9px",
+                        marginBottom: "4px",
+                        borderBottom: "1px solid #edf1f6",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        flex: "0 0 auto",
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        style={{
+                            border: 0,
+                            background: "transparent",
+                            padding: 0,
+                            color: "#2b3b75",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                        }}
+                    >
+                        Select All
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleClear}
+                        style={{
+                            border: 0,
+                            background: "transparent",
+                            padding: 0,
+                            color: "#64748b",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                        }}
+                    >
+                        Clear
+                    </button>
+                </div>
+
+                {/* OPTIONS */}
+                <div
+                    style={{
+                        minHeight: 0,
+                        maxHeight: `${menuPosition.optionsMaxHeight}px`,
+                        overflowY: "auto",
+                        overflowX: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "3px",
+                        overscrollBehavior: "contain",
+                        WebkitOverflowScrolling: "touch",
+                    }}
+                >
+                    {filteredOptions.length === 0 ? (
+                        <div style={{ fontSize: "12px", color: "#94a3b8", padding: "8px 4px" }}>
+                            No options
+                        </div>
+                    ) : (
+                        filteredOptions.map((option) => {
+                            const isChecked = normalizedSelectedValues.includes(option.id);
+
+                            return (
+                                <label
+                                    key={option.id}
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: "8px",
+                                        fontSize: "12px",
+                                        color: "#2b3b75",
+                                        fontWeight: 500,
+                                        cursor: "pointer",
+                                        padding: "6px 4px",
+                                        borderRadius: "6px",
+                                        lineHeight: 1.4,
+                                        whiteSpace: "normal",
+                                        overflowWrap: "anywhere",
+                                        flex: "0 0 auto",
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => handleToggle(option.id)}
+                                        onClick={(event) => event.stopPropagation()}
+                                        style={{
+                                            accentColor: "#5c60f5",
+                                            cursor: "pointer",
+                                            margin: "2px 0 0",
+                                            flex: "0 0 auto",
+                                        }}
+                                    />
+                                    <span style={{ minWidth: 0, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                                        {option.name}
+                                    </span>
+                                </label>
+                            );
+                        })
+                    )}
+                </div>
+            </div>,
+            document.body
+        )
+        : null;
 
     return (
         <div
@@ -904,50 +1099,44 @@ const MultiSelectDropdown = ({
                 display: "flex",
                 flexDirection: "column",
                 gap: "6px",
+                minWidth: 0,
             }}
         >
-            {/* LABEL */}
-
-            <label
-                style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#2b3b75",
-                }}
-            >
+            <label style={{ fontSize: "12px", fontWeight: 700, color: "#2b3b75" }}>
                 {label}
             </label>
 
-            {/* DROPDOWN BUTTON */}
-
             <button
+                ref={triggerRef}
                 type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
                 onClick={() => {
-                    setIsOpen(
-                        (previous) => !previous
-                    );
-
                     if (isOpen) {
+                        setIsOpen(false);
                         setSearchTerm("");
+                    } else {
+                        setSearchTerm("");
+                        setIsOpen(true);
                     }
                 }}
                 style={{
                     height: "38px",
                     minWidth: "130px",
+                    width: "100%",
                     padding: "0 12px",
                     borderRadius: "10px",
-                    border:
-                        "1px solid #e0e6ed",
+                    border: isOpen ? "1px solid #8b9cf8" : "1px solid #e0e6ed",
                     background: "#f4f6fc",
                     color: "#2b3b75",
                     fontSize: "13px",
                     fontWeight: 600,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent:
-                        "space-between",
+                    justifyContent: "space-between",
                     cursor: "pointer",
                     outline: "none",
+                    boxSizing: "border-box",
                 }}
             >
                 <span
@@ -960,216 +1149,12 @@ const MultiSelectDropdown = ({
                 >
                     {displayLabel}
                 </span>
-
-                <span
-                    style={{
-                        fontSize: "10px",
-                        color: "#2b3b75",
-                    }}
-                >
+                <span style={{ fontSize: "10px", color: "#2b3b75", flex: "0 0 auto" }}>
                     ▼
                 </span>
             </button>
 
-            {/* DROPDOWN MENU */}
-
-            {isOpen && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        marginTop: "4px",
-                        width: "220px",
-                        background: "#ffffff",
-                        border:
-                            "1px solid #e2e8f0",
-                        borderRadius: "12px",
-                        boxShadow:
-                            "0 10px 25px rgba(0,0,0,0.1)",
-                        zIndex: 1050,
-                        padding: "8px",
-                    }}
-                >
-                    {/* SEARCH */}
-
-                    <div
-                        style={{
-                            position: "relative",
-                            marginBottom: "8px",
-                        }}
-                    >
-                        <span
-                            style={{
-                                position:
-                                    "absolute",
-                                left: "10px",
-                                top: "50%",
-                                transform:
-                                    "translateY(-50%)",
-                                color: "#94a3b8",
-                                fontSize: "12px",
-                            }}
-                        >
-                            🔍
-                        </span>
-
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={searchTerm}
-                            onChange={(event) =>
-                                setSearchTerm(
-                                    event.target.value
-                                )
-                            }
-                            style={{
-                                width: "100%",
-                                height: "32px",
-                                paddingLeft: "30px",
-                                paddingRight: "8px",
-                                borderRadius: "6px",
-                                border:
-                                    "1px solid #e2e8f0",
-                                fontSize: "12px",
-                                outline: "none",
-                                boxSizing:
-                                    "border-box",
-                            }}
-                        />
-                    </div>
-
-                    {/* SELECT ALL / CLEAR */}
-
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent:
-                                "space-between",
-                            padding:
-                                "4px 4px 8px 4px",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                        }}
-                    >
-                        <span
-                            onClick={
-                                handleSelectAll
-                            }
-                            style={{
-                                color: "#2b3b75",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Select All
-                        </span>
-
-                        <span
-                            onClick={handleClear}
-                            style={{
-                                color: "#64748b",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Clear
-                        </span>
-                    </div>
-
-                    {/* OPTIONS */}
-
-                    <div
-                        style={{
-                            maxHeight: "160px",
-                            overflowY: "auto",
-                            display: "flex",
-                            flexDirection:
-                                "column",
-                            gap: "6px",
-                        }}
-                    >
-                        {filteredOptions.length ===
-                            0 ? (
-                            <div
-                                style={{
-                                    fontSize: "12px",
-                                    color: "#94a3b8",
-                                    padding:
-                                        "6px 4px",
-                                }}
-                            >
-                                No options
-                            </div>
-                        ) : (
-                            filteredOptions.map(
-                                (option) => {
-                                    const isChecked =
-                                        normalizedSelectedValues.includes(
-                                            option.id
-                                        );
-
-                                    return (
-                                        <label
-                                            key={
-                                                option.id
-                                            }
-                                            style={{
-                                                display:
-                                                    "flex",
-                                                alignItems:
-                                                    "center",
-                                                gap: "8px",
-                                                fontSize:
-                                                    "12px",
-                                                color:
-                                                    "#2b3b75",
-                                                fontWeight:
-                                                    600,
-                                                cursor:
-                                                    "pointer",
-                                                padding:
-                                                    "2px 4px",
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={
-                                                    isChecked
-                                                }
-                                                onChange={() =>
-                                                    handleToggle(
-                                                        option.id
-                                                    )
-                                                }
-                                                style={{
-                                                    accentColor:
-                                                        "#5c60f5",
-                                                    cursor:
-                                                        "pointer",
-                                                }}
-                                            />
-
-                                            <span
-                                                style={{
-                                                    overflow:
-                                                        "hidden",
-                                                    textOverflow:
-                                                        "ellipsis",
-                                                    whiteSpace:
-                                                        "nowrap",
-                                                }}
-                                            >
-                                                {
-                                                    option.name
-                                                }
-                                            </span>
-                                        </label>
-                                    );
-                                }
-                            )
-                        )}
-                    </div>
-                </div>
-            )}
+            {dropdownMenu}
         </div>
     );
 };
@@ -2099,7 +2084,7 @@ export default function OperatingAnalysisViewAllModal({
         }));
     }, [filterOptions]);
 
-    const fetchViewAllCascadeOptions = async (filters, sequence) => {
+    const fetchViewAllCascadeOptions = async (filters, sequence, changedFilterKey = "") => {
         const requestFilters = {
             legal_group_id: filters.legal_group || [],
             legal_entity_id: filters.legal_entity || [],
@@ -2115,9 +2100,19 @@ export default function OperatingAnalysisViewAllModal({
             const scoped = normalizeModalFilterOptions(response);
             setViewAllFilterOptions((previous) => ({
                 ...previous,
-                legal_groups: scoped.legal_groups.length ? scoped.legal_groups : previous.legal_groups,
-                legal_entities: scoped.legal_entities,
-                parent_divisions: scoped.parent_divisions,
+                // Keep the list the user is currently selecting from stable.
+                // A cascade response for a selected Legal Entity must update
+                // Parent Divisions, not replace the Legal Entity options with
+                // a narrowed response. The same rule applies to Parent Division.
+                legal_groups: changedFilterKey === "legal_group"
+                    ? previous.legal_groups
+                    : (scoped.legal_groups.length ? scoped.legal_groups : previous.legal_groups),
+                legal_entities: changedFilterKey === "legal_entity" || changedFilterKey === "parent_division"
+                    ? previous.legal_entities
+                    : scoped.legal_entities,
+                parent_divisions: changedFilterKey === "parent_division"
+                    ? previous.parent_divisions
+                    : scoped.parent_divisions,
                 subdivisions: scoped.subdivisions,
                 years: scoped.years?.length ? scoped.years : previous.years,
                 periods: scoped.periods?.length ? scoped.periods : previous.periods,
@@ -2189,7 +2184,7 @@ export default function OperatingAnalysisViewAllModal({
             setViewAllFilters(next);
             setViewAllFilterOptions((previous) => ({ ...previous, legal_entities: [], parent_divisions: [], subdivisions: [] }));
             const sequence = ++viewAllRequestSequenceRef.current;
-            if (nextValues.length) void fetchViewAllCascadeOptions(next, sequence);
+            if (nextValues.length) void fetchViewAllCascadeOptions(next, sequence, "legal_group");
             return;
         }
         if (key === "legal_entity") {
@@ -2197,8 +2192,8 @@ export default function OperatingAnalysisViewAllModal({
             setViewAllFilters(next);
             setViewAllFilterOptions((previous) => ({ ...previous, parent_divisions: [], subdivisions: [] }));
             const sequence = ++viewAllRequestSequenceRef.current;
-            if (nextValues.length) void fetchViewAllCascadeOptions(next, sequence);
-            else if (next.legal_group.length) void fetchViewAllCascadeOptions({ ...next, legal_entity: [] }, sequence);
+            if (nextValues.length) void fetchViewAllCascadeOptions(next, sequence, "legal_entity");
+            else if (next.legal_group.length) void fetchViewAllCascadeOptions({ ...next, legal_entity: [] }, sequence, "legal_entity");
             return;
         }
         if (key === "parent_division") {
@@ -2206,8 +2201,8 @@ export default function OperatingAnalysisViewAllModal({
             setViewAllFilters(next);
             setViewAllFilterOptions((previous) => ({ ...previous, subdivisions: [] }));
             const sequence = ++viewAllRequestSequenceRef.current;
-            if (nextValues.length) void fetchViewAllCascadeOptions(next, sequence);
-            else if (next.legal_group.length) void fetchViewAllCascadeOptions({ ...next, parent_division: [] }, sequence);
+            if (nextValues.length) void fetchViewAllCascadeOptions(next, sequence, "parent_division");
+            else if (next.legal_group.length) void fetchViewAllCascadeOptions({ ...next, parent_division: [] }, sequence, "parent_division");
             return;
         }
         setViewAllFilters(next);

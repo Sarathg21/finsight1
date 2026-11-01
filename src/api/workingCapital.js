@@ -1,6 +1,20 @@
 
 
-import api from "./axios";
+import axios from "axios";
+
+/* ============================================================
+   WORKING CAPITAL API
+============================================================ */
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+
+const api = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+    },
+});
 
 /* ============================================================
    AUTH
@@ -79,7 +93,7 @@ async function getWorkingCapital(endpoint, filters = {}) {
     const params = buildQueryParams(filters);
 
     const response = await api.get(
-        `/working-capital${endpoint}`,
+        `/api/working-capital${endpoint}`,
         {
             params,
             headers: getAuthHeaders(),
@@ -99,7 +113,7 @@ export async function getWorkingCapitalFilterOptions(
     const params = buildQueryParams(filters);
 
     const response = await api.get(
-        "/working-capital/filter-options",
+        "/api/working-capital/filter-options",
         {
             params,
             headers: getAuthHeaders(),
@@ -437,7 +451,7 @@ export async function exportWorkingCapitalViewAllExcel(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/working-capital/view-all/export/excel",
+        "/api/working-capital/view-all/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -461,7 +475,7 @@ export async function exportWorkingCapitalViewAllPdf(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/working-capital/view-all/export/pdf",
+        "/api/working-capital/view-all/export/pdf",
         {
             params,
             headers: getAuthHeaders(),
@@ -479,7 +493,7 @@ export async function exportWorkingCapitalCurrentAssetsExcel(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/working-capital/view-all/current-assets/export/excel",
+        "/api/working-capital/view-all/current-assets/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -494,7 +508,7 @@ export async function exportWorkingCapitalCurrentAssetsPdf(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/working-capital/view-all/current-assets/export/pdf",
+        "/api/working-capital/view-all/current-assets/export/pdf",
         {
             params,
             headers: getAuthHeaders(),
@@ -513,7 +527,7 @@ export async function exportWorkingCapitalCurrentLiabilitiesExcel(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/working-capital/view-all/current-liabilities/export/excel",
+        "/api/working-capital/view-all/current-liabilities/export/excel",
         {
             params,
             headers: getAuthHeaders(),
@@ -528,7 +542,7 @@ export async function exportWorkingCapitalCurrentLiabilitiesPdf(
     const params = buildQueryParams(filters);
 
     return api.get(
-        "/working-capital/view-all/current-liabilities/export/pdf",
+        "/api/working-capital/view-all/current-liabilities/export/pdf",
         {
             params,
             headers: getAuthHeaders(),
@@ -536,6 +550,124 @@ export async function exportWorkingCapitalCurrentLiabilitiesPdf(
         }
     );
 }
+
+
+
+/* ============================================================
+   WORKING CAPITAL PRODUCTION EXPORTS
+   TWC Trend, Working Capital Components, CCC Trend
+
+   All exports:
+   - Use the existing Axios instance and API base URL.
+   - Pass the currently selected filters as query parameters.
+   - Preserve reporting_currency, aging_basis and as_on_date
+     whenever supplied by the dashboard.
+   - Include the existing bearer-token authorization.
+   - Return a Blob response for the existing download helper.
+   ============================================================ */
+
+/**
+ * Shared export request helper.
+ * Uses the existing buildQueryParams() and getAuthHeaders()
+ * functions defined in this API service.
+ */
+async function exportWorkingCapitalReport(endpoint, filters = {}) {
+    const params = buildQueryParams(filters);
+
+    return api.get(`/api/working-capital${endpoint}`, {
+        params,
+        headers: {
+            ...getAuthHeaders(),
+            Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/pdf, */*",
+        },
+        responseType: "blob",
+    });
+}
+
+/* ============================================================
+   1. TWC TREND — EXCEL
+   GET /api/working-capital/view-all/trade-working-capital/export/excel
+   ============================================================ */
+
+export async function exportWorkingCapitalTradeTrendExcel(
+    filters = {}
+) {
+    return exportWorkingCapitalReport(
+        "/view-all/trade-working-capital/export/excel",
+        filters
+    );
+}
+
+/* ============================================================
+   2. TWC TREND — PDF
+   GET /api/working-capital/view-all/trade-working-capital/export/pdf
+   ============================================================ */
+
+export async function exportWorkingCapitalTradeTrendPdf(
+    filters = {}
+) {
+    return exportWorkingCapitalReport(
+        "/view-all/trade-working-capital/export/pdf",
+        filters
+    );
+}
+
+/* ============================================================
+   3. WORKING CAPITAL COMPONENTS — EXCEL
+   GET /api/working-capital/components/export/excel
+   ============================================================ */
+
+export async function exportWorkingCapitalComponentsExcel(
+    filters = {}
+) {
+    return exportWorkingCapitalReport(
+        "/components/export/excel",
+        filters
+    );
+}
+
+/* ============================================================
+   4. WORKING CAPITAL COMPONENTS — PDF
+   GET /api/working-capital/components/export/pdf
+   ============================================================ */
+
+export async function exportWorkingCapitalComponentsPdf(
+    filters = {}
+) {
+    return exportWorkingCapitalReport(
+        "/components/export/pdf",
+        filters
+    );
+}
+
+/* ============================================================
+   5. CCC TREND — EXCEL
+   GET /api/working-capital/view-all/ccc/export/excel
+   ============================================================ */
+
+export async function exportWorkingCapitalCccTrendExcel(
+    filters = {}
+) {
+    return exportWorkingCapitalReport(
+        "/view-all/ccc/export/excel",
+        filters
+    );
+}
+
+/* ============================================================
+   6. CCC TREND — PDF
+   GET /api/working-capital/view-all/ccc/export/pdf
+   ============================================================ */
+
+export async function exportWorkingCapitalCccTrendPdf(
+    filters = {}
+) {
+    return exportWorkingCapitalReport(
+        "/view-all/ccc/export/pdf",
+        filters
+    );
+}
+
 
 /* ============================================================
    FILE DOWNLOAD HELPER

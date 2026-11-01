@@ -2,13 +2,12 @@
 
 
 import axios from "axios";
-import { getApiBaseUrl } from "../utils/apiBase";
 
 /* ─────────────────────────────────────────────
    API BASE URL
 ───────────────────────────────────────────── */
 
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 /* ─────────────────────────────────────────────
    AXIOS INSTANCE
@@ -126,7 +125,6 @@ function buildExportParams(filters = {}) {
 
   return params;
 }
-
 /* ─────────────────────────────────────────────
    1. FILTER OPTIONS
    Supports the hierarchy cascade on the main

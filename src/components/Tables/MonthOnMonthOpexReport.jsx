@@ -1402,7 +1402,9 @@ function MultiSelectFilter({
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
-    const ref = useRef(null);
+    const [menuPosition, setMenuPosition] = useState(null);
+    const triggerRef = useRef(null);
+    const menuRef = useRef(null);
 
     const formatted = useMemo(
         () => (Array.isArray(options) ? options : []).map((option) => ({
@@ -1425,16 +1427,39 @@ function MultiSelectFilter({
 
     const allSelected = formatted.length > 0 && formatted.every((option) => selected.includes(option.id));
 
-    useEffect(() => {
-        const handleOutside = (event) => {
-            if (ref.current && !ref.current.contains(event.target)) {
-                setOpen(false);
-            }
-        };
+    const updateMenuPosition = () => {
+        const anchor = triggerRef.current;
+        if (!anchor) return;
+        const rect = anchor.getBoundingClientRect();
+        const width = Math.min(260, Math.max(220, window.innerWidth - 24));
+        const estimatedHeight = 300;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const placeAbove = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+        const top = placeAbove
+            ? Math.max(8, rect.top - Math.min(estimatedHeight, rect.top - 8) - 5)
+            : Math.min(window.innerHeight - 8, rect.bottom + 5);
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+        setMenuPosition({ top, left, width, maxHeight: Math.max(140, Math.min(300, placeAbove ? rect.top - 18 : window.innerHeight - rect.bottom - 16)) });
+    };
 
-        document.addEventListener("mousedown", handleOutside);
-        return () => document.removeEventListener("mousedown", handleOutside);
-    }, []);
+    useEffect(() => {
+        if (!open) return undefined;
+        updateMenuPosition();
+        const handleOutside = (event) => {
+            const target = event.target;
+            if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+            setOpen(false);
+        };
+        const handleViewportChange = () => updateMenuPosition();
+        document.addEventListener("pointerdown", handleOutside, true);
+        window.addEventListener("resize", handleViewportChange);
+        window.addEventListener("scroll", handleViewportChange, true);
+        return () => {
+            document.removeEventListener("pointerdown", handleOutside, true);
+            window.removeEventListener("resize", handleViewportChange);
+            window.removeEventListener("scroll", handleViewportChange, true);
+        };
+    }, [open]);
 
     const toggle = (id) => {
         if (singleSelect) {
@@ -1442,12 +1467,10 @@ function MultiSelectFilter({
             setOpen(false);
             return;
         }
-
-        if (selected.includes(id)) {
-            onChange(selected.filter((value) => value !== id));
-        } else {
-            onChange([...selected, id]);
-        }
+        onChange(selected.includes(id)
+            ? selected.filter((value) => value !== id)
+            : [...selected, id]);
+        // Multi-select intentionally remains open after each checkbox selection.
     };
 
     const displayValue = allSelected
@@ -1458,193 +1481,79 @@ function MultiSelectFilter({
                 ? (formatted.find((option) => option.id === selected[0])?.label || "1 Selected")
                 : `${selected.length} Selected`;
 
-    return (
-        <div ref={ref} style={{ position: "relative", minWidth: 0 }}>
+    const menu = open && !disabled && menuPosition && typeof document !== "undefined"
+        ? createPortal(
             <div
+                ref={menuRef}
+                role="dialog"
+                aria-label={`${label} options`}
+                onPointerDown={(event) => event.stopPropagation()}
                 style={{
-                    fontSize: "0.68rem",
-                    lineHeight: 1.2,
-                    fontWeight: 700,
-                    color: "#1E3A8A",
-                    marginBottom: 5,
-                }}
-            >
-                {label}
-            </div>
-
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={() => setOpen((value) => !value)}
-                style={{
-                    width: "100%",
-                    height: 34,
-                    padding: "0 10px",
-                    borderRadius: 9,
+                    position: "fixed",
+                    top: menuPosition.top,
+                    left: menuPosition.left,
+                    width: menuPosition.width,
+                    maxHeight: menuPosition.maxHeight,
+                    overflow: "hidden",
+                    padding: 8,
+                    background: "#FFFFFF",
                     border: "1px solid #E2E8F0",
-                    background: disabled ? "#F8FAFC" : "#F1F5F9",
-                    color: selected.length ? "#1E293B" : "#64748B",
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    cursor: disabled ? "not-allowed" : "pointer",
+                    borderRadius: 10,
+                    boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
+                    zIndex: 2147483647,
                     boxSizing: "border-box",
                 }}
             >
-                <span
-                    style={{
-                        minWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        marginRight: 8,
-                    }}
-                >
-                    {displayValue}
-                </span>
+                <div style={{ position: "relative", marginBottom: 7 }}>
+                    <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#94A3B8" }} />
+                    <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search..."
+                        style={{ width: "100%", height: 31, padding: "0 8px 0 29px", border: "1px solid #E2E8F0", borderRadius: 7, outline: "none", fontSize: "0.7rem", color: "#334155", boxSizing: "border-box" }}
+                    />
+                </div>
+                {!singleSelect && (
+                    <div data-filter-all-option="true" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 4px 7px", borderBottom: "1px solid #F1F5F9", marginBottom: 4 }}>
+                        <button type="button" onClick={() => onChange(formatted.map((option) => option.id))} style={{ border: 0, background: "transparent", padding: 0, color: "#5B3FE4", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>Select All</button>
+                        <button type="button" onClick={() => onChange([])} style={{ border: 0, background: "transparent", padding: 0, color: "#64748B", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>Clear</button>
+                    </div>
+                )}
+                <div style={{ maxHeight: Math.max(90, menuPosition.maxHeight - (singleSelect ? 48 : 82)), overflowY: "auto" }}>
+                    {filtered.length === 0 ? (
+                        <div style={{ padding: "8px 4px", color: "#94A3B8", fontSize: "0.7rem" }}>No options</div>
+                    ) : filtered.map((option) => {
+                        const checked = selected.includes(option.id);
+                        return (
+                            <label key={option.id} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 29, padding: "3px 4px", borderRadius: 6, cursor: "pointer", fontSize: "0.7rem", fontWeight: checked ? 700 : 500, color: checked ? "#1E293B" : "#475569" }}>
+                                <input type={singleSelect ? "radio" : "checkbox"} checked={checked} onChange={() => toggle(option.id)} style={{ accentColor: "#5B3FE4", cursor: "pointer" }} />
+                                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{option.label}</span>
+                            </label>
+                        );
+                    })}
+                </div>
+            </div>,
+            document.body
+        )
+        : null;
+
+    return (
+        <div style={{ position: "relative", minWidth: 0 }}>
+            <div style={{ fontSize: "0.68rem", lineHeight: 1.2, fontWeight: 700, color: "#1E3A8A", marginBottom: 5 }}>{label}</div>
+            <button
+                ref={triggerRef}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                    if (!open) setSearch("");
+                    setOpen((value) => !value);
+                }}
+                style={{ width: "100%", height: 34, padding: "0 10px", borderRadius: 9, border: "1px solid #E2E8F0", background: disabled ? "#F8FAFC" : "#F1F5F9", color: selected.length ? "#1E293B" : "#64748B", fontSize: "0.72rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: disabled ? "not-allowed" : "pointer", boxSizing: "border-box" }}
+            >
+                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8 }}>{displayValue}</span>
                 <ChevronDown size={14} color="#334155" />
             </button>
-
-            {open && !disabled && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "calc(100% + 5px)",
-                        left: 0,
-                        width: 235,
-                        maxWidth: "min(235px, calc(100vw - 30px))",
-                        padding: 8,
-                        background: "#FFFFFF",
-                        border: "1px solid #E2E8F0",
-                        borderRadius: 10,
-                        boxShadow: "0 12px 30px rgba(15,23,42,0.14)",
-                        zIndex: 10020,
-                        boxSizing: "border-box",
-                    }}
-                >
-                    <div style={{ position: "relative", marginBottom: 7 }}>
-                        <Search
-                            size={13}
-                            style={{
-                                position: "absolute",
-                                left: 9,
-                                top: "50%",
-                                transform: "translateY(-50%)",
-                                color: "#94A3B8",
-                            }}
-                        />
-                        <input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search..."
-                            style={{
-                                width: "100%",
-                                height: 31,
-                                padding: "0 8px 0 29px",
-                                border: "1px solid #E2E8F0",
-                                borderRadius: 7,
-                                outline: "none",
-                                fontSize: "0.7rem",
-                                color: "#334155",
-                                boxSizing: "border-box",
-                            }}
-                        />
-                    </div>
-
-                    {!singleSelect && (
-                        <div
-                            data-filter-all-option="true"
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                padding: "2px 4px 7px",
-                                borderBottom: "1px solid #F1F5F9",
-                                marginBottom: 4,
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => onChange(formatted.map((option) => option.id))}
-                                style={{
-                                    border: 0,
-                                    background: "transparent",
-                                    padding: 0,
-                                    color: "#5B3FE4",
-                                    fontSize: "0.68rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Select All
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onChange([])}
-                                style={{
-                                    border: 0,
-                                    background: "transparent",
-                                    padding: 0,
-                                    color: "#64748B",
-                                    fontSize: "0.68rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Clear
-                            </button>
-                        </div>
-                    )}
-
-                    <div style={{ maxHeight: 210, overflowY: "auto" }}>
-                        {filtered.length === 0 ? (
-                            <div style={{ padding: "8px 4px", color: "#94A3B8", fontSize: "0.7rem" }}>
-                                No options
-                            </div>
-                        ) : (
-                            filtered.map((option) => {
-                                const checked = selected.includes(option.id);
-                                return (
-                                    <label
-                                        key={option.id}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 8,
-                                            minHeight: 29,
-                                            padding: "3px 4px",
-                                            borderRadius: 6,
-                                            cursor: "pointer",
-                                            fontSize: "0.7rem",
-                                            fontWeight: checked ? 700 : 500,
-                                            color: checked ? "#1E293B" : "#475569",
-                                        }}
-                                    >
-                                        <input
-                                            type={singleSelect ? "radio" : "checkbox"}
-                                            checked={checked}
-                                            onChange={() => toggle(option.id)}
-                                            style={{ accentColor: "#5B3FE4", cursor: "pointer" }}
-                                        />
-                                        <span
-                                            style={{
-                                                minWidth: 0,
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                                whiteSpace: "nowrap",
-                                            }}
-                                        >
-                                            {option.label}
-                                        </span>
-                                    </label>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
-            )}
+            {menu}
         </div>
     );
 }
@@ -1756,7 +1665,10 @@ function MonthOnMonthOpexViewAllModal({
         });
     }, [filterOptions]);
 
-    const fetchModalOptions = async (requestedFilters = {}, { showLoading = true } = {}) => {
+    const fetchModalOptions = async (
+        requestedFilters = {},
+        { showLoading = true, optionScope = "all" } = {}
+    ) => {
         const requestId = ++optionRequestSequenceRef.current;
         if (showLoading) setModalOptionsLoading(true);
         setModalOptionsError("");
@@ -1767,15 +1679,26 @@ function MonthOnMonthOpexViewAllModal({
             });
             if (requestId !== optionRequestSequenceRef.current) return normalized;
 
-            setModalFilterOptions((previous) => ({
-                ...previous,
-                ...normalized,
-                // Keep stable global lists if a scoped response omits them.
-                legal_groups: normalized.legal_groups.length ? normalized.legal_groups : previous.legal_groups,
-                years: normalized.years.length ? normalized.years : previous.years,
-                periods: normalized.periods.length ? normalized.periods : previous.periods,
-                currencies: normalized.currencies.length ? normalized.currencies : previous.currencies,
-            }));
+            setModalFilterOptions((previous) => {
+                // Scoped responses update only the requested descendants. Never
+                // replace the ancestor options while a multi-select is in use.
+                const next = { ...previous };
+                if (optionScope === "all") {
+                    next.legal_entities = normalized.legal_entities;
+                    next.parent_divisions = normalized.parent_divisions;
+                    next.subdivisions = normalized.subdivisions;
+                } else if (optionScope === "entities" || optionScope === "divisions") {
+                    next.parent_divisions = normalized.parent_divisions;
+                    next.subdivisions = normalized.subdivisions;
+                } else if (optionScope === "subdivisions") {
+                    next.subdivisions = normalized.subdivisions;
+                }
+                if (normalized.legal_groups.length) next.legal_groups = normalized.legal_groups;
+                if (normalized.years.length) next.years = normalized.years;
+                if (normalized.periods.length) next.periods = normalized.periods;
+                if (normalized.currencies.length) next.currencies = normalized.currencies;
+                return next;
+            });
             return normalized;
         } catch (error) {
             if (requestId === optionRequestSequenceRef.current) {
@@ -1891,6 +1814,7 @@ function MonthOnMonthOpexViewAllModal({
     const updateCascade = async (key, values) => {
         const selected = Array.isArray(values) ? values.map(String) : [];
         const next = { ...filters, [key]: selected };
+
         if (key === "legal_group") {
             next.legal_entity = [];
             next.parent_division = [];
@@ -1903,28 +1827,55 @@ function MonthOnMonthOpexViewAllModal({
         }
         setFilters(next);
 
-        // Fetch options for the changed parent scope; child options are replaced only by this modal.
         if (key === "legal_group") {
+            setModalFilterOptions((previous) => ({
+                ...previous,
+                legal_entities: [],
+                parent_divisions: [],
+                subdivisions: [],
+            }));
             if (!selected.length) {
-                setModalFilterOptions((previous) => ({
-                    ...previous, legal_entities: [], parent_divisions: [], subdivisions: [],
-                }));
+                // Invalidate an older scoped response; do not issue an unscoped
+                // request that could repopulate options after the user clears.
+                optionRequestSequenceRef.current += 1;
                 return;
             }
-            setModalFilterOptions((previous) => ({
-                ...previous, legal_entities: [], parent_divisions: [], subdivisions: [],
-            }));
-            await fetchModalOptions({ legal_group_id: selected });
+            await fetchModalOptions(
+                { legal_group_id: selected },
+                { optionScope: "all", showLoading: false }
+            );
         } else if (key === "legal_entity") {
-            setModalFilterOptions((previous) => ({ ...previous, parent_divisions: [], subdivisions: [] }));
-            if (selected.length) await fetchModalOptions({ legal_group_id: next.legal_group, legal_entity_id: selected });
+            // Retain the Legal Entity options. Only refresh dependent options.
+            setModalFilterOptions((previous) => ({
+                ...previous,
+                subdivisions: [],
+            }));
+            if (!selected.length) {
+                optionRequestSequenceRef.current += 1;
+                return;
+            }
+            await fetchModalOptions(
+                { legal_group_id: next.legal_group, legal_entity_id: selected },
+                { optionScope: "entities", showLoading: false }
+            );
         } else if (key === "parent_division") {
-            setModalFilterOptions((previous) => ({ ...previous, subdivisions: [] }));
-            if (selected.length) await fetchModalOptions({
-                legal_group_id: next.legal_group,
-                legal_entity_id: next.legal_entity,
-                parent_division_id: selected,
-            });
+            // Retain the Parent Division options while updating Sub-Divisions.
+            setModalFilterOptions((previous) => ({
+                ...previous,
+                subdivisions: [],
+            }));
+            if (!selected.length) {
+                optionRequestSequenceRef.current += 1;
+                return;
+            }
+            await fetchModalOptions(
+                {
+                    legal_group_id: next.legal_group,
+                    legal_entity_id: next.legal_entity,
+                    parent_division_id: selected,
+                },
+                { optionScope: "subdivisions", showLoading: false }
+            );
         }
     };
 
@@ -2641,6 +2592,8 @@ export default function MonthOnMonthOpexReport({
         periods: [],
         currencies: [],
     });
+    const [mainFilterOptionsLoaded, setMainFilterOptionsLoaded] = useState(false);
+    const mainHierarchyRequestSequenceRef = useRef(0);
 
     const [mainFilters, setMainFilters] = useState(initialMainFilterState);
     const [appliedMainFilters, setAppliedMainFilters] = useState(initialMainFilterState);
@@ -2684,18 +2637,27 @@ export default function MonthOnMonthOpexReport({
         const loadFilterOptions = async () => {
             try {
                 const response = await getOpexFilterOptionsShared();
-                const source = response?.data ?? response ?? {};
+                const root = response?.data ?? response ?? {};
+                const source = root?.data ?? root?.options ?? root?.filter_options ?? root;
+                const pick = (...keys) => {
+                    for (const key of keys) {
+                        if (Array.isArray(source?.[key])) return source[key];
+                        if (Array.isArray(root?.[key])) return root[key];
+                    }
+                    return [];
+                };
 
                 if (!cancelled) {
                     setMainFilterOptions({
-                        legal_groups: source.legal_groups ?? source.legalGroups ?? [],
-                        legal_entities: source.legal_entities ?? source.legalEntities ?? [],
-                        parent_divisions: source.parent_divisions ?? source.parentDivisions ?? [],
-                        subdivisions: source.subdivisions ?? source.subdivisions ?? [],
-                        years: source.years ?? source.fiscal_years ?? source.fiscalYears ?? [],
-                        periods: source.periods ?? [],
-                        currencies: source.currencies ?? source.reporting_currencies ?? source.reportingCurrencies ?? [],
+                        legal_groups: pick("legal_groups", "legalGroups", "legal_group_options", "legalGroupOptions"),
+                        legal_entities: pick("legal_entities", "legalEntities", "legal_entity_options", "legalEntityOptions"),
+                        parent_divisions: pick("parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions"),
+                        subdivisions: pick("subdivisions", "sub_divisions", "subDivisions", "subdivision_options", "subDivisionOptions"),
+                        years: pick("years", "fiscal_years", "fiscalYears"),
+                        periods: pick("periods", "period", "period_options"),
+                        currencies: pick("currencies", "reporting_currencies", "reportingCurrencies"),
                     });
+                    setMainFilterOptionsLoaded(true);
                 }
             } catch (error) {
                 console.error("Failed to load OPEX filter options:", error);
@@ -2716,29 +2678,21 @@ export default function MonthOnMonthOpexReport({
         mainFiltersInitializedRef.current = true;
     }, [initialMainFilterState]);
 
-    const resolvedMainFilterOptions = useMemo(() => ({
-        legal_groups: mainFilterOptions.legal_groups?.length
-            ? mainFilterOptions.legal_groups
-            : filterOptions?.legal_groups || [],
-        legal_entities: mainFilterOptions.legal_entities?.length
-            ? mainFilterOptions.legal_entities
-            : filterOptions?.legal_entities || [],
-        parent_divisions: mainFilterOptions.parent_divisions?.length
-            ? mainFilterOptions.parent_divisions
-            : filterOptions?.parent_divisions || [],
-        subdivisions: mainFilterOptions.subdivisions?.length
-            ? mainFilterOptions.subdivisions
-            : filterOptions?.subdivisions || [],
-        years: mainFilterOptions.years?.length
-            ? mainFilterOptions.years
-            : filterOptions?.years || [],
-        periods: mainFilterOptions.periods?.length
-            ? mainFilterOptions.periods
-            : filterOptions?.periods || [],
-        currencies: mainFilterOptions.currencies?.length
-            ? mainFilterOptions.currencies
-            : filterOptions?.currencies || [],
-    }), [mainFilterOptions, filterOptions]);
+    const resolvedMainFilterOptions = useMemo(() => {
+        // Once the main page has received live options, an empty scoped API
+        // array is authoritative. Do not fall back to stale parent options.
+        const liveOrFallback = (live, fallback) =>
+            mainFilterOptionsLoaded ? (Array.isArray(live) ? live : []) : (Array.isArray(fallback) ? fallback : []);
+        return {
+            legal_groups: liveOrFallback(mainFilterOptions.legal_groups, filterOptions?.legal_groups),
+            legal_entities: liveOrFallback(mainFilterOptions.legal_entities, filterOptions?.legal_entities),
+            parent_divisions: liveOrFallback(mainFilterOptions.parent_divisions, filterOptions?.parent_divisions),
+            subdivisions: liveOrFallback(mainFilterOptions.subdivisions, filterOptions?.subdivisions),
+            years: liveOrFallback(mainFilterOptions.years, filterOptions?.years),
+            periods: liveOrFallback(mainFilterOptions.periods, filterOptions?.periods),
+            currencies: liveOrFallback(mainFilterOptions.currencies, filterOptions?.currencies),
+        };
+    }, [mainFilterOptions, mainFilterOptionsLoaded, filterOptions]);
 
     const getResolvedOptionId = (option) => {
         if (option === null || option === undefined) return "";
@@ -2850,25 +2804,140 @@ export default function MonthOnMonthOpexReport({
         return relationFound ? filtered : list;
     };
 
+    const normalizeMainHierarchyOptions = (response) => {
+        const root = response?.data ?? response ?? {};
+        const source = root?.data ?? root?.options ?? root?.filter_options ?? root;
+        const pick = (...keys) => {
+            for (const key of keys) {
+                if (Array.isArray(source?.[key])) return source[key];
+                if (Array.isArray(root?.[key])) return root[key];
+            }
+            // Empty is meaningful: the backend may correctly return no children.
+            return [];
+        };
+        return {
+            legal_groups: pick("legal_groups", "legalGroups", "legal_group_options", "legalGroupOptions"),
+            legal_entities: pick("legal_entities", "legalEntities", "legal_entity_options", "legalEntityOptions"),
+            parent_divisions: pick("parent_divisions", "parentDivisions", "parent_division_options", "parentDivisionOptions"),
+            subdivisions: pick("subdivisions", "sub_divisions", "subDivisions", "subdivision_options", "subDivisionOptions"),
+        };
+    };
+
+    const refreshMainHierarchyOptions = async (scope = {}, optionScope = "all") => {
+        const requestId = ++mainHierarchyRequestSequenceRef.current;
+        try {
+            const response = await getOpexFilterOptionsShared({
+                reporting_currency: reportingCurrency || "AED",
+                ...scope,
+            });
+            if (requestId !== mainHierarchyRequestSequenceRef.current) return;
+            const normalized = normalizeMainHierarchyOptions(response);
+            setMainFilterOptions((previous) => {
+                const next = { ...previous };
+                if (optionScope === "all") {
+                    next.legal_entities = normalized.legal_entities;
+                    next.parent_divisions = normalized.parent_divisions;
+                    next.subdivisions = normalized.subdivisions;
+                    // Keep already loaded legal groups if the scoped response omits them.
+                    if (normalized.legal_groups.length) next.legal_groups = normalized.legal_groups;
+                } else if (optionScope === "entities") {
+                    next.parent_divisions = normalized.parent_divisions;
+                    next.subdivisions = normalized.subdivisions;
+                } else if (optionScope === "subdivisions") {
+                    next.subdivisions = normalized.subdivisions;
+                }
+                return next;
+            });
+            setMainFilterOptionsLoaded(true);
+        } catch (error) {
+            if (requestId === mainHierarchyRequestSequenceRef.current) {
+                console.error("Failed to refresh Month-on-Month OPEX hierarchy options:", error);
+            }
+        }
+    };
+
     const updateMainCascadeFilter = (key, values) => {
-        const selected = Array.isArray(values) ? values : [];
+        const selected = Array.isArray(values) ? values.map(String) : [];
+        const next = { ...mainFilters, [key]: selected };
 
-        setMainFilters((prev) => {
-            const next = { ...prev, [key]: selected };
+        // Match the working View All cascade behavior, but keep this state
+        // and its option requests isolated to the main-page header filters.
+        if (key === "legal_group") {
+            next.legal_entity = [];
+            next.parent_division = [];
+            next.subdivision = [];
+        } else if (key === "legal_entity") {
+            next.parent_division = [];
+            next.subdivision = [];
+        } else if (key === "parent_division") {
+            next.subdivision = [];
+        }
+        setMainFilters(next);
 
-            if (key === "legal_group") {
-                next.legal_entity = [];
-                next.parent_division = [];
-                next.subdivision = [];
-            } else if (key === "legal_entity") {
-                next.parent_division = [];
-                next.subdivision = [];
-            } else if (key === "parent_division") {
-                next.subdivision = [];
+        if (key === "legal_group") {
+            // Changing the group invalidates any earlier child request.
+            setMainFilterOptions((previous) => ({
+                ...previous,
+                legal_entities: [],
+                parent_divisions: [],
+                subdivisions: [],
+            }));
+
+            if (!selected.length) {
+                mainHierarchyRequestSequenceRef.current += 1;
+                return;
             }
 
-            return next;
-        });
+            refreshMainHierarchyOptions(
+                { legal_group_id: selected },
+                "all"
+            );
+            return;
+        }
+
+        if (key === "legal_entity") {
+            // Keep the entity list intact. Only its dependent options change.
+            setMainFilterOptions((previous) => ({
+                ...previous,
+                subdivisions: [],
+            }));
+
+            if (!selected.length) {
+                mainHierarchyRequestSequenceRef.current += 1;
+                return;
+            }
+
+            refreshMainHierarchyOptions(
+                {
+                    ...(next.legal_group.length ? { legal_group_id: next.legal_group } : {}),
+                    legal_entity_id: selected,
+                },
+                "entities"
+            );
+            return;
+        }
+
+        if (key === "parent_division") {
+            // Keep Parent Division options intact; refresh only Sub-Divisions.
+            setMainFilterOptions((previous) => ({
+                ...previous,
+                subdivisions: [],
+            }));
+
+            if (!selected.length) {
+                mainHierarchyRequestSequenceRef.current += 1;
+                return;
+            }
+
+            refreshMainHierarchyOptions(
+                {
+                    ...(next.legal_group.length ? { legal_group_id: next.legal_group } : {}),
+                    ...(next.legal_entity.length ? { legal_entity_id: next.legal_entity } : {}),
+                    parent_division_id: selected,
+                },
+                "subdivisions"
+            );
+        }
     };
 
     const buildMainApiFilters = (filters) => {
@@ -2962,6 +3031,15 @@ export default function MonthOnMonthOpexReport({
         setViewAllExpandedRows({});
         setFilteredMainData(null);
         setMainFilterError("");
+        // Reset must restore the full unfiltered hierarchy, not leave options
+        // from the previously selected Legal Group / Entity / Division.
+        setMainFilterOptions((previous) => ({
+            ...previous,
+            legal_entities: [],
+            parent_divisions: [],
+            subdivisions: [],
+        }));
+        await refreshMainHierarchyOptions({}, "all");
 
         if (typeof onFilterApply === "function") {
             await onFilterApply(reset);

@@ -2255,6 +2255,71 @@ function RegionalFilterToolbar({
    SECTION 3: Revenue by Region
 ───────────────────────────────────────────────────────────────────────────── */
 
+export async function exportRevenueByRegionReport(displayRows = [], format = 'excel', { currency = 'AED', asOfDate = 'latest' } = {}) {
+  const total = displayRows.reduce((s, r) => s + (Number(r.revenue ?? r.revenue_aed ?? r.total_revenue ?? (r.value ? r.value * 1_000_000 : 0))), 0);
+
+  if (format === 'excel') {
+    const XLSX = await import('xlsx');
+    const exportData = displayRows.map(r => {
+      const rev = r.revenue ?? r.revenue_aed ?? r.total_revenue ?? (r.value ? r.value * 1_000_000 : 0);
+      const pct = r.revenue_pct ?? r.percentage ?? (total > 0 ? ((Number(rev) / total) * 100) : 0);
+      return {
+        'Region / Country': r.region ?? r.country ?? r.country_name ?? r.name ?? '–',
+        [`Revenue (${currency})`]: Number(rev),
+        '% of Total': pct !== null && pct !== undefined ? `${Number(pct).toFixed(2)}%` : '–',
+      };
+    });
+    if (displayRows.length > 0) {
+      exportData.push({
+        'Region / Country': 'Total',
+        [`Revenue (${currency})`]: Number(total),
+        '% of Total': '100.00%',
+      });
+    }
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Revenue_by_Region');
+    XLSX.writeFile(wb, `Revenue_by_Region_${asOfDate || 'latest'}.xlsx`);
+  } else if (format === 'pdf') {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.setTextColor(30, 58, 138);
+    doc.text('Revenue by Region', 40, 45);
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Reporting Currency: ${currency}   |   As on Date: ${asOfDate || 'latest'}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
+
+    const tableHeaders = [['Region / Country', `Revenue (${currency})`, '% of Total']];
+    const tableBody = displayRows.map(r => {
+      const rev = r.revenue ?? r.revenue_aed ?? r.total_revenue ?? (r.value ? r.value * 1_000_000 : null);
+      const pct = r.revenue_pct ?? r.percentage ?? (rev !== null && total > 0 ? ((Number(rev) / total) * 100) : null);
+      return [
+        r.region ?? r.country ?? r.country_name ?? r.name ?? '–',
+        fmtNum(rev),
+        pct !== null && pct !== undefined ? `${Number(pct).toFixed(2)}%` : '–',
+      ];
+    });
+    if (displayRows.length > 0) {
+      tableBody.push([
+        'Total',
+        fmtNum(total),
+        '100.00%',
+      ]);
+    }
+    autoTable(doc, {
+      head: tableHeaders,
+      body: tableBody,
+      startY: 75,
+      styles: { fontSize: 8, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+    doc.save(`Revenue_by_Region_${asOfDate || 'latest'}.pdf`);
+  }
+}
+
 function RevenueByRegion({ filters = {}, currency = 'AED' }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2278,18 +2343,21 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
   const [parentDivs,    setParentDivs]    = useState([]);
   const [subDivs,       setSubDivs]       = useState([]);
 
+  const defaultInitialDate = filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
+  const defaultInitialFromDate = `${defaultInitialDate.slice(0, 4)}-01-01`;
+
   // Multi-select draft filters
   const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
   const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
   const [draftParentDiv,    setDraftParentDiv]    = useState(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
   const [draftSubDiv,       setDraftSubDiv]       = useState(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
-  const [draftFromDate,     setDraftFromDate]     = useState('2026-01-01');
-  const [draftToDate,       setDraftToDate]       = useState(filters.as_of_date || filters.as_on_date || '2026-09-25');
+  const [draftFromDate,     setDraftFromDate]     = useState(defaultInitialFromDate);
+  const [draftToDate,       setDraftToDate]       = useState(defaultInitialDate);
 
   // Applied filter state
   const [appliedRegionalFilters, setAppliedRegionalFilters] = useState({
-    as_of_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
-    as_on_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
+    as_of_date: defaultInitialDate,
+    as_on_date: defaultInitialDate,
     reporting_currency: currency,
     legal_group_id: filters.legal_group_id || undefined,
     legal_entity_id: filters.legal_entity_id || undefined,
@@ -2312,7 +2380,7 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
 
   // Sync draft states when initial filters prop changes
   useEffect(() => {
-    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    const defaultDate = filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setDraftLegalGroup(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
     setDraftLegalEntity(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
     setDraftParentDiv(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
@@ -2366,9 +2434,10 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
   }, [appliedRegionalFilters, currency]);
 
   const handleApply = () => {
+    const activeToDate = draftToDate || filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setAppliedRegionalFilters({
-      as_of_date: draftToDate || '2026-09-25',
-      as_on_date: draftToDate || '2026-09-25',
+      as_of_date: activeToDate,
+      as_on_date: activeToDate,
       reporting_currency: currency,
       legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
       legal_entity_id:    (!draftLegalEntity || draftLegalEntity.includes('All') || draftLegalEntity.length === 0) ? undefined : draftLegalEntity,
@@ -2378,12 +2447,12 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
   };
 
   const handleReset = () => {
-    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    const defaultDate = filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setDraftLegalGroup(['All']);
     setDraftLegalEntity(['All']);
     setDraftParentDiv(['All']);
     setDraftSubDiv(['All']);
-    setDraftFromDate('2026-01-01');
+    setDraftFromDate(`${defaultDate.slice(0, 4)}-01-01`);
     setDraftToDate(defaultDate);
     setSearch('');
     setAppliedRegionalFilters({
@@ -2409,68 +2478,11 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
     if (exporting) return;
     setExporting(format);
     try {
-      if (format === 'excel') {
-        const XLSX = await import('xlsx');
-        const exportData = displayRows.map(r => {
-          const rev = r.revenue ?? r.total_revenue ?? 0;
-          const pct = r.revenue_pct ?? r.percentage ?? (total > 0 ? ((Number(rev) / total) * 100) : 0);
-          return {
-            'Region / Country': r.region ?? r.country ?? r.country_name ?? '–',
-            [`Revenue (${currency})`]: Number(rev),
-            '% of Total': pct !== null ? `${Number(pct).toFixed(2)}%` : '–',
-          };
-        });
-        if (displayRows.length > 0) {
-          exportData.push({
-            'Region / Country': 'Total',
-            [`Revenue (${currency})`]: Number(total),
-            '% of Total': '100.00%',
-          });
-        }
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Revenue_by_Region');
-        XLSX.writeFile(wb, `Revenue_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.xlsx`);
-        showToast('Excel export started — check Downloads', 'success');
-      } else if (format === 'pdf') {
-        const { default: jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-        doc.setFontSize(16);
-        doc.setTextColor(30, 58, 138);
-        doc.text('Revenue by Region', 40, 45);
-        doc.setFontSize(9);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Reporting Currency: ${currency}   |   As on Date: ${appliedRegionalFilters.as_of_date || 'latest'}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
-
-        const tableHeaders = [['Region / Country', `Revenue (${currency})`, '% of Total']];
-        const tableBody = displayRows.map(r => {
-          const rev = r.revenue ?? r.total_revenue ?? null;
-          const pct = r.revenue_pct ?? r.percentage ?? (rev !== null && total > 0 ? ((Number(rev) / total) * 100) : null);
-          return [
-            r.region ?? r.country ?? r.country_name ?? '–',
-            fmtNum(rev),
-            pct !== null ? `${Number(pct).toFixed(2)}%` : '–',
-          ];
-        });
-        if (displayRows.length > 0) {
-          tableBody.push([
-            'Total',
-            fmtNum(total),
-            '100.00%',
-          ]);
-        }
-        autoTable(doc, {
-          head: tableHeaders,
-          body: tableBody,
-          startY: 75,
-          styles: { fontSize: 8, cellPadding: 5 },
-          headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-        });
-        doc.save(`Revenue_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.pdf`);
-        showToast('PDF export started — check Downloads', 'success');
-      }
+      await exportRevenueByRegionReport(displayRows, format, {
+        currency,
+        asOfDate: appliedRegionalFilters.as_of_date || 'latest',
+      });
+      showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started — check Downloads`, 'success');
     } catch (err) {
       console.error('Export error:', err);
       showToast(err?.message || 'Export failed', 'error');
@@ -2555,6 +2567,89 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
    SECTION 4: Profitability by Region
 ───────────────────────────────────────────────────────────────────────────── */
 
+export async function exportProfitabilityByRegionReport(displayRows = [], format = 'excel', { currency = 'AED', asOfDate = 'latest' } = {}) {
+  const totalGp = displayRows.reduce((s, r) => s + (Number(r.gross_profit ?? r.gross_profit_aed ?? (r.gp ? r.gp * 1_000_000 : 0))), 0);
+  const totalEbitda = displayRows.reduce((s, r) => s + (Number(r.ebitda ?? r.ebitda_aed ?? 0)), 0);
+  const totalNp = displayRows.reduce((s, r) => s + (Number(r.net_profit ?? r.net_profit_aed ?? (r.np ? r.np * 1_000_000 : 0))), 0);
+  const totalRevForGp = displayRows.reduce((s, r) => s + (Number(r.revenue ?? r.revenue_aed ?? 0)), 0);
+  const totalGpPctRegion = totalRevForGp > 0 ? (totalGp / totalRevForGp) * 100 : null;
+
+  if (format === 'excel') {
+    const XLSX = await import('xlsx');
+    const exportData = displayRows.map(r => {
+      const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
+      const gp = r.gross_profit ?? r.gross_profit_aed ?? (r.gp ? r.gp * 1_000_000 : 0);
+      const rev = Number(r.revenue ?? r.revenue_aed ?? 0);
+      return {
+        'Region / Country': r.region ?? r.country ?? r.country_name ?? r.name ?? '–',
+        [`Gross Profit (${currency})`]: Number(gp),
+        'Gross Profit %': rev > 0 ? `${((Number(gp) / rev) * 100).toFixed(2)}%` : (r.gross_profit_margin_pct != null ? `${Number(r.gross_profit_margin_pct).toFixed(2)}%` : '–'),
+        [`EBITDA (${currency})`]: Number(r.ebitda ?? r.ebitda_aed ?? 0),
+        [`Net Profit (${currency})`]: Number(r.net_profit ?? r.net_profit_aed ?? (r.np ? r.np * 1_000_000 : 0)),
+        'Net Margin %': netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–',
+      };
+    });
+    if (displayRows.length > 0) {
+      exportData.push({
+        'Region / Country': 'Total',
+        [`Gross Profit (${currency})`]: Number(totalGp),
+        'Gross Profit %': totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–',
+        [`EBITDA (${currency})`]: Number(totalEbitda),
+        [`Net Profit (${currency})`]: Number(totalNp),
+        'Net Margin %': '–',
+      });
+    }
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Profitability_by_Region');
+    XLSX.writeFile(wb, `Profitability_by_Region_${asOfDate || 'latest'}.xlsx`);
+  } else if (format === 'pdf') {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.setTextColor(30, 58, 138);
+    doc.text('Profitability by Region', 40, 45);
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Reporting Currency: ${currency}   |   As on Date: ${asOfDate || 'latest'}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
+
+    const tableHeaders = [['Region / Country', `Gross Profit (${currency})`, 'Gross Profit %', `EBITDA (${currency})`, `Net Profit (${currency})`, 'Net Margin %']];
+    const tableBody = displayRows.map(r => {
+      const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
+      const gp = r.gross_profit ?? r.gross_profit_aed ?? (r.gp ? r.gp * 1_000_000 : 0);
+      const rev = Number(r.revenue ?? r.revenue_aed ?? 0);
+      return [
+        r.region ?? r.country ?? r.country_name ?? r.name ?? '–',
+        fmtNum(gp),
+        rev > 0 ? `${((Number(gp) / rev) * 100).toFixed(2)}%` : (r.gross_profit_margin_pct != null ? `${Number(r.gross_profit_margin_pct).toFixed(2)}%` : '–'),
+        fmtNum(r.ebitda ?? r.ebitda_aed ?? 0),
+        fmtNum(r.net_profit ?? r.net_profit_aed ?? (r.np ? r.np * 1_000_000 : 0)),
+        netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–',
+      ];
+    });
+    if (displayRows.length > 0) {
+      tableBody.push([
+        'Total',
+        fmtNum(totalGp),
+        totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–',
+        fmtNum(totalEbitda),
+        fmtNum(totalNp),
+        '–',
+      ]);
+    }
+    autoTable(doc, {
+      head: tableHeaders,
+      body: tableBody,
+      startY: 75,
+      styles: { fontSize: 8, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+    doc.save(`Profitability_by_Region_${asOfDate || 'latest'}.pdf`);
+  }
+}
+
 function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2578,18 +2673,21 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
   const [parentDivs,    setParentDivs]    = useState([]);
   const [subDivs,       setSubDivs]       = useState([]);
 
+  const defaultInitialDate = filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
+  const defaultInitialFromDate = `${defaultInitialDate.slice(0, 4)}-01-01`;
+
   // Multi-select draft filters
   const [draftLegalGroup,   setDraftLegalGroup]   = useState(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
   const [draftLegalEntity,  setDraftLegalEntity]  = useState(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
   const [draftParentDiv,    setDraftParentDiv]    = useState(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
   const [draftSubDiv,       setDraftSubDiv]       = useState(filters.subdivision_id ? (Array.isArray(filters.subdivision_id) ? filters.subdivision_id : [filters.subdivision_id]) : ['All']);
-  const [draftFromDate,     setDraftFromDate]     = useState('2026-01-01');
-  const [draftToDate,       setDraftToDate]       = useState(filters.as_of_date || filters.as_on_date || '2026-09-25');
+  const [draftFromDate,     setDraftFromDate]     = useState(defaultInitialFromDate);
+  const [draftToDate,       setDraftToDate]       = useState(defaultInitialDate);
 
   // Applied filter state
   const [appliedRegionalFilters, setAppliedRegionalFilters] = useState({
-    as_of_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
-    as_on_date: filters.as_of_date || filters.as_on_date || '2026-09-25',
+    as_of_date: defaultInitialDate,
+    as_on_date: defaultInitialDate,
     reporting_currency: currency,
     legal_group_id: filters.legal_group_id || undefined,
     legal_entity_id: filters.legal_entity_id || undefined,
@@ -2612,7 +2710,7 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
 
   // Sync draft states when initial filters prop changes
   useEffect(() => {
-    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    const defaultDate = filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setDraftLegalGroup(filters.legal_group_id ? (Array.isArray(filters.legal_group_id) ? filters.legal_group_id : [filters.legal_group_id]) : ['All']);
     setDraftLegalEntity(filters.legal_entity_id ? (Array.isArray(filters.legal_entity_id) ? filters.legal_entity_id : [filters.legal_entity_id]) : ['All']);
     setDraftParentDiv(filters.parent_division_id ? (Array.isArray(filters.parent_division_id) ? filters.parent_division_id : [filters.parent_division_id]) : ['All']);
@@ -2665,9 +2763,10 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
   }, [appliedRegionalFilters, currency]);
 
   const handleApply = () => {
+    const activeToDate = draftToDate || filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setAppliedRegionalFilters({
-      as_of_date: draftToDate || '2026-09-25',
-      as_on_date: draftToDate || '2026-09-25',
+      as_of_date: activeToDate,
+      as_on_date: activeToDate,
       reporting_currency: currency,
       legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
       legal_entity_id:    (!draftLegalEntity || draftLegalEntity.includes('All') || draftLegalEntity.length === 0) ? undefined : draftLegalEntity,
@@ -2677,12 +2776,12 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
   };
 
   const handleReset = () => {
-    const defaultDate = filters.as_of_date || filters.as_on_date || '2026-09-25';
+    const defaultDate = filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setDraftLegalGroup(['All']);
     setDraftLegalEntity(['All']);
     setDraftParentDiv(['All']);
     setDraftSubDiv(['All']);
-    setDraftFromDate('2026-01-01');
+    setDraftFromDate(`${defaultDate.slice(0, 4)}-01-01`);
     setDraftToDate(defaultDate);
     setSearch('');
     setAppliedRegionalFilters({
@@ -2712,78 +2811,11 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
     if (exporting) return;
     setExporting(format);
     try {
-      if (format === 'excel') {
-        const XLSX = await import('xlsx');
-        const exportData = displayRows.map(r => {
-          const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
-          return {
-            'Region / Country': r.region ?? r.country ?? r.country_name ?? '–',
-            [`Gross Profit (${currency})`]: Number(r.gross_profit ?? 0),
-            'Gross Profit %': (() => { const rev = Number(r.revenue ?? r.revenue_aed ?? 0); const gp = Number(r.gross_profit ?? 0); return rev > 0 ? `${((gp / rev) * 100).toFixed(2)}%` : '–'; })(),
-            [`EBITDA (${currency})`]: Number(r.ebitda ?? 0),
-            [`Net Profit (${currency})`]: Number(r.net_profit ?? 0),
-            'Net Margin %': netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–',
-          };
-        });
-        if (displayRows.length > 0) {
-          exportData.push({
-            'Region / Country': 'Total',
-            [`Gross Profit (${currency})`]: Number(totalGp),
-            'Gross Profit %': totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–',
-            [`EBITDA (${currency})`]: Number(totalEbitda),
-            [`Net Profit (${currency})`]: Number(totalNp),
-            'Net Margin %': '–',
-          });
-        }
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Profitability_by_Region');
-        XLSX.writeFile(wb, `Profitability_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.xlsx`);
-        showToast('Excel export started — check Downloads', 'success');
-      } else if (format === 'pdf') {
-        const { default: jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-        doc.setFontSize(16);
-        doc.setTextColor(30, 58, 138);
-        doc.text('Profitability by Region', 40, 45);
-        doc.setFontSize(9);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Reporting Currency: ${currency}   |   As on Date: ${appliedRegionalFilters.as_of_date || 'latest'}   |   Generated: ${new Date().toLocaleDateString()}`, 40, 62);
-
-        const tableHeaders = [['Region / Country', `Gross Profit (${currency})`, 'Gross Profit %', `EBITDA (${currency})`, `Net Profit (${currency})`, 'Net Margin %']];
-        const tableBody = displayRows.map(r => {
-          const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
-          return [
-            r.region ?? r.country ?? r.country_name ?? '–',
-            fmtNum(r.gross_profit),
-            (() => { const rev = Number(r.revenue ?? r.revenue_aed ?? 0); const gp = Number(r.gross_profit ?? 0); return rev > 0 ? `${((gp / rev) * 100).toFixed(2)}%` : '–'; })(),
-            fmtNum(r.ebitda),
-            fmtNum(r.net_profit),
-            netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–',
-          ];
-        });
-        if (displayRows.length > 0) {
-          tableBody.push([
-            'Total',
-            fmtNum(totalGp),
-            totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–',
-            fmtNum(totalEbitda),
-            fmtNum(totalNp),
-            '–',
-          ]);
-        }
-        autoTable(doc, {
-          head: tableHeaders,
-          body: tableBody,
-          startY: 75,
-          styles: { fontSize: 8, cellPadding: 5 },
-          headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-        });
-        doc.save(`Profitability_by_Region_${appliedRegionalFilters.as_of_date || 'latest'}.pdf`);
-        showToast('PDF export started — check Downloads', 'success');
-      }
+      await exportProfitabilityByRegionReport(displayRows, format, {
+        currency,
+        asOfDate: appliedRegionalFilters.as_of_date || 'latest',
+      });
+      showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started — check Downloads`, 'success');
     } catch (err) {
       console.error('Export error:', err);
       showToast(err?.message || 'Export failed', 'error');

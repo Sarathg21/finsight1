@@ -657,8 +657,8 @@ export default function InventoryOverview() {
           parent_division_name: divName,
           current_value: curVal,
           previous_value: prevVal,
-          current_as_on_date: momMatch?.current_as_on_date || momMatch?.as_on_date || "2026-10-12",
-          previous_as_on_date: momMatch?.previous_as_on_date || "2026-09-25",
+          current_as_on_date: momMatch?.current_as_on_date || momMatch?.as_on_date || mockData.dataAsOf || "",
+          previous_as_on_date: momMatch?.previous_as_on_date || null,
         };
       });
     } else {
@@ -667,15 +667,15 @@ export default function InventoryOverview() {
             parent_division_name: item.parent_division_name || item.name || item.label,
             current_value: Number(item.latest_value ?? item.current_value ?? item.total_stock_value ?? item.inventory_value ?? item.value ?? 0),
             previous_value: Number(item.previous_value ?? 0),
-            current_as_on_date: item.current_as_on_date || item.as_on_date || "2026-10-12",
-            previous_as_on_date: item.previous_as_on_date || "2026-09-25",
+            current_as_on_date: item.current_as_on_date || item.as_on_date || mockData.dataAsOf || "",
+            previous_as_on_date: item.previous_as_on_date || null,
           }))
         : (viewAllData && viewAllData.length > 0)
           ? viewAllData.map(item => ({
               parent_division_name: item.parent_division_name || item.name || item.label,
               current_value: Number(item.latest_value ?? item.current_value ?? item.total_stock_value ?? item.inventory_value ?? item.value ?? 0),
               previous_value: Number(item.previous_value ?? 0),
-              current_as_on_date: "2026-10-12",
+              current_as_on_date: item.as_on_date || mockData.dataAsOf || "",
               previous_as_on_date: null,
             }))
           : [];
@@ -703,8 +703,8 @@ export default function InventoryOverview() {
       const scale = momCurrencyMode === "AED_MILLIONS" ? 1000000 : 1;
 
       const dataRows = filtered.map((item, idx) => {
-        const curDate = item.current_as_on_date || "2026-09-25";
-        const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : 8;
+        const curDate = item.current_as_on_date || mockData.dataAsOf || "";
+        const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : new Date().getMonth();
         const curMonthKey = MOM_MONTHS[curMonthIdx] || "SEPT";
         const curVal = Number(item.current_value || 0);
 
@@ -6741,7 +6741,7 @@ const detailsSource = modalFilteredDetails || [];
                                     ? Number(row.cost_of_material_monthly)
                                     : null;
 
-                                  const snapDate = row.as_on_date || "2026-09-25";
+                                  const snapDate = row.as_on_date || mockData.dataAsOf || "";
                                   const isFiltered = viewAllDetailFilters.as_on_date && toApiDate(viewAllDetailFilters.as_on_date) === toApiDate(snapDate);
 
                                   return (
@@ -7270,9 +7270,9 @@ const detailsSource = modalFilteredDetails || [];
                       {/* TAB 6: MONTH-ON-MONTH OBSOLETE STOCK POSITION */}
                       {(modalActiveTab === "momObsolete" || modalActiveTab === "mom" || (!["aging", "trend", "parentDivision", "subdivision", "slowMoving", "details"].includes(modalActiveTab) && slowMovingViewMode === "mom")) && (() => {
                         const allMonths = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-                        const asOfDateStr = (appliedFilters.asOnDate && appliedFilters.asOnDate !== "All") ? appliedFilters.asOnDate : (mockData.dataAsOf || "2026-09-25");
-                        const asOfObj = new Date(asOfDateStr);
-                        const curMonthIdx = !isNaN(asOfObj.getTime()) ? asOfObj.getMonth() : 8; // September default
+                        const asOfDateStr = (appliedFilters.asOnDate && appliedFilters.asOnDate !== "All") ? appliedFilters.asOnDate : (mockData.dataAsOf || "");
+                        const asOfObj = asOfDateStr ? new Date(asOfDateStr) : new Date();
+                        const curMonthIdx = !isNaN(asOfObj.getTime()) ? asOfObj.getMonth() : new Date().getMonth();
                         const curMonthKey = allMonths[curMonthIdx] || "SEP";
                         const prevMonthIdx = (curMonthIdx + 11) % 12;
                         const prevMonthKey = allMonths[prevMonthIdx] || "AUG";
