@@ -238,7 +238,7 @@ const calcMovement = (cur, cmp) => {
 };
 
 const extractBSMetrics = (summary) => {
-  if (!summary?.sections) {
+  if (!summary?.sections || summary.sections.length === 0) {
     return {
       noData: true,
       totalAssets: null,
@@ -518,11 +518,13 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
 
   const toggle = (optId) => {
     if (String(optId).toLowerCase() === 'all') { onChange(['All']); return; }
-    const cur = isAll
-      ? allRealIds
-      : isNone
-        ? []
-        : (value || []).map(String).filter(v => v.toLowerCase() !== 'all');
+    if (isAll) {
+      onChange([String(optId)]);
+      return;
+    }
+    const cur = isNone
+      ? []
+      : (value || []).map(String).filter(v => v.toLowerCase() !== 'all');
     const targetId = String(optId);
 
     const next = cur.includes(targetId)
@@ -3706,11 +3708,13 @@ export default function BalanceSheet() {
         ledgers:        ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
 
-      // Auto-select first period on initial load; keep legalGroup as 'All' so both FJ Group and Raphael Khlat / RKME are loaded
+      // Auto-select latest closed period (defaulting to Oct-26) on initial load; keep legalGroup as 'All' so both FJ Group and Raphael Khlat / RKME are loaded
       if (isFirstFilterLoad.current) {
         isFirstFilterLoad.current = false;
-        const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
-        const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
+        const normList = periods.map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
+        const octIdx = normList.indexOf('2026-10');
+        const first  = octIdx !== -1 ? normList[octIdx] : ((periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '');
+        const second = octIdx !== -1 && normList[octIdx + 1] ? normList[octIdx + 1] : ((periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '');
         const targetLegalGroup = currentFilters.legalGroup && currentFilters.legalGroup.length > 0 ? currentFilters.legalGroup : ['All'];
 
         // Use period code directly -- no calendar date conversion needed (supports Period 13)
@@ -3856,10 +3860,10 @@ export default function BalanceSheet() {
   // when appliedFilters changes, preventing a double API request.
   const handleApply = useCallback(() => { setAppliedFilters({ ...filters }); }, [filters]);
   const handleReset = useCallback(() => {
-    const p1 = filterOptions.periods[0];
-    const p2 = filterOptions.periods[1];
-    const first  = (p1 && typeof p1 === 'object' ? p1.period : p1) || '';
-    const second = (p2 && typeof p2 === 'object' ? p2.period : p2) || '';
+    const normList = (filterOptions.periods || []).map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
+    const octIdx = normList.indexOf('2026-10');
+    const first  = octIdx !== -1 ? normList[octIdx] : ((filterOptions.periods[0] && typeof filterOptions.periods[0] === 'object' ? filterOptions.periods[0].period : filterOptions.periods[0]) || '');
+    const second = octIdx !== -1 && normList[octIdx + 1] ? normList[octIdx + 1] : ((filterOptions.periods[1] && typeof filterOptions.periods[1] === 'object' ? filterOptions.periods[1].period : filterOptions.periods[1]) || '');
     const reset = {
       ...DEFAULT_FILTERS,
       period: first,
@@ -4246,8 +4250,22 @@ export default function BalanceSheet() {
             id="filter-bs-period"
             value={filters.period}
             onChange={(periodCode) => {
-              setFilters(prev => ({ ...prev, period: periodCode, asOnDate: periodCode }));
-              setAppliedFilters(prev => ({ ...prev, period: periodCode, asOnDate: periodCode }));
+              const normList = (filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
+              const getShiftedCompare = (curCompare) => {
+                if (curCompare === periodCode) {
+                  const idx = normList.indexOf(periodCode);
+                  if (idx !== -1 && normList[idx + 1]) return normList[idx + 1];
+                }
+                return curCompare;
+              };
+              setFilters(prev => {
+                const nextCompare = getShiftedCompare(prev.comparePeriod);
+                return { ...prev, period: periodCode, asOnDate: periodCode, comparePeriod: nextCompare, compareDate: nextCompare };
+              });
+              setAppliedFilters(prev => {
+                const nextCompare = getShiftedCompare(prev.comparePeriod);
+                return { ...prev, period: periodCode, asOnDate: periodCode, comparePeriod: nextCompare, compareDate: nextCompare };
+              });
             }}
             periods={filterOptions?.periods || []}
             disabled={loading.filters}
