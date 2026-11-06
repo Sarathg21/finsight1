@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -103,13 +102,44 @@ const formatCompactTarget = (value) => {
     })}M`;
 };
 
-const formatPercentage = (value) => {
+const formatPercentage = (value, fractionDigits = 1) => {
     if (value === null || value === undefined || value === "") return "—";
 
     const number = Number(value);
     if (!Number.isFinite(number)) return "—";
 
-    return `${number.toFixed(1)}%`;
+    // Values from the OPEX API are already percentages; never multiply by 100.
+    return `${number.toFixed(fractionDigits)}%`;
+};
+
+/*
+ * The backend status is the source of truth for OPEX ratio availability.
+ * A missing status or an explicit unavailable status must not show a stale/
+ * placeholder numeric value. A numeric zero remains a valid available value.
+ */
+const isOpexRatioStatusAvailable = (status) => {
+    if (status === null || status === undefined || String(status).trim() === "") {
+        return false;
+    }
+
+    const normalizedStatus = String(status)
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+
+    const unavailableStatuses = new Set([
+        "UNAVAILABLE",
+        "NOT_AVAILABLE",
+        "N/A",
+        "NA",
+        "MISSING",
+        "NO_DATA",
+        "NO_DATA_AVAILABLE",
+        "NOT_APPLICABLE",
+        "FALSE",
+    ]);
+
+    return !unavailableStatuses.has(normalizedStatus);
 };
 
 /* Backend percentage is displayed directly; no variance is calculated here. */
@@ -164,6 +194,7 @@ function OpexKpiCard({
     titleBackground,
     showUnfavorable = false,
     isPercentage = false,
+    percentageDecimals = 1,
     reportingCurrency = "AED",
     targetValue = null,
     varianceValue = null,
@@ -192,10 +223,12 @@ function OpexKpiCard({
                 : varianceColor;
 
     const modernCurrentValue = isPercentage
-        ? formatPercentage(value)
+        ? formatPercentage(value, percentageDecimals)
         : formatCurrency(value, reportingCurrency);
     const modernTargetValue = hasTarget
-        ? formatCurrency(targetValue, reportingCurrency)
+        ? (isPercentage
+            ? formatPercentage(targetValue, percentageDecimals)
+            : formatCurrency(targetValue, reportingCurrency))
         : "—";
     const modernVarianceValue = hasVariance
         ? formatVariance(varianceValue)
@@ -315,7 +348,7 @@ function OpexKpiCard({
                     </div>
 
                     <div
-                        title={isPercentage ? formatPercentage(value) : formatCurrency(value, reportingCurrency)}
+                        title={isPercentage ? formatPercentage(value, percentageDecimals) : formatCurrency(value, reportingCurrency)}
                         style={{
                             fontSize: 17,
                             lineHeight: "21px",
@@ -331,7 +364,7 @@ function OpexKpiCard({
                             value={value}
                             formatter={
                                 isPercentage
-                                    ? formatPercentage
+                                    ? (animatedValue) => formatPercentage(animatedValue, percentageDecimals)
                                     : (animatedValue) => formatCurrency(animatedValue, reportingCurrency)
                             }
                         />
@@ -359,7 +392,11 @@ function OpexKpiCard({
                             }}
                         >
                             <span
-                                title={hasTarget ? `Target: ${formatCurrency(targetValue, reportingCurrency)}` : "Target: —"}
+                                title={hasTarget
+                                    ? `Target: ${isPercentage
+                                        ? formatPercentage(targetValue, percentageDecimals)
+                                        : formatCurrency(targetValue, reportingCurrency)}`
+                                    : "Target: —"}
                                 style={{
                                     color: "#64748B",
                                     flex: "1 1 auto",
@@ -371,7 +408,11 @@ function OpexKpiCard({
                                     fontWeight: 600,
                                 }}
                             >
-                                Target: {hasTarget ? formatCompactTarget(targetValue) : "—"}
+                                Target: {hasTarget
+                                    ? (isPercentage
+                                        ? formatPercentage(targetValue, percentageDecimals)
+                                        : formatCompactTarget(targetValue))
+                                    : "—"}
                             </span>
 
                             <span
@@ -688,17 +729,26 @@ export default function OperatingExpenseSummary({
             data.varianceYTDStatus ??
             null,
 
+        // The API values are already percentages. Status controls availability.
+        // Nullish coalescing preserves 0.00% as a valid value.
+        actualOpexRatioYTDStatus:
+            data.actual_opex_ratio_ytd_status ??
+            data.actualOpexRatioYTDStatus ?? null,
         actualOpexRatioYTD:
-            data.actual_opex_ratio_ytd ?? data.actual_opex_ratio_ytd_pct ??
-            data.actualOpexRatioYTD ?? data.actualOpexRatioYtd ?? null,
+            isOpexRatioStatusAvailable(
+                data.actual_opex_ratio_ytd_status ?? data.actualOpexRatioYTDStatus
+            )
+                ? (data.actual_opex_ratio_ytd_pct ?? data.actualOpexRatioYTD ?? null)
+                : null,
+        targetOpexRatioYTDStatus:
+            data.target_opex_ratio_ytd_status ??
+            data.targetOpexRatioYTDStatus ?? null,
         targetOpexRatioYTD:
-            data.target_opex_ratio_ytd ?? data.target_opex_ratio_ytd_pct ??
-            data.targetOpexRatioYTD ?? data.targetOpexRatioYtd ?? null,
-        actualOpexRatioYTDVariance:
-            data.actual_opex_ratio_ytd_variance_pct ?? data.opex_ratio_ytd_variance_pct ??
-            data.actualOpexRatioYTDVariance ?? null,
-        targetOpexRatioYTDVariance:
-            data.target_opex_ratio_ytd_variance_pct ?? data.targetOpexRatioYTDVariance ?? null,
+            isOpexRatioStatusAvailable(
+                data.target_opex_ratio_ytd_status ?? data.targetOpexRatioYTDStatus
+            )
+                ? (data.target_opex_ratio_ytd_pct ?? data.targetOpexRatioYTD ?? null)
+                : null,
     };
 
     return (
@@ -826,9 +876,10 @@ export default function OperatingExpenseSummary({
                         titleColor="#6D28D9"
                         titleBackground="#F5F3FF"
                         isPercentage
+                        percentageDecimals={2}
                         reportingCurrency={reportingCurrency}
                         targetValue={kpiData.targetOpexRatioYTD}
-                        varianceValue={kpiData.actualOpexRatioYTDVariance}
+                        varianceStatus={kpiData.actualOpexRatioYTDStatus}
                     />
 
                     {/* Target-only cards: intentionally hide the lower Target/Variance strip
@@ -905,9 +956,10 @@ export default function OperatingExpenseSummary({
                         titleColor="#7C3AED"
                         titleBackground="#F5F3FF"
                         isPercentage
+                        percentageDecimals={2}
                         reportingCurrency={reportingCurrency}
                         targetValue={kpiData.targetOpexRatioYTD}
-                        varianceValue={kpiData.targetOpexRatioYTDVariance}
+                        varianceStatus={kpiData.targetOpexRatioYTDStatus}
                         showTargetVarianceRow={false}
                         tooltipValueOnly={true}
                     />

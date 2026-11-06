@@ -71,6 +71,15 @@ const requestPLComparison = (args) => __plDedupe('comparison', fetchPLComparison
 const requestPLExpenseBreakdown = (args) => __plDedupe('expense-breakdown', fetchPLExpenseBreakdown, args);
 const requestPLStatement = (args) => __plDedupe('statement', fetchPLStatement, args);
 
+const getPLStatementRows = (response) => {
+    if (Array.isArray(response?.rows)) return response.rows;
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.items)) return response.items;
+    if (Array.isArray(response)) return response;
+    return [];
+};
+
+
 // Fetch each hierarchy level with only its parent selections. Do not pass a
 // dropdown's own selection to the endpoint that supplies that dropdown's
 // options; otherwise selecting one value can shrink the list and prevent
@@ -1342,12 +1351,37 @@ function PLRow({
      * - No percentage is recalculated in the frontend.
      */
     const currentPTD = row?.current_ptd;
-    const comparePTD = row?.compare_ptd;
+    const compareCandidates = [
+        row?.compare_ptd,
+        row?.compare_period,
+        row?.compare_ptd_aed,
+        row?.compare_period_aed,
+        row?.compare,
+    ].filter((value) => value !== null && value !== undefined && value !== '');
+    const comparePopulated = compareCandidates.find((value) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) && numeric !== 0;
+    });
+    const comparePTD = comparePopulated !== undefined
+        ? comparePopulated
+        : (compareCandidates[0] ?? null);
     const targetPTD = row?.target_ptd;
     const currentYTD = row?.current_ytd;
     const targetYTD = row?.target_ytd;
 
-    const varianceCurrentVsCompare = row?.variance_pct_current_vs_compare;
+    const varianceCurrentVsCompare = (() => {
+        const values = [
+            row?.variance_pct_current_vs_compare,
+            row?.variance_pct,
+            row?.variance_current_vs_compare_pct,
+            row?.variance_pct_compare,
+        ].filter(value => value !== null && value !== undefined && value !== '');
+        const populated = values.find(value => {
+            const number = Number(value);
+            return Number.isFinite(number) && number !== 0;
+        });
+        return populated !== undefined ? populated : (values[0] ?? null);
+    })();
     const varianceCurrentVsTarget = row?.variance_pct_current_vs_target;
     const varianceYTDVsTarget = row?.variance_pct_ytd_vs_target;
 
@@ -1381,7 +1415,7 @@ function PLRow({
     const formatVariance = (value) => {
         const num = toNumber(value);
         if (num === null) return '—';
-        return `${num >= 0 ? '+' : ''}${num.toFixed(0)}%`;
+        return `${num >= 0 ? '+' : ''}${num.toFixed(2)}%`;
     };
 
     const amountColor = (value, fallback = labelColor) => {
@@ -1463,26 +1497,25 @@ function PLRow({
                 {isPercentage ? formatPercentage(targetPTD) : formatAmount(targetPTD)}
             </td>
 
-            {/* Variance Current vs Compare is not a percentage-row value. */}
+            {/* Backend PTD variance percentages, including percentage rows. */}
             <td
                 style={{
                     ...TDx,
-                    color: isPercentage ? C.muted : favourability.color,
-                    fontWeight: isPercentage || varianceCurrentVsCompare == null ? 400 : 600,
+                    color: varianceCurrentVsCompare == null ? C.muted : favourability.color,
+                    fontWeight: varianceCurrentVsCompare == null ? 400 : 600,
                 }}
             >
-                {isPercentage ? '—' : formatVariance(varianceCurrentVsCompare)}
+                {formatVariance(varianceCurrentVsCompare)}
             </td>
 
-            {/* Variance Current vs Target is not a percentage-row value. */}
             <td
                 style={{
                     ...TDx,
-                    color: isPercentage ? C.muted : varianceColor(varianceCurrentVsTarget),
-                    fontWeight: isPercentage || varianceCurrentVsTarget == null ? 400 : 600,
+                    color: varianceCurrentVsTarget == null ? C.muted : varianceColor(varianceCurrentVsTarget),
+                    fontWeight: varianceCurrentVsTarget == null ? 400 : 600,
                 }}
             >
-                {isPercentage ? '—' : formatVariance(varianceCurrentVsTarget)}
+                {formatVariance(varianceCurrentVsTarget)}
             </td>
 
             {/* Current YTD */}
@@ -1506,15 +1539,15 @@ function PLRow({
                 {isPercentage ? formatPercentage(targetYTD) : formatAmount(targetYTD)}
             </td>
 
-            {/* YTD variance is not a percentage-row value. */}
+            {/* Backend YTD variance percentage, including percentage rows. */}
             <td
                 style={{
                     ...TDx,
-                    color: isPercentage ? C.muted : varianceColor(varianceYTDVsTarget),
-                    fontWeight: isPercentage || varianceYTDVsTarget == null ? 400 : 600,
+                    color: varianceYTDVsTarget == null ? C.muted : varianceColor(varianceYTDVsTarget),
+                    fontWeight: varianceYTDVsTarget == null ? 400 : 600,
                 }}
             >
-                {isPercentage ? '—' : formatVariance(varianceYTDVsTarget)}
+                {formatVariance(varianceYTDVsTarget)}
             </td>
         </tr>
     );
@@ -2133,6 +2166,8 @@ export default function PLAnalytics() {
     const [comparisonData, setComparisonData] = useState([]);
     const [expenseData, setExpenseData] = useState(null);
     const [statementData, setStatementData] = useState(null);
+    // Prevent a slower, stale statement request from overwriting the latest filter result.
+    const statementRequestSequence = useRef(0);
 
 
     /* ── Loading & Error ──────────────────────────────────────────── */
@@ -2651,7 +2686,53 @@ export default function PLAnalytics() {
         guard('trend', requestPLTrend(f)).then(d => { if (d) setTrendData(d); });
         guard('comparison', requestPLComparison(f)).then(d => { if (d) setComparisonData(d); });
         guard('expenseBreakdown', requestPLExpenseBreakdown(f)).then(d => { if (d) setExpenseData(d); });
-        guard('statement', requestPLStatement(f)).then(d => { if (d) setStatementData(d); });
+
+        const statementRequestId = ++statementRequestSequence.current;
+        requestPLStatement(f)
+            .then(d => {
+                if (statementRequestId !== statementRequestSequence.current || !d) return;
+
+                const rows = Array.isArray(d?.rows)
+                    ? d.rows
+                    : Array.isArray(d?.data)
+                        ? d.data
+                        : Array.isArray(d)
+                            ? d
+                            : [];
+
+                const revenueRow = rows.find(row =>
+                    String(row?.particulars ?? row?.label ?? '').trim().toLowerCase() ===
+                    'revenue from sale of goods & services'
+                );
+
+                console.log('[P&L Statement] latest response mapping:', {
+                    periodName: f?.periodName,
+                    comparePeriodName: f?.comparePeriodName,
+                    revenue: revenueRow ? {
+                        current_ptd: revenueRow.current_ptd,
+                        compare_ptd: revenueRow.compare_ptd,
+                        compare_period: revenueRow.compare_period,
+                        variance_pct_current_vs_compare: revenueRow.variance_pct_current_vs_compare,
+                        variance_pct: revenueRow.variance_pct,
+                        target_ptd: revenueRow.target_ptd,
+                    } : null,
+                });
+
+                setStatementData(d);
+            })
+            .catch(err => {
+                if (statementRequestId === statementRequestSequence.current) {
+                    setErrors(prev => ({
+                        ...prev,
+                        statement: err?.message || 'Failed to load data',
+                    }));
+                }
+            })
+            .finally(() => {
+                if (statementRequestId === statementRequestSequence.current) {
+                    setLoading(prev => ({ ...prev, statement: false }));
+                }
+            });
     }, []);
 
     // The initial period is populated asynchronously from filter-options.
@@ -2660,10 +2741,26 @@ export default function PLAnalytics() {
     // issue a second overlapping dashboard load.
     const initialDashboardFetchStarted = useRef(false);
     useEffect(() => {
-        if (!appliedFilters.periodName || initialDashboardFetchStarted.current) return;
+        if (
+            !initialLoaded ||
+            loading.filters ||
+            !appliedFilters.periodName ||
+            initialDashboardFetchStarted.current
+        ) {
+            return;
+        }
+
+        // Filter options and the initial compare period must both be ready
+        // before the first statement request is sent.
         initialDashboardFetchStarted.current = true;
         fetchAll(appliedFilters);
-    }, [appliedFilters.periodName, fetchAll]);
+    }, [
+        initialLoaded,
+        loading.filters,
+        appliedFilters.periodName,
+        appliedFilters.comparePeriodName,
+        fetchAll,
+    ]);
 
     /* ── Filter handlers ──────────────────────────────────────────── */
     const handleApply = () => { setAppliedFilters({ ...filters }); fetchAll({ ...filters }); };
@@ -2753,13 +2850,7 @@ export default function PLAnalytics() {
         ?? expenseItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
 
     /* ── KPI source rows / target mapping ───────────────────────────── */
-    const kpiStatementRows = Array.isArray(statementData?.rows)
-        ? statementData.rows
-        : Array.isArray(statementData?.data)
-            ? statementData.data
-            : Array.isArray(statementData)
-                ? statementData
-                : [];
+    const kpiStatementRows = getPLStatementRows(statementData);
 
     const normalizeKpiLabel = (value) =>
         String(value ?? '')
@@ -3124,7 +3215,7 @@ export default function PLAnalytics() {
                         />
                         {viewAllLoading ? <div style={{ padding: 24 }}><Skeleton h={300} /></div> : (
                             <StatementViewAll
-                                rows={viewAllData.statement?.rows || []}
+                                rows={getPLStatementRows(viewAllData.statement)}
                                 currency={currency}
                                 periodName={(viewAllFilters.periodName || []).join(', ')}
                                 comparePeriodName={(viewAllFilters.comparePeriodName || []).join(', ')}

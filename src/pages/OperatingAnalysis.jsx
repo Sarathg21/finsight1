@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from '../utils/apiBase';
 
+
 import React, { useEffect, useState, } from "react";
 import { useAuth } from "../context/AuthContext";
 import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
@@ -1289,6 +1290,10 @@ export default function OperatingAnalysis() {
         targetYTD: null,
         varianceYTD: null,
         varianceYTDPercent: null,
+        actualOpexRatioYTD: null,
+        targetOpexRatioYTD: null,
+        actualOpexRatioYTDStatus: null,
+        targetOpexRatioYTDStatus: null,
     });
 
     /* =====================================================
@@ -2899,6 +2904,24 @@ Only the View All API is refreshed.
 
                     varianceYTDPercent:
                         summary.variance_ytd_pct ??
+                        null,
+
+                    // OPEX YTD ratios are already percentages from the API.
+                    // Preserve the raw values and availability statuses.
+                    actualOpexRatioYTD:
+                        summary.actual_opex_ratio_ytd_pct ??
+                        null,
+
+                    targetOpexRatioYTD:
+                        summary.target_opex_ratio_ytd_pct ??
+                        null,
+
+                    actualOpexRatioYTDStatus:
+                        summary.actual_opex_ratio_ytd_status ??
+                        null,
+
+                    targetOpexRatioYTDStatus:
+                        summary.target_opex_ratio_ytd_status ??
                         null,
                 });
 

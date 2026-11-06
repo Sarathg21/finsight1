@@ -216,20 +216,22 @@ export const getOpexFilterOptions = async (
     }
 };
 
+
 /* =========================================================
    SUMMARY
 
-   Aggregated from /api/opex/expense-breakdown
+   GET /api/opex/summary
+
+   Includes:
+   - Actual OPEX Ratio YTD
+   - Target OPEX Ratio YTD
+   - Actual OPEX Ratio YTD Status
+   - Target OPEX Ratio YTD Status
 ========================================================= */
 
-export const getOpexSummary = async (
-    filters = {}
-) => {
+export const getOpexSummary = async (filters = {}) => {
     try {
-        const params = buildParams(
-            filters,
-            true
-        );
+        const params = buildParams(filters, true);
 
         const response = await api.get(
             "/opex/summary",
@@ -264,6 +266,22 @@ export const getOpexSummary = async (
             target_ytd: data.target_ytd ?? null,
             variance_ytd: data.variance_ytd ?? null,
 
+            // Actual OPEX Ratio YTD — already a percentage
+            actual_opex_ratio_ytd_pct:
+                data.actual_opex_ratio_ytd_pct ?? null,
+
+            // Target OPEX Ratio YTD — already a percentage
+            target_opex_ratio_ytd_pct:
+                data.target_opex_ratio_ytd_pct ?? null,
+
+            // Actual ratio status
+            actual_opex_ratio_ytd_status:
+                data.actual_opex_ratio_ytd_status ?? null,
+
+            // Target ratio status
+            target_opex_ratio_ytd_status:
+                data.target_opex_ratio_ytd_status ?? null,
+
             variance_ptd_status: data.variance_ptd_status ?? null,
             variance_ytd_status: data.variance_ytd_status ?? null,
 
@@ -278,7 +296,6 @@ export const getOpexSummary = async (
         throw getApiError(error);
     }
 };
-
 
 /* =========================================================
    CATEGORY COMPARISON
@@ -309,16 +326,16 @@ export const getOpexCategoryComparison =
     };
 
 
-    /* =========================================================
-   CATEGORY COMPARISON EXPORT
+/* =========================================================
+CATEGORY COMPARISON EXPORT
 
-   GET /api/opex/category-comparison/export
+GET /api/opex/category-comparison/export
 
-   format:
-      excel
-      pdf
+format:
+  excel
+  pdf
 
-   Response is binary/blob.
+Response is binary/blob.
 ========================================================= */
 
 export const exportOpexCategoryComparison =
