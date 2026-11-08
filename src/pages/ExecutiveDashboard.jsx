@@ -235,7 +235,7 @@ const TwcCustomTooltip = ({ active, payload, label }) => {
                             CCC Days:
                         </span>
                         <span style={{ fontWeight: 800, color: '#e11d48' }}>
-                            {cccVal != null ? `${cccVal} Days` : '–'}
+                            {cccVal != null && !isNaN(Number(cccVal)) ? `${Math.round(Number(cccVal))} Days` : '—'}
                         </span>
                     </div>
                 </div>
@@ -396,7 +396,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'linear-gradient(135deg, #2563EB, #38BDF8)' }} />
                             <span>Gross Profit:</span>
                         </div>
-                        <span style={{ fontWeight: 800, color: '#1e293b' }}>{currency} {gpVal.toFixed(1)}M</span>
+                        <span style={{ fontWeight: 800, color: gpVal < 0 ? '#dc2626' : '#1e293b' }}>{currency} {gpVal.toFixed(1)}M</span>
                     </div>
                 )}
 
@@ -406,7 +406,7 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #10B981)' }} />
                             <span>Net Profit:</span>
                         </div>
-                        <span style={{ fontWeight: 800, color: '#1e293b' }}>{currency} {npVal.toFixed(1)}M</span>
+                        <span style={{ fontWeight: 800, color: npVal < 0 ? '#dc2626' : '#1e293b' }}>{currency} {npVal.toFixed(1)}M</span>
                     </div>
                 )}
             </div>
@@ -706,8 +706,11 @@ export default function ExecutiveDashboard() {
             subdivision_id: extractIds(applied?.subdivision),
         };
 
+        setKpiLoading(true);
+        setTwcLoading(true);
+        setProfitTrendLoading(true);
         setFilters(newFilterState);
-        setAppliedFilters(newFilterState);
+        setAppliedFilters({ ...newFilterState, _timestamp: Date.now() });
     };
 
     const handleResetFilters = () => {
@@ -721,8 +724,11 @@ export default function ExecutiveDashboard() {
             parent_division_id: null,
             subdivision_id: null,
         };
+        setKpiLoading(true);
+        setTwcLoading(true);
+        setProfitTrendLoading(true);
         setFilters(defaultState);
-        setAppliedFilters(defaultState);
+        setAppliedFilters({ ...defaultState, _timestamp: Date.now() });
     };
 
     // ── KPI state ──
@@ -1307,10 +1313,12 @@ export default function ExecutiveDashboard() {
             }
         }
 
+        const isNeg = numVal !== null && numVal < 0;
         const sparkData = [10, 15, 12, 18, 16, 22, 20];
         return { 
             ...cfg, 
             value: displayVal, 
+            isNegative: isNeg,
             comparisonArrow: compArrow,
             comparisonText: compText,
             comparisonColor: compColor,
@@ -1442,7 +1450,27 @@ export default function ExecutiveDashboard() {
                 onApply={handleApplyFilters}
                 onReset={handleResetFilters}
                 enableYtdFullYear={true}
+                loading={kpiLoading}
             />
+
+            {kpiLoading && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 14px',
+                    marginBottom: 14,
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: 8,
+                    color: '#1d4ed8',
+                    fontSize: '0.74rem',
+                    fontWeight: 600,
+                }}>
+                    <RefreshCw size={13} className="animate-spin" style={{ flexShrink: 0 }} />
+                    <span>Updating Executive Dashboard metrics...</span>
+                </div>
+            )}
 
             {/* 2. KPI CARDS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 20 }}>
@@ -1510,7 +1538,7 @@ export default function ExecutiveDashboard() {
                             <div style={{
                                 fontSize: '1.12rem',
                                 fontWeight: 800,
-                                color: '#0f172a',
+                                color: kpi.isNegative ? '#dc2626' : '#0f172a',
                                 lineHeight: 1.05,
                                 letterSpacing: '-0.025em',
                                 marginTop: 4,
@@ -1741,7 +1769,7 @@ export default function ExecutiveDashboard() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center', minWidth: 160, flexShrink: 0 }}>
                                     <div style={{ background: '#eff6ff', borderRadius: 10, padding: '12px 14px', border: '1px solid #bfdbfe' }}>
                                         <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Profit (YTD)</div>
-                                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e3a8a', marginTop: 4, letterSpacing: '-0.02em' }}>
+                                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: npVal < 0 ? '#dc2626' : '#1e3a8a', marginTop: 4, letterSpacing: '-0.02em' }}>
                                             {currency} {npVal.toFixed(1)}M
                                         </div>
                                         {npMom !== null && (
@@ -1758,7 +1786,7 @@ export default function ExecutiveDashboard() {
                                     </div>
                                     <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '12px 14px', border: '1px solid #bbf7d0' }}>
                                         <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>NP Margin</div>
-                                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#14532d', marginTop: 4, letterSpacing: '-0.02em' }}>
+                                        <div style={{ fontSize: '1.15rem', fontWeight: 800, color: npPct < 0 ? '#dc2626' : '#14532d', marginTop: 4, letterSpacing: '-0.02em' }}>
                                             {npPct.toFixed(1)}%
                                         </div>
                                         <div style={{ fontSize: '0.63rem', color: '#4ade80', fontWeight: 700, marginTop: 2 }}>current period</div>

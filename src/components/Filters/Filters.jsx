@@ -2136,6 +2136,7 @@ export default function OpexFilters({
     showLegalGroupFilter = true,
     showLegalEntityFilter = true,
     enableYtdFullYear = false,
+    loading: externalLoading = false,
 }) {
     const [
         opexFilterOptions,
@@ -2209,6 +2210,8 @@ export default function OpexFilters({
         loading,
         setLoading,
     ] = useState(false);
+
+    const isApplying = Boolean(externalLoading || loading);
 
     /* =======================================================
        REQUEST CONTROL
@@ -3186,48 +3189,41 @@ export default function OpexFilters({
                 <button
                     id="btn-apply-opex-filter"
                     type="button"
-                    onClick={() =>
-                        onApply?.(
-                            selectedFilters
-                        )
-                    }
+                    disabled={isApplying}
+                    onClick={() => {
+                        if (!isApplying) {
+                            onApply?.(selectedFilters);
+                        }
+                    }}
                     style={{
                         height: 34,
-
-                        padding:
-                            "0 16px",
-
-                        background:
-                            "#6366f1",
-
+                        padding: "0 16px",
+                        background: isApplying ? "#a5b4fc" : "#6366f1",
                         color: "#fff",
-
                         border: "none",
-
                         borderRadius: 8,
-
-                        fontSize:
-                            "0.78rem",
-
+                        fontSize: "0.78rem",
                         fontWeight: 700,
-
-                        cursor:
-                            "pointer",
-
-                        whiteSpace:
-                            "nowrap",
-
-                        display:
-                            "inline-flex",
-
-                        alignItems:
-                            "center",
-
-                        justifyContent:
-                            "center",
+                        cursor: isApplying ? "not-allowed" : "pointer",
+                        whiteSpace: "nowrap",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        transition: "background 0.15s ease",
                     }}
                 >
-                    Apply
+                    {isApplying ? (
+                        <>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: "spin 1s linear infinite" }}>
+                                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" stroke="currentColor" />
+                                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" />
+                            </svg>
+                            Updating…
+                        </>
+                    ) : (
+                        "Apply"
+                    )}
                 </button>
 
                 <button

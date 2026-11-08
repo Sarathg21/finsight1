@@ -278,7 +278,15 @@ export function InventoryTurnoverTrend({ title, data, onViewAll, onExport }) {
               <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748B' }} />
               <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#EA580C' }} />
               <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#0ea5e9' }} />
-              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{ borderRadius: 8, fontSize: 11 }}
+                formatter={(value, name) => {
+                  if (name === 'DIO (Days)' || name === 'dio') {
+                    return [value != null && !isNaN(Number(value)) ? `${Math.round(Number(value))} Days` : '—', name];
+                  }
+                  return [value, name];
+                }}
+              />
               <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
               <Line yAxisId="left" type="monotone" dataKey="turnover" name="Inventory Turnover (Times)" stroke="#EA580C" strokeWidth={2} dot={{ r: 3, fill: '#EA580C' }} />
               <Line yAxisId="right" type="monotone" dataKey="dio" name="DIO (Days)" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3, fill: '#0ea5e9' }} />

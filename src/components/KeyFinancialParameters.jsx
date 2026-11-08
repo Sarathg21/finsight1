@@ -38,8 +38,10 @@ function formatValue(val, isDays, unitMode, isPct) {
         return `${n.toFixed(1)}%`;
     }
     if (isDays) {
-        // Ratios (DSO, DIO, DPO, CCC) always stay in Days
-        return n.toFixed(1);
+        // Ratios (DSO, DIO, DPO, CCC) always stay in Days - whole numbers
+        const rounded = Math.round(n);
+        if (rounded < 0) return `(${Math.abs(rounded)})`;
+        return String(rounded);
     }
     if (unitMode === 'aed') {
         const rounded = Math.round(n);
@@ -62,8 +64,10 @@ function formatM(val) {
 
 function formatDays(val) {
     const n = parseNum(val);
-    if (n === null) return '—';
-    return n.toFixed(1);
+    if (n === null) return '-';
+    const rounded = Math.round(n);
+    if (rounded < 0) return `(${Math.abs(rounded)})`;
+    return String(rounded);
 }
 
 function calcVar(actual, compare) {
@@ -963,7 +967,9 @@ export default function KeyFinancialParameters({
         const color = isFavorable ? '#16a34a' : '#dc2626';
 
         let displayDiff;
-        if (isPct || isDays) {
+        if (isDays) {
+            displayDiff = Math.round(Math.abs(diff)).toString();
+        } else if (isPct) {
             displayDiff = Math.abs(diff).toFixed(1);
         } else if (displayUnit === 'aed') {
             displayDiff = Math.round(Math.abs(diff)).toLocaleString('en-US');
@@ -1398,23 +1404,23 @@ export default function KeyFinancialParameters({
                                     </td>
 
                                     {/* Actual */}
-                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: row.isPct ? '#2563eb' : '#0f172a' }}>
+                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, color: (row.actualVal != null && Number(row.actualVal) < 0) ? '#dc2626' : (row.isPct ? '#2563eb' : '#0f172a') }}>
                                         {formatValue(row.actualVal, row.isDays, displayUnit, row.isPct)}
                                     </td>
 
                                     {/* Target */}
-                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: (row.targetVal != null && Number(row.targetVal) < 0) ? '#dc2626' : '#0f172a' }}>
                                         {formatValue(row.targetVal, row.isDays, displayUnit, row.isPct)}
                                     </td>
 
                                     {/* Previous Month */}
-                                    <td style={{ ...tdStyle, textAlign: 'right', color: '#334155', fontWeight: 600 }}>
+                                    <td style={{ ...tdStyle, textAlign: 'right', color: (row.prevVal != null && Number(row.prevVal) < 0) ? '#dc2626' : '#334155', fontWeight: 600 }}>
                                         {formatValue(row.prevVal, row.isDays, displayUnit, row.isPct)}
                                     </td>
 
                                     {/* Previous Year (YTD only) */}
                                     {isYtd && (
-                                        <td style={{ ...tdStyle, textAlign: 'right', color: '#334155', fontWeight: 600 }}>
+                                        <td style={{ ...tdStyle, textAlign: 'right', color: (row.pyVal != null && Number(row.pyVal) < 0) ? '#dc2626' : '#334155', fontWeight: 600 }}>
                                             {formatValue(row.pyVal, row.isDays, displayUnit, row.isPct)}
                                         </td>
                                     )}

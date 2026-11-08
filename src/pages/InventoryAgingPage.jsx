@@ -1421,7 +1421,7 @@ const [loading, setLoading] = useState(true);
     const actualUnit = isPp ? "pp" : (unit === "Days" || unit === "days" ? "Days" : "%");
 
     if (n === 0) {
-      const zeroText = actualUnit === "pp" ? "0.00 pp" : (actualUnit === "Days" ? "0.00 Days" : "0.00%");
+      const zeroText = actualUnit === "pp" ? "0.00 pp" : (actualUnit === "Days" ? "0 Days" : "0.00%");
       return { display: zeroText, color: "#64748b", arrow: "", num: 0 };
     }
     const isUp = n > 0;
@@ -1430,7 +1430,7 @@ const [loading, setLoading] = useState(true);
     const arrow = isUp ? "\u25B2" : "\u25BC";
     const sign = isUp ? "+" : "-";
     
-    const formattedNum = Math.abs(n).toFixed(decimals);
+    const formattedNum = actualUnit === "Days" ? String(Math.round(Math.abs(n))) : Math.abs(n).toFixed(decimals);
 
     if (actualUnit === "pp") {
       return { display: `${sign}${formattedNum} pp`, color, arrow, num: n };
@@ -1956,13 +1956,13 @@ const [loading, setLoading] = useState(true);
                       title: "Stock Holding Days (DIO)",
                       titleColor: "#16a34a",
                       cardBg: "#f0fdf4",
-                      value: rawDio !== null && rawDio !== undefined ? `${Number(rawDio).toFixed(2)} Days` : "—",
+                      value: rawDio !== null && rawDio !== undefined ? `${Math.round(Number(rawDio))} Days` : "—",
                       icon: Calendar,
                       iconBg: "#dcfce7",
                       iconColor: "#16a34a",
                       hasTargetDetails: Boolean(targetDio !== undefined && targetDio !== null),
-                      targetValue: targetDio !== null && targetDio !== undefined ? `${Number(targetDio).toFixed(2)} Days` : null,
-                      targetVarianceAmount: dioVarianceDays !== null ? `${Number(dioVarianceDays) >= 0 ? '+' : ''}${Number(dioVarianceDays).toFixed(2)} Days` : null,
+                      targetValue: targetDio !== null && targetDio !== undefined ? `${Math.round(Number(targetDio))} Days` : null,
+                      targetVarianceAmount: dioVarianceDays !== null ? `${Number(dioVarianceDays) >= 0 ? '+' : ''}${Math.round(Number(dioVarianceDays))} Days` : null,
                       targetVariancePct: dioVariancePercentage,
                       targetLowerIsBetter: true,
                       momVariance: rawKpiSource.dio_mom_percentage ?? rawKpiSource.dio_days_variance ?? null,
@@ -1978,7 +1978,7 @@ const [loading, setLoading] = useState(true);
                       title: "Target DIO",
                       titleColor: "#2563eb",
                       cardBg: "#f0f7ff",
-                      value: targetDio !== null && targetDio !== undefined ? `${Number(targetDio).toFixed(2)} Days` : "—",
+                      value: targetDio !== null && targetDio !== undefined ? `${Math.round(Number(targetDio))} Days` : "—",
                       icon: Target,
                       iconBg: "#dbeafe",
                       iconColor: "#2563eb",
@@ -1994,7 +1994,7 @@ const [loading, setLoading] = useState(true);
                       title: "DIO Variance",
                       titleColor: "#db2777",
                       cardBg: "#fdf2f8",
-                      value: dioVarianceDays !== null ? `${Number(dioVarianceDays) >= 0 ? '+' : ''}${Number(dioVarianceDays).toFixed(2)} Days` : "—",
+                      value: dioVarianceDays !== null ? `${Number(dioVarianceDays) >= 0 ? '+' : ''}${Math.round(Number(dioVarianceDays))} Days` : "—",
                       icon: Scale,
                       iconBg: "#fce7f3",
                       iconColor: "#db2777",
@@ -6800,7 +6800,7 @@ const detailsSource = modalFilteredDetails || [];
                                         {turnover !== null ? `${turnover.toFixed(2)}x` : "-"}
                                       </td>
                                       <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#475569", fontVariantNumeric: "tabular-nums" }}>
-                                        {dio !== null ? dio.toFixed(1) : "-"}
+                                        {dio !== null ? Math.round(dio) : "-"}
                                       </td>
                                     </tr>
                                   );
@@ -7619,7 +7619,7 @@ const detailsSource = modalFilteredDetails || [];
                                       <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_181_365)}</td>
                                       <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_366_730)}</td>
                                       <td style={{ padding: "7px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_above_730)}</td>
-                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.days || "-"}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.days && !isNaN(Number(row.days)) ? Math.round(Number(row.days)) : (row.days || "-")}</td>
                                       <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.avg_inv_value)}</td>
                                     </tr>
                                   ))

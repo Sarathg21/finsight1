@@ -60,9 +60,9 @@ const fmtNum = (v) => {
  * null → '–'  |  0 → '0.00'
  */
 const fmtDays = (v) => {
-  if (v === null || v === undefined) return '–';
-  if (isNaN(Number(v))) return '–';
-  return Number(v).toFixed(2);
+  if (v === null || v === undefined) return '-';
+  if (isNaN(Number(v))) return '-';
+  return Math.round(Number(v)).toString();
 };
 
 const fmtPct = (v) => {
@@ -146,9 +146,20 @@ const EmptyState = ({ message = 'No records available for the selected filters.'
   </div>
 );
 
-const ErrorState = ({ message }) => (
+const ErrorState = ({ message, onRetry }) => (
   <div style={{ textAlign: 'center', padding: '50px 20px', color: '#ef4444', fontSize: '0.82rem' }}>
-    ⚠️ {message}
+    <div style={{ marginBottom: onRetry ? 10 : 0 }}>⚠️ {message}</div>
+    {onRetry && (
+      <button
+        onClick={onRetry}
+        style={{
+          padding: '5px 16px', borderRadius: 6, background: '#fee2e2', border: '1px solid #fecaca',
+          color: '#b91c1c', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+        }}
+      >
+        Retry
+      </button>
+    )}
   </div>
 );
 
@@ -801,6 +812,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
   }, [appliedTwcFilters]);
 
   const handleApply = () => {
+    if (loading) return;
     setAppliedTwcFilters({
       as_on_date: draftToDate || '2026-10-31',
       legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
@@ -1060,25 +1072,31 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
           {/* Apply Button (Blue) */}
           <button
             onClick={handleApply}
+            disabled={loading}
             style={{
               height: 28,
               padding: '0 16px',
               borderRadius: 7,
-              background: '#2563eb',
+              background: loading ? '#93c5fd' : '#2563eb',
               color: '#fff',
               border: 'none',
               fontSize: '0.74rem',
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 5,
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
-            onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#1d4ed8'; }}
+            onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#2563eb'; }}
           >
-            Apply
+            {loading ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                Updating...
+              </>
+            ) : 'Apply'}
           </button>
 
           {/* Reset Button */}
@@ -1146,7 +1164,7 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
       {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
       {/* Content: spinner, error, empty, or table */}
-      {loading ? <Spinner /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState message={search ? "No matching records found." : undefined} /> : (
+      {loading ? <Spinner /> : error ? <ErrorState message={error} onRetry={handleApply} /> : !displayRows.length ? <EmptyState message={search ? "No matching records found." : undefined} /> : (
         <ScrollTable minWidth={1150}>
           <thead>
             <tr>
@@ -1192,16 +1210,16 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
                   <TD style={{ width: 140, minWidth: 120, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.3' }}>
                     {subDivVal}
                   </TD>
-                  <TD align="right">{fmtNum(trVal)}</TD>
-                  <TD align="right">{fmtDays(dsoVal)}</TD>
-                  <TD align="right">{fmtNum(invVal)}</TD>
-                  <TD align="right">{fmtDays(dioVal)}</TD>
-                  <TD align="right">{fmtNum(tpVal)}</TD>
-                  <TD align="right">{fmtDays(dpoVal)}</TD>
-                  <TD align="right" bold color={twcVal !== null && twcVal !== undefined && Number(twcVal) >= 0 ? '#2563eb' : '#ef4444'}>
+                  <TD align="right" color={trVal != null && Number(trVal) < 0 ? '#dc2626' : undefined}>{fmtNum(trVal)}</TD>
+                  <TD align="right" color={dsoVal != null && Number(dsoVal) < 0 ? '#dc2626' : undefined}>{fmtDays(dsoVal)}</TD>
+                  <TD align="right" color={invVal != null && Number(invVal) < 0 ? '#dc2626' : undefined}>{fmtNum(invVal)}</TD>
+                  <TD align="right" color={dioVal != null && Number(dioVal) < 0 ? '#dc2626' : undefined}>{fmtDays(dioVal)}</TD>
+                  <TD align="right" color={tpVal != null && Number(tpVal) < 0 ? '#dc2626' : undefined}>{fmtNum(tpVal)}</TD>
+                  <TD align="right" color={dpoVal != null && Number(dpoVal) < 0 ? '#dc2626' : undefined}>{fmtDays(dpoVal)}</TD>
+                  <TD align="right" bold color={twcVal !== null && twcVal !== undefined && Number(twcVal) < 0 ? '#dc2626' : '#2563eb'}>
                     {fmtNum(twcVal)}
                   </TD>
-                  <TD align="right">{fmtDays(cccVal)}</TD>
+                  <TD align="right" color={cccVal != null && Number(cccVal) < 0 ? '#dc2626' : undefined}>{fmtDays(cccVal)}</TD>
                 </tr>
               );
             })}
@@ -1212,14 +1230,14 @@ function TwcViewAllTable({ filters, currency, onExportExcel, onExportPdf }) {
                 <TF bold style={{ color: '#1e293b' }}>Total</TF>
                 <TF bold style={{ color: '#64748b' }}>–</TF>
                 <TF bold style={{ color: '#64748b' }}>–</TF>
-                <TF align="right" bold color="#2563eb">{fmtNum(totals.tr)}</TF>
-                <TF align="right" bold color="#2563eb">{fmtDays(totals.dso)}</TF>
-                <TF align="right" bold color="#2563eb">{fmtNum(totals.inv)}</TF>
-                <TF align="right" bold color="#2563eb">{fmtDays(totals.dio)}</TF>
-                <TF align="right" bold color="#2563eb">{fmtNum(totals.tp)}</TF>
-                <TF align="right" bold color="#2563eb">{fmtDays(totals.dpo)}</TF>
-                <TF align="right" bold color={totals.twc != null && totals.twc >= 0 ? '#2563eb' : '#ef4444'}>{fmtNum(totals.twc)}</TF>
-                <TF align="right" bold color={totals.ccc != null && totals.ccc >= 0 ? '#2563eb' : '#ef4444'}>{fmtDays(totals.ccc)}</TF>
+                <TF align="right" bold color={totals.tr < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(totals.tr)}</TF>
+                <TF align="right" bold color={totals.dso < 0 ? '#dc2626' : '#2563eb'}>{fmtDays(totals.dso)}</TF>
+                <TF align="right" bold color={totals.inv < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(totals.inv)}</TF>
+                <TF align="right" bold color={totals.dio < 0 ? '#dc2626' : '#2563eb'}>{fmtDays(totals.dio)}</TF>
+                <TF align="right" bold color={totals.tp < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(totals.tp)}</TF>
+                <TF align="right" bold color={totals.dpo < 0 ? '#dc2626' : '#2563eb'}>{fmtDays(totals.dpo)}</TF>
+                <TF align="right" bold color={totals.twc != null && totals.twc < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(totals.twc)}</TF>
+                <TF align="right" bold color={totals.ccc != null && totals.ccc < 0 ? '#dc2626' : '#2563eb'}>{fmtDays(totals.ccc)}</TF>
               </tr>
             </tfoot>
           )}
@@ -1327,6 +1345,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
   });
 
   const handleApply = () => {
+    if (loading) return;
     setAppliedTrendFilters({
       as_on_date: filters?.as_on_date || filters?.as_of_date || '2026-10-31',
       legal_group_id:     (!draftLegalGroup || draftLegalGroup.includes('All') || draftLegalGroup.length === 0) ? undefined : draftLegalGroup,
@@ -1539,10 +1558,10 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
   }, [METRIC_DEFINITIONS, search]);
 
   const formatCell = (val, type, displayUnit) => {
-    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '—';
+    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
     const num = Number(val);
     if (type === 'days') {
-      return num.toFixed(2);
+      return Math.round(num).toString();
     }
     if (displayUnit === 'millions') {
       const inM = num / 1000000;
@@ -1554,8 +1573,8 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
   const getCellColor = (val, metric) => {
     if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '#94a3b8';
     const num = Number(val);
-    if (num < 0) return '#ef4444'; // Red for negative numbers (matching MoM design)
-    if (metric.isTwc) return num >= 0 ? '#2563eb' : '#ef4444';
+    if (num < 0) return '#dc2626'; // Red for negative numbers (matching MoM design)
+    if (metric.isTwc) return num >= 0 ? '#2563eb' : '#dc2626';
     if (metric.isSummary) return '#1e293b';
     return '#334155';
   };
@@ -1573,9 +1592,9 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
             '"' + m.label + '"',
             ...MONTH_COLS.map(col => {
               const v = m.getValue(monthMap[col]);
-              return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v).toFixed(2) : '';
+              return v !== null && v !== undefined && !isNaN(Number(v)) ? (m.type === 'days' ? String(Math.round(Number(v))) : Number(v).toFixed(2)) : '';
             }),
-            avgVal !== null && avgVal !== undefined && !isNaN(Number(avgVal)) ? Number(avgVal).toFixed(2) : '',
+            avgVal !== null && avgVal !== undefined && !isNaN(Number(avgVal)) ? (m.type === 'days' ? String(Math.round(Number(avgVal))) : Number(avgVal).toFixed(2)) : '',
           ];
           csvRows.push(rowCells.join(','));
         });
@@ -1800,25 +1819,31 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
           {/* Apply Button (Blue) */}
           <button
             onClick={handleApply}
+            disabled={loading}
             style={{
               height: 28,
               padding: '0 16px',
               borderRadius: 7,
-              background: '#2563eb',
+              background: loading ? '#93c5fd' : '#2563eb',
               color: '#fff',
               border: 'none',
               fontSize: '0.74rem',
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 5,
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
-            onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#1d4ed8'; }}
+            onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#2563eb'; }}
           >
-            Apply
+            {loading ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                Updating...
+              </>
+            ) : 'Apply'}
           </button>
 
           {/* Reset Button */}
@@ -1853,7 +1878,7 @@ function TwcTrendTable({ filters, currency, onExportExcel, onExportPdf }) {
       {loading ? (
         <Spinner />
       ) : error ? (
-        <ErrorState message={error} />
+        <ErrorState message={error} onRetry={handleApply} />
       ) : !rows.length ? (
         <EmptyState message="No month-on-month trend data available for the selected filters." />
       ) : (
@@ -2054,6 +2079,7 @@ function RegionalFilterToolbar({
   onReset,
   onExport,
   exporting,
+  loading = false,
 }) {
   return (
     <div style={{
@@ -2165,25 +2191,31 @@ function RegionalFilterToolbar({
         {/* Apply Button (Blue) */}
         <button
           onClick={onApply}
+          disabled={loading}
           style={{
             height: 28,
             padding: '0 16px',
             borderRadius: 7,
-            background: '#2563eb',
+            background: loading ? '#93c5fd' : '#2563eb',
             color: '#fff',
             border: 'none',
             fontSize: '0.74rem',
             fontWeight: 700,
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 5,
             transition: 'background 0.15s ease',
           }}
-          onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
-          onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#1d4ed8'; }}
+          onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#2563eb'; }}
         >
-          Apply
+          {loading ? (
+            <>
+              <RefreshCw size={12} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+              Updating...
+            </>
+          ) : 'Apply'}
         </button>
 
         {/* Reset Button */}
@@ -2434,6 +2466,7 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
   }, [appliedRegionalFilters, currency]);
 
   const handleApply = () => {
+    if (loading) return;
     const activeToDate = draftToDate || filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setAppliedRegionalFilters({
       as_of_date: activeToDate,
@@ -2519,11 +2552,12 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
         onReset={handleReset}
         onExport={handleExport}
         exporting={exporting}
+        loading={loading}
       />
       {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 10 }}>
-        {loading ? <Spinner /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState message={search ? "No matching regions found." : undefined} /> : (
+        {loading ? <Spinner /> : error ? <ErrorState message={error} onRetry={handleApply} /> : !displayRows.length ? <EmptyState message={search ? "No matching regions found." : undefined} /> : (
           <ScrollTable minWidth={650}>
             <thead>
               <tr>
@@ -2541,8 +2575,8 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
                     onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}>
                     <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
-                    <TD align="right">{fmtNum(rev)}</TD>
-                    <TD align="right">{pct !== null ? `${Number(pct).toFixed(2)}%` : '–'}</TD>
+                    <TD align="right" color={rev != null && Number(rev) < 0 ? '#dc2626' : undefined} bold={rev != null && Number(rev) < 0}>{fmtNum(rev)}</TD>
+                    <TD align="right" color={pct != null && Number(pct) < 0 ? '#dc2626' : undefined} bold={pct != null && Number(pct) < 0}>{pct !== null ? `${Number(pct).toFixed(2)}%` : '–'}</TD>
                   </tr>
                 );
               })}
@@ -2551,7 +2585,7 @@ function RevenueByRegion({ filters = {}, currency = 'AED' }) {
               <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
                 <tr>
                   <TF bold style={{ color: '#1e293b' }}>Total</TF>
-                  <TF align="right" bold color="#2563eb">{fmtNum(total)}</TF>
+                  <TF align="right" bold color={total < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(total)}</TF>
                   <TF align="right" bold>100.00%</TF>
                 </tr>
               </tfoot>
@@ -2763,6 +2797,7 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
   }, [appliedRegionalFilters, currency]);
 
   const handleApply = () => {
+    if (loading) return;
     const activeToDate = draftToDate || filters.as_of_date || filters.as_on_date || new Date().toISOString().split('T')[0];
     setAppliedRegionalFilters({
       as_of_date: activeToDate,
@@ -2852,11 +2887,12 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
         onReset={handleReset}
         onExport={handleExport}
         exporting={exporting}
+        loading={loading}
       />
       {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 10 }}>
-        {loading ? <Spinner /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState message={search ? "No matching regions found." : undefined} /> : (
+        {loading ? <Spinner /> : error ? <ErrorState message={error} onRetry={handleApply} /> : !displayRows.length ? <EmptyState message={search ? "No matching regions found." : undefined} /> : (
           <ScrollTable minWidth={750}>
             <thead>
               <tr>
@@ -2871,18 +2907,22 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
             <tbody>
               {displayRows.map((r, i) => {
                 const netMargin = r.net_margin_pct ?? r.net_margin ?? null;
+                const rev = Number(r.revenue ?? r.revenue_aed ?? 0);
+                const gp = Number(r.gross_profit ?? 0);
+                const gpPct = rev > 0 ? ((gp / rev) * 100) : (r.gross_profit_margin_pct != null ? Number(r.gross_profit_margin_pct) : null);
+                const gpPctStr = gpPct !== null ? `${gpPct.toFixed(2)}%` : '–';
                 return (
                   <tr key={i}
                     onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}>
                     <TD bold>{r.region ?? r.country ?? r.country_name ?? '–'}</TD>
-                    <TD align="right">{fmtNum(r.gross_profit)}</TD>
-                    <TD align="right" color="#2563eb">{(() => { const rev = Number(r.revenue ?? r.revenue_aed ?? 0); const gp = Number(r.gross_profit ?? 0); return rev > 0 ? `${((gp / rev) * 100).toFixed(2)}%` : (r.gross_profit_margin_pct != null ? `${Number(r.gross_profit_margin_pct).toFixed(2)}%` : '–'); })()}</TD>
-                    <TD align="right">{fmtNum(r.ebitda)}</TD>
-                    <TD align="right" color={r.net_profit === null ? undefined : (Number(r.net_profit) >= 0 ? '#10b981' : '#ef4444')}>
+                    <TD align="right" color={gp < 0 ? '#dc2626' : undefined} bold={gp < 0}>{fmtNum(r.gross_profit)}</TD>
+                    <TD align="right" color={gpPct !== null && gpPct < 0 ? '#dc2626' : '#2563eb'} bold={gpPct !== null && gpPct < 0}>{gpPctStr}</TD>
+                    <TD align="right" color={r.ebitda != null && Number(r.ebitda) < 0 ? '#dc2626' : undefined} bold={r.ebitda != null && Number(r.ebitda) < 0}>{fmtNum(r.ebitda)}</TD>
+                    <TD align="right" color={r.net_profit === null ? undefined : (Number(r.net_profit) >= 0 ? '#10b981' : '#dc2626')} bold={r.net_profit !== null && Number(r.net_profit) < 0}>
                       {fmtNum(r.net_profit)}
                     </TD>
-                    <TD align="right">{netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–'}</TD>
+                    <TD align="right" color={netMargin !== null && Number(netMargin) < 0 ? '#dc2626' : undefined} bold={netMargin !== null && Number(netMargin) < 0}>{netMargin !== null ? `${Number(netMargin).toFixed(2)}%` : '–'}</TD>
                   </tr>
                 );
               })}
@@ -2891,10 +2931,10 @@ function ProfitabilityByRegion({ filters = {}, currency = 'AED' }) {
               <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 15 }}>
                 <tr>
                   <TF bold style={{ color: '#1e293b' }}>Total</TF>
-                  <TF align="right" bold color="#2563eb">{fmtNum(totalGp)}</TF>
-                  <TF align="right" bold color="#2563eb">{totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–'}</TF>
-                  <TF align="right" bold color="#2563eb">{fmtNum(totalEbitda)}</TF>
-                  <TF align="right" bold color="#10b981">{fmtNum(totalNp)}</TF>
+                  <TF align="right" bold color={totalGp < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(totalGp)}</TF>
+                  <TF align="right" bold color={totalGpPctRegion !== null && totalGpPctRegion < 0 ? '#dc2626' : '#2563eb'}>{totalGpPctRegion !== null ? `${totalGpPctRegion.toFixed(2)}%` : '–'}</TF>
+                  <TF align="right" bold color={totalEbitda < 0 ? '#dc2626' : '#2563eb'}>{fmtNum(totalEbitda)}</TF>
+                  <TF align="right" bold color={totalNp < 0 ? '#dc2626' : '#10b981'}>{fmtNum(totalNp)}</TF>
                   <TF align="right" bold>–</TF>
                 </tr>
               </tfoot>
@@ -3101,6 +3141,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
 
   const [exporting, setExporting] = useState(null); // 'excel' | 'pdf'
   const [toast,     setToast]     = useState(null);
+  const requestSeqRef = useRef(0);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -3220,6 +3261,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   }, [staged.criteriaKey, filterOptions]);
 
   const fetchData = async (crit, rSel, yr, prd, customOptions = null) => {
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     setError(null);
 
@@ -3232,8 +3274,10 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
     }
 
     if (!entities.length) {
-      setRows([]);
-      setLoading(false);
+      if (seq === requestSeqRef.current) {
+        setRows([]);
+        setLoading(false);
+      }
       return;
     }
 
@@ -3285,42 +3329,47 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
         })
       );
 
+      // Discard stale responses if user triggered a newer fetch
+      if (seq !== requestSeqRef.current) return;
+
       // Sort by revenue descending so active contributors are first
       settled.sort((a, b) => b.revenue - a.revenue);
       setRows(settled);
+
+      // Synchronize active display metadata only upon successful arrival
+      setPeriod(prd);
+      setYear(yr);
+      setCriteriaKey(crit);
+      setReportSel(rSel);
     } catch (err) {
+      if (seq !== requestSeqRef.current) return;
       console.error('[Profitability Glance] Error:', err);
-      setError('Failed to load real backend data.');
+      setError('Failed to load real backend data. Please try again.');
       setRows([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleCriteriaChange = (newCrit) => {
-    setCriteriaKey(newCrit);
-    setReportSel('All');
+    if (loading) return;
     setStaged(s => ({ ...s, criteriaKey: newCrit, reportSel: 'All' }));
-    fetchData(newCrit, 'All', year, period);
+    fetchData(newCrit, 'All', staged.year, staged.period);
   };
 
   const handleApply = () => {
-    setCriteriaKey(staged.criteriaKey);
-    setReportSel(staged.reportSel);
-    setYear(staged.year);
-    setPeriod(staged.period);
+    if (loading) return;
     fetchData(staged.criteriaKey, staged.reportSel, staged.year, staged.period);
   };
 
   const handleReset = () => {
+    if (loading) return;
     const defYear = filterOptions.years?.[0] ? String(filterOptions.years[0]) : '2026';
     const defPeriod = (filterOptions.periods && filterOptions.periods.length > 0) ? filterOptions.periods[filterOptions.periods.length - 1] : 'Oct-26';
     const def = { criteriaKey: 'parent_division', reportSel: 'All', year: defYear, period: defPeriod };
     setStaged(def);
-    setCriteriaKey(def.criteriaKey);
-    setReportSel(def.reportSel);
-    setYear(def.year);
-    setPeriod(def.period);
     fetchData(def.criteriaKey, def.reportSel, def.year, def.period);
   };
 
@@ -3420,18 +3469,32 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
 
           <button
             onClick={handleApply}
+            disabled={loading}
             style={{
-              padding: '4px 12px', borderRadius: 6, background: '#2563eb', color: '#fff', border: 'none',
-              fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 14px', borderRadius: 6, background: loading ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none',
+              fontSize: '0.72rem', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#1d4ed8'; }}
+            onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#2563eb'; }}
           >
-            <Filter size={11} /> Apply
+            {loading ? (
+              <>
+                <RefreshCw size={11} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                Updating...
+              </>
+            ) : (
+              <>
+                <Filter size={11} /> Apply
+              </>
+            )}
           </button>
           <button
             onClick={handleReset}
+            disabled={loading}
             style={{
-              padding: '4px 10px', borderRadius: 6, background: '#fff', color: '#64748b', border: '1px solid #cbd5e1',
-              fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 6, background: '#fff', color: loading ? '#94a3b8' : '#64748b', border: '1px solid #cbd5e1',
+              fontSize: '0.72rem', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4,
             }}
           >
             <RefreshCw size={11} /> Reset
@@ -3499,6 +3562,23 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
 
       {/* ── Content Area: Graph + Table ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '12px 20px', gap: 14 }}>
+        {loading && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 14px',
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: 8,
+            color: '#1d4ed8',
+            fontSize: '0.74rem',
+            fontWeight: 600,
+          }}>
+            <RefreshCw size={13} className="animate-spin" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+            <span>Updating Profitability at a Glance for <strong>{staged.period} {staged.year}</strong>… Fetching financial statements across divisions.</span>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#334155' }}>
             Showing {displayRows.length} {displayRows.length === 1 ? 'Entity' : 'Entities'} grouped by {currentCritLabel} for Period: {period} | Year: {year}
@@ -3506,7 +3586,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
         </div>
 
         {/* TABLE SECTION */}
-        <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
             <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e3a8a' }}>
                 Detailed Financials — Grouped by {currentCritLabel} ({unit === 'millions' ? `${currency} Millions` : currency})
@@ -3516,14 +3596,49 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
               </div>
             </div>
 
-            {loading ? (
+            {loading && rows.length === 0 ? (
               <Spinner />
-            ) : error ? (
-              <ErrorState message={error} />
+            ) : error && rows.length === 0 ? (
+              <ErrorState message={error} onRetry={handleApply} />
             ) : displayRows.length === 0 ? (
               <EmptyState message="No records found for the selected grouping and filters." />
             ) : (
-              <ScrollTable minWidth={1180}>
+              <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                {loading && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(255, 255, 255, 0.72)',
+                    backdropFilter: 'blur(1.5px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 25,
+                    gap: 10,
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      background: '#fff',
+                      padding: '12px 22px',
+                      borderRadius: 10,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                      border: '1px solid #e2e8f0',
+                      color: '#1e40af',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                    }}>
+                      <RefreshCw size={16} color="#2563eb" className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                      <span>Updating Profitability Data for {staged.period} {staged.year}…</span>
+                    </div>
+                  </div>
+                )}
+                <ScrollTable minWidth={1180}>
                 <thead>
                   <tr>
                     <TH style={{ minWidth: 200 }}>
@@ -3596,8 +3711,8 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
                       <TD align="right">{fmtAmount(r.direct_labour, unit)}</TD>
                       <TD align="right">{fmtAmount(r.manufacturing_expense, unit)}</TD>
                       <TD align="right" color={r.overhead_absorption < 0 ? "#dc2626" : undefined}>{fmtAmount(r.overhead_absorption, unit)}</TD>
-                      <TD align="right">{fmtAmount(r.gross_profit, unit)}</TD>
-                      <TD align="right" color="#2563eb" bold>{fmtPct(r.gp_pct)}</TD>
+                      <TD align="right" color={r.gross_profit < 0 ? "#dc2626" : undefined} bold={r.gross_profit < 0}>{fmtAmount(r.gross_profit, unit)}</TD>
+                      <TD align="right" color={r.gp_pct < 0 ? "#dc2626" : "#2563eb"} bold>{fmtPct(r.gp_pct)}</TD>
                       <TD align="right">{fmtAmount(r.operating_expense, unit)}</TD>
                       <TD align="right" color="#2563eb" bold>{fmtPct(r.opex_pct)}</TD>
                       <TD align="right" color={r.pbt >= 0 ? '#10b981' : '#dc2626'} bold>{fmtAmount(r.pbt, unit)}</TD>
@@ -3614,18 +3729,19 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.direct_labour, unit)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.manufacturing_expense, unit)}</TF>
                       <TF align="right" bold color={totals.overhead_absorption < 0 ? "#dc2626" : "#1e40af"}>{fmtAmount(totals.overhead_absorption, unit)}</TF>
-                      <TF align="right" bold color="#1e40af">{fmtAmount(totals.gross_profit, unit)}</TF>
-                      <TF align="right" bold color="#1e40af">{fmtPct(totalGpPct)}</TF>
+                      <TF align="right" bold color={totals.gross_profit < 0 ? "#dc2626" : "#1e40af"}>{fmtAmount(totals.gross_profit, unit)}</TF>
+                      <TF align="right" bold color={totalGpPct < 0 ? "#dc2626" : "#1e40af"}>{fmtPct(totalGpPct)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtAmount(totals.operating_expense, unit)}</TF>
                       <TF align="right" bold color="#1e40af">{fmtPct(totalOpexPct)}</TF>
-                      <TF align="right" bold color="#1e40af">{fmtAmount(totals.pbt, unit)}</TF>
-                      <TF align="right" bold color="#1e40af">{fmtPct(totalPbtPct)}</TF>
+                      <TF align="right" bold color={totals.pbt < 0 ? "#dc2626" : (totals.pbt > 0 ? "#10b981" : "#1e40af")}>{fmtAmount(totals.pbt, unit)}</TF>
+                      <TF align="right" bold color={totalPbtPct < 0 ? "#dc2626" : (totalPbtPct > 0 ? "#10b981" : "#1e40af")}>{fmtPct(totalPbtPct)}</TF>
                     </tr>
                   </tfoot>
                 )}
               </ScrollTable>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3700,6 +3816,7 @@ export default function ExecDashboardViewAll({
       <style>{`
         @keyframes execVAFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       {/* Backdrop overlay */}
