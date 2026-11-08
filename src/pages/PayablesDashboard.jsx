@@ -2448,7 +2448,6 @@ function KpiCard({
 }) {
     const formatValue = (raw) => {
         if (raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw))) return "—";
-        if (suffix === "DaysExact") return `${Number(raw).toFixed(2)} Days`;
         if (suffix === "Days") return `${Number(raw).toFixed(0)} Days`;
         if (suffix === "%") return `${Number(raw).toFixed(1)}%`;
         const numeric = Number(raw), sign = numeric < 0 ? "-" : "", absolute = Math.abs(numeric);
@@ -2467,7 +2466,7 @@ function KpiCard({
         const n = Number(raw);
         const favourability = getVarianceFavorability(n, varianceType);
         const color = favourability === "favourable" ? "#16a34a" : favourability === "unfavourable" ? "#e11d48" : "#64748b";
-        const decimals = suffixText === "days" ? 2 : 2;
+        const decimals = suffixText === "days" ? 0 : 2;
         return <span style={{ color, fontWeight: 800, whiteSpace: "nowrap" }}>{n >= 0 ? "▲" : "▼"} {Math.abs(n).toFixed(decimals)}{suffixText === "pp" ? " pp" : suffixText === "days" ? " Days" : "%"}</span>;
     };
     // Never substitute a month-on-month variance for a target comparison.
@@ -4786,7 +4785,7 @@ function TrendChart({ data, currency, onPointClick }) {
                                 ) !== null
                                     ? `${getTrendDpoValue(
                                         chartData[hoveredIndex]
-                                    ).toFixed(1)} Days`
+                                    ).toFixed(0)} Days`
                                     : "—"}
                             </span>
                         </div>
@@ -8070,46 +8069,41 @@ export default function PayablesDashboard() {
           display: inline !important;
         }
 
-        /* Reference scrollbar style — scoped only to Payables trend,
-           Month-on-Month and View All scroll areas. */
+        /* Dark-grey, thicker scrollbar styling across Payables tabs. */
         .payables-sales-ui .payables-trend-scroll,
         .payables-sales-ui .payables-mom-table-scroll,
         .payables-sales-ui .payables-view-all-scroll,
         .payables-sales-ui .payables-view-all-table-scroll {
-          scrollbar-width: thin !important;
-          scrollbar-color: #64748b #eef2f7 !important;
+          scrollbar-width: auto !important;
+          scrollbar-color: #555b65 #e7e9ed !important;
         }
-
         .payables-sales-ui .payables-trend-scroll::-webkit-scrollbar,
         .payables-sales-ui .payables-mom-table-scroll::-webkit-scrollbar,
         .payables-sales-ui .payables-view-all-scroll::-webkit-scrollbar,
         .payables-sales-ui .payables-view-all-table-scroll::-webkit-scrollbar {
-          width: 8px !important;
-          height: 8px !important;
+          width: 13px !important;
+          height: 13px !important;
         }
-
         .payables-sales-ui .payables-trend-scroll::-webkit-scrollbar-track,
         .payables-sales-ui .payables-mom-table-scroll::-webkit-scrollbar-track,
         .payables-sales-ui .payables-view-all-scroll::-webkit-scrollbar-track,
         .payables-sales-ui .payables-view-all-table-scroll::-webkit-scrollbar-track {
-          background: #eef2f7 !important;
-          border-radius: 8px !important;
+          background: #e7e9ed !important;
+          border-radius: 10px !important;
         }
-
         .payables-sales-ui .payables-trend-scroll::-webkit-scrollbar-thumb,
         .payables-sales-ui .payables-mom-table-scroll::-webkit-scrollbar-thumb,
         .payables-sales-ui .payables-view-all-scroll::-webkit-scrollbar-thumb,
         .payables-sales-ui .payables-view-all-table-scroll::-webkit-scrollbar-thumb {
-          background: #64748b !important;
-          border-radius: 8px !important;
-          border: 1px solid #eef2f7 !important;
+          background: #555b65 !important;
+          border-radius: 10px !important;
+          border: 2px solid #e7e9ed !important;
         }
-
         .payables-sales-ui .payables-trend-scroll::-webkit-scrollbar-thumb:hover,
         .payables-sales-ui .payables-mom-table-scroll::-webkit-scrollbar-thumb:hover,
         .payables-sales-ui .payables-view-all-scroll::-webkit-scrollbar-thumb:hover,
         .payables-sales-ui .payables-view-all-table-scroll::-webkit-scrollbar-thumb:hover {
-          background: #475569 !important;
+          background: #343a40 !important;
         }
 
 
@@ -9716,7 +9710,7 @@ export default function PayablesDashboard() {
 
                     <FilterSelect
                         className="payables-filter-currency"
-                        label="Reporting Currency"
+                        label={<>Reporting<br />Currency</>}
                         value={filters.reporting_currency}
                         options={filterOptions.reporting_currencies.map((x) => x.label)}
                         onChange={(value) =>
@@ -9969,7 +9963,7 @@ export default function PayablesDashboard() {
                             <KpiCard title="Target DPO" value={targetDpoValue}
                                 hideComparisons={true} targetVariance={null} lastMonthVariance={null}
                                 suffix="Days" currency={currency} icon="◎" iconBg="#fef3c7" iconColor="#d97706" titleColor="#b45309" cardBg="#FFF0F7" />
-                            <KpiCard title="DPO Variance" value={kpis.dpo_variance_days ?? null} suffix="DaysExact"
+                            <KpiCard title="DPO Variance" value={kpis.dpo_variance_days ?? null} suffix="Days"
                                 targetVariance={null} lastMonthVariance={null}
                                 previousDate={kpis.previous_date} currency={currency} icon="⚖" iconBg="#ede9fe"
                                 iconColor="#7c3aed" titleColor="#6d28d9" cardBg="#F5F2FF" />
@@ -13728,33 +13722,37 @@ function PayablesViewAll({
         columnIndex
     ) => {
         if (columnIndex === 0)
-            return 145;
+            return 155;
 
         if (columnIndex === 1)
-            return 135;
+            return 150;
 
         if (columnIndex === 2)
-            return 130;
+            return 145;
 
         if (columnIndex === 3)
-            return 92;
+            return 108;
 
         if (columnIndex === 4)
-            return 135;
+            return 150;
 
         if (columnIndex === 5)
-            return 76;
+            return 90;
 
         if (columnIndex === 6)
-            return 78;
+            return 90;
 
-        // Total Payables column — wider for converted AED values.
+        // Total Payables and Current columns get a small extra pixel so
+        // formatted AED totals are not clipped at the cell edge.
         if (columnIndex === 7)
-            return 132;
+            return 147;
 
-        // All aging/amount columns are slightly wider for converted AED values.
-        if (columnIndex >= 8)
-            return 98;
+        if (columnIndex === 8)
+            return 110;
+
+        // Aging/amount columns — modestly wider to prevent value clipping.
+        if (columnIndex >= 9)
+            return 108;
 
         return 76;
     };
@@ -13766,10 +13764,10 @@ function PayablesViewAll({
             return 0;
 
         if (columnIndex === 1)
-            return 145;
+            return 155;
 
         if (columnIndex === 2)
-            return 280;
+            return 305;
 
         return undefined;
     };
@@ -13920,6 +13918,65 @@ function PayablesViewAll({
                         top: 35px;
                     }
 
+                    /* Keep the table header above body cells while scrolling vertically,
+                       and keep the first three hierarchy columns pinned while scrolling horizontally. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table {
+                        border-collapse: separate !important;
+                        border-spacing: 0 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead {
+                        position: relative !important;
+                        z-index: 40 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th {
+                        position: sticky !important;
+                        top: 0 !important;
+                        z-index: 40 !important;
+                        background: #edf4ff !important;
+                        background-clip: padding-box !important;
+                        box-shadow: 0 1px 0 #cbd8eb !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th[style*="left"] {
+                        z-index: 55 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td[style*="left"] {
+                        z-index: 12 !important;
+                        background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td[style*="left"] {
+                        z-index: 65 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll,
+                    .sales-style-view-all-modal .payables-mom-table-scroll {
+                        scrollbar-width: auto !important;
+                        scrollbar-color: #3155a6 #e8edf6 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar {
+                        width: 12px !important;
+                        height: 12px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-track,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar-track,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar-track {
+                        background: #e8edf6 !important;
+                        border-radius: 10px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-thumb,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar-thumb,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar-thumb {
+                        background: #3155a6 !important;
+                        border: 2px solid #e8edf6 !important;
+                        border-radius: 10px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-thumb:hover,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar-thumb:hover,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar-thumb:hover {
+                        background: #1e3a8a !important;
+                    }
+
                     /* Sales-page visual alignment for the portal-rendered View All screen. */
                     .sales-style-view-all-modal,
                     .sales-style-view-all-modal * {
@@ -13973,6 +14030,761 @@ function PayablesViewAll({
                       border-color: #edf2f7 !important;
                     }
 
+                    /* FINAL PAYABLES TABLE LAYERING FIX. Keep the table head itself
+                       in normal flow; only its cells stick to the modal scrollport.
+                       This prevents the first body row/border from painting above
+                       the column labels during vertical scrolling. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead {
+                      position: static !important;
+                      z-index: auto !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead tr {
+                      position: static !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th {
+                      position: sticky !important;
+                      top: 0 !important;
+                      z-index: 100 !important;
+                      height: 60px !important;
+                      min-height: 60px !important;
+                      box-sizing: border-box !important;
+                      background: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-shadow: 0 2px 0 #cbd8eb !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(1) { z-index: 130 !important; left: 0 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(2) { z-index: 130 !important; left: 155px !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(3) { z-index: 140 !important; left: 305px !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(4) { z-index: 100 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td {
+                      position: relative;
+                      z-index: 1 !important;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(1) { position: sticky !important; left: 0 !important; z-index: 10 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(2) { position: sticky !important; left: 155px !important; z-index: 10 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(3) { position: sticky !important; left: 305px !important; z-index: 12 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(1) { left: 0 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(2) { left: 155px !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(3) { left: 305px !important; }
+
+                    /* FINAL OVERRIDE — Payables Detailed View only.
+                       The outer .payables-view-all-scroll is the single vertical and
+                       horizontal scrollport. Keep THEAD/TR in normal flow and stick
+                       each TH directly to that scrollport (never the whole THEAD). */
+                    .sales-style-view-all-modal > .payables-view-all-scroll {
+                      overflow-x: auto !important;
+                      overflow-y: auto !important;
+                      position: relative !important;
+                      isolation: isolate !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table {
+                      border-collapse: separate !important;
+                      border-spacing: 0 !important;
+                      table-layout: fixed !important;
+                      width: max-content !important;
+                      min-width: max-content !important;
+                      overflow: visible !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead,
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr {
+                      position: static !important;
+                      transform: none !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th {
+                      position: -webkit-sticky !important;
+                      position: sticky !important;
+                      top: 0px !important;
+                      z-index: 500 !important;
+                      height: 60px !important;
+                      min-height: 60px !important;
+                      box-sizing: border-box !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      border-bottom: 2px solid #cbd8eb !important;
+                      box-shadow: none !important;
+                    }
+                    /* Pin the hierarchy columns using the exact widths declared
+                       in getColumnWidth: 155px + 150px = 305px. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td:nth-child(1) {
+                      position: sticky !important; left: 0px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(2),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td:nth-child(2),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td:nth-child(2) {
+                      position: sticky !important; left: 155px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(3),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td:nth-child(3),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td:nth-child(3) {
+                      position: sticky !important; left: 305px !important;
+                      background-clip: padding-box !important;
+                      border-right: 2px solid #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(2) {
+                      z-index: 700 !important; background: #edf4ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(3) {
+                      z-index: 800 !important; left: 305px !important;
+                      background: #edf4ff !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > thead > tr > th:nth-child(n+4) {
+                      z-index: 500 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td {
+                      position: relative; z-index: 1 !important;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td:nth-child(2) {
+                      z-index: 30 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tbody > tr > td:nth-child(3) {
+                      z-index: 40 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td {
+                      z-index: 60 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td:nth-child(2) {
+                      z-index: 70 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table > tfoot > tr > td:nth-child(3) {
+                      z-index: 80 !important;
+                      background: #eef4ff !important;
+                    }
+
+                    /* Dark-grey, thicker scrollbars for Payables View All only. */
+                    .sales-style-view-all-modal .payables-view-all-scroll,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll,
+                    .sales-style-view-all-modal .payables-mom-table-scroll {
+                      scrollbar-width: auto !important;
+                      scrollbar-color: #555b65 #e7e9ed !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar {
+                      width: 13px !important; height: 13px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-track,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar-track,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar-track {
+                      background: #e7e9ed !important; border-radius: 10px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-thumb,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar-thumb,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar-thumb {
+                      background: #555b65 !important; border: 2px solid #e7e9ed !important; border-radius: 10px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-thumb:hover,
+                    .sales-style-view-all-modal .payables-view-all-table-scroll::-webkit-scrollbar-thumb:hover,
+                    .sales-style-view-all-modal .payables-mom-table-scroll::-webkit-scrollbar-thumb:hover {
+                      background: #343a40 !important;
+                    }
+
+                    /* FINAL LAYERING FIX — Payables Detailed View only.
+                       Keep the header above every scrolling data cell and make
+                       pinned hierarchy cells fully opaque so values cannot show
+                       through the header or through the pinned-column edges. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table {
+                      position: relative !important;
+                      border-collapse: separate !important;
+                      border-spacing: 0 !important;
+                      table-layout: fixed !important;
+                      width: max-content !important;
+                      min-width: max-content !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead,
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead tr {
+                      position: static !important;
+                      z-index: auto !important;
+                      transform: none !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th {
+                      position: -webkit-sticky !important;
+                      position: sticky !important;
+                      top: 0 !important;
+                      z-index: 1000 !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-sizing: border-box !important;
+                      border-bottom: 2px solid #cbd8eb !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(1) {
+                      left: 0 !important; z-index: 1200 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(2) {
+                      left: 155px !important; z-index: 1200 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(3) {
+                      left: 305px !important; z-index: 1300 !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td {
+                      box-sizing: border-box !important;
+                      background-clip: border-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(1) {
+                      position: sticky !important; left: 0 !important;
+                      z-index: 100 !important; isolation: isolate !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(2) {
+                      position: sticky !important; left: 155px !important;
+                      z-index: 100 !important; isolation: isolate !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(3) {
+                      position: sticky !important; left: 305px !important;
+                      z-index: 110 !important; isolation: isolate !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(1) {
+                      left: 0 !important; z-index: 220 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(2) {
+                      left: 155px !important; z-index: 220 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(3) {
+                      left: 305px !important; z-index: 230 !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll {
+                      isolation: isolate !important;
+                      overflow-x: auto !important;
+                      overflow-y: auto !important;
+                      position: relative !important;
+                    }
+
+
+                    /* Parent Division Month-on-Month: cover the scrollport padding
+                       so moving month values cannot show through the top or left gutters.
+                       This selector is intentionally limited to this one table. */
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table {
+                      border-collapse: separate !important;
+                      border-spacing: 0 !important;
+                      table-layout: fixed !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th {
+                      position: sticky !important;
+                      top: -12px !important;
+                      z-index: 300 !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-shadow: 0 1px 0 #d7e1ef !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:nth-child(2) th {
+                      top: 23px !important;
+                      z-index: 299 !important;
+                      background: #f8fbff !important;
+                      background-color: #f8fbff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child {
+                      left: -16px !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      z-index: 340 !important;
+                      background: #edf4ff !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.32) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      position: sticky !important;
+                      left: -16px !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      background: #ffffff !important;
+                      z-index: 80 !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      background-clip: padding-box !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.32) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      bottom: 0 !important;
+                      z-index: 360 !important;
+                      background: #e8f0ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:not(:first-child) {
+                      background-clip: padding-box !important;
+                    }
+
+
+                    /* FINAL GAP + STICKY INTERSECTION FIX — both Payables View All tabs.
+                       The shared scrollport has 18px top/left content padding. Sticky cells
+                       must extend through that padding; otherwise moving values show in the
+                       exposed gutters. Keep this override last to supersede earlier patches. */
+                    .sales-style-view-all-modal > .payables-view-all-scroll {
+                      scroll-padding-top: 0 !important;
+                      scroll-padding-left: 0 !important;
+                    }
+
+                    /* Detailed View: cover the top and left padded gutters while scrolling. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th {
+                      top: -18px !important;
+                      z-index: 1500 !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(1) {
+                      left: 0 !important;
+                      z-index: 1700 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(2) {
+                      left: 155px !important;
+                      z-index: 1700 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(3) {
+                      left: 305px !important;
+                      z-index: 1800 !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(1) {
+                      left: 0 !important;
+                      z-index: 100 !important;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(2) {
+                      left: 155px !important;
+                      z-index: 100 !important;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(3) {
+                      left: 305px !important;
+                      z-index: 110 !important;
+                      background-clip: padding-box !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(1) {
+                      left: 0 !important;
+                      z-index: 220 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(2) {
+                      left: 155px !important;
+                      z-index: 220 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(3) {
+                      left: 305px !important;
+                      z-index: 230 !important;
+                    }
+
+                    /* Month-on-Month by Parent Division: first column covers the 18px
+                       left gutter without intruding into the first Total Payables/DPO pair. */
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table {
+                      border-collapse: separate !important;
+                      border-spacing: 0 !important;
+                      table-layout: fixed !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:first-child th {
+                      height: 35px !important;
+                      min-height: 35px !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th {
+                      top: -18px !important;
+                      z-index: 1500 !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-sizing: border-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:nth-child(2) th {
+                      top: 17px !important;
+                      z-index: 1490 !important;
+                      background: #f8fbff !important;
+                      background-color: #f8fbff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child {
+                      left: -18px !important;
+                      width: 224px !important;
+                      min-width: 224px !important;
+                      max-width: 224px !important;
+                      z-index: 1800 !important;
+                      background: #edf4ff !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.32) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child {
+                      position: sticky !important;
+                      left: -18px !important;
+                      width: 224px !important;
+                      min-width: 224px !important;
+                      max-width: 224px !important;
+                      z-index: 120 !important;
+                      background: #ffffff !important;
+                      background-clip: padding-box !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.32) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      position: sticky !important;
+                      left: -18px !important;
+                      bottom: 0 !important;
+                      width: 224px !important;
+                      min-width: 224px !important;
+                      max-width: 224px !important;
+                      z-index: 1900 !important;
+                      background: #e8f0ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:not(:first-child),
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:not(:first-child) {
+                      position: sticky;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:not(:first-child) {
+                      z-index: 1400 !important;
+                    }
+
+                    /* FINAL OVERRIDE: eliminate exposed top/left gutters in both tabs.
+                       The outer View All scroller has 18px padding. Sticky cells extend
+                       into that padding while preserving the underlying table grid. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th {
+                      top: -18px !important;
+                      background: #edf4ff !important;
+                      z-index: 2500 !important;
+                      background-clip: border-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:first-child th {
+                      top: -18px !important;
+                      z-index: 2500 !important;
+                      background: #edf4ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:nth-child(2) th {
+                      top: 17px !important;
+                      z-index: 2490 !important;
+                      background: #f8fbff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      left: -18px !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      box-sizing: border-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child {
+                      z-index: 2700 !important;
+                      background: #edf4ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child {
+                      z-index: 180 !important;
+                      background: #ffffff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      z-index: 2800 !important;
+                      background: #e8f0ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(1) {
+                      left: -18px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(1) {
+                      left: -18px !important;
+                    }
+
+                    /* Fill the 18px left padding visually without changing the 206px
+                       table-grid column width or shifting the first monthly pair. */
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child::before,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child::before,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child::before {
+                      content: "" !important;
+                      position: absolute !important;
+                      left: -18px !important;
+                      top: 0 !important;
+                      bottom: 0 !important;
+                      width: 18px !important;
+                      background: inherit !important;
+                      pointer-events: none !important;
+                    }
+
+                    /* ==========================================================
+                       AUTHORITATIVE VIEW-ALL SCROLL GEOMETRY
+                       One scrollport (the outer View All container) owns both
+                       axes. Content spacing is inside a child, never on the
+                       scrollport, so sticky cells have a real 0/0 edge.
+                       ========================================================== */
+                    .sales-style-view-all-modal > .payables-view-all-scroll {
+                      position: relative !important;
+                      display: block !important;
+                      min-height: 0 !important;
+                      flex: 1 1 auto !important;
+                      overflow-x: auto !important;
+                      overflow-y: auto !important;
+                      padding: 0 !important;
+                      isolation: isolate !important;
+                      background: #f7faff !important;
+                      overscroll-behavior: contain;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-content {
+                      box-sizing: border-box !important;
+                      width: 100% !important;
+                      min-width: 0 !important;
+                      padding: 18px 18px 0 !important;
+                    }
+                    /* Tables start at the scrollport's left edge while all other
+                       View All content retains its original 18px page inset. */
+                    .sales-style-view-all-modal .payables-view-all-table-scroll,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll {
+                      position: static !important;
+                      overflow: visible !important;
+                      width: calc(100% + 18px) !important;
+                      max-width: none !important;
+                      margin-left: -18px !important;
+                      padding: 0 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table {
+                      border-collapse: separate !important;
+                      border-spacing: 0 !important;
+                      table-layout: fixed !important;
+                    }
+                    /* Detailed View: exact cumulative offsets matching 155px + 150px. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th {
+                      position: sticky !important;
+                      top: 0 !important;
+                      z-index: 500 !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-shadow: 0 1px 0 #cbd8eb !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(1) {
+                      position: sticky !important;
+                      left: 0 !important;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(2),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(2),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(2) {
+                      position: sticky !important;
+                      left: 155px !important;
+                      background-clip: padding-box !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(3),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(3),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(3) {
+                      position: sticky !important;
+                      left: 305px !important;
+                      background-clip: padding-box !important;
+                      border-right: 2px solid #cbd5e1 !important;
+                      box-shadow: 2px 0 0 #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(2) { z-index: 700 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table thead th:nth-child(3) { z-index: 800 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(2) { z-index: 80 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td:nth-child(3) { z-index: 90 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(1),
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(2) { z-index: 220 !important; }
+                    .sales-style-view-all-modal .payables-view-all-detail-table tfoot td:nth-child(3) { z-index: 230 !important; }
+                    /* Month-on-Month: fixed 206px Parent Division + independent month pairs. */
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table {
+                      min-width: 2080px !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th {
+                      position: sticky !important;
+                      top: 0 !important;
+                      z-index: 500 !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-shadow: 0 1px 0 #d7e1ef !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:first-child th {
+                      height: 35px !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead tr:nth-child(2) th {
+                      top: 35px !important;
+                      z-index: 490 !important;
+                      background: #f8fbff !important;
+                      background-color: #f8fbff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      position: sticky !important;
+                      left: 0 !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      box-sizing: border-box !important;
+                      background-clip: padding-box !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.28) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table thead th:first-child {
+                      top: 0 !important;
+                      z-index: 800 !important;
+                      background: #edf4ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td:first-child {
+                      z-index: 100 !important;
+                      background: #ffffff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:first-child {
+                      bottom: 0 !important;
+                      z-index: 900 !important;
+                      background: #e8f0ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tfoot td:not(:first-child) {
+                      position: sticky !important;
+                      bottom: 0 !important;
+                      z-index: 300 !important;
+                      background: #e8f0ff !important;
+                    }
+                    /* Ensure pinned cells paint over scrolled values, not transparently. */
+                    .sales-style-view-all-modal .payables-view-all-detail-table tbody td,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll table tbody td {
+                      background-clip: padding-box !important;
+                    }
+                    /* Keep the existing dark-grey scrollbar treatment. */
+                    .sales-style-view-all-modal .payables-view-all-scroll {
+                      scrollbar-color: #555b65 #e8edf6 !important;
+                      scrollbar-width: auto !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar {
+                      width: 13px !important;
+                      height: 13px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-track { background: #e8edf6 !important; }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-thumb {
+                      background: #555b65 !important;
+                      border: 2px solid #e8edf6 !important;
+                      border-radius: 10px !important;
+                    }
+                    .sales-style-view-all-modal .payables-view-all-scroll::-webkit-scrollbar-thumb:hover { background: #3f454e !important; }
+                    /* ==========================================================
+                       MONTH-ON-MONTH PARENT DIVISION — MATCH THE WORKING
+                       DETAILED VIEW SCROLL MODEL. The outer
+                       .payables-view-all-scroll is the only scrollport for
+                       both axes; this inner wrapper must never create a
+                       competing scroll container.
+                       ========================================================== */
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll {
+                      position: static !important;
+                      display: block !important;
+                      width: calc(100% + 18px) !important;
+                      max-width: none !important;
+                      height: auto !important;
+                      max-height: none !important;
+                      min-height: 0 !important;
+                      margin: 0 0 0 -18px !important;
+                      padding: 0 !important;
+                      overflow: visible !important;
+                      overscroll-behavior: auto !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table {
+                      position: relative !important;
+                      width: max-content !important;
+                      min-width: 2390px !important;
+                      table-layout: fixed !important;
+                      border-collapse: separate !important;
+                      border-spacing: 0 !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > thead > tr:first-child > th {
+                      position: sticky !important;
+                      top: 0 !important;
+                      z-index: 700 !important;
+                      height: 35px !important;
+                      min-height: 35px !important;
+                      box-sizing: border-box !important;
+                      background: #edf4ff !important;
+                      background-color: #edf4ff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-shadow: 0 1px 0 #cbd8eb !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > thead > tr:nth-child(2) > th {
+                      position: sticky !important;
+                      top: 35px !important;
+                      z-index: 690 !important;
+                      box-sizing: border-box !important;
+                      background: #f8fbff !important;
+                      background-color: #f8fbff !important;
+                      background-image: none !important;
+                      opacity: 1 !important;
+                      isolation: isolate !important;
+                      box-shadow: 0 1px 0 #cbd8eb !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > thead > tr:first-child > th:first-child {
+                      left: 0 !important;
+                      top: 0 !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      z-index: 1000 !important;
+                      background: #edf4ff !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.28) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > tbody > tr > td:first-child {
+                      position: sticky !important;
+                      left: 0 !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      box-sizing: border-box !important;
+                      z-index: 120 !important;
+                      background: #ffffff !important;
+                      background-clip: border-box !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                      box-shadow: 4px 0 6px -4px rgba(15,23,42,.28) !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > tfoot > tr > td:first-child {
+                      position: sticky !important;
+                      left: 0 !important;
+                      bottom: 0 !important;
+                      width: 206px !important;
+                      min-width: 206px !important;
+                      max-width: 206px !important;
+                      box-sizing: border-box !important;
+                      z-index: 1200 !important;
+                      background: #e8f0ff !important;
+                      border-right: 1px solid #cbd5e1 !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > tfoot > tr > td:not(:first-child) {
+                      position: sticky !important;
+                      bottom: 0 !important;
+                      z-index: 300 !important;
+                      background: #e8f0ff !important;
+                    }
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > tbody > tr > td:not(:first-child) {
+                      position: static !important;
+                    }
+                    /* Solid paint at sticky intersections prevents month
+                       values from showing through the top and left edges. */
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > thead > tr > th,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > tbody > tr > td:first-child,
+                    .sales-style-view-all-modal .payables-parent-division-mom-scroll > table > tfoot > tr > td {
+                      background-clip: border-box !important;
+                    }
                 `}</style>
                 <div
                     className="payables-view-all-scroll"
@@ -13980,1422 +14792,1228 @@ function PayablesViewAll({
                         width: "100%",
                         minHeight: 0,
                         flex: "1 1 auto",
-                        overflowY:
-                            "auto",
-                        padding:
-                            "18px 18px 0",
-                        boxSizing:
-                            "border-box",
-                        color:
-                            "#17213c",
+                        overflowX: "auto",
+                        overflowY: "auto",
+                        padding: 0,
+                        boxSizing: "border-box",
+                        color: "#17213c",
                     }}
                 >
-                    {/* ====================================================== 
+                    <div className="payables-view-all-content">
+                        {/* ====================================================== 
                         PAGE HEADER 
                     ====================================================== */}
-
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent:
-                                "space-between",
-                            alignItems:
-                                "flex-start",
-                            gap: 15,
-                            marginBottom: 16,
-                        }}
-                    >
-                        <div>
-                            <div
-                                style={{
-                                    fontSize: 27,
-                                    lineHeight:
-                                        1.1,
-                                    fontWeight: 800,
-                                    color:
-                                        "#102a72",
-                                    letterSpacing:
-                                        "-0.5px",
-                                }}
-                            >
-                                {showParentDivisionMonthOnMonth
-                                    ? "Payables Global View All"
-                                    : showNonAgingTradePayables
-                                        ? "Non-Aging Trade Payables - Detailed View"
-                                        : detailedViewTitle}
-                            </div>
-
-                            <div
-                                style={{
-                                    marginTop: 5,
-                                    fontSize: 12,
-                                    color:
-                                        "#64748b",
-                                }}
-                            >
-                                {showParentDivisionMonthOnMonth
-                                    ? "Parent Division monthly payable balances for the selected year."
-                                    : showNonAgingTradePayables
-                                        ? "Monthly non-aging trade payable balances and parent-division breakdown for the selected filters."
-                                        : "Review complete payable balances and aging details for the selected snapshot."}
-                            </div>
-                        </div>
 
                         <div
                             style={{
                                 display: "flex",
+                                justifyContent:
+                                    "space-between",
                                 alignItems:
-                                    "center",
-                                gap: 12,
-                                flexWrap: "wrap",
-                                justifyContent: "flex-end",
+                                    "flex-start",
+                                gap: 15,
+                                marginBottom: 16,
                             }}
                         >
-                            <div
-                                style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    height: 34,
-                                    border: "1px solid #d6deeb",
-                                    borderRadius: 7,
-                                    background: "#f8fafc",
-                                    overflow: "hidden",
-                                }}
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => setViewAllDisplayUnit("AED")}
+                            <div>
+                                <div
                                     style={{
-                                        height: "100%",
-                                        minWidth: 48,
-                                        padding: "0 10px",
-                                        border: "none",
-                                        borderRight: "1px solid #d6deeb",
-                                        background: viewAllDisplayUnit === "AED" ? "#172f80" : "transparent",
-                                        color: viewAllDisplayUnit === "AED" ? "#ffffff" : "#64748b",
-                                        fontSize: 10,
+                                        fontSize: 27,
+                                        lineHeight:
+                                            1.1,
                                         fontWeight: 800,
-                                        cursor: "pointer",
+                                        color:
+                                            "#102a72",
+                                        letterSpacing:
+                                            "-0.5px",
                                     }}
                                 >
-                                    AED
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setViewAllDisplayUnit("Millions")}
+                                    {showParentDivisionMonthOnMonth
+                                        ? "Payables Global View All"
+                                        : showNonAgingTradePayables
+                                            ? "Non-Aging Trade Payables - Detailed View"
+                                            : detailedViewTitle}
+                                </div>
+
+                                <div
                                     style={{
-                                        height: "100%",
-                                        minWidth: 94,
-                                        padding: "0 10px",
-                                        border: "none",
-                                        background: viewAllDisplayUnit === "Millions" ? "#172f80" : "transparent",
-                                        color: viewAllDisplayUnit === "Millions" ? "#ffffff" : "#64748b",
-                                        fontSize: 10,
-                                        fontWeight: 800,
-                                        cursor: "pointer",
+                                        marginTop: 5,
+                                        fontSize: 12,
+                                        color:
+                                            "#64748b",
                                     }}
                                 >
-                                    AED Millions
-                                </button>
+                                    {showParentDivisionMonthOnMonth
+                                        ? "Parent Division monthly payable balances for the selected year."
+                                        : showNonAgingTradePayables
+                                            ? "Monthly non-aging trade payable balances and parent-division breakdown for the selected filters."
+                                            : "Review complete payable balances and aging details for the selected snapshot."}
+                                </div>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    showParentDivisionMonthOnMonth
-                                        ? handleParentDivisionMonthOnMonthExport("excel")
-                                        : handleExport("excel")
-                                }
+                            <div
                                 style={{
-                                    height: 34,
-                                    minWidth: 80,
-                                    padding: "0 13px",
-                                    display: canExportPayables ? "inline-flex" : "none",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 6,
-                                    border: "1px solid #86efac",
-                                    borderRadius: 8,
-                                    background: "#f7fffa",
-                                    color: "#16a34a",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems:
+                                        "center",
+                                    gap: 12,
+                                    flexWrap: "wrap",
+                                    justifyContent: "flex-end",
                                 }}
                             >
-                                <span style={{ fontSize: 13 }}>📊</span>
-                                Excel
-                            </button>
+                                <div
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        height: 34,
+                                        border: "1px solid #d6deeb",
+                                        borderRadius: 7,
+                                        background: "#f8fafc",
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewAllDisplayUnit("AED")}
+                                        style={{
+                                            height: "100%",
+                                            minWidth: 48,
+                                            padding: "0 10px",
+                                            border: "none",
+                                            borderRight: "1px solid #d6deeb",
+                                            background: viewAllDisplayUnit === "AED" ? "#172f80" : "transparent",
+                                            color: viewAllDisplayUnit === "AED" ? "#ffffff" : "#64748b",
+                                            fontSize: 10,
+                                            fontWeight: 800,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        AED
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewAllDisplayUnit("Millions")}
+                                        style={{
+                                            height: "100%",
+                                            minWidth: 94,
+                                            padding: "0 10px",
+                                            border: "none",
+                                            background: viewAllDisplayUnit === "Millions" ? "#172f80" : "transparent",
+                                            color: viewAllDisplayUnit === "Millions" ? "#ffffff" : "#64748b",
+                                            fontSize: 10,
+                                            fontWeight: 800,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        AED Millions
+                                    </button>
+                                </div>
 
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    showParentDivisionMonthOnMonth
-                                        ? handleParentDivisionMonthOnMonthExport("pdf")
-                                        : handleExport("pdf")
-                                }
-                                style={{
-                                    height: 34,
-                                    minWidth: 72,
-                                    padding: "0 13px",
-                                    display: canExportPayables ? "inline-flex" : "none",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 6,
-                                    border: "1px solid #fda4af",
-                                    borderRadius: 8,
-                                    background: "#fff8f8",
-                                    color: "#ef4444",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                <span style={{ fontSize: 13 }}>📄</span>
-                                PDF
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        showParentDivisionMonthOnMonth
+                                            ? handleParentDivisionMonthOnMonthExport("excel")
+                                            : handleExport("excel")
+                                    }
+                                    style={{
+                                        height: 34,
+                                        minWidth: 80,
+                                        padding: "0 13px",
+                                        display: canExportPayables ? "inline-flex" : "none",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 6,
+                                        border: "1px solid #86efac",
+                                        borderRadius: 8,
+                                        background: "#f7fffa",
+                                        color: "#16a34a",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>📊</span>
+                                    Excel
+                                </button>
 
-                            <button
-                                type="button"
-                                onClick={() => setIsViewAllMaximized((current) => !current)}
-                                aria-label={isViewAllMaximized ? "Restore View All window" : "Maximize View All to full screen"}
-                                aria-pressed={isViewAllMaximized}
-                                title={isViewAllMaximized ? "Restore window" : "Maximize to full screen"}
-                                style={{
-                                    width: 36,
-                                    height: 34,
-                                    padding: 0,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    border: "1px solid #cbd5e1",
-                                    borderRadius: 8,
-                                    background: "#ffffff",
-                                    color: "#3149a5",
-                                    cursor: "pointer",
-                                    transition: "background 0.15s ease, border-color 0.15s ease",
-                                    flex: "0 0 auto",
-                                }}
-                            >
-                                {isViewAllMaximized
-                                    ? <Minimize2 size={16} strokeWidth={2.2} />
-                                    : <Maximize2 size={16} strokeWidth={2.2} />}
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        showParentDivisionMonthOnMonth
+                                            ? handleParentDivisionMonthOnMonthExport("pdf")
+                                            : handleExport("pdf")
+                                    }
+                                    style={{
+                                        height: 34,
+                                        minWidth: 72,
+                                        padding: "0 13px",
+                                        display: canExportPayables ? "inline-flex" : "none",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 6,
+                                        border: "1px solid #fda4af",
+                                        borderRadius: 8,
+                                        background: "#fff8f8",
+                                        color: "#ef4444",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>📄</span>
+                                    PDF
+                                </button>
 
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                style={{
-                                    height: 34,
-                                    padding: "0 13px",
-                                    border: "1px solid #cbd5e1",
-                                    borderRadius: 5,
-                                    background: "#ffffff",
-                                    color: "#3149a5",
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                ✖
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsViewAllMaximized((current) => !current)}
+                                    aria-label={isViewAllMaximized ? "Restore View All window" : "Maximize View All to full screen"}
+                                    aria-pressed={isViewAllMaximized}
+                                    title={isViewAllMaximized ? "Restore window" : "Maximize to full screen"}
+                                    style={{
+                                        width: 36,
+                                        height: 34,
+                                        padding: 0,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        border: "1px solid #cbd5e1",
+                                        borderRadius: 8,
+                                        background: "#ffffff",
+                                        color: "#3149a5",
+                                        cursor: "pointer",
+                                        transition: "background 0.15s ease, border-color 0.15s ease",
+                                        flex: "0 0 auto",
+                                    }}
+                                >
+                                    {isViewAllMaximized
+                                        ? <Minimize2 size={16} strokeWidth={2.2} />
+                                        : <Maximize2 size={16} strokeWidth={2.2} />}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    style={{
+                                        height: 34,
+                                        padding: "0 13px",
+                                        border: "1px solid #cbd5e1",
+                                        borderRadius: 5,
+                                        background: "#ffffff",
+                                        color: "#3149a5",
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    ✖
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* ======================================================
+                        {/* ======================================================
                         VIEW TOGGLE
                     ====================================================== */}
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginBottom: 14,
-                        }}
-                    >
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 4,
-                                padding: 4,
-                                borderBottom: "1px solid #d5ddec",
-                                background: "#ffffff",
-                                overflow: "visible",
+                                marginBottom: 14,
                             }}
                         >
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowParentDivisionMonthOnMonth(false);
-                                    setShowNonAgingTradePayables(false);
-                                    setPage(1);
-                                }}
+                            <div
                                 style={{
-                                    height: 32,
-                                    minWidth: 170,
-                                    padding: "0 16px",
-                                    border: "none",
-                                    borderRadius: 6,
-                                    background: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
-                                        ? "#173b8f"
-                                        : "transparent",
-                                    color: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
-                                        ? "#ffffff"
-                                        : "#536789",
-                                    boxShadow: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
-                                        ? "0 2px 6px rgba(23,59,143,0.18)"
-                                        : "none",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    display: "inline-flex",
+                                    display: "flex",
                                     alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 7,
+                                    gap: 4,
+                                    padding: 4,
+                                    borderBottom: "1px solid #d5ddec",
+                                    background: "#ffffff",
+                                    overflow: "visible",
                                 }}
                             >
-                                <span style={{ fontSize: 13 }}>📄</span>
-                                Detailed Payables
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowParentDivisionMonthOnMonth(false);
+                                        setShowNonAgingTradePayables(false);
+                                        setPage(1);
+                                    }}
+                                    style={{
+                                        height: 32,
+                                        minWidth: 170,
+                                        padding: "0 16px",
+                                        border: "none",
+                                        borderRadius: 6,
+                                        background: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
+                                            ? "#173b8f"
+                                            : "transparent",
+                                        color: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
+                                            ? "#ffffff"
+                                            : "#536789",
+                                        boxShadow: (!showParentDivisionMonthOnMonth && !showNonAgingTradePayables)
+                                            ? "0 2px 6px rgba(23,59,143,0.18)"
+                                            : "none",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 7,
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>📄</span>
+                                    Detailed Payables
+                                </button>
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowParentDivisionMonthOnMonth(true);
-                                    setShowNonAgingTradePayables(false);
-                                    setParentDivisionMonthOnMonthPage(1);
-                                }}
-                                style={{
-                                    height: 32,
-                                    minWidth: 230,
-                                    padding: "0 16px",
-                                    border: "none",
-                                    borderRadius: 6,
-                                    background: showParentDivisionMonthOnMonth
-                                        ? "#173b8f"
-                                        : "transparent",
-                                    color: showParentDivisionMonthOnMonth
-                                        ? "#ffffff"
-                                        : "#536789",
-                                    boxShadow: showParentDivisionMonthOnMonth
-                                        ? "0 2px 6px rgba(23,59,143,0.18)"
-                                        : "none",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 7,
-                                }}
-                            >
-                                <span style={{ fontSize: 13 }}>📊</span>
-                                Month-on-Month by Parent Divison
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowParentDivisionMonthOnMonth(true);
+                                        setShowNonAgingTradePayables(false);
+                                        setParentDivisionMonthOnMonthPage(1);
+                                    }}
+                                    style={{
+                                        height: 32,
+                                        minWidth: 230,
+                                        padding: "0 16px",
+                                        border: "none",
+                                        borderRadius: 6,
+                                        background: showParentDivisionMonthOnMonth
+                                            ? "#173b8f"
+                                            : "transparent",
+                                        color: showParentDivisionMonthOnMonth
+                                            ? "#ffffff"
+                                            : "#536789",
+                                        boxShadow: showParentDivisionMonthOnMonth
+                                            ? "0 2px 6px rgba(23,59,143,0.18)"
+                                            : "none",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 7,
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>📊</span>
+                                    Month-on-Month by Parent Divison
+                                </button>
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowParentDivisionMonthOnMonth(false);
-                                    setShowNonAgingTradePayables(true);
-                                    setPage(1);
-                                }}
-                                style={{
-                                    height: 32,
-                                    minWidth: 205,
-                                    padding: "0 16px",
-                                    border: "none",
-                                    borderRadius: 6,
-                                    background: showNonAgingTradePayables
-                                        ? "#173b8f"
-                                        : "transparent",
-                                    color: showNonAgingTradePayables
-                                        ? "#ffffff"
-                                        : "#536789",
-                                    boxShadow: showNonAgingTradePayables
-                                        ? "0 2px 6px rgba(23,59,143,0.18)"
-                                        : "none",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 7,
-                                }}
-                            >
-                                <span style={{ fontSize: 13 }}>↕</span>
-                                Non-Aging Trade Payables
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowParentDivisionMonthOnMonth(false);
+                                        setShowNonAgingTradePayables(true);
+                                        setPage(1);
+                                    }}
+                                    style={{
+                                        height: 32,
+                                        minWidth: 205,
+                                        padding: "0 16px",
+                                        border: "none",
+                                        borderRadius: 6,
+                                        background: showNonAgingTradePayables
+                                            ? "#173b8f"
+                                            : "transparent",
+                                        color: showNonAgingTradePayables
+                                            ? "#ffffff"
+                                            : "#536789",
+                                        boxShadow: showNonAgingTradePayables
+                                            ? "0 2px 6px rgba(23,59,143,0.18)"
+                                            : "none",
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 7,
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13 }}>↕</span>
+                                    Non-Aging Trade Payables
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* ====================================================== 
+                        {/* ====================================================== 
                         FILTERS 
                     ====================================================== */}
 
-                    <div
-                        className="payables-view-all-filter-bar"
-                        style={{
-                            background:
-                                "#ffffff",
-                            border:
-                                "1px solid #e3e9f2",
-                            borderRadius: 9,
-                            padding:
-                                "13px 14px 15px",
-                            marginBottom: 14,
-                            boxShadow:
-                                "0 2px 8px rgba(15, 23, 42, 0.025)",
-                        }}
-                    >
                         <div
+                            className="payables-view-all-filter-bar"
                             style={{
-                                display:
-                                    "grid",
-                                gridTemplateColumns: `repeat(${Math.max(
-                                    1,
-                                    (showNonAgingTradePayables ? 7 : 9) -
-                                    (showLegalGroupFilter ? 0 : 1) -
-                                    (showLegalEntityFilter ? 0 : 1)
-                                )}, minmax(105px, 1fr)) auto auto`,
-                                gap: 10,
-                                alignItems:
-                                    "end",
-                            }}
-                        >
-                            {showLegalGroupFilter && (
-                                <MultiSelectDropdown
-                                    filterKey="legal_group"
-                                    label="Legal Group"
-                                />
-                            )}
-
-                            {showLegalEntityFilter && (
-                                <MultiSelectDropdown
-                                    filterKey="legal_entities"
-                                    label="Legal Entity"
-                                />
-                            )}
-
-                            <MultiSelectDropdown
-                                filterKey="parent_divisions"
-                                label="Parent Division"
-                            />
-
-                            <MultiSelectDropdown
-                                filterKey="sub_divisions"
-                                label="Sub-Division"
-                            />
-
-                            <SingleSelectDropdown
-                                filterKey="reporting_currency"
-                                label="Reporting Currency"
-                            />
-
-                            <ViewAllDateFilter
-                                filterKey="as_on_date"
-                                label="As On Date"
-                            />
-
-                            <SingleSelectDropdown
-                                filterKey="aging_basis"
-                                label="Aging Basis"
-                                noSearch
-                                noClear
-                            />
-
-                            {!showNonAgingTradePayables && (
-                                <>
-                                    <MultiSelectDropdown
-                                        filterKey="supplier_types"
-                                        label="Supplier Type"
-                                    />
-
-                                    <MultiSelectDropdown
-                                        filterKey="gl_codes"
-                                        label="GL Code"
-                                    />
-                                </>
-                            )}
-
-                            <button
-                                type="button"
-                                className="payables-view-all-apply-button"
-                                onClick={
-                                    handleApplyViewFilters
-                                }
-                                style={{
-                                    height: 34,
-                                    padding:
-                                        "0 20px",
-                                    border:
-                                        "none",
-                                    borderRadius: 5,
-                                    background:
-                                        "#173b8f",
-                                    color:
-                                        "#ffffff",
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    cursor:
-                                        "pointer",
-                                }}
-                            >
-                                Apply
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={
-                                    handleResetViewFilters
-                                }
-                                style={{
-                                    height: 34,
-                                    padding:
-                                        "0 18px",
-                                    border:
-                                        "1px solid #d4dbe7",
-                                    borderRadius: 5,
-                                    background:
-                                        "#ffffff",
-                                    color:
-                                        "#334155",
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    cursor:
-                                        "pointer",
-                                }}
-                            >
-                                Reset
-                            </button>
-                        </div>
-                    </div>
-
-                    {showParentDivisionMonthOnMonth ? (
-                        <div
-                            className="payables-sticky-table-card"
-                            style={{
-                                background: "#ffffff",
-                                border: "1px solid #e3e9f2",
+                                background:
+                                    "#ffffff",
+                                border:
+                                    "1px solid #e3e9f2",
                                 borderRadius: 9,
-                                overflow: "visible",
-                                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
+                                padding:
+                                    "13px 14px 15px",
+                                marginBottom: 14,
+                                boxShadow:
+                                    "0 2px 8px rgba(15, 23, 42, 0.025)",
                             }}
                         >
                             <div
                                 style={{
-                                    padding: "13px 14px 10px",
-                                    display: "flex",
-                                    alignItems: "flex-end",
-                                    justifyContent: "space-between",
-                                    gap: 12,
-                                    flexWrap: "wrap",
-                                    borderBottom: "1px solid #edf1f7",
+                                    display:
+                                        "grid",
+                                    gridTemplateColumns: `repeat(${Math.max(
+                                        1,
+                                        (showNonAgingTradePayables ? 7 : 9) -
+                                        (showLegalGroupFilter ? 0 : 1) -
+                                        (showLegalEntityFilter ? 0 : 1)
+                                    )}, minmax(105px, 1fr)) auto auto`,
+                                    gap: 10,
+                                    alignItems:
+                                        "end",
                                 }}
                             >
-                                <div style={{ minWidth: 250 }}>
-                                    <div
-                                        style={{
-                                            fontSize: 18,
-                                            fontWeight: 800,
-                                            color: "#142b6f",
-                                        }}
-                                    >
-                                        Month-on-Month Payables by Parent Division
-                                        <span
-                                            style={{
-                                                marginLeft: 6,
-                                                fontSize: 11,
-                                                fontWeight: 700,
-                                                color: "#64748b",
-                                            }}
-                                        >
-                                            ({parentDivisionMonthOnMonthTotalRecords.toLocaleString()} records)
-                                        </span>
-                                    </div>
+                                {showLegalGroupFilter && (
+                                    <MultiSelectDropdown
+                                        filterKey="legal_group"
+                                        label="Legal Group"
+                                    />
+                                )}
 
-                                    <div
-                                        style={{
-                                            marginTop: 5,
-                                            fontSize: 10,
-                                            color: "#64748b",
-                                        }}
-                                    >
-                                        Reporting Currency:{" "}
-                                        <strong style={{ color: "#334b8e" }}>
-                                            {viewAllCurrency}
-                                        </strong>
-                                        <span style={{ margin: "0 8px", color: "#a0aec0" }}>|</span>
-                                        Year:{" "}
-                                        <strong style={{ color: "#334b8e" }}>
-                                            {parentDivisionMonthOnMonthYear}
-                                        </strong>
-                                    </div>
-                                </div>
+                                {showLegalEntityFilter && (
+                                    <MultiSelectDropdown
+                                        filterKey="legal_entities"
+                                        label="Legal Entity"
+                                    />
+                                )}
 
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 8,
-                                        flexWrap: "wrap",
-                                        justifyContent: "flex-end",
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            position: "relative",
-                                            width: 245,
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                position: "absolute",
-                                                left: 10,
-                                                top: "50%",
-                                                transform: "translateY(-50%)",
-                                                color: "#52658d",
-                                                fontSize: 14,
-                                                pointerEvents: "none",
-                                            }}
-                                        >
-                                            ⌕
-                                        </span>
+                                <MultiSelectDropdown
+                                    filterKey="parent_divisions"
+                                    label="Parent Division"
+                                />
 
-                                        <input
-                                            type="text"
-                                            value={parentDivisionMonthOnMonthSearch}
-                                            onChange={(event) => {
-                                                setParentDivisionMonthOnMonthSearch(
-                                                    event.target.value
-                                                );
-                                            }}
-                                            placeholder="Search Parent Division"
-                                            style={{
-                                                width: "100%",
-                                                height: 34,
-                                                border: "1px solid #d6deeb",
-                                                borderRadius: 7,
-                                                padding: "0 10px 0 28px",
-                                                outline: "none",
-                                                fontSize: 10.5,
-                                                color: "#334155",
-                                                boxSizing: "border-box",
-                                                background: "#ffffff",
-                                            }}
+                                <MultiSelectDropdown
+                                    filterKey="sub_divisions"
+                                    label="Sub-Division"
+                                />
+
+                                <SingleSelectDropdown
+                                    filterKey="reporting_currency"
+                                    label="Reporting Currency"
+                                />
+
+                                <ViewAllDateFilter
+                                    filterKey="as_on_date"
+                                    label="As On Date"
+                                />
+
+                                <SingleSelectDropdown
+                                    filterKey="aging_basis"
+                                    label="Aging Basis"
+                                    noSearch
+                                    noClear
+                                />
+
+                                {!showNonAgingTradePayables && (
+                                    <>
+                                        <MultiSelectDropdown
+                                            filterKey="supplier_types"
+                                            label="Supplier Type"
                                         />
-                                    </div>
 
-                                    <select
-                                        value={parentDivisionMonthOnMonthPageSize}
-                                        onChange={(event) =>
-                                            setParentDivisionMonthOnMonthPageSize(
-                                                Number(event.target.value)
-                                            )
-                                        }
-                                        style={{
-                                            height: 34,
-                                            minWidth: 96,
-                                            border: "1px solid #d6deeb",
-                                            borderRadius: 7,
-                                            background: "#ffffff",
-                                            color: "#334155",
-                                            padding: "0 9px",
-                                            fontSize: 10.5,
-                                            fontWeight: 700,
-                                        }}
-                                        aria-label="Rows per page"
-                                    >
-                                        {[10, 20, 50].map((size) => (
-                                            <option key={size} value={size}>
-                                                {size} rows
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <MultiSelectDropdown
+                                            filterKey="gl_codes"
+                                            label="GL Code"
+                                        />
+                                    </>
+                                )}
 
-                                    <span
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: 700,
-                                            color: "#64748b",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        Year
-                                    </span>
-
-                                    <select
-                                        value={parentDivisionMonthOnMonthYear}
-                                        onChange={(event) =>
-                                            setParentDivisionMonthOnMonthYear(
-                                                Number(event.target.value)
-                                            )
-                                        }
-                                        style={{
-                                            height: 34,
-                                            minWidth: 78,
-                                            border: "1px solid #d6deeb",
-                                            borderRadius: 7,
-                                            background: "#ffffff",
-                                            color: "#3048a5",
-                                            padding: "0 8px",
-                                            fontSize: 10,
-                                            fontWeight: 700,
-                                        }}
-                                    >
-                                        {(filterOptions.years?.length
-                                            ? filterOptions.years
-                                            : [parentDivisionMonthOnMonthYear]
-                                        ).map((year) => (
-                                            <option key={year} value={year}>
-                                                {year}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                </div>
-                            </div>
-
-                            {parentDivisionMonthOnMonthError ? (
-                                <div
+                                <button
+                                    type="button"
+                                    className="payables-view-all-apply-button"
+                                    onClick={
+                                        handleApplyViewFilters
+                                    }
                                     style={{
-                                        margin: "12px 14px 0",
-                                        padding: "10px 12px",
-                                        borderRadius: 8,
-                                        border: "1px solid #fecaca",
-                                        background: "#fff7f7",
-                                        color: "#b91c1c",
-                                        fontSize: 10.5,
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    {parentDivisionMonthOnMonthError}
-                                </div>
-                            ) : null}
-
-                            {parentDivisionMonthOnMonthLoading ? (
-                                <NoDataAvailable minHeight={220} />
-                            ) : parentDivisionMonthOnMonthPageRows.length ? (
-                                <div
-                                    className="payables-mom-table-scroll"
-                                    style={{ minHeight: 0, height: "auto", maxHeight: "none", overflow: "visible", position: "static", width: "100%" }}
-                                >
-                                    <table
-                                        style={{
-                                            width: "100%",
-                                            minWidth: 2080,
-                                            borderCollapse: "separate",
-                                            borderSpacing: 0,
-                                            tableLayout: "fixed",
-                                            fontSize: 11,
-                                        }}
-                                    >
-                                        <colgroup>
-                                            <col style={{ width: 190 }} />
-                                            {MONTHS.map((month) => (
-                                                <React.Fragment key={month}>
-                                                    <col style={{ width: 110 }} />
-                                                    <col style={{ width: 72 }} />
-                                                </React.Fragment>
-                                            ))}
-                                        </colgroup>
-
-                                        <thead>
-                                            <tr>
-                                                <th
-                                                    rowSpan={2}
-                                                    style={{
-                                                        position: "sticky",
-                                                        top: 0,
-                                                        left: 0,
-                                                        zIndex: 40,
-                                                        width: 190,
-                                                        minWidth: 190,
-                                                        padding: "9px 10px",
-                                                        background: "#edf4ff",
-                                                        color: "#24479d",
-                                                        borderBottom: "1px solid #d7e1ef",
-                                                        borderRight: "1px solid #d7e1ef",
-                                                        fontWeight: 800,
-                                                        textAlign: "left",
-                                                        whiteSpace: "normal",
-                                                        lineHeight: 1.2,
-                                                        verticalAlign: "middle",
-                                                        boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.28)",
-                                                    }}
-                                                >
-                                                    PARENT DIVISION
-                                                </th>
-                                                {MONTHS.map((month) => (
-                                                    <th
-                                                        key={month}
-                                                        colSpan={2}
-                                                        style={{
-                                                            position: "sticky",
-                                                            top: 0,
-                                                            zIndex: 30,
-                                                            padding: "9px 8px",
-                                                            background: "#edf4ff",
-                                                            color: "#24479d",
-                                                            borderBottom: "1px solid #d7e1ef",
-                                                            borderRight: "1px solid #e7edf6",
-                                                            fontWeight: 800,
-                                                            textAlign: "center",
-                                                            whiteSpace: "nowrap",
-                                                        }}
-                                                    >
-                                                        {month.toUpperCase()}-{String(parentDivisionMonthOnMonthYear).slice(-2)}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                            <tr>
-                                                {MONTHS.map((month) => (
-                                                    <React.Fragment key={`${month}-headers`}>
-                                                        <th
-                                                            style={{
-                                                                position: "sticky",
-                                                                top: 35,
-                                                                zIndex: 30,
-                                                                padding: "8px 8px",
-                                                                background: "#f8fbff",
-                                                                color: "#24479d",
-                                                                borderBottom: "1px solid #d7e1ef",
-                                                                borderRight: "1px solid #e7edf6",
-                                                                fontWeight: 800,
-                                                                textAlign: "right",
-                                                                whiteSpace: "normal",
-                                                                lineHeight: 1.1,
-                                                            }}
-                                                        >
-                                                            TOTAL<br />PAYABLES
-                                                        </th>
-                                                        <th
-                                                            style={{
-                                                                position: "sticky",
-                                                                top: 35,
-                                                                zIndex: 30,
-                                                                padding: "8px 8px",
-                                                                background: "#f8fbff",
-                                                                color: "#24479d",
-                                                                borderBottom: "1px solid #d7e1ef",
-                                                                borderRight: "1px solid #e7edf6",
-                                                                fontWeight: 800,
-                                                                textAlign: "right",
-                                                                whiteSpace: "nowrap",
-                                                            }}
-                                                        >
-                                                            DPO
-                                                        </th>
-                                                    </React.Fragment>
-                                                ))}
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-                                            {parentDivisionMonthOnMonthPageRows.map(
-                                                (row, rowIndex) => (
-                                                    <tr key={`${row.parent_division}-${rowIndex}`}>
-                                                        <td
-                                                            style={{
-                                                                position: "sticky",
-                                                                left: 0,
-                                                                zIndex: 7,
-                                                                width: 190,
-                                                                minWidth: 190,
-                                                                padding: "8px 10px",
-                                                                color: "#334155",
-                                                                background: "#ffffff",
-                                                                borderBottom: "1px solid #f1f5f9",
-                                                                borderRight: "1px solid #dfe6f1",
-                                                                fontWeight: 700,
-                                                                textAlign: "left",
-                                                                whiteSpace: "normal",
-                                                                wordBreak: "break-word",
-                                                                overflowWrap: "anywhere",
-                                                                lineHeight: 1.25,
-                                                                verticalAlign: "top",
-                                                                boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.22)",
-                                                            }}
-                                                        >
-                                                            <span title={String(row.parent_division ?? "")}>
-                                                                {row.parent_division || "—"}
-                                                            </span>
-                                                        </td>
-
-                                                        {MONTHS.map((month) => {
-                                                            const payableValue = getParentDivisionMonthOnMonthNumericValue(row[month]);
-                                                            const rawDpoValue = row[`${month}_dpo`];
-                                                            const dpoValue = Number(rawDpoValue);
-                                                            const hasDpoValue = rawDpoValue !== null && rawDpoValue !== undefined && rawDpoValue !== "" && Number.isFinite(dpoValue);
-                                                            const payableNegative = payableValue < 0;
-                                                            const dpoNegative = hasDpoValue && dpoValue < 0;
-
-                                                            return (
-                                                                <React.Fragment key={`${row.parent_division}-${month}`}>
-                                                                    <td
-                                                                        className={payableNegative ? "payables-negative-cell" : undefined}
-                                                                        style={{
-                                                                            padding: "8px 10px",
-                                                                            color: payableNegative ? "#dc2626" : "#334155",
-                                                                            background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
-                                                                            borderBottom: "1px solid #f1f5f9",
-                                                                            borderRight: "1px solid #f1f5f9",
-                                                                            fontWeight: 600,
-                                                                            textAlign: "right",
-                                                                            whiteSpace: "nowrap",
-                                                                        }}
-                                                                    >
-                                                                        {formatMoMValue(row[month], viewAllDisplayUnit === "Millions" ? "Millions" : "AED")}
-                                                                    </td>
-                                                                    <td
-                                                                        className={dpoNegative ? "payables-negative-cell" : undefined}
-                                                                        style={{
-                                                                            padding: "8px 10px",
-                                                                            color: dpoNegative ? "#dc2626" : "#334155",
-                                                                            background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
-                                                                            borderBottom: "1px solid #f1f5f9",
-                                                                            borderRight: "1px solid #f1f5f9",
-                                                                            fontWeight: 600,
-                                                                            textAlign: "right",
-                                                                            whiteSpace: "nowrap",
-                                                                        }}
-                                                                    >
-                                                                        {hasDpoValue ? dpoValue.toFixed(1) : "—"}
-                                                                    </td>
-                                                                </React.Fragment>
-                                                            );
-                                                        })}
-                                                    </tr>
-                                                )
-                                            )}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="payables-mom-total-row">
-                                                <td
-                                                    style={{
-                                                        position: "sticky",
-                                                        left: 0,
-                                                        bottom: 0,
-                                                        zIndex: 120,
-                                                        width: 190,
-                                                        minWidth: 190,
-                                                        padding: "10px 10px",
-                                                        color: "#173b8f",
-                                                        background: "#e8f0ff",
-                                                        borderTop: "2px solid #aebfe0",
-                                                        borderRight: "1px solid #cbd8ee",
-                                                        fontWeight: 900,
-                                                        textAlign: "left",
-                                                        whiteSpace: "nowrap",
-                                                        boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.28)",
-                                                    }}
-                                                >
-                                                    TOTAL
-                                                </td>
-                                                {MONTHS.map((month) => (
-                                                    <React.Fragment key={`total-${month}`}>
-                                                        <td
-                                                            className={parentDivisionMonthOnMonthTotals[month] < 0 ? "payables-negative-cell" : undefined}
-                                                            style={{
-                                                                position: "sticky",
-                                                                bottom: 0,
-                                                                zIndex: 110,
-                                                                padding: "10px 8px",
-                                                                color: parentDivisionMonthOnMonthTotals[month] < 0 ? "#dc2626" : "#173b8f",
-                                                                background: "#e8f0ff",
-                                                                borderTop: "2px solid #aebfe0",
-                                                                borderRight: "1px solid #d4def0",
-                                                                fontWeight: 900,
-                                                                textAlign: "right",
-                                                                whiteSpace: "nowrap",
-                                                            }}
-                                                        >
-                                                            {formatMoMValue(parentDivisionMonthOnMonthTotals[month], viewAllDisplayUnit === "Millions" ? "Millions" : "AED")}
-                                                        </td>
-                                                        <td
-                                                            aria-label={`${month} DPO total intentionally not displayed`}
-                                                            style={{
-                                                                position: "sticky",
-                                                                bottom: 0,
-                                                                zIndex: 110,
-                                                                padding: "10px 8px",
-                                                                background: "#e8f0ff",
-                                                                borderTop: "2px solid #aebfe0",
-                                                                borderRight: "1px solid #d4def0",
-                                                            }}
-                                                        />
-                                                    </React.Fragment>
-                                                ))}
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            ) : (
-                                <NoDataAvailable minHeight={220} />
-                            )}
-
-                            <div
-                                style={{
-                                    minHeight: 55,
-                                    padding: "10px 13px",
-                                    borderTop: "1px solid #e5eaf2",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    gap: 15,
-                                    boxSizing: "border-box",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        fontSize: 10,
-                                        color: "#5b6d99",
-                                    }}
-                                >
-                                    Values shown in {viewAllCurrency}
-                                    <span
-                                        style={{
-                                            margin: "0 8px",
-                                            color: "#b0bacb",
-                                        }}
-                                    >
-                                        |
-                                    </span>
-                                    Parent Division: {parentDivisionMonthOnMonthTotalRecords.toLocaleString()}
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 8,
-                                        color: "#3048a5",
+                                        height: 34,
+                                        padding:
+                                            "0 20px",
+                                        border:
+                                            "none",
+                                        borderRadius: 5,
+                                        background:
+                                            "#173b8f",
+                                        color:
+                                            "#ffffff",
                                         fontSize: 11,
-                                        fontWeight: 600,
+                                        fontWeight: 800,
+                                        cursor:
+                                            "pointer",
                                     }}
                                 >
-                                    <button
-                                        type="button"
-                                        disabled={parentDivisionMonthOnMonthPage <= 1}
-                                        onClick={() =>
-                                            setParentDivisionMonthOnMonthPage(
-                                                (current) => Math.max(1, current - 1)
-                                            )
-                                        }
-                                        style={{
-                                            border: "none",
-                                            background: "transparent",
-                                            color:
-                                                parentDivisionMonthOnMonthPage <= 1
-                                                    ? "#cbd5e1"
-                                                    : "#3048a5",
-                                            fontSize: 20,
-                                            cursor:
-                                                parentDivisionMonthOnMonthPage <= 1
-                                                    ? "not-allowed"
-                                                    : "pointer",
-                                        }}
-                                    >
-                                        ‹
-                                    </button>
+                                    Apply
+                                </button>
 
-                                    <span>
-                                        {parentDivisionMonthOnMonthPageStart}
-                                        {" – "}
-                                        {parentDivisionMonthOnMonthPageEnd}
-                                        {" of "}
-                                        {parentDivisionMonthOnMonthTotalRecords.toLocaleString()}
-                                    </span>
-
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            parentDivisionMonthOnMonthPage >=
-                                            parentDivisionMonthOnMonthTotalPages
-                                        }
-                                        onClick={() =>
-                                            setParentDivisionMonthOnMonthPage(
-                                                (current) =>
-                                                    Math.min(
-                                                        parentDivisionMonthOnMonthTotalPages,
-                                                        current + 1
-                                                    )
-                                            )
-                                        }
-                                        style={{
-                                            border: "none",
-                                            background: "transparent",
-                                            color:
-                                                parentDivisionMonthOnMonthPage >=
-                                                    parentDivisionMonthOnMonthTotalPages
-                                                    ? "#cbd5e1"
-                                                    : "#3048a5",
-                                            fontSize: 20,
-                                            cursor:
-                                                parentDivisionMonthOnMonthPage >=
-                                                    parentDivisionMonthOnMonthTotalPages
-                                                    ? "not-allowed"
-                                                    : "pointer",
-                                        }}
-                                    >
-                                        ›
-                                    </button>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={
+                                        handleResetViewFilters
+                                    }
+                                    style={{
+                                        height: 34,
+                                        padding:
+                                            "0 18px",
+                                        border:
+                                            "1px solid #d4dbe7",
+                                        borderRadius: 5,
+                                        background:
+                                            "#ffffff",
+                                        color:
+                                            "#334155",
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor:
+                                            "pointer",
+                                    }}
+                                >
+                                    Reset
+                                </button>
                             </div>
                         </div>
-                    ) : showNonAgingTradePayables ? (
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)",
-                                gap: 12,
-                                alignItems: "start",
-                            }}
-                        >
+
+                        {showParentDivisionMonthOnMonth ? (
                             <div
+                                className="payables-sticky-table-card"
                                 style={{
                                     background: "#ffffff",
                                     border: "1px solid #e3e9f2",
                                     borderRadius: 9,
-                                    overflow: "hidden",
+                                    overflow: "visible",
                                     boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
                                 }}
                             >
                                 <div
                                     style={{
                                         padding: "13px 14px 10px",
+                                        display: "flex",
+                                        alignItems: "flex-end",
+                                        justifyContent: "space-between",
+                                        gap: 12,
+                                        flexWrap: "wrap",
                                         borderBottom: "1px solid #edf1f7",
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: 10,
-                                            flexWrap: "wrap",
-                                        }}
-                                    >
-                                        <div>
-                                            <div
+                                    <div style={{ minWidth: 250 }}>
+                                        <div
+                                            style={{
+                                                fontSize: 18,
+                                                fontWeight: 800,
+                                                color: "#142b6f",
+                                            }}
+                                        >
+                                            Month-on-Month Payables by Parent Division
+                                            <span
                                                 style={{
-                                                    fontSize: 18,
-                                                    fontWeight: 800,
-                                                    color: "#142b6f",
-                                                }}
-                                            >
-                                                Non-Aging Trade Payables - Monthly Totals
-                                            </div>
-                                            <div
-                                                style={{
-                                                    marginTop: 5,
-                                                    fontSize: 10,
+                                                    marginLeft: 6,
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
                                                     color: "#64748b",
                                                 }}
                                             >
-                                                Reporting Currency:{" "}
-                                                <strong style={{ color: "#334b8e" }}>
-                                                    {viewAllCurrency}
-                                                </strong>
-                                                <span style={{ margin: "0 8px", color: "#a0aec0" }}>|</span>
-                                                Latest Report:{" "}
-                                                <strong style={{ color: "#334b8e" }}>
-                                                    {nonAgingLatestReportDate
-                                                        ? formatFilterDate(nonAgingLatestReportDate)
-                                                        : "—"}
-                                                </strong>
-                                            </div>
+                                                ({parentDivisionMonthOnMonthTotalRecords.toLocaleString()} records)
+                                            </span>
                                         </div>
 
                                         <div
                                             style={{
-                                                padding: "8px 11px",
-                                                borderRadius: 8,
-                                                background: "#fffbeb",
-                                                border: "1px solid #fde68a",
-                                                minWidth: 190,
+                                                marginTop: 5,
+                                                fontSize: 10,
+                                                color: "#64748b",
                                             }}
                                         >
-                                            <div
-                                                style={{
-                                                    fontSize: 9,
-                                                    fontWeight: 800,
-                                                    color: "#b45309",
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: ".04em",
-                                                }}
-                                            >
-                                                Latest Non-Aging Balance
-                                            </div>
-                                            <div
-                                                style={{
-                                                    marginTop: 3,
-                                                    fontSize: 16,
-                                                    fontWeight: 800,
-                                                    color:
-                                                        Number(nonAgingLatestBalance) < 0
-                                                            ? "#dc2626"
-                                                            : "#0f172a",
-                                                }}
-                                            >
-                                                {formatSignedCurrency(
-                                                    nonAgingLatestBalance,
-                                                    viewAllCurrency
-                                                )}
-                                            </div>
+                                            Reporting Currency:{" "}
+                                            <strong style={{ color: "#334b8e" }}>
+                                                {viewAllCurrency}
+                                            </strong>
+                                            <span style={{ margin: "0 8px", color: "#a0aec0" }}>|</span>
+                                            Year:{" "}
+                                            <strong style={{ color: "#334b8e" }}>
+                                                {parentDivisionMonthOnMonthYear}
+                                            </strong>
                                         </div>
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                            flexWrap: "wrap",
+                                            justifyContent: "flex-end",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                position: "relative",
+                                                width: 245,
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    position: "absolute",
+                                                    left: 10,
+                                                    top: "50%",
+                                                    transform: "translateY(-50%)",
+                                                    color: "#52658d",
+                                                    fontSize: 14,
+                                                    pointerEvents: "none",
+                                                }}
+                                            >
+                                                ⌕
+                                            </span>
+
+                                            <input
+                                                type="text"
+                                                value={parentDivisionMonthOnMonthSearch}
+                                                onChange={(event) => {
+                                                    setParentDivisionMonthOnMonthSearch(
+                                                        event.target.value
+                                                    );
+                                                }}
+                                                placeholder="Search Parent Division"
+                                                style={{
+                                                    width: "100%",
+                                                    height: 34,
+                                                    border: "1px solid #d6deeb",
+                                                    borderRadius: 7,
+                                                    padding: "0 10px 0 28px",
+                                                    outline: "none",
+                                                    fontSize: 10.5,
+                                                    color: "#334155",
+                                                    boxSizing: "border-box",
+                                                    background: "#ffffff",
+                                                }}
+                                            />
+                                        </div>
+
+                                        <select
+                                            value={parentDivisionMonthOnMonthPageSize}
+                                            onChange={(event) =>
+                                                setParentDivisionMonthOnMonthPageSize(
+                                                    Number(event.target.value)
+                                                )
+                                            }
+                                            style={{
+                                                height: 34,
+                                                minWidth: 96,
+                                                border: "1px solid #d6deeb",
+                                                borderRadius: 7,
+                                                background: "#ffffff",
+                                                color: "#334155",
+                                                padding: "0 9px",
+                                                fontSize: 10.5,
+                                                fontWeight: 700,
+                                            }}
+                                            aria-label="Rows per page"
+                                        >
+                                            {[10, 20, 50].map((size) => (
+                                                <option key={size} value={size}>
+                                                    {size} rows
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        <span
+                                            style={{
+                                                fontSize: 10,
+                                                fontWeight: 700,
+                                                color: "#64748b",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            Year
+                                        </span>
+
+                                        <select
+                                            value={parentDivisionMonthOnMonthYear}
+                                            onChange={(event) =>
+                                                setParentDivisionMonthOnMonthYear(
+                                                    Number(event.target.value)
+                                                )
+                                            }
+                                            style={{
+                                                height: 34,
+                                                minWidth: 78,
+                                                border: "1px solid #d6deeb",
+                                                borderRadius: 7,
+                                                background: "#ffffff",
+                                                color: "#3048a5",
+                                                padding: "0 8px",
+                                                fontSize: 10,
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            {(filterOptions.years?.length
+                                                ? filterOptions.years
+                                                : [parentDivisionMonthOnMonthYear]
+                                            ).map((year) => (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                </option>
+                                            ))}
+                                        </select>
+
                                     </div>
                                 </div>
 
-                                {nonAgingTradePayablesLoading ? (
+                                {parentDivisionMonthOnMonthError ? (
                                     <div
                                         style={{
-                                            minHeight: 260,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            color: "#64748b",
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                        }}
-                                    >
-                                        Loading Non-Aging Trade Payables...
-                                    </div>
-                                ) : nonAgingTradePayablesError ? (
-                                    <div
-                                        style={{
-                                            margin: 14,
-                                            padding: "12px 14px",
+                                            margin: "12px 14px 0",
+                                            padding: "10px 12px",
                                             borderRadius: 8,
-                                            background: "#fff1f2",
-                                            border: "1px solid #fecdd3",
-                                            color: "#be123c",
-                                            fontSize: 11,
+                                            border: "1px solid #fecaca",
+                                            background: "#fff7f7",
+                                            color: "#b91c1c",
+                                            fontSize: 10.5,
                                             fontWeight: 700,
                                         }}
                                     >
-                                        {nonAgingTradePayablesError}
+                                        {parentDivisionMonthOnMonthError}
                                     </div>
-                                ) : nonAgingMonthRows.length ? (
+                                ) : null}
+
+                                {parentDivisionMonthOnMonthLoading ? (
+                                    <NoDataAvailable minHeight={220} />
+                                ) : parentDivisionMonthOnMonthPageRows.length ? (
                                     <div
-                                        style={{
-                                            width: "100%",
-                                            overflowX: "auto",
-                                        }}
+                                        className="payables-mom-table-scroll payables-parent-division-mom-scroll"
+                                        style={{ minHeight: 0, height: "auto", maxHeight: "none", overflow: "visible", position: "static", width: "100%" }}
                                     >
                                         <table
                                             style={{
                                                 width: "100%",
-                                                minWidth: 720,
-                                                borderCollapse: "collapse",
+                                                minWidth: 2080,
+                                                borderCollapse: "separate",
+                                                borderSpacing: 0,
                                                 tableLayout: "fixed",
+                                                fontSize: 11,
                                             }}
                                         >
                                             <colgroup>
-                                                <col style={{ width: "24%" }} />
-                                                <col style={{ width: "24%" }} />
-                                                <col style={{ width: "18%" }} />
-                                                <col style={{ width: "34%" }} />
+                                                <col style={{ width: 206 }} />
+                                                {MONTHS.map((month) => (
+                                                    <React.Fragment key={month}>
+                                                        <col style={{ width: 110 }} />
+                                                        <col style={{ width: 72 }} />
+                                                    </React.Fragment>
+                                                ))}
                                             </colgroup>
+
                                             <thead>
                                                 <tr>
-                                                    {[
-                                                        "Accounting Period",
-                                                        "Report Date",
-                                                        "Source Rows",
-                                                        "Balance",
-                                                    ].map((label) => (
+                                                    <th
+                                                        rowSpan={2}
+                                                        style={{
+                                                            position: "sticky",
+                                                            top: 0,
+                                                            left: 0,
+                                                            zIndex: 40,
+                                                            width: 206,
+                                                            minWidth: 206,
+                                                            padding: "9px 10px",
+                                                            background: "#edf4ff",
+                                                            color: "#24479d",
+                                                            borderBottom: "1px solid #d7e1ef",
+                                                            borderRight: "1px solid #d7e1ef",
+                                                            fontWeight: 800,
+                                                            textAlign: "left",
+                                                            whiteSpace: "normal",
+                                                            lineHeight: 1.2,
+                                                            verticalAlign: "middle",
+                                                            boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.28)",
+                                                        }}
+                                                    >
+                                                        PARENT DIVISION
+                                                    </th>
+                                                    {MONTHS.map((month) => (
                                                         <th
-                                                            key={label}
+                                                            key={month}
+                                                            colSpan={2}
                                                             style={{
-                                                                padding: "9px 10px",
-                                                                borderBottom: "1px solid #e2e8f0",
-                                                                background: "#f8fafc",
-                                                                color: "#475569",
-                                                                fontSize: 10,
+                                                                position: "sticky",
+                                                                top: 0,
+                                                                zIndex: 30,
+                                                                padding: "9px 8px",
+                                                                background: "#edf4ff",
+                                                                color: "#24479d",
+                                                                borderBottom: "1px solid #d7e1ef",
+                                                                borderRight: "1px solid #e7edf6",
                                                                 fontWeight: 800,
-                                                                textAlign:
-                                                                    label === "Balance" || label === "Source Rows"
-                                                                        ? "right"
-                                                                        : "left",
+                                                                textAlign: "center",
                                                                 whiteSpace: "nowrap",
                                                             }}
                                                         >
-                                                            {label}
+                                                            {month.toUpperCase()}-{String(parentDivisionMonthOnMonthYear).slice(-2)}
                                                         </th>
                                                     ))}
                                                 </tr>
-                                            </thead>
-                                            <tbody>
-                                                {nonAgingMonthRows.map((row, index) => {
-                                                    const signedBalance = Number(row?.signed_balance);
-                                                    const negative =
-                                                        Number.isFinite(signedBalance) &&
-                                                        signedBalance < 0;
-
-                                                    return (
-                                                        <tr
-                                                            key={`${row?.accounting_period || index}-${row?.otbi_report_date || index}`}
-                                                        >
-                                                            <td style={{
-                                                                padding: "9px 10px",
-                                                                borderBottom: "1px solid #edf1f7",
-                                                                color: "#334155",
-                                                                fontSize: 10.5,
-                                                                fontWeight: 600,
-                                                                whiteSpace: "nowrap",
-                                                            }}>
-                                                                {getNonAgingPeriodLabel(row)}
-                                                            </td>
-                                                            <td style={{
-                                                                padding: "9px 10px",
-                                                                borderBottom: "1px solid #edf1f7",
-                                                                color: "#64748b",
-                                                                fontSize: 10.5,
-                                                                whiteSpace: "nowrap",
-                                                            }}>
-                                                                {row?.otbi_report_date
-                                                                    ? formatFilterDate(row.otbi_report_date)
-                                                                    : "—"}
-                                                            </td>
-                                                            <td style={{
-                                                                padding: "9px 10px",
-                                                                borderBottom: "1px solid #edf1f7",
-                                                                color: "#64748b",
-                                                                fontSize: 10.5,
-                                                                textAlign: "right",
-                                                            }}>
-                                                                {row?.source_rows === null ||
-                                                                    row?.source_rows === undefined
-                                                                    ? "—"
-                                                                    : Number(row.source_rows).toLocaleString()}
-                                                            </td>
-                                                            <td
-                                                                className={
-                                                                    negative
-                                                                        ? "payables-negative-cell"
-                                                                        : undefined
-                                                                }
+                                                <tr>
+                                                    {MONTHS.map((month) => (
+                                                        <React.Fragment key={`${month}-headers`}>
+                                                            <th
                                                                 style={{
-                                                                    padding: "9px 10px",
-                                                                    borderBottom: "1px solid #edf1f7",
-                                                                    color: negative ? "#dc2626" : "#0f172a",
-                                                                    fontSize: 10.5,
+                                                                    position: "sticky",
+                                                                    top: 35,
+                                                                    zIndex: 30,
+                                                                    padding: "8px 8px",
+                                                                    background: "#f8fbff",
+                                                                    color: "#24479d",
+                                                                    borderBottom: "1px solid #d7e1ef",
+                                                                    borderRight: "1px solid #e7edf6",
+                                                                    fontWeight: 800,
+                                                                    textAlign: "right",
+                                                                    whiteSpace: "normal",
+                                                                    lineHeight: 1.1,
+                                                                }}
+                                                            >
+                                                                TOTAL<br />PAYABLES
+                                                            </th>
+                                                            <th
+                                                                style={{
+                                                                    position: "sticky",
+                                                                    top: 35,
+                                                                    zIndex: 30,
+                                                                    padding: "8px 8px",
+                                                                    background: "#f8fbff",
+                                                                    color: "#24479d",
+                                                                    borderBottom: "1px solid #d7e1ef",
+                                                                    borderRight: "1px solid #e7edf6",
                                                                     fontWeight: 800,
                                                                     textAlign: "right",
                                                                     whiteSpace: "nowrap",
-                                                                }}>
-                                                                {formatSignedNumber(row?.signed_balance)}
+                                                                }}
+                                                            >
+                                                                DPO
+                                                            </th>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+
+                                            <tbody>
+                                                {parentDivisionMonthOnMonthPageRows.map(
+                                                    (row, rowIndex) => (
+                                                        <tr key={`${row.parent_division}-${rowIndex}`}>
+                                                            <td
+                                                                style={{
+                                                                    position: "sticky",
+                                                                    left: 0,
+                                                                    zIndex: 7,
+                                                                    width: 206,
+                                                                    minWidth: 206,
+                                                                    padding: "8px 10px",
+                                                                    color: "#334155",
+                                                                    background: "#ffffff",
+                                                                    borderBottom: "1px solid #f1f5f9",
+                                                                    borderRight: "1px solid #dfe6f1",
+                                                                    fontWeight: 700,
+                                                                    textAlign: "left",
+                                                                    whiteSpace: "normal",
+                                                                    wordBreak: "break-word",
+                                                                    overflowWrap: "anywhere",
+                                                                    lineHeight: 1.25,
+                                                                    verticalAlign: "top",
+                                                                    boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.22)",
+                                                                }}
+                                                            >
+                                                                <span title={String(row.parent_division ?? "")}>
+                                                                    {row.parent_division || "—"}
+                                                                </span>
                                                             </td>
+
+                                                            {MONTHS.map((month) => {
+                                                                const payableValue = getParentDivisionMonthOnMonthNumericValue(row[month]);
+                                                                const rawDpoValue = row[`${month}_dpo`];
+                                                                const dpoValue = Number(rawDpoValue);
+                                                                const hasDpoValue = rawDpoValue !== null && rawDpoValue !== undefined && rawDpoValue !== "" && Number.isFinite(dpoValue);
+                                                                const payableNegative = payableValue < 0;
+                                                                const dpoNegative = hasDpoValue && dpoValue < 0;
+
+                                                                return (
+                                                                    <React.Fragment key={`${row.parent_division}-${month}`}>
+                                                                        <td
+                                                                            className={payableNegative ? "payables-negative-cell" : undefined}
+                                                                            style={{
+                                                                                padding: "8px 10px",
+                                                                                color: payableNegative ? "#dc2626" : "#334155",
+                                                                                background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
+                                                                                borderBottom: "1px solid #f1f5f9",
+                                                                                borderRight: "1px solid #f1f5f9",
+                                                                                fontWeight: 600,
+                                                                                textAlign: "right",
+                                                                                whiteSpace: "nowrap",
+                                                                            }}
+                                                                        >
+                                                                            {formatMoMValue(row[month], viewAllDisplayUnit === "Millions" ? "Millions" : "AED")}
+                                                                        </td>
+                                                                        <td
+                                                                            className={dpoNegative ? "payables-negative-cell" : undefined}
+                                                                            style={{
+                                                                                padding: "8px 10px",
+                                                                                color: dpoNegative ? "#dc2626" : "#334155",
+                                                                                background: rowIndex % 2 === 0 ? "#f9fbff" : "#ffffff",
+                                                                                borderBottom: "1px solid #f1f5f9",
+                                                                                borderRight: "1px solid #f1f5f9",
+                                                                                fontWeight: 600,
+                                                                                textAlign: "right",
+                                                                                whiteSpace: "nowrap",
+                                                                            }}
+                                                                        >
+                                                                            {hasDpoValue ? dpoValue.toFixed(0) : "—"}
+                                                                        </td>
+                                                                    </React.Fragment>
+                                                                );
+                                                            })}
                                                         </tr>
-                                                    );
-                                                })}
+                                                    )
+                                                )}
                                             </tbody>
+                                            <tfoot>
+                                                <tr className="payables-mom-total-row">
+                                                    <td
+                                                        style={{
+                                                            position: "sticky",
+                                                            left: 0,
+                                                            bottom: 0,
+                                                            zIndex: 120,
+                                                            width: 206,
+                                                            minWidth: 206,
+                                                            padding: "10px 10px",
+                                                            color: "#173b8f",
+                                                            background: "#e8f0ff",
+                                                            borderTop: "2px solid #aebfe0",
+                                                            borderRight: "1px solid #cbd8ee",
+                                                            fontWeight: 900,
+                                                            textAlign: "left",
+                                                            whiteSpace: "nowrap",
+                                                            boxShadow: "4px 0 6px -5px rgba(15, 23, 42, 0.28)",
+                                                        }}
+                                                    >
+                                                        TOTAL
+                                                    </td>
+                                                    {MONTHS.map((month) => (
+                                                        <React.Fragment key={`total-${month}`}>
+                                                            <td
+                                                                className={parentDivisionMonthOnMonthTotals[month] < 0 ? "payables-negative-cell" : undefined}
+                                                                style={{
+                                                                    position: "sticky",
+                                                                    bottom: 0,
+                                                                    zIndex: 110,
+                                                                    padding: "10px 8px",
+                                                                    color: parentDivisionMonthOnMonthTotals[month] < 0 ? "#dc2626" : "#173b8f",
+                                                                    background: "#e8f0ff",
+                                                                    borderTop: "2px solid #aebfe0",
+                                                                    borderRight: "1px solid #d4def0",
+                                                                    fontWeight: 900,
+                                                                    textAlign: "right",
+                                                                    whiteSpace: "nowrap",
+                                                                }}
+                                                            >
+                                                                {formatMoMValue(parentDivisionMonthOnMonthTotals[month], viewAllDisplayUnit === "Millions" ? "Millions" : "AED")}
+                                                            </td>
+                                                            <td
+                                                                aria-label={`${month} DPO total intentionally not displayed`}
+                                                                style={{
+                                                                    position: "sticky",
+                                                                    bottom: 0,
+                                                                    zIndex: 110,
+                                                                    padding: "10px 8px",
+                                                                    background: "#e8f0ff",
+                                                                    borderTop: "2px solid #aebfe0",
+                                                                    borderRight: "1px solid #d4def0",
+                                                                }}
+                                                            />
+                                                        </React.Fragment>
+                                                    ))}
+                                                </tr>
+                                            </tfoot>
                                         </table>
                                     </div>
                                 ) : (
-                                    <NoDataAvailable minHeight={260} />
+                                    <NoDataAvailable minHeight={220} />
                                 )}
-                            </div>
 
-                            <div
-                                style={{
-                                    background: "#ffffff",
-                                    border: "1px solid #e3e9f2",
-                                    borderRadius: 9,
-                                    overflow: "hidden",
-                                    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
-                                }}
-                            >
                                 <div
                                     style={{
-                                        padding: "13px 14px 10px",
-                                        borderBottom: "1px solid #edf1f7",
+                                        minHeight: 55,
+                                        padding: "10px 13px",
+                                        borderTop: "1px solid #e5eaf2",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 15,
+                                        boxSizing: "border-box",
                                     }}
                                 >
                                     <div
                                         style={{
-                                            fontSize: 18,
-                                            fontWeight: 800,
-                                            color: "#142b6f",
+                                            fontSize: 10,
+                                            color: "#5b6d99",
                                         }}
                                     >
-                                        Non-Aging Trade Payables by Parent Division
+                                        Values shown in {viewAllCurrency}
+                                        <span
+                                            style={{
+                                                margin: "0 8px",
+                                                color: "#b0bacb",
+                                            }}
+                                        >
+                                            |
+                                        </span>
+                                        Parent Division: {parentDivisionMonthOnMonthTotalRecords.toLocaleString()}
                                     </div>
 
-                                </div>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                            color: "#3048a5",
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            disabled={parentDivisionMonthOnMonthPage <= 1}
+                                            onClick={() =>
+                                                setParentDivisionMonthOnMonthPage(
+                                                    (current) => Math.max(1, current - 1)
+                                                )
+                                            }
+                                            style={{
+                                                border: "none",
+                                                background: "transparent",
+                                                color:
+                                                    parentDivisionMonthOnMonthPage <= 1
+                                                        ? "#cbd5e1"
+                                                        : "#3048a5",
+                                                fontSize: 20,
+                                                cursor:
+                                                    parentDivisionMonthOnMonthPage <= 1
+                                                        ? "not-allowed"
+                                                        : "pointer",
+                                            }}
+                                        >
+                                            ‹
+                                        </button>
 
-                                {nonAgingParentDivisionRows.length ? (
-                                    <>
+                                        <span>
+                                            {parentDivisionMonthOnMonthPageStart}
+                                            {" – "}
+                                            {parentDivisionMonthOnMonthPageEnd}
+                                            {" of "}
+                                            {parentDivisionMonthOnMonthTotalRecords.toLocaleString()}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                parentDivisionMonthOnMonthPage >=
+                                                parentDivisionMonthOnMonthTotalPages
+                                            }
+                                            onClick={() =>
+                                                setParentDivisionMonthOnMonthPage(
+                                                    (current) =>
+                                                        Math.min(
+                                                            parentDivisionMonthOnMonthTotalPages,
+                                                            current + 1
+                                                        )
+                                                )
+                                            }
+                                            style={{
+                                                border: "none",
+                                                background: "transparent",
+                                                color:
+                                                    parentDivisionMonthOnMonthPage >=
+                                                        parentDivisionMonthOnMonthTotalPages
+                                                        ? "#cbd5e1"
+                                                        : "#3048a5",
+                                                fontSize: 20,
+                                                cursor:
+                                                    parentDivisionMonthOnMonthPage >=
+                                                        parentDivisionMonthOnMonthTotalPages
+                                                        ? "not-allowed"
+                                                        : "pointer",
+                                            }}
+                                        >
+                                            ›
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : showNonAgingTradePayables ? (
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)",
+                                    gap: 12,
+                                    alignItems: "start",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        background: "#ffffff",
+                                        border: "1px solid #e3e9f2",
+                                        borderRadius: 9,
+                                        overflow: "hidden",
+                                        boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            padding: "13px 14px 10px",
+                                            borderBottom: "1px solid #edf1f7",
+                                        }}
+                                    >
                                         <div
                                             style={{
                                                 display: "flex",
-                                                justifyContent: "flex-end",
                                                 alignItems: "center",
-                                                padding: "10px 14px 8px",
-                                                borderBottom: "1px solid #edf1f7",
+                                                justifyContent: "space-between",
+                                                gap: 10,
+                                                flexWrap: "wrap",
                                             }}
                                         >
-                                            <div style={{ position: "relative", width: 245 }}>
-                                                <span
+                                            <div>
+                                                <div
                                                     style={{
-                                                        position: "absolute",
-                                                        left: 10,
-                                                        top: "50%",
-                                                        transform: "translateY(-50%)",
-                                                        color: "#52658d",
-                                                        fontSize: 14,
-                                                        pointerEvents: "none",
+                                                        fontSize: 18,
+                                                        fontWeight: 800,
+                                                        color: "#142b6f",
                                                     }}
                                                 >
-                                                    ⌕
-                                                </span>
-                                                <input
-                                                    type="text"
-                                                    value={nonAgingParentDivisionSearch}
-                                                    onChange={(event) =>
-                                                        setNonAgingParentDivisionSearch(event.target.value)
-                                                    }
-                                                    placeholder="Search Parent Division"
-                                                    aria-label="Search Non-Aging Parent Division"
+                                                    Non-Aging Trade Payables - Monthly Totals
+                                                </div>
+                                                <div
                                                     style={{
-                                                        width: "100%",
-                                                        height: 34,
-                                                        border: "1px solid #d6deeb",
-                                                        borderRadius: 7,
-                                                        padding: "0 10px 0 28px",
-                                                        outline: "none",
-                                                        fontSize: 10.5,
-                                                        color: "#334155",
-                                                        boxSizing: "border-box",
-                                                        background: "#ffffff",
+                                                        marginTop: 5,
+                                                        fontSize: 10,
+                                                        color: "#64748b",
                                                     }}
-                                                />
+                                                >
+                                                    Reporting Currency:{" "}
+                                                    <strong style={{ color: "#334b8e" }}>
+                                                        {viewAllCurrency}
+                                                    </strong>
+                                                    <span style={{ margin: "0 8px", color: "#a0aec0" }}>|</span>
+                                                    Latest Report:{" "}
+                                                    <strong style={{ color: "#334b8e" }}>
+                                                        {nonAgingLatestReportDate
+                                                            ? formatFilterDate(nonAgingLatestReportDate)
+                                                            : "—"}
+                                                    </strong>
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    padding: "8px 11px",
+                                                    borderRadius: 8,
+                                                    background: "#fffbeb",
+                                                    border: "1px solid #fde68a",
+                                                    minWidth: 190,
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        fontSize: 9,
+                                                        fontWeight: 800,
+                                                        color: "#b45309",
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: ".04em",
+                                                    }}
+                                                >
+                                                    Latest Non-Aging Balance
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        marginTop: 3,
+                                                        fontSize: 16,
+                                                        fontWeight: 800,
+                                                        color:
+                                                            Number(nonAgingLatestBalance) < 0
+                                                                ? "#dc2626"
+                                                                : "#0f172a",
+                                                    }}
+                                                >
+                                                    {formatSignedCurrency(
+                                                        nonAgingLatestBalance,
+                                                        viewAllCurrency
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        <div style={{ width: "100%", overflowX: "auto" }}>
+                                    {nonAgingTradePayablesLoading ? (
+                                        <div
+                                            style={{
+                                                minHeight: 260,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                color: "#64748b",
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            Loading Non-Aging Trade Payables...
+                                        </div>
+                                    ) : nonAgingTradePayablesError ? (
+                                        <div
+                                            style={{
+                                                margin: 14,
+                                                padding: "12px 14px",
+                                                borderRadius: 8,
+                                                background: "#fff1f2",
+                                                border: "1px solid #fecdd3",
+                                                color: "#be123c",
+                                                fontSize: 11,
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            {nonAgingTradePayablesError}
+                                        </div>
+                                    ) : nonAgingMonthRows.length ? (
+                                        <div
+                                            style={{
+                                                width: "100%",
+                                                overflowX: "auto",
+                                            }}
+                                        >
                                             <table
                                                 style={{
                                                     width: "100%",
-                                                    minWidth: 520,
+                                                    minWidth: 720,
                                                     borderCollapse: "collapse",
                                                     tableLayout: "fixed",
                                                 }}
                                             >
                                                 <colgroup>
+                                                    <col style={{ width: "24%" }} />
+                                                    <col style={{ width: "24%" }} />
+                                                    <col style={{ width: "18%" }} />
                                                     <col style={{ width: "34%" }} />
-                                                    <col style={{ width: "22%" }} />
-                                                    <col style={{ width: "22%" }} />
-                                                    <col style={{ width: "22%" }} />
                                                 </colgroup>
                                                 <thead>
                                                     <tr>
                                                         {[
-                                                            "Parent Division",
                                                             "Accounting Period",
                                                             "Report Date",
+                                                            "Source Rows",
                                                             "Balance",
                                                         ].map((label) => (
                                                             <th
@@ -15408,7 +16026,7 @@ function PayablesViewAll({
                                                                     fontSize: 10,
                                                                     fontWeight: 800,
                                                                     textAlign:
-                                                                        label === "Balance"
+                                                                        label === "Balance" || label === "Source Rows"
                                                                             ? "right"
                                                                             : "left",
                                                                     whiteSpace: "nowrap",
@@ -15420,7 +16038,7 @@ function PayablesViewAll({
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {nonAgingParentDivisionPageRows.map((row, index) => {
+                                                    {nonAgingMonthRows.map((row, index) => {
                                                         const signedBalance = Number(row?.signed_balance);
                                                         const negative =
                                                             Number.isFinite(signedBalance) &&
@@ -15428,25 +16046,17 @@ function PayablesViewAll({
 
                                                         return (
                                                             <tr
-                                                                key={`${row?.parent_division || index}-${row?.accounting_period || index}`}
+                                                                key={`${row?.accounting_period || index}-${row?.otbi_report_date || index}`}
                                                             >
                                                                 <td style={{
                                                                     padding: "9px 10px",
                                                                     borderBottom: "1px solid #edf1f7",
                                                                     color: "#334155",
                                                                     fontSize: 10.5,
-                                                                    fontWeight: 700,
-                                                                }}>
-                                                                    {capitalizeTableText(row?.parent_division)}
-                                                                </td>
-                                                                <td style={{
-                                                                    padding: "9px 10px",
-                                                                    borderBottom: "1px solid #edf1f7",
-                                                                    color: "#64748b",
-                                                                    fontSize: 10.5,
+                                                                    fontWeight: 600,
                                                                     whiteSpace: "nowrap",
                                                                 }}>
-                                                                    {formatAccountingPeriod(row?.accounting_period ?? row?.period)}
+                                                                    {getNonAgingPeriodLabel(row)}
                                                                 </td>
                                                                 <td style={{
                                                                     padding: "9px 10px",
@@ -15458,6 +16068,18 @@ function PayablesViewAll({
                                                                     {row?.otbi_report_date
                                                                         ? formatFilterDate(row.otbi_report_date)
                                                                         : "—"}
+                                                                </td>
+                                                                <td style={{
+                                                                    padding: "9px 10px",
+                                                                    borderBottom: "1px solid #edf1f7",
+                                                                    color: "#64748b",
+                                                                    fontSize: 10.5,
+                                                                    textAlign: "right",
+                                                                }}>
+                                                                    {row?.source_rows === null ||
+                                                                        row?.source_rows === undefined
+                                                                        ? "—"
+                                                                        : Number(row.source_rows).toLocaleString()}
                                                                 </td>
                                                                 <td
                                                                     className={
@@ -15482,275 +16104,1215 @@ function PayablesViewAll({
                                                 </tbody>
                                             </table>
                                         </div>
+                                    ) : (
+                                        <NoDataAvailable minHeight={260} />
+                                    )}
+                                </div>
 
+                                <div
+                                    style={{
+                                        background: "#ffffff",
+                                        border: "1px solid #e3e9f2",
+                                        borderRadius: 9,
+                                        overflow: "hidden",
+                                        boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            padding: "13px 14px 10px",
+                                            borderBottom: "1px solid #edf1f7",
+                                        }}
+                                    >
                                         <div
                                             style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "space-between",
-                                                gap: 12,
-                                                padding: "9px 14px 11px",
-                                                borderTop: "1px solid #edf1f7",
-                                                color: "#64748b",
-                                                fontSize: 10.5,
-                                                fontWeight: 700,
+                                                fontSize: 18,
+                                                fontWeight: 800,
+                                                color: "#142b6f",
                                             }}
                                         >
-                                            <span>
-                                                {nonAgingParentDivisionPageStart}
-                                                {" – "}
-                                                {nonAgingParentDivisionPageEnd}
-                                                {" of "}
-                                                {nonAgingParentDivisionTotalRecords.toLocaleString()}
-                                            </span>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            Non-Aging Trade Payables by Parent Division
+                                        </div>
+
+                                    </div>
+
+                                    {nonAgingParentDivisionRows.length ? (
+                                        <>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent: "flex-end",
+                                                    alignItems: "center",
+                                                    padding: "10px 14px 8px",
+                                                    borderBottom: "1px solid #edf1f7",
+                                                }}
+                                            >
+                                                <div style={{ position: "relative", width: 245 }}>
+                                                    <span
+                                                        style={{
+                                                            position: "absolute",
+                                                            left: 10,
+                                                            top: "50%",
+                                                            transform: "translateY(-50%)",
+                                                            color: "#52658d",
+                                                            fontSize: 14,
+                                                            pointerEvents: "none",
+                                                        }}
+                                                    >
+                                                        ⌕
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        value={nonAgingParentDivisionSearch}
+                                                        onChange={(event) =>
+                                                            setNonAgingParentDivisionSearch(event.target.value)
+                                                        }
+                                                        placeholder="Search Parent Division"
+                                                        aria-label="Search Non-Aging Parent Division"
+                                                        style={{
+                                                            width: "100%",
+                                                            height: 34,
+                                                            border: "1px solid #d6deeb",
+                                                            borderRadius: 7,
+                                                            padding: "0 10px 0 28px",
+                                                            outline: "none",
+                                                            fontSize: 10.5,
+                                                            color: "#334155",
+                                                            boxSizing: "border-box",
+                                                            background: "#ffffff",
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div style={{ width: "100%", overflowX: "auto" }}>
+                                                <table
+                                                    style={{
+                                                        width: "100%",
+                                                        minWidth: 520,
+                                                        borderCollapse: "collapse",
+                                                        tableLayout: "fixed",
+                                                    }}
+                                                >
+                                                    <colgroup>
+                                                        <col style={{ width: "34%" }} />
+                                                        <col style={{ width: "22%" }} />
+                                                        <col style={{ width: "22%" }} />
+                                                        <col style={{ width: "22%" }} />
+                                                    </colgroup>
+                                                    <thead>
+                                                        <tr>
+                                                            {[
+                                                                "Parent Division",
+                                                                "Accounting Period",
+                                                                "Report Date",
+                                                                "Balance",
+                                                            ].map((label) => (
+                                                                <th
+                                                                    key={label}
+                                                                    style={{
+                                                                        padding: "9px 10px",
+                                                                        borderBottom: "1px solid #e2e8f0",
+                                                                        background: "#f8fafc",
+                                                                        color: "#475569",
+                                                                        fontSize: 10,
+                                                                        fontWeight: 800,
+                                                                        textAlign:
+                                                                            label === "Balance"
+                                                                                ? "right"
+                                                                                : "left",
+                                                                        whiteSpace: "nowrap",
+                                                                    }}
+                                                                >
+                                                                    {label}
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {nonAgingParentDivisionPageRows.map((row, index) => {
+                                                            const signedBalance = Number(row?.signed_balance);
+                                                            const negative =
+                                                                Number.isFinite(signedBalance) &&
+                                                                signedBalance < 0;
+
+                                                            return (
+                                                                <tr
+                                                                    key={`${row?.parent_division || index}-${row?.accounting_period || index}`}
+                                                                >
+                                                                    <td style={{
+                                                                        padding: "9px 10px",
+                                                                        borderBottom: "1px solid #edf1f7",
+                                                                        color: "#334155",
+                                                                        fontSize: 10.5,
+                                                                        fontWeight: 700,
+                                                                    }}>
+                                                                        {capitalizeTableText(row?.parent_division)}
+                                                                    </td>
+                                                                    <td style={{
+                                                                        padding: "9px 10px",
+                                                                        borderBottom: "1px solid #edf1f7",
+                                                                        color: "#64748b",
+                                                                        fontSize: 10.5,
+                                                                        whiteSpace: "nowrap",
+                                                                    }}>
+                                                                        {formatAccountingPeriod(row?.accounting_period ?? row?.period)}
+                                                                    </td>
+                                                                    <td style={{
+                                                                        padding: "9px 10px",
+                                                                        borderBottom: "1px solid #edf1f7",
+                                                                        color: "#64748b",
+                                                                        fontSize: 10.5,
+                                                                        whiteSpace: "nowrap",
+                                                                    }}>
+                                                                        {row?.otbi_report_date
+                                                                            ? formatFilterDate(row.otbi_report_date)
+                                                                            : "—"}
+                                                                    </td>
+                                                                    <td
+                                                                        className={
+                                                                            negative
+                                                                                ? "payables-negative-cell"
+                                                                                : undefined
+                                                                        }
+                                                                        style={{
+                                                                            padding: "9px 10px",
+                                                                            borderBottom: "1px solid #edf1f7",
+                                                                            color: negative ? "#dc2626" : "#0f172a",
+                                                                            fontSize: 10.5,
+                                                                            fontWeight: 800,
+                                                                            textAlign: "right",
+                                                                            whiteSpace: "nowrap",
+                                                                        }}>
+                                                                        {formatSignedNumber(row?.signed_balance)}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    gap: 12,
+                                                    padding: "9px 14px 11px",
+                                                    borderTop: "1px solid #edf1f7",
+                                                    color: "#64748b",
+                                                    fontSize: 10.5,
+                                                    fontWeight: 700,
+                                                }}
+                                            >
+                                                <span>
+                                                    {nonAgingParentDivisionPageStart}
+                                                    {" – "}
+                                                    {nonAgingParentDivisionPageEnd}
+                                                    {" of "}
+                                                    {nonAgingParentDivisionTotalRecords.toLocaleString()}
+                                                </span>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                    <button
+                                                        type="button"
+                                                        disabled={nonAgingParentDivisionPage <= 1}
+                                                        onClick={() =>
+                                                            setNonAgingParentDivisionPage((current) =>
+                                                                Math.max(1, current - 1)
+                                                            )
+                                                        }
+                                                        style={{
+                                                            width: 28,
+                                                            height: 28,
+                                                            border: "1px solid #d6deeb",
+                                                            borderRadius: 6,
+                                                            background: "#ffffff",
+                                                            color:
+                                                                nonAgingParentDivisionPage <= 1
+                                                                    ? "#cbd5e1"
+                                                                    : "#3048a5",
+                                                            cursor:
+                                                                nonAgingParentDivisionPage <= 1
+                                                                    ? "not-allowed"
+                                                                    : "pointer",
+                                                        }}
+                                                    >
+                                                        ‹
+                                                    </button>
+                                                    <span style={{ minWidth: 70, textAlign: "center", color: "#3048a5" }}>
+                                                        {nonAgingParentDivisionPage} / {nonAgingParentDivisionTotalPages}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            nonAgingParentDivisionPage >=
+                                                            nonAgingParentDivisionTotalPages
+                                                        }
+                                                        onClick={() =>
+                                                            setNonAgingParentDivisionPage((current) =>
+                                                                Math.min(
+                                                                    nonAgingParentDivisionTotalPages,
+                                                                    current + 1
+                                                                )
+                                                            )
+                                                        }
+                                                        style={{
+                                                            width: 28,
+                                                            height: 28,
+                                                            border: "1px solid #d6deeb",
+                                                            borderRadius: 6,
+                                                            background: "#ffffff",
+                                                            color:
+                                                                nonAgingParentDivisionPage >=
+                                                                    nonAgingParentDivisionTotalPages
+                                                                    ? "#cbd5e1"
+                                                                    : "#3048a5",
+                                                            cursor:
+                                                                nonAgingParentDivisionPage >=
+                                                                    nonAgingParentDivisionTotalPages
+                                                                    ? "not-allowed"
+                                                                    : "pointer",
+                                                        }}
+                                                    >
+                                                        ›
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <NoDataAvailable minHeight={260} />
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* ====================================================== 
+                        SUMMARY CARDS 
+                        Total Records card intentionally removed. 
+                    ====================================================== */}
+
+                                <div
+                                    className="payables-view-all-kpi-grid"
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns:
+                                            "repeat(5, minmax(0, 1fr))",
+                                        gap: 10,
+                                        marginBottom: 14,
+                                    }}
+                                >
+                                    <SummaryCard
+                                        icon="▣"
+                                        title="Total Payables"
+                                        value={totalPayables}
+                                        iconBackground="#dbeafe"
+                                        iconColor="#2563eb"
+                                        titleColor="#2563eb"
+                                        cardBackground="#f0f5ff"
+                                    />
+
+                                    <SummaryCard
+                                        icon="▤"
+                                        title="Current Payables"
+                                        value={currentPayables}
+                                        iconBackground="#dcfce7"
+                                        iconColor="#16a34a"
+                                        titleColor="#16a34a"
+                                        cardBackground="#f0fdf4"
+                                    />
+
+                                    <SummaryCard
+                                        icon="⌛"
+                                        title="Overdue Payables"
+                                        value={overduePayables}
+                                        iconBackground="#fee2e2"
+                                        iconColor="#dc2626"
+                                        titleColor="#dc2626"
+                                        cardBackground="#fef2f2"
+                                    />
+
+                                    <SummaryCard
+                                        icon="!"
+                                        title="Overdue > 90 Days"
+                                        value={overdue90}
+                                        iconBackground="#ffedd5"
+                                        iconColor="#ea580c"
+                                        titleColor="#c2410c"
+                                        cardBackground="#fff7ed"
+                                    />
+
+                                    <SummaryCard
+                                        icon="%"
+                                        title="DPO"
+                                        value={dpoValue}
+                                        suffix="Days"
+                                        iconBackground="#cffafe"
+                                        iconColor="#0891b2"
+                                        titleColor="#0891b2"
+                                        cardBackground="#ecfeff"
+                                    />
+
+                                </div>
+
+                                {/* ====================================================== 
+                        DETAILED VIEW TABLE 
+                    ====================================================== */}
+
+                                <div
+                                    className="payables-sticky-table-card"
+                                    style={{
+                                        background:
+                                            "#ffffff",
+                                        border:
+                                            "1px solid #e3e9f2",
+                                        borderRadius: 9,
+                                        overflow:
+                                            "visible",
+                                        boxShadow:
+                                            "0 2px 8px rgba(15, 23, 42, 0.025)",
+                                    }}
+                                >
+                                    {/* CARD HEADER */}
+
+                                    <div
+                                        style={{
+                                            padding:
+                                                "12px 13px 9px",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display:
+                                                    "flex",
+                                                justifyContent:
+                                                    "space-between",
+                                                alignItems:
+                                                    "flex-end",
+                                                gap: 10,
+                                            }}
+                                        >
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontSize: 19,
+                                                        fontWeight: 800,
+                                                        color:
+                                                            "#142b6f",
+                                                    }}
+                                                >
+                                                    Payables
+                                                    Detailed View
+                                                    {" "}
+                                                    <span
+                                                        style={{
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            color:
+                                                                "#64748b",
+                                                            whiteSpace:
+                                                                "nowrap",
+                                                        }}
+                                                    >
+                                                        (
+                                                        {totalRecords.toLocaleString()}
+                                                        {" "}
+                                                        records)
+                                                    </span>
+                                                </div>
+
+                                                <div
+                                                    style={{
+                                                        marginTop: 5,
+                                                        fontSize: 10,
+                                                        color:
+                                                            "#64748b",
+                                                    }}
+                                                >
+                                                    Aging basis:{" "}
+                                                    <strong
+                                                        style={{
+                                                            color:
+                                                                "#334b8e",
+                                                        }}
+                                                    >
+                                                        {agingBasis ||
+                                                            "—"}
+                                                    </strong>
+
+                                                    <span
+                                                        style={{
+                                                            margin:
+                                                                "0 8px",
+                                                            color:
+                                                                "#a0aec0",
+                                                        }}
+                                                    >
+                                                        |
+                                                    </span>
+
+                                                    As On Date:{" "}
+                                                    <strong
+                                                        style={{
+                                                            color:
+                                                                "#334b8e",
+                                                        }}
+                                                    >
+                                                        {formatFilterDate(asOnDate) || "—"}
+                                                    </strong>
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                style={{
+                                                    display:
+                                                        "flex",
+                                                    alignItems:
+                                                        "center",
+                                                    gap: 10,
+                                                }}
+                                            >
+                                                {/* SEARCH */}
+
+                                                <div
+                                                    style={{
+                                                        position:
+                                                            "relative",
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            position:
+                                                                "absolute",
+                                                            left: 10,
+                                                            top: "50%",
+                                                            transform:
+                                                                "translateY(-50%)",
+                                                            color:
+                                                                "#52658d",
+                                                            fontSize: 14,
+                                                        }}
+                                                    >
+                                                        ⌕
+                                                    </span>
+
+                                                    <input
+                                                        type="text"
+                                                        value={
+                                                            search
+                                                        }
+                                                        onChange={(
+                                                            e
+                                                        ) => {
+                                                            setSearch(
+                                                                e
+                                                                    .target
+                                                                    .value
+                                                            );
+                                                            setPage(
+                                                                1
+                                                            );
+                                                        }}
+                                                        placeholder="Search..."
+                                                        style={{
+                                                            width: 245,
+                                                            height: 34,
+                                                            border:
+                                                                "1px solid #d6dfec",
+                                                            borderRadius: 5,
+                                                            padding:
+                                                                "0 10px 0 29px",
+                                                            outline:
+                                                                "none",
+                                                            fontSize: 10,
+                                                            color:
+                                                                "#334155",
+                                                            boxSizing:
+                                                                "border-box",
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* ROWS */}
+
+                                                <select
+                                                    value={
+                                                        pageSize
+                                                    }
+                                                    onChange={(
+                                                        e
+                                                    ) => {
+                                                        setPageSize(
+                                                            Number(
+                                                                e
+                                                                    .target
+                                                                    .value
+                                                            )
+                                                        );
+                                                        setPage(
+                                                            1
+                                                        );
+                                                    }}
+                                                    style={{
+                                                        width: 110,
+                                                        height: 34,
+                                                        border:
+                                                            "1px solid #d6dfec",
+                                                        borderRadius: 5,
+                                                        padding:
+                                                            "0 9px",
+                                                        color:
+                                                            "#334b8e",
+                                                        background:
+                                                            "#ffffff",
+                                                        fontSize: 10,
+                                                        fontWeight: 700,
+                                                        outline:
+                                                            "none",
+                                                    }}
+                                                >
+                                                    <option
+                                                        value={10}
+                                                    >
+                                                        10 rows
+                                                    </option>
+
+                                                    <option
+                                                        value={20}
+                                                    >
+                                                        20 rows
+                                                    </option>
+
+                                                    <option
+                                                        value={50}
+                                                    >
+                                                        50 rows
+                                                    </option>
+
+                                                    <option
+                                                        value={100}
+                                                    >
+                                                        100 rows
+                                                    </option>
+                                                </select>
+
+                                                {/* PAGINATION TOP */}
+
                                                 <button
                                                     type="button"
-                                                    disabled={nonAgingParentDivisionPage <= 1}
+                                                    disabled={
+                                                        page <=
+                                                        1
+                                                    }
                                                     onClick={() =>
-                                                        setNonAgingParentDivisionPage((current) =>
-                                                            Math.max(1, current - 1)
+                                                        setPage(
+                                                            (p) =>
+                                                                Math.max(
+                                                                    1,
+                                                                    p -
+                                                                    1
+                                                                )
                                                         )
                                                     }
                                                     style={{
-                                                        width: 28,
-                                                        height: 28,
-                                                        border: "1px solid #d6deeb",
-                                                        borderRadius: 6,
-                                                        background: "#ffffff",
+                                                        border:
+                                                            "none",
+                                                        background:
+                                                            "transparent",
                                                         color:
-                                                            nonAgingParentDivisionPage <= 1
+                                                            page <=
+                                                                1
                                                                 ? "#cbd5e1"
                                                                 : "#3048a5",
+                                                        fontSize: 21,
                                                         cursor:
-                                                            nonAgingParentDivisionPage <= 1
+                                                            page <=
+                                                                1
                                                                 ? "not-allowed"
                                                                 : "pointer",
+                                                        padding: 0,
                                                     }}
                                                 >
                                                     ‹
                                                 </button>
-                                                <span style={{ minWidth: 70, textAlign: "center", color: "#3048a5" }}>
-                                                    {nonAgingParentDivisionPage} / {nonAgingParentDivisionTotalPages}
+
+                                                <span
+                                                    style={{
+                                                        fontSize: 11,
+                                                        color:
+                                                            "#3048a5",
+                                                        whiteSpace:
+                                                            "nowrap",
+                                                    }}
+                                                >
+                                                    {pageStart}
+                                                    {" – "}
+                                                    {pageEnd}
+                                                    {" of "}
+                                                    {totalRecords.toLocaleString()}
                                                 </span>
+
                                                 <button
                                                     type="button"
                                                     disabled={
-                                                        nonAgingParentDivisionPage >=
-                                                        nonAgingParentDivisionTotalPages
+                                                        page >=
+                                                        totalPages
                                                     }
                                                     onClick={() =>
-                                                        setNonAgingParentDivisionPage((current) =>
-                                                            Math.min(
-                                                                nonAgingParentDivisionTotalPages,
-                                                                current + 1
-                                                            )
+                                                        setPage(
+                                                            (p) =>
+                                                                Math.min(
+                                                                    totalPages,
+                                                                    p +
+                                                                    1
+                                                                )
                                                         )
                                                     }
                                                     style={{
-                                                        width: 28,
-                                                        height: 28,
-                                                        border: "1px solid #d6deeb",
-                                                        borderRadius: 6,
-                                                        background: "#ffffff",
+                                                        border:
+                                                            "none",
+                                                        background:
+                                                            "transparent",
                                                         color:
-                                                            nonAgingParentDivisionPage >=
-                                                                nonAgingParentDivisionTotalPages
+                                                            page >=
+                                                                totalPages
                                                                 ? "#cbd5e1"
                                                                 : "#3048a5",
+                                                        fontSize: 21,
                                                         cursor:
-                                                            nonAgingParentDivisionPage >=
-                                                                nonAgingParentDivisionTotalPages
+                                                            page >=
+                                                                totalPages
                                                                 ? "not-allowed"
                                                                 : "pointer",
+                                                        padding: 0,
                                                     }}
                                                 >
                                                     ›
                                                 </button>
                                             </div>
                                         </div>
-                                    </>
-                                ) : (
-                                    <NoDataAvailable minHeight={260} />
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            {/* ====================================================== 
-                        SUMMARY CARDS 
-                        Total Records card intentionally removed. 
-                    ====================================================== */}
+                                    </div>
 
-                            <div
-                                className="payables-view-all-kpi-grid"
-                                style={{
-                                    display: "grid",
-                                    gridTemplateColumns:
-                                        "repeat(5, minmax(0, 1fr))",
-                                    gap: 10,
-                                    marginBottom: 14,
-                                }}
-                            >
-                                <SummaryCard
-                                    icon="▣"
-                                    title="Total Payables"
-                                    value={totalPayables}
-                                    iconBackground="#dbeafe"
-                                    iconColor="#2563eb"
-                                    titleColor="#2563eb"
-                                    cardBackground="#f0f5ff"
-                                />
+                                    {/* ================================================== 
+                            TABLE 
+                        ================================================== */}
 
-                                <SummaryCard
-                                    icon="▤"
-                                    title="Current Payables"
-                                    value={currentPayables}
-                                    iconBackground="#dcfce7"
-                                    iconColor="#16a34a"
-                                    titleColor="#16a34a"
-                                    cardBackground="#f0fdf4"
-                                />
-
-                                <SummaryCard
-                                    icon="⌛"
-                                    title="Overdue Payables"
-                                    value={overduePayables}
-                                    iconBackground="#fee2e2"
-                                    iconColor="#dc2626"
-                                    titleColor="#dc2626"
-                                    cardBackground="#fef2f2"
-                                />
-
-                                <SummaryCard
-                                    icon="!"
-                                    title="Overdue > 90 Days"
-                                    value={overdue90}
-                                    iconBackground="#ffedd5"
-                                    iconColor="#ea580c"
-                                    titleColor="#c2410c"
-                                    cardBackground="#fff7ed"
-                                />
-
-                                <SummaryCard
-                                    icon="%"
-                                    title="DPO"
-                                    value={dpoValue}
-                                    suffix="Days"
-                                    iconBackground="#cffafe"
-                                    iconColor="#0891b2"
-                                    titleColor="#0891b2"
-                                    cardBackground="#ecfeff"
-                                />
-
-                            </div>
-
-                            {/* ====================================================== 
-                        DETAILED VIEW TABLE 
-                    ====================================================== */}
-
-                            <div
-                                className="payables-sticky-table-card"
-                                style={{
-                                    background:
-                                        "#ffffff",
-                                    border:
-                                        "1px solid #e3e9f2",
-                                    borderRadius: 9,
-                                    overflow:
-                                        "visible",
-                                    boxShadow:
-                                        "0 2px 8px rgba(15, 23, 42, 0.025)",
-                                }}
-                            >
-                                {/* CARD HEADER */}
-
-                                <div
-                                    style={{
-                                        padding:
-                                            "12px 13px 9px",
-                                    }}
-                                >
                                     <div
+                                        className="payables-view-all-table-scroll"
                                         style={{
-                                            display:
-                                                "flex",
-                                            justifyContent:
-                                                "space-between",
-                                            alignItems:
-                                                "flex-end",
-                                            gap: 10,
+                                            width: "100%", minHeight: 0, maxWidth: "100%",
+                                            height: "auto", maxHeight: "none",
+                                            overflow: "visible", position: "static",
                                         }}
                                     >
-                                        <div>
-                                            <div
-                                                style={{
-                                                    fontSize: 19,
-                                                    fontWeight: 800,
-                                                    color:
-                                                        "#142b6f",
-                                                }}
-                                            >
-                                                Payables
-                                                Detailed View
-                                                {" "}
-                                                <span
-                                                    style={{
-                                                        fontSize: 11,
-                                                        fontWeight: 700,
-                                                        color:
-                                                            "#64748b",
-                                                        whiteSpace:
-                                                            "nowrap",
-                                                    }}
-                                                >
-                                                    (
-                                                    {totalRecords.toLocaleString()}
-                                                    {" "}
-                                                    records)
-                                                </span>
-                                            </div>
+                                        <table
+                                            className="payables-view-all-detail-table"
+                                            style={{
+                                                width:
+                                                    "max-content",
+                                                /* Keep the rendered column widths equal to getColumnWidth().
+                                                   A larger fixed min-width makes the browser distribute
+                                                   extra width and invalidates sticky left offsets. */
+                                                minWidth:
+                                                    "max-content",
+                                                borderCollapse:
+                                                    "separate",
+                                                borderSpacing:
+                                                    0,
+                                                tableLayout:
+                                                    "fixed",
+                                                fontSize: 10,
+                                            }}
+                                        >
+                                            <thead>
+                                                <tr>
+                                                    {viewColumns.map(
+                                                        (
+                                                            column,
+                                                            columnIndex
+                                                        ) => {
+                                                            const isText =
+                                                                column.text;
 
+                                                            const isSticky =
+                                                                columnIndex <
+                                                                3;
+
+                                                            const stickyLeft =
+                                                                getStickyLeft(
+                                                                    columnIndex
+                                                                );
+
+                                                            const columnWidth =
+                                                                getColumnWidth(
+                                                                    columnIndex
+                                                                );
+
+                                                            return (
+                                                                <th
+                                                                    key={
+                                                                        column.key
+                                                                    }
+                                                                    onClick={() =>
+                                                                        column.sortable &&
+                                                                        changeSort(
+                                                                            column.key
+                                                                        )
+                                                                    }
+                                                                    style={{
+                                                                        // Every header cell sticks to the View All modal's page
+                                                                        // scroll. Only the first three columns also stick horizontally.
+                                                                        position: "sticky",
+
+                                                                        left:
+                                                                            isSticky
+                                                                                ? stickyLeft
+                                                                                : undefined,
+
+                                                                        top: 0,
+
+                                                                        zIndex: isSticky ? 35 : 30,
+
+                                                                        width:
+                                                                            columnWidth,
+
+                                                                        minWidth:
+                                                                            columnWidth,
+
+                                                                        maxWidth:
+                                                                            columnWidth,
+
+                                                                        whiteSpace: "normal",
+                                                                        wordBreak: "break-word",
+                                                                        overflowWrap: "anywhere",
+                                                                        lineHeight: 1.15,
+                                                                        height: 34,
+
+                                                                        boxSizing:
+                                                                            "border-box",
+
+                                                                        background:
+                                                                            "#edf4ff",
+
+                                                                        color:
+                                                                            "#24479d",
+
+                                                                        fontWeight:
+                                                                            800,
+
+                                                                        padding:
+                                                                            "8px 10px",
+
+                                                                        borderBottom:
+                                                                            "1px solid #d7e1ef",
+
+                                                                        borderRight:
+                                                                            "1px solid #e7edf6",
+
+                                                                        textAlign:
+                                                                            isText
+                                                                                ? "left"
+                                                                                : "right",
+
+                                                                        /* 
+                                                                         * Header text 
+                                                                         * intentionally wraps 
+                                                                         * to two lines. 
+                                                                         */
+                                                                        whiteSpace:
+                                                                            "normal",
+
+                                                                        lineHeight:
+                                                                            1.2,
+
+                                                                        height: 52,
+
+                                                                        cursor:
+                                                                            column.sortable
+                                                                                ? "pointer"
+                                                                                : "default",
+
+                                                                        overflow:
+                                                                            "visible",
+
+                                                                        wordBreak:
+                                                                            "break-word",
+
+                                                                        overflowWrap:
+                                                                            "anywhere",
+                                                                    }}
+                                                                >
+                                                                    <span
+                                                                        style={{
+                                                                            display:
+                                                                                "-webkit-box",
+                                                                            WebkitLineClamp: 3,
+                                                                            WebkitBoxOrient:
+                                                                                "vertical",
+                                                                            overflow:
+                                                                                "hidden",
+                                                                        }}
+                                                                    >
+                                                                        {renderHeaderLabel(column)}
+
+                                                                        {column.sortable &&
+                                                                            sortKey ===
+                                                                            column.key && (
+                                                                                <span
+                                                                                    style={{
+                                                                                        marginLeft: 4,
+                                                                                        fontSize: 8,
+                                                                                        whiteSpace:
+                                                                                            "nowrap",
+                                                                                    }}
+                                                                                >
+                                                                                    {sortDirection ===
+                                                                                        "asc"
+                                                                                        ? "▲"
+                                                                                        : "▼"}
+                                                                                </span>
+                                                                            )}
+                                                                    </span>
+                                                                </th>
+                                                            );
+                                                        }
+                                                    )}
+                                                </tr>
+                                            </thead>
+
+                                            <tbody>
+                                                {pageRows.map(
+                                                    (
+                                                        row,
+                                                        rowIndex
+                                                    ) => (
+                                                        <tr
+                                                            key={
+                                                                row.id ??
+                                                                row.payables_fact_id ??
+                                                                rowIndex
+                                                            }
+                                                        >
+                                                            {viewColumns.map(
+                                                                (
+                                                                    column,
+                                                                    columnIndex
+                                                                ) => {
+                                                                    const isSticky =
+                                                                        columnIndex <
+                                                                        3;
+
+                                                                    const stickyLeft =
+                                                                        getStickyLeft(
+                                                                            columnIndex
+                                                                        );
+
+                                                                    let value;
+
+                                                                    if (
+                                                                        column.key ===
+                                                                        "row_currency"
+                                                                    ) {
+                                                                        value =
+                                                                            appliedViewFilters?.reporting_currency ||
+                                                                            row.row_currency ||
+                                                                            row.currency ||
+                                                                            currency ||
+                                                                            "AED";
+                                                                    } else {
+                                                                        value =
+                                                                            row[
+                                                                            column.key
+                                                                            ];
+                                                                    }
+
+                                                                    if (
+                                                                        column.key ===
+                                                                        "supplier_name"
+                                                                    ) {
+                                                                        value =
+                                                                            value ||
+                                                                            row.supplier ||
+                                                                            row.supplier_name ||
+                                                                            "-";
+                                                                    }
+
+                                                                    const isAmount =
+                                                                        amountColumns.includes(
+                                                                            column.key
+                                                                        );
+
+                                                                    const numericValue =
+                                                                        Number(
+                                                                            String(
+                                                                                value ??
+                                                                                "0"
+                                                                            )
+                                                                                .replace(
+                                                                                    /,/g,
+                                                                                    ""
+                                                                                )
+                                                                                .replace(
+                                                                                    /[^\d.-]/g,
+                                                                                    ""
+                                                                                )
+                                                                        );
+
+                                                                    return (
+                                                                        <td
+                                                                            key={
+                                                                                column.key
+                                                                            }
+                                                                            className={
+                                                                                isAmount &&
+                                                                                    numericValue < 0
+                                                                                    ? "payables-negative-cell"
+                                                                                    : undefined
+                                                                            }
+                                                                            style={{
+                                                                                position:
+                                                                                    isSticky
+                                                                                        ? "sticky"
+                                                                                        : "static",
+
+                                                                                left:
+                                                                                    isSticky
+                                                                                        ? stickyLeft
+                                                                                        : undefined,
+
+                                                                                zIndex:
+                                                                                    isSticky
+                                                                                        ? 4
+                                                                                        : 1,
+
+                                                                                width:
+                                                                                    getColumnWidth(
+                                                                                        columnIndex
+                                                                                    ),
+
+                                                                                minWidth:
+                                                                                    getColumnWidth(
+                                                                                        columnIndex
+                                                                                    ),
+
+                                                                                maxWidth:
+                                                                                    getColumnWidth(
+                                                                                        columnIndex
+                                                                                    ),
+
+                                                                                padding:
+                                                                                    "9px 10px",
+
+                                                                                borderRight:
+                                                                                    "1px solid #edf1f6",
+
+                                                                                background:
+                                                                                    rowIndex %
+                                                                                        2 ===
+                                                                                        0
+                                                                                        ? "#f9fbff"
+                                                                                        : "#ffffff",
+
+                                                                                /* 
+                                                                                 * Text wraps, 
+                                                                                 * numeric values 
+                                                                                 * stay on one line. 
+                                                                                 */
+                                                                                whiteSpace:
+                                                                                    isAmount ||
+                                                                                        column.key ===
+                                                                                        "row_currency"
+                                                                                        ? "nowrap"
+                                                                                        : "normal",
+
+                                                                                wordBreak:
+                                                                                    "normal",
+
+                                                                                overflowWrap:
+                                                                                    "break-word",
+
+                                                                                textAlign:
+                                                                                    column.text
+                                                                                        ? "left"
+                                                                                        : "right",
+
+                                                                                color:
+                                                                                    isAmount &&
+                                                                                        numericValue <
+                                                                                        0
+                                                                                        ? "#c62828"
+                                                                                        : "#334b8e",
+
+                                                                                fontWeight:
+                                                                                    isAmount
+                                                                                        ? 600
+                                                                                        : 500,
+
+                                                                                lineHeight:
+                                                                                    1.25,
+                                                                            }}
+                                                                        >
+                                                                            {column.key ===
+                                                                                "row_currency"
+                                                                                ? value ||
+                                                                                "-"
+                                                                                : isAmount
+                                                                                    ? formatTableAmount(
+                                                                                        value
+                                                                                    )
+                                                                                    : (
+                                                                                        <span
+                                                                                            style={{
+                                                                                                whiteSpace:
+                                                                                                    "normal",
+                                                                                                overflow:
+                                                                                                    "visible",
+                                                                                                wordBreak:
+                                                                                                    "break-word",
+                                                                                                overflowWrap:
+                                                                                                    "anywhere",
+                                                                                            }}
+                                                                                            title={String(
+                                                                                                cleanCurrency(
+                                                                                                    value ||
+                                                                                                    "-"
+                                                                                                )
+                                                                                            )}
+                                                                                        >
+                                                                                            {cleanCurrency(
+                                                                                                value ||
+                                                                                                "-"
+                                                                                            )}
+                                                                                        </span>
+                                                                                    )}
+                                                                        </td>
+                                                                    );
+                                                                }
+                                                            )}
+                                                        </tr>
+                                                    )
+                                                )}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    {viewColumns.map((column, columnIndex) => {
+                                                        const isAmount = amountColumns.includes(column.key);
+                                                        const isSticky = columnIndex < 3;
+                                                        const stickyLeft = getStickyLeft(columnIndex);
+                                                        const totalValue =
+                                                            column.key === "total_payable" && hasBackendKpi("total_payables")
+                                                                ? Number(backendKpis.total_payables)
+                                                                : column.key === "current" && hasBackendKpi("current_payables")
+                                                                    ? Number(backendKpis.current_payables)
+                                                                    : isAmount
+                                                                        ? detailTotals[column.key]
+                                                                        : null;
+
+                                                        return (
+                                                            <td
+                                                                key={`total-${column.key}`}
+                                                                style={{
+                                                                    position: "sticky",
+                                                                    bottom: 0,
+                                                                    left: isSticky ? stickyLeft : undefined,
+                                                                    zIndex: isSticky ? 22 : 18,
+                                                                    width: getColumnWidth(columnIndex),
+                                                                    minWidth: getColumnWidth(columnIndex),
+                                                                    maxWidth: getColumnWidth(columnIndex),
+                                                                    padding: "10px 10px",
+                                                                    borderTop: "2px solid #cbd5e1",
+                                                                    borderRight: "1px solid #e7edf6",
+                                                                    background: "#eef4ff",
+                                                                    color:
+                                                                        isAmount && Number(totalValue) < 0
+                                                                            ? "#dc2626"
+                                                                            : "#173b8f",
+                                                                    fontWeight: 900,
+                                                                    textAlign: column.text ? "left" : "right",
+                                                                    whiteSpace: "nowrap",
+                                                                }}
+                                                            >
+                                                                {columnIndex === 0
+                                                                    ? "Total"
+                                                                    : isAmount
+                                                                        ? formatTableAmount(totalValue)
+                                                                        : ""}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+
+                                    {/* ================================================== 
+                            NO DATA 
+                        ================================================== */}
+
+                                    {pageRows.length ===
+                                        0 && (
                                             <div
                                                 style={{
-                                                    marginTop: 5,
-                                                    fontSize: 10,
+                                                    textAlign:
+                                                        "center",
+                                                    padding: 45,
                                                     color:
                                                         "#64748b",
+                                                    fontSize: 12,
                                                 }}
                                             >
-                                                Aging basis:{" "}
-                                                <strong
-                                                    style={{
-                                                        color:
-                                                            "#334b8e",
-                                                    }}
-                                                >
-                                                    {agingBasis ||
-                                                        "—"}
-                                                </strong>
-
-                                                <span
-                                                    style={{
-                                                        margin:
-                                                            "0 8px",
-                                                        color:
-                                                            "#a0aec0",
-                                                    }}
-                                                >
-                                                    |
-                                                </span>
-
-                                                As On Date:{" "}
-                                                <strong
-                                                    style={{
-                                                        color:
-                                                            "#334b8e",
-                                                    }}
-                                                >
-                                                    {formatFilterDate(asOnDate) || "—"}
-                                                </strong>
+                                                {detailLoading
+                                                    ? "Loading payables..."
+                                                    : "No Suppliers found."}
                                             </div>
+                                        )}
+
+                                    {/* ================================================== 
+                            FOOTER 
+                        ================================================== */}
+
+                                    <div
+                                        style={{
+                                            minHeight: 55,
+                                            padding:
+                                                "10px 13px",
+                                            borderTop:
+                                                "1px solid #e5eaf2",
+                                            display: "flex",
+                                            alignItems:
+                                                "center",
+                                            justifyContent:
+                                                "space-between",
+                                            gap: 15,
+                                            boxSizing:
+                                                "border-box",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                fontSize: 10,
+                                                color:
+                                                    "#5b6d99",
+                                            }}
+                                        >
+                                            Values shown in{" "}
+                                            {
+                                                viewAllCurrency
+                                            }
+
+                                            <span
+                                                style={{
+                                                    margin:
+                                                        "0 8px",
+                                                    color:
+                                                        "#b0bacb",
+                                                }}
+                                            >
+                                                |
+                                            </span>
+
+                                            Source: Oracle
+                                            Fusion Cloud
                                         </div>
 
                                         <div
@@ -15759,135 +17321,13 @@ function PayablesViewAll({
                                                     "flex",
                                                 alignItems:
                                                     "center",
-                                                gap: 10,
+                                                gap: 8,
+                                                color:
+                                                    "#3048a5",
+                                                fontSize: 11,
+                                                fontWeight: 600,
                                             }}
                                         >
-                                            {/* SEARCH */}
-
-                                            <div
-                                                style={{
-                                                    position:
-                                                        "relative",
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        position:
-                                                            "absolute",
-                                                        left: 10,
-                                                        top: "50%",
-                                                        transform:
-                                                            "translateY(-50%)",
-                                                        color:
-                                                            "#52658d",
-                                                        fontSize: 14,
-                                                    }}
-                                                >
-                                                    ⌕
-                                                </span>
-
-                                                <input
-                                                    type="text"
-                                                    value={
-                                                        search
-                                                    }
-                                                    onChange={(
-                                                        e
-                                                    ) => {
-                                                        setSearch(
-                                                            e
-                                                                .target
-                                                                .value
-                                                        );
-                                                        setPage(
-                                                            1
-                                                        );
-                                                    }}
-                                                    placeholder="Search..."
-                                                    style={{
-                                                        width: 245,
-                                                        height: 34,
-                                                        border:
-                                                            "1px solid #d6dfec",
-                                                        borderRadius: 5,
-                                                        padding:
-                                                            "0 10px 0 29px",
-                                                        outline:
-                                                            "none",
-                                                        fontSize: 10,
-                                                        color:
-                                                            "#334155",
-                                                        boxSizing:
-                                                            "border-box",
-                                                    }}
-                                                />
-                                            </div>
-
-                                            {/* ROWS */}
-
-                                            <select
-                                                value={
-                                                    pageSize
-                                                }
-                                                onChange={(
-                                                    e
-                                                ) => {
-                                                    setPageSize(
-                                                        Number(
-                                                            e
-                                                                .target
-                                                                .value
-                                                        )
-                                                    );
-                                                    setPage(
-                                                        1
-                                                    );
-                                                }}
-                                                style={{
-                                                    width: 110,
-                                                    height: 34,
-                                                    border:
-                                                        "1px solid #d6dfec",
-                                                    borderRadius: 5,
-                                                    padding:
-                                                        "0 9px",
-                                                    color:
-                                                        "#334b8e",
-                                                    background:
-                                                        "#ffffff",
-                                                    fontSize: 10,
-                                                    fontWeight: 700,
-                                                    outline:
-                                                        "none",
-                                                }}
-                                            >
-                                                <option
-                                                    value={10}
-                                                >
-                                                    10 rows
-                                                </option>
-
-                                                <option
-                                                    value={20}
-                                                >
-                                                    20 rows
-                                                </option>
-
-                                                <option
-                                                    value={50}
-                                                >
-                                                    50 rows
-                                                </option>
-
-                                                <option
-                                                    value={100}
-                                                >
-                                                    100 rows
-                                                </option>
-                                            </select>
-
-                                            {/* PAGINATION TOP */}
-
                                             <button
                                                 type="button"
                                                 disabled={
@@ -15914,27 +17354,18 @@ function PayablesViewAll({
                                                             1
                                                             ? "#cbd5e1"
                                                             : "#3048a5",
-                                                    fontSize: 21,
+                                                    fontSize: 20,
                                                     cursor:
                                                         page <=
                                                             1
                                                             ? "not-allowed"
                                                             : "pointer",
-                                                    padding: 0,
                                                 }}
                                             >
                                                 ‹
                                             </button>
 
-                                            <span
-                                                style={{
-                                                    fontSize: 11,
-                                                    color:
-                                                        "#3048a5",
-                                                    whiteSpace:
-                                                        "nowrap",
-                                                }}
-                                            >
+                                            <span>
                                                 {pageStart}
                                                 {" – "}
                                                 {pageEnd}
@@ -15968,13 +17399,12 @@ function PayablesViewAll({
                                                             totalPages
                                                             ? "#cbd5e1"
                                                             : "#3048a5",
-                                                    fontSize: 21,
+                                                    fontSize: 20,
                                                     cursor:
                                                         page >=
                                                             totalPages
                                                             ? "not-allowed"
                                                             : "pointer",
-                                                    padding: 0,
                                                 }}
                                             >
                                                 ›
@@ -15982,625 +17412,9 @@ function PayablesViewAll({
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* ================================================== 
-                            TABLE 
-                        ================================================== */}
-
-                                <div
-                                    className="payables-view-all-table-scroll"
-                                    style={{
-                                        width: "100%", minHeight: 0, maxWidth: "100%",
-                                        height: "auto", maxHeight: "none",
-                                        overflow: "visible", position: "static",
-                                    }}
-                                >
-                                    <table
-                                        className="payables-view-all-detail-table"
-                                        style={{
-                                            width:
-                                                "max-content",
-                                            minWidth:
-                                                1556,
-                                            borderCollapse:
-                                                "separate",
-                                            borderSpacing:
-                                                0,
-                                            tableLayout:
-                                                "fixed",
-                                            fontSize: 10,
-                                        }}
-                                    >
-                                        <thead>
-                                            <tr>
-                                                {viewColumns.map(
-                                                    (
-                                                        column,
-                                                        columnIndex
-                                                    ) => {
-                                                        const isText =
-                                                            column.text;
-
-                                                        const isSticky =
-                                                            columnIndex <
-                                                            3;
-
-                                                        const stickyLeft =
-                                                            getStickyLeft(
-                                                                columnIndex
-                                                            );
-
-                                                        const columnWidth =
-                                                            getColumnWidth(
-                                                                columnIndex
-                                                            );
-
-                                                        return (
-                                                            <th
-                                                                key={
-                                                                    column.key
-                                                                }
-                                                                onClick={() =>
-                                                                    column.sortable &&
-                                                                    changeSort(
-                                                                        column.key
-                                                                    )
-                                                                }
-                                                                style={{
-                                                                    // Every header cell sticks to the View All modal's page
-                                                                    // scroll. Only the first three columns also stick horizontally.
-                                                                    position: "sticky",
-
-                                                                    left:
-                                                                        isSticky
-                                                                            ? stickyLeft
-                                                                            : undefined,
-
-                                                                    top: 0,
-
-                                                                    zIndex: isSticky ? 35 : 30,
-
-                                                                    width:
-                                                                        columnWidth,
-
-                                                                    minWidth:
-                                                                        columnWidth,
-
-                                                                    maxWidth:
-                                                                        columnWidth,
-
-                                                                    whiteSpace: "normal",
-                                                                    wordBreak: "break-word",
-                                                                    overflowWrap: "anywhere",
-                                                                    lineHeight: 1.15,
-                                                                    height: 34,
-
-                                                                    boxSizing:
-                                                                        "border-box",
-
-                                                                    background:
-                                                                        "#edf4ff",
-
-                                                                    color:
-                                                                        "#24479d",
-
-                                                                    fontWeight:
-                                                                        800,
-
-                                                                    padding:
-                                                                        "8px 10px",
-
-                                                                    borderBottom:
-                                                                        "1px solid #d7e1ef",
-
-                                                                    borderRight:
-                                                                        "1px solid #e7edf6",
-
-                                                                    textAlign:
-                                                                        isText
-                                                                            ? "left"
-                                                                            : "right",
-
-                                                                    /* 
-                                                                     * Header text 
-                                                                     * intentionally wraps 
-                                                                     * to two lines. 
-                                                                     */
-                                                                    whiteSpace:
-                                                                        "normal",
-
-                                                                    lineHeight:
-                                                                        1.2,
-
-                                                                    height: 52,
-
-                                                                    cursor:
-                                                                        column.sortable
-                                                                            ? "pointer"
-                                                                            : "default",
-
-                                                                    overflow:
-                                                                        "visible",
-
-                                                                    wordBreak:
-                                                                        "break-word",
-
-                                                                    overflowWrap:
-                                                                        "anywhere",
-                                                                }}
-                                                            >
-                                                                <span
-                                                                    style={{
-                                                                        display:
-                                                                            "-webkit-box",
-                                                                        WebkitLineClamp: 3,
-                                                                        WebkitBoxOrient:
-                                                                            "vertical",
-                                                                        overflow:
-                                                                            "hidden",
-                                                                    }}
-                                                                >
-                                                                    {renderHeaderLabel(column)}
-
-                                                                    {column.sortable &&
-                                                                        sortKey ===
-                                                                        column.key && (
-                                                                            <span
-                                                                                style={{
-                                                                                    marginLeft: 4,
-                                                                                    fontSize: 8,
-                                                                                    whiteSpace:
-                                                                                        "nowrap",
-                                                                                }}
-                                                                            >
-                                                                                {sortDirection ===
-                                                                                    "asc"
-                                                                                    ? "▲"
-                                                                                    : "▼"}
-                                                                            </span>
-                                                                        )}
-                                                                </span>
-                                                            </th>
-                                                        );
-                                                    }
-                                                )}
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-                                            {pageRows.map(
-                                                (
-                                                    row,
-                                                    rowIndex
-                                                ) => (
-                                                    <tr
-                                                        key={
-                                                            row.id ??
-                                                            row.payables_fact_id ??
-                                                            rowIndex
-                                                        }
-                                                    >
-                                                        {viewColumns.map(
-                                                            (
-                                                                column,
-                                                                columnIndex
-                                                            ) => {
-                                                                const isSticky =
-                                                                    columnIndex <
-                                                                    3;
-
-                                                                const stickyLeft =
-                                                                    getStickyLeft(
-                                                                        columnIndex
-                                                                    );
-
-                                                                let value;
-
-                                                                if (
-                                                                    column.key ===
-                                                                    "row_currency"
-                                                                ) {
-                                                                    value =
-                                                                        appliedViewFilters?.reporting_currency ||
-                                                                        row.row_currency ||
-                                                                        row.currency ||
-                                                                        currency ||
-                                                                        "AED";
-                                                                } else {
-                                                                    value =
-                                                                        row[
-                                                                        column.key
-                                                                        ];
-                                                                }
-
-                                                                if (
-                                                                    column.key ===
-                                                                    "supplier_name"
-                                                                ) {
-                                                                    value =
-                                                                        value ||
-                                                                        row.supplier ||
-                                                                        row.supplier_name ||
-                                                                        "-";
-                                                                }
-
-                                                                const isAmount =
-                                                                    amountColumns.includes(
-                                                                        column.key
-                                                                    );
-
-                                                                const numericValue =
-                                                                    Number(
-                                                                        String(
-                                                                            value ??
-                                                                            "0"
-                                                                        )
-                                                                            .replace(
-                                                                                /,/g,
-                                                                                ""
-                                                                            )
-                                                                            .replace(
-                                                                                /[^\d.-]/g,
-                                                                                ""
-                                                                            )
-                                                                    );
-
-                                                                return (
-                                                                    <td
-                                                                        key={
-                                                                            column.key
-                                                                        }
-                                                                        className={
-                                                                            isAmount &&
-                                                                                numericValue < 0
-                                                                                ? "payables-negative-cell"
-                                                                                : undefined
-                                                                        }
-                                                                        style={{
-                                                                            position:
-                                                                                isSticky
-                                                                                    ? "sticky"
-                                                                                    : "static",
-
-                                                                            left:
-                                                                                isSticky
-                                                                                    ? stickyLeft
-                                                                                    : undefined,
-
-                                                                            zIndex:
-                                                                                isSticky
-                                                                                    ? 4
-                                                                                    : 1,
-
-                                                                            width:
-                                                                                getColumnWidth(
-                                                                                    columnIndex
-                                                                                ),
-
-                                                                            minWidth:
-                                                                                getColumnWidth(
-                                                                                    columnIndex
-                                                                                ),
-
-                                                                            maxWidth:
-                                                                                getColumnWidth(
-                                                                                    columnIndex
-                                                                                ),
-
-                                                                            padding:
-                                                                                "9px 10px",
-
-                                                                            borderRight:
-                                                                                "1px solid #edf1f6",
-
-                                                                            background:
-                                                                                rowIndex %
-                                                                                    2 ===
-                                                                                    0
-                                                                                    ? "#f9fbff"
-                                                                                    : "#ffffff",
-
-                                                                            /* 
-                                                                             * Text wraps, 
-                                                                             * numeric values 
-                                                                             * stay on one line. 
-                                                                             */
-                                                                            whiteSpace:
-                                                                                isAmount ||
-                                                                                    column.key ===
-                                                                                    "row_currency"
-                                                                                    ? "nowrap"
-                                                                                    : "normal",
-
-                                                                            wordBreak:
-                                                                                "normal",
-
-                                                                            overflowWrap:
-                                                                                "break-word",
-
-                                                                            textAlign:
-                                                                                column.text
-                                                                                    ? "left"
-                                                                                    : "right",
-
-                                                                            color:
-                                                                                isAmount &&
-                                                                                    numericValue <
-                                                                                    0
-                                                                                    ? "#c62828"
-                                                                                    : "#334b8e",
-
-                                                                            fontWeight:
-                                                                                isAmount
-                                                                                    ? 600
-                                                                                    : 500,
-
-                                                                            lineHeight:
-                                                                                1.25,
-                                                                        }}
-                                                                    >
-                                                                        {column.key ===
-                                                                            "row_currency"
-                                                                            ? value ||
-                                                                            "-"
-                                                                            : isAmount
-                                                                                ? formatTableAmount(
-                                                                                    value
-                                                                                )
-                                                                                : (
-                                                                                    <span
-                                                                                        style={{
-                                                                                            whiteSpace:
-                                                                                                "normal",
-                                                                                            overflow:
-                                                                                                "visible",
-                                                                                            wordBreak:
-                                                                                                "break-word",
-                                                                                            overflowWrap:
-                                                                                                "anywhere",
-                                                                                        }}
-                                                                                        title={String(
-                                                                                            cleanCurrency(
-                                                                                                value ||
-                                                                                                "-"
-                                                                                            )
-                                                                                        )}
-                                                                                    >
-                                                                                        {cleanCurrency(
-                                                                                            value ||
-                                                                                            "-"
-                                                                                        )}
-                                                                                    </span>
-                                                                                )}
-                                                                    </td>
-                                                                );
-                                                            }
-                                                        )}
-                                                    </tr>
-                                                )
-                                            )}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                {viewColumns.map((column, columnIndex) => {
-                                                    const isAmount = amountColumns.includes(column.key);
-                                                    const isSticky = columnIndex < 3;
-                                                    const stickyLeft = getStickyLeft(columnIndex);
-                                                    const totalValue =
-                                                        column.key === "total_payable" && hasBackendKpi("total_payables")
-                                                            ? Number(backendKpis.total_payables)
-                                                            : column.key === "current" && hasBackendKpi("current_payables")
-                                                                ? Number(backendKpis.current_payables)
-                                                                : isAmount
-                                                                    ? detailTotals[column.key]
-                                                                    : null;
-
-                                                    return (
-                                                        <td
-                                                            key={`total-${column.key}`}
-                                                            style={{
-                                                                position: "sticky",
-                                                                bottom: 0,
-                                                                left: isSticky ? stickyLeft : undefined,
-                                                                zIndex: isSticky ? 22 : 18,
-                                                                width: getColumnWidth(columnIndex),
-                                                                minWidth: getColumnWidth(columnIndex),
-                                                                maxWidth: getColumnWidth(columnIndex),
-                                                                padding: "10px 10px",
-                                                                borderTop: "2px solid #cbd5e1",
-                                                                borderRight: "1px solid #e7edf6",
-                                                                background: "#eef4ff",
-                                                                color:
-                                                                    isAmount && Number(totalValue) < 0
-                                                                        ? "#dc2626"
-                                                                        : "#173b8f",
-                                                                fontWeight: 900,
-                                                                textAlign: column.text ? "left" : "right",
-                                                                whiteSpace: "nowrap",
-                                                            }}
-                                                        >
-                                                            {columnIndex === 0
-                                                                ? "Total"
-                                                                : isAmount
-                                                                    ? formatTableAmount(totalValue)
-                                                                    : ""}
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-
-                                {/* ================================================== 
-                            NO DATA 
-                        ================================================== */}
-
-                                {pageRows.length ===
-                                    0 && (
-                                        <div
-                                            style={{
-                                                textAlign:
-                                                    "center",
-                                                padding: 45,
-                                                color:
-                                                    "#64748b",
-                                                fontSize: 12,
-                                            }}
-                                        >
-                                            {detailLoading
-                                                ? "Loading payables..."
-                                                : "No Suppliers found."}
-                                        </div>
-                                    )}
-
-                                {/* ================================================== 
-                            FOOTER 
-                        ================================================== */}
-
-                                <div
-                                    style={{
-                                        minHeight: 55,
-                                        padding:
-                                            "10px 13px",
-                                        borderTop:
-                                            "1px solid #e5eaf2",
-                                        display: "flex",
-                                        alignItems:
-                                            "center",
-                                        justifyContent:
-                                            "space-between",
-                                        gap: 15,
-                                        boxSizing:
-                                            "border-box",
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            fontSize: 10,
-                                            color:
-                                                "#5b6d99",
-                                        }}
-                                    >
-                                        Values shown in{" "}
-                                        {
-                                            viewAllCurrency
-                                        }
-
-                                        <span
-                                            style={{
-                                                margin:
-                                                    "0 8px",
-                                                color:
-                                                    "#b0bacb",
-                                            }}
-                                        >
-                                            |
-                                        </span>
-
-                                        Source: Oracle
-                                        Fusion Cloud
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display:
-                                                "flex",
-                                            alignItems:
-                                                "center",
-                                            gap: 8,
-                                            color:
-                                                "#3048a5",
-                                            fontSize: 11,
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        <button
-                                            type="button"
-                                            disabled={
-                                                page <=
-                                                1
-                                            }
-                                            onClick={() =>
-                                                setPage(
-                                                    (p) =>
-                                                        Math.max(
-                                                            1,
-                                                            p -
-                                                            1
-                                                        )
-                                                )
-                                            }
-                                            style={{
-                                                border:
-                                                    "none",
-                                                background:
-                                                    "transparent",
-                                                color:
-                                                    page <=
-                                                        1
-                                                        ? "#cbd5e1"
-                                                        : "#3048a5",
-                                                fontSize: 20,
-                                                cursor:
-                                                    page <=
-                                                        1
-                                                        ? "not-allowed"
-                                                        : "pointer",
-                                            }}
-                                        >
-                                            ‹
-                                        </button>
-
-                                        <span>
-                                            {pageStart}
-                                            {" – "}
-                                            {pageEnd}
-                                            {" of "}
-                                            {totalRecords.toLocaleString()}
-                                        </span>
-
-                                        <button
-                                            type="button"
-                                            disabled={
-                                                page >=
-                                                totalPages
-                                            }
-                                            onClick={() =>
-                                                setPage(
-                                                    (p) =>
-                                                        Math.min(
-                                                            totalPages,
-                                                            p +
-                                                            1
-                                                        )
-                                                )
-                                            }
-                                            style={{
-                                                border:
-                                                    "none",
-                                                background:
-                                                    "transparent",
-                                                color:
-                                                    page >=
-                                                        totalPages
-                                                        ? "#cbd5e1"
-                                                        : "#3048a5",
-                                                fontSize: 20,
-                                                cursor:
-                                                    page >=
-                                                        totalPages
-                                                        ? "not-allowed"
-                                                        : "pointer",
-                                            }}
-                                        >
-                                            ›
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

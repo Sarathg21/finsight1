@@ -1,8 +1,11 @@
 
-
 // import React, { useEffect, useMemo, useRef, useState } from "react";
 // import { createPortal } from "react-dom";
-// import { Maximize2, Minimize2 } from "lucide-react";
+// import {
+//     Maximize2, Minimize2, Landmark, TrendingUp, Layers, CalendarDays,
+//     Building2, Wallet, Banknote, PieChart, FileText, ArrowLeftRight,
+//     BriefcaseBusiness, Scale, CircleDollarSign,
+// } from "lucide-react";
 // import { motion, AnimatePresence } from "framer-motion";
 // import {
 //     ResponsiveContainer,
@@ -199,12 +202,18 @@
 //     return raw;
 // };
 
+// function isNegativeDisplayValue(value) {
+//     if (value === null || value === undefined || value === "") return false;
+//     const raw = String(value).trim();
+//     if (!raw || raw === "—" || raw === "-") return false;
+//     const accountingNegative = /^\(.*\)$/.test(raw);
+//     const numericText = raw.replace(/[(),\s]/g, "").replace(/[^0-9.+-]/g, "");
+//     const numeric = Number(numericText);
+//     return Number.isFinite(numeric) && (accountingNegative ? numeric > 0 : numeric < 0);
+// }
+
 // function valueTextColor(value, fallback = "#334155") {
-//     if (value === null || value === undefined || value === "") return fallback;
-//     const numeric = typeof value === "number"
-//         ? value
-//         : Number(String(value).replace(/[^0-9.-]/g, ""));
-//     return Number.isFinite(numeric) && numeric < 0 ? "#dc2626" : fallback;
+//     return isNegativeDisplayValue(value) ? "#dc2626" : fallback;
 // }
 
 // function NoDataState({ message = "No data available" }) {
@@ -480,6 +489,34 @@
 //     );
 // }
 
+// // Presentation-only icon mapping for the Financial Position View All tabs.
+// function getFinancialPositionTabIcon(type, tab) {
+//     const label = String(tab || "").toLowerCase();
+//     if (label.includes("parent division")) return Building2;
+//     if (label.includes("month") || label.includes("mom")) return CalendarDays;
+//     if (label.includes("equity")) return Scale;
+//     if (label.includes("long-term")) return Landmark;
+//     if (label.includes("related party")) return BriefcaseBusiness;
+//     if (label.includes("short-term")) return Banknote;
+//     if (label.includes("advance")) return Wallet;
+//     if (label.includes("component")) return Layers;
+//     if (label.includes("trend")) return TrendingUp;
+//     if (label.includes("current")) {
+//         if (type === "assets") return PieChart;
+//         if (type === "liabilities") return Scale;
+//         if (type === "borrowing") return Landmark;
+//         return FileText;
+//     }
+//     if (type === "equity") return Scale;
+//     if (type === "investments") return CircleDollarSign;
+//     if (type === "borrowing") return Landmark;
+//     if (type === "nwc" || type === "nwcParent" || type === "nwcTrend" || type === "nwcMonthly") return TrendingUp;
+//     if (type === "assets") return PieChart;
+//     if (type === "liabilities") return Wallet;
+//     if (type === "fixedAssets") return Building2;
+//     return ArrowLeftRight;
+// }
+
 // function useResponsiveColumns() {
 //     const [width, setWidth] = useState(typeof window === "undefined" ? 1440 : window.innerWidth);
 //     useEffect(() => {
@@ -600,7 +637,7 @@
 //     );
 // }
 
-// function CardHeader({ title, subtitle, onViewAll, onExportExcel, onExportPdf, headerMetric }) {
+// function CardHeader({ title, subtitle, onViewAll, onExportExcel, onExportPdf, headerMetric, showActions = true }) {
 //     return <div style={styles.cardHeader}>
 //         <div style={{ minWidth: 0, flex: 1 }}>
 //             <div style={styles.cardTitle}>{title}</div>
@@ -613,7 +650,7 @@
 //                     <div style={{ marginTop: 3, fontSize: ".72rem", fontWeight: 800, color: "#173b8f", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{headerMetric.value}</div>
 //                 </div>
 //             ) : null}
-//             <ActionMenu onViewAll={onViewAll} onExportExcel={onExportExcel} onExportPdf={onExportPdf} />
+//             {showActions ? <ActionMenu onViewAll={onViewAll} onExportExcel={onExportExcel} onExportPdf={onExportPdf} /> : null}
 //         </div>
 //     </div>;
 // }
@@ -671,7 +708,7 @@
 //             ))}
 //             <div style={{ marginTop: 7, paddingTop: 7, borderTop: "1px solid #eef2f7", display: "flex", justifyContent: "space-between", gap: 14, color: "#334155", fontSize: ".63rem", fontWeight: 700 }}>
 //                 <span>Total Borrowings</span>
-//                 <strong style={{ color: valueTextColor(Number(row.longTerm || 0) + Number(row.shortTerm || 0) + Number(row.relatedParty || 0), "#1e1b4b"), fontWeight: 800 }}>{Number.isFinite(Number(row.longTerm)) || Number.isFinite(Number(row.shortTerm)) || Number.isFinite(Number(row.relatedParty)) ? formatTooltipCurrency(Number(row.longTerm || 0) + Number(row.shortTerm || 0) + Number(row.relatedParty || 0), currency, "M") : "—"}</strong>
+//                 <strong style={{ color: valueTextColor(row.total ?? (Number(row.longTerm || 0) + Number(row.shortTerm || 0) + Number(row.relatedParty || 0)), "#1e1b4b"), fontWeight: 800 }}>{row.total !== null && row.total !== undefined ? formatTooltipCurrency(row.total, currency, "M") : ([row.longTerm, row.shortTerm, row.relatedParty].every((value) => value !== null && value !== undefined) ? formatTooltipCurrency(Number(row.longTerm) + Number(row.shortTerm) + Number(row.relatedParty), currency, "M") : "—")}</strong>
 //             </div>
 //         </div>
 //     );
@@ -835,10 +872,16 @@
 //     return isAccountingNegative ? -Math.abs(parsed) : parsed;
 // }
 // function millions(value) { return num(value) / 1000000; }
+// function formatFixed(value, decimals = 1) {
+//     const numeric = Number(value);
+//     if (!Number.isFinite(numeric)) return "—";
+//     const rounded = Number(numeric.toFixed(decimals));
+//     return (Object.is(rounded, -0) ? 0 : rounded).toFixed(decimals);
+// }
 // function formatM(value) {
 //     return value === null || value === undefined || value === "" || !Number.isFinite(Number(value))
 //         ? "—"
-//         : millions(value).toFixed(1);
+//         : formatFixed(millions(value), 1);
 // }
 // function firstValue(obj, keys, fallback = null) {
 //     for (const key of keys) {
@@ -1162,7 +1205,10 @@
 //         item: row.category ?? row.item ?? row.name ?? "—",
 //         // Composition API amounts are backend currency values; store them in
 //         // AED millions for the existing Current-tab table/chart formatting.
-//         amount: millions(firstValue(row, ["amount", "value", "current_assets", "current_liabilities"], null)),
+//         amount: (() => {
+//             const rawAmount = nullableNum(firstValue(row, ["amount", "value", "current_assets", "current_liabilities"], null));
+//             return rawAmount === null ? null : millions(rawAmount);
+//         })(),
 //         pct: nullableNum(firstValue(row, ["percentage_of_total", "pct_of_total", "percentage", "percent"], null)),
 //     }));
 //     return {
@@ -1438,17 +1484,30 @@
 // }
 
 // function normalizeBorrowingRows(response) {
-//     return toRows(response).map((row) => ({
-//         parentDivision: divisionLabel(row),
-//         code: row.parent_division_code,
-//         longTerm: nullableNum(row.long_term_bank_borrowings),
-//         shortTerm: nullableNum(row.short_term_bank_borrowings),
-//         bankTotal: nullableNum(row.bank_borrowings_total),
-//         relatedParty: nullableNum(row.loan_from_related_party),
-//         total: nullableNum(row.total_borrowings),
-//         legalEntity: row.legal_entity_name ?? row.legal_entity ?? "—",
-//         subDivision: row.subdivision_name ?? row.sub_division_name ?? row.subdivision ?? "—",
-//     }));
+//     return toRows(response).map((row) => {
+//         const longTerm = nullableNum(row.long_term_bank_borrowings);
+//         const shortTerm = nullableNum(row.short_term_bank_borrowings);
+//         const relatedParty = nullableNum(row.loan_from_related_party);
+//         const backendTotal = nullableNum(row.total_borrowings);
+//         // The deployed API now supplies total_borrowings. Prefer that field;
+//         // retain the documented component formula as a safe fallback only
+//         // when all three component values are available.
+//         const calculatedTotal = [longTerm, shortTerm, relatedParty].every((value) => value !== null)
+//             ? longTerm + shortTerm + relatedParty
+//             : null;
+
+//         return {
+//             parentDivision: divisionLabel(row),
+//             code: row.parent_division_code,
+//             longTerm,
+//             shortTerm,
+//             bankTotal: nullableNum(row.bank_borrowings_total),
+//             relatedParty,
+//             total: backendTotal ?? calculatedTotal,
+//             legalEntity: row.legal_entity_name ?? row.legal_entity ?? "—",
+//             subDivision: row.subdivision_name ?? row.sub_division_name ?? row.subdivision ?? "—",
+//         };
+//     });
 // }
 
 // function normalizeMonthly(response, kind) {
@@ -1469,6 +1528,7 @@
 //         longTerm: nullableNum(row.long_term_bank_borrowings),
 //         shortTerm: nullableNum(row.short_term_bank_borrowings),
 //         relatedParty: nullableNum(row.loan_from_related_party),
+//         advancesFromCustomers: nullableNum(row.advances_from_customers),
 //         kind,
 //     }));
 // }
@@ -1683,7 +1743,11 @@
 //         if (!byParent.has(parent)) byParent.set(parent, { parentDivision: parent, months: {} });
 //         const item = byParent.get(parent);
 //         const month = monthKeyFromValue(row.period) || row.period;
-//         if (MONTH_KEYS.some((m) => m.key === month)) item.months[month] = nullableNum(row[valueKey]);
+//         if (MONTH_KEYS.some((m) => m.key === month)) {
+//             const value = nullableNum(row[valueKey]);
+//             if (value !== null) item.months[month] = (item.months[month] ?? 0) + value;
+//             else if (item.months[month] === undefined) item.months[month] = null;
+//         }
 //     });
 //     const data = [...byParent.values()].map((row) => {
 //         const total = MONTH_KEYS.reduce((sum, m) => sum + (row.months[m.key] ?? 0), 0);
@@ -1697,9 +1761,28 @@
 //     };
 // }
 
+// function sumAvailable(values) {
+//     const valid = (values || []).filter((value) =>
+//         value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))
+//     );
+//     return valid.length ? valid.reduce((sum, value) => sum + Number(value), 0) : null;
+// }
+
+// function averageAvailable(values) {
+//     const valid = (values || []).filter((value) =>
+//         value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))
+//     );
+//     return valid.length ? valid.reduce((sum, value) => sum + Number(value), 0) / valid.length : null;
+// }
+
 // function formatUnitValue(value, unit) {
-//     if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
-//     return unit === "AED" ? Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 }) : millions(value).toFixed(1);
+//     if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "—";
+//     const numeric = Number(value);
+//     if (unit === "AED") {
+//         const rounded = Math.round(numeric);
+//         return (Object.is(rounded, -0) ? 0 : rounded).toLocaleString("en-US", { maximumFractionDigits: 0 });
+//     }
+//     return formatFixed(millions(numeric), 1);
 // }
 
 // function valueForPositionRow(row, type) {
@@ -2330,7 +2413,8 @@
 //             view === "Parent Division MoM" ||
 //             view === "Long-Term Bank Loan MoM" ||
 //             view === "Related Party Loan MoM" ||
-//             view === "Short-Term Bank Borrowing MoM";
+//             view === "Short-Term Bank Borrowing MoM" ||
+//             view === "Advance From Customers";
 //         if (open && isMonthlyView) onTabChange?.(view);
 //     }, [open, view]);
 
@@ -2452,24 +2536,25 @@
 //                 rows = compositionRows.map((r) => [
 //                     r.item,
 //                     r.amount === null || r.amount === undefined ? "—" : formatUnitValue(Number(r.amount) * 1000000, positionUnit),
-//                     r.pct === null || r.pct === undefined ? "—" : `${Number(r.pct).toFixed(1)}%`,
+//                     r.pct === null || r.pct === undefined ? "—" : `${formatFixed(r.pct, 1)}%`,
 //                 ]);
-//                 const calculatedTotal = compositionRows.reduce((sum, r) => sum + (r.amount ?? 0), 0) * 1000000;
+//                 const calculatedTotalMillions = sumAvailable(compositionRows.map((row) => row.amount));
+//                 const calculatedTotal = calculatedTotalMillions === null ? null : calculatedTotalMillions * 1000000;
 //                 const totalValue = total !== null && total !== undefined ? total : calculatedTotal;
 //                 rows.push([
 //                     isAsset ? "Total Current Assets" : "Total Current Liabilities",
-//                     formatUnitValue(totalValue, positionUnit),
-//                     "100.0%",
+//                     totalValue === null ? "—" : formatUnitValue(totalValue, positionUnit),
+//                     totalValue === null ? "—" : "100.0%",
 //                 ]);
 //             } else {
-//                 const source = detail?.investments || [];
-//                 const totalNwc = source.reduce((sum, r) => sum + (r.nwc ?? 0), 0);
+//                 const source = detail?.nwcParent || detail?.investments || [];
+//                 const totalNwc = sumAvailable(source.map((row) => row.nwc));
 //                 columns = ["Parent Division", `NWC (${positionUnit === "AED" ? "AED" : "M"})`];
-//                 rows = source.map((r) => [
-//                     r.parentDivision,
-//                     r.nwc === null ? "—" : formatUnitValue(r.nwc, positionUnit),
+//                 rows = source.map((row) => [
+//                     row.parentDivision,
+//                     row.nwc === null || row.nwc === undefined ? "—" : formatUnitValue(row.nwc, positionUnit),
 //                 ]);
-//                 rows.push(["Total", formatUnitValue(totalNwc, positionUnit)]);
+//                 rows.push(["Total", totalNwc === null ? "—" : formatUnitValue(totalNwc, positionUnit)]);
 //             }
 //         } else if (type === "equity") {
 //             const data = detail?.equityViewAll || [];
@@ -2492,32 +2577,40 @@
 //                 r.equityTotal === null ? "—" : formatUnitValue(r.equityTotal, positionUnit),
 //             ]);
 //             if (data.length) {
-//                 const sumComponent = (key) => data.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+//                 const sumComponent = (key) => sumAvailable(data.map((row) => row[key]));
 //                 rows.push([
 //                     "Total",
-//                     formatUnitValue(sumComponent("shareCapital"), positionUnit),
-//                     formatUnitValue(sumComponent("additionalCapital"), positionUnit),
-//                     formatUnitValue(sumComponent("reservesAndSurplus"), positionUnit),
-//                     formatUnitValue(sumComponent("partnerCurrentAccount"), positionUnit),
-//                     formatUnitValue(sumComponent("currentYearProfit"), positionUnit),
-//                     formatUnitValue(sumComponent("equityTotal"), positionUnit),
+//                     ...["shareCapital", "additionalCapital", "reservesAndSurplus", "partnerCurrentAccount", "currentYearProfit", "equityTotal"]
+//                         .map((key) => {
+//                             const totalValue = sumComponent(key);
+//                             return totalValue === null ? "—" : formatUnitValue(totalValue, positionUnit);
+//                         }),
 //                 ]);
 //             }
 //         } else if (type === "investments") {
 //             const data = detail?.investments || [];
 //             columns = ["Parent Division", `Fixed Assets & Other NCA (${positionUnit === "AED" ? "AED" : "M"})`, `NWC (${positionUnit === "AED" ? "AED" : "M"})`, `Total Investments (${positionUnit === "AED" ? "AED" : "M"})`];
 //             rows = data.map((r) => [r.parentDivision, r.fixedAssets === null ? "—" : formatUnitValue(r.fixedAssets, positionUnit), r.nwc === null ? "—" : formatUnitValue(r.nwc, positionUnit), r.totalInvestments === null ? "—" : formatUnitValue(r.totalInvestments, positionUnit)]);
-//             if (rows.length) rows.push(["Total", formatUnitValue(data.reduce((sum, r) => sum + (r.fixedAssets ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.nwc ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.totalInvestments ?? 0), 0), positionUnit)]);
+//             if (rows.length) rows.push(["Total", ...["fixedAssets", "nwc", "totalInvestments"].map((key) => {
+//                 const totalValue = sumAvailable(data.map((row) => row[key]));
+//                 return totalValue === null ? "—" : formatUnitValue(totalValue, positionUnit);
+//             })]);
 //         } else if (type === "borrowing") {
 //             const data = detail?.borrowings || [];
 //             columns = ["Parent Division", `Long-Term Bank (${positionUnit === "AED" ? "AED" : "M"})`, `Short-Term Bank (${positionUnit === "AED" ? "AED" : "M"})`, `Bank Borrowings Total (${positionUnit === "AED" ? "AED" : "M"})`, `Related Party Loan (${positionUnit === "AED" ? "AED" : "M"})`, `Total Borrowings (${positionUnit === "AED" ? "AED" : "M"})`];
 //             rows = data.map((r) => [r.parentDivision, r.longTerm === null ? "—" : formatUnitValue(r.longTerm, positionUnit), r.shortTerm === null ? "—" : formatUnitValue(r.shortTerm, positionUnit), r.bankTotal === null ? "—" : formatUnitValue(r.bankTotal, positionUnit), r.relatedParty === null ? "—" : formatUnitValue(r.relatedParty, positionUnit), r.total === null ? "—" : formatUnitValue(r.total, positionUnit)]);
-//             if (rows.length) rows.push(["Total", formatUnitValue(data.reduce((sum, r) => sum + (r.longTerm ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.shortTerm ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.bankTotal ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.relatedParty ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.total ?? 0), 0), positionUnit)]);
+//             if (rows.length) rows.push(["Total", ...["longTerm", "shortTerm", "bankTotal", "relatedParty", "total"].map((key) => {
+//                 const totalValue = sumAvailable(data.map((row) => row[key]));
+//                 return totalValue === null ? "—" : formatUnitValue(totalValue, positionUnit);
+//             })]);
 //         } else if (type === "fixedAssets") {
 //             const data = detail?.investments || [];
 //             columns = ["Parent Division", `Fixed Assets & Other NCA (${positionUnit === "AED" ? "AED" : "M"})`, `NWC (${positionUnit === "AED" ? "AED" : "M"})`, `Total Investments (${positionUnit === "AED" ? "AED" : "M"})`];
 //             rows = data.map((r) => [r.parentDivision, r.fixedAssets === null ? "—" : formatUnitValue(r.fixedAssets, positionUnit), r.nwc === null ? "—" : formatUnitValue(r.nwc, positionUnit), r.totalInvestments === null ? "—" : formatUnitValue(r.totalInvestments, positionUnit)]);
-//             if (rows.length) rows.push(["Total", formatUnitValue(data.reduce((sum, r) => sum + (r.fixedAssets ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.nwc ?? 0), 0), positionUnit), formatUnitValue(data.reduce((sum, r) => sum + (r.totalInvestments ?? 0), 0), positionUnit)]);
+//             if (rows.length) rows.push(["Total", ...["fixedAssets", "nwc", "totalInvestments"].map((key) => {
+//                 const totalValue = sumAvailable(data.map((row) => row[key]));
+//                 return totalValue === null ? "—" : formatUnitValue(totalValue, positionUnit);
+//             })]);
 //         }
 //     } else {
 //         if (type === "nwcMonthly" && view === "Detailed View") {
@@ -2562,36 +2655,34 @@
 //             ))];
 //             const divisions = [...new Set(monthlyRows.map((row) => row.parentDivision))].sort((a, b) => a.localeCompare(b));
 //             columns = ["Parent Division", ...monthKeys, "Average", "% of Average"];
-//             const valueFor = (division, monthLabel) => {
-//                 const row = monthlyRows.find((item) =>
+//             const valueFor = (division, monthLabel) => sumAvailable(monthlyRows
+//                 .filter((item) =>
 //                     item.parentDivision === division &&
 //                     monthYearLabel(item.periodCode || item.periodMonth || item.period, String(filters?.asOnDate || "").slice(0, 4)) === monthLabel
-//                 );
-//                 return row && row.nwc !== null && row.nwc !== undefined && Number.isFinite(Number(row.nwc))
-//                     ? Number(row.nwc)
-//                     : null;
-//             };
+//                 )
+//                 .map((item) => item.nwc));
 //             const divisionValues = divisions.map((division) => {
 //                 const values = monthKeys.map((month) => valueFor(division, month));
 //                 const valid = values.filter((value) => value !== null);
 //                 const average = valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
 //                 return { division, values, average };
 //             });
-//             const overallAverage = divisionValues.reduce((sum, item) => sum + (item.average ?? 0), 0);
+//             const monthlyTotals = monthKeys.map((month) =>
+//                 sumAvailable(divisionValues.map((item) => valueFor(item.division, month)))
+//             );
+//             const totalAverage = averageAvailable(monthlyTotals);
 //             rows = divisionValues.map(({ division, values, average }) => [
 //                 division,
 //                 ...values.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)),
 //                 average === null ? "—" : formatUnitValue(average, positionUnit),
-//                 average === null || !overallAverage ? "—" : `${(average / overallAverage * 100).toFixed(1)}%`,
+//                 average === null || totalAverage === null || totalAverage === 0
+//                     ? "—"
+//                     : `${formatFixed(average / totalAverage * 100, 1)}%`,
 //             ]);
-//             const monthlyTotals = monthKeys.map((month) => {
-//                 const values = divisionValues.map((item) => valueFor(item.division, month)).filter((value) => value !== null);
-//                 return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-//             });
 //             if (rows.length) rows.push([
 //                 "Total",
 //                 ...monthlyTotals.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)),
-//                 overallAverage ? formatUnitValue(overallAverage / Math.max(divisionValues.length, 1), positionUnit) : "—",
+//                 totalAverage === null ? "—" : formatUnitValue(totalAverage, positionUnit),
 //                 "100.0%",
 //             ]);
 //         } else if (
@@ -2653,7 +2744,11 @@
 //                     divisionMap.set(division, new Map());
 //                 }
 
-//                 divisionMap.get(division).set(periodCode, Number(row.nwc));
+//                 const divisionPeriods = divisionMap.get(division);
+//                 const numericNwc = Number(row.nwc);
+//                 if (Number.isFinite(numericNwc)) {
+//                     divisionPeriods.set(periodCode, (divisionPeriods.get(periodCode) ?? 0) + numericNwc);
+//                 }
 //             });
 
 //             const divisionEntries = Array.from(divisionMap.entries())
@@ -2673,9 +2768,12 @@
 //                         : null,
 //                 };
 //             });
-//             const averageGrandTotal = divisionAverages.reduce(
-//                 (sum, item) => sum + (Number(item.average) || 0), 0
+//             const monthTotals = periodKeys.map((periodKey) =>
+//                 sumAvailable(divisionEntries.map(([, divisionValues]) =>
+//                     divisionValues.has(periodKey) ? divisionValues.get(periodKey) : null
+//                 ))
 //             );
+//             const totalAverage = averageAvailable(monthTotals);
 
 //             columns = [
 //                 "Parent Division",
@@ -2693,22 +2791,16 @@
 //                         : formatUnitValue(value, positionUnit);
 //                 }),
 //                 average === null ? "—" : formatUnitValue(average, positionUnit),
-//                 `${(averageGrandTotal === 0 ? 0 : ((average || 0) / averageGrandTotal) * 100).toFixed(1)}%`,
+//                 average === null || totalAverage === null || totalAverage === 0
+//                     ? "—"
+//                     : `${formatFixed(average / totalAverage * 100, 1)}%`,
 //             ]);
 
 //             if (rows.length) {
-//                 const monthAverages = periodKeys.map((periodKey) => {
-//                     const values = divisionEntries
-//                         .map(([, divisionValues]) => divisionValues.has(periodKey) ? divisionValues.get(periodKey) : null)
-//                         .filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
-//                     return values.length
-//                         ? values.reduce((sum, value) => sum + Number(value), 0) / values.length
-//                         : null;
-//                 });
 //                 rows.push([
 //                     "Total",
-//                     ...monthAverages.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)),
-//                     averageGrandTotal ? formatUnitValue(averageGrandTotal, positionUnit) : "—",
+//                     ...monthTotals.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)),
+//                     totalAverage === null ? "—" : formatUnitValue(totalAverage, positionUnit),
 //                     "100.0%",
 //                 ]);
 //             }
@@ -2723,24 +2815,36 @@
 //                 const values = MONTH_KEYS.map((m) => r.months[m.key]).filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
 //                 return values.length ? values.reduce((sum, value) => sum + Number(value), 0) / values.length : null;
 //             });
-//             const averageGrandTotal = rowAverages.reduce((sum, value) => sum + (Number(value) || 0), 0);
+//             const monthTotals = MONTH_KEYS.map((m) =>
+//                 sumAvailable(monthlyTable.rows.map((r) => r.months[m.key]))
+//             );
+//             const totalAverage = averageAvailable(monthTotals);
 //             columns = ["Parent Division", ...MONTH_KEYS.map((m) => `${m.key.toUpperCase()}-${selectedYear}`), "Average", "% of Average"];
 //             rows = monthlyTable.rows.map((r, index) => [
 //                 r.parentDivision,
 //                 ...MONTH_KEYS.map((m) => formatUnitValue(r.months[m.key], positionUnit)),
 //                 rowAverages[index] === null ? "—" : formatUnitValue(rowAverages[index], positionUnit),
-//                 `${(averageGrandTotal === 0 ? 0 : ((rowAverages[index] || 0) / averageGrandTotal) * 100).toFixed(1)}%`,
+//                 rowAverages[index] === null || totalAverage === null || totalAverage === 0
+//                     ? "—"
+//                     : `${formatFixed(rowAverages[index] / totalAverage * 100, 1)}%`,
 //             ]);
-//             const monthAverages = MONTH_KEYS.map((m) => {
-//                 const values = monthlyTable.rows.map((r) => r.months[m.key]).filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
-//                 return values.length ? values.reduce((sum, value) => sum + Number(value), 0) / values.length : null;
-//             });
-//             rows.push(["Total", ...monthAverages.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)), averageGrandTotal ? formatUnitValue(averageGrandTotal, positionUnit) : "—", "100.0%"]);
+//             rows.push([
+//                 "Total",
+//                 ...monthTotals.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)),
+//                 totalAverage === null ? "—" : formatUnitValue(totalAverage, positionUnit),
+//                 "100.0%",
+//             ]);
 //         } else {
 //             let key = "nwc";
 //             if (type === "equity") key = "equity";
 //             if (type === "borrowing") {
-//                 key = view === "Long-Term Bank Loan MoM" ? "longTerm" : view === "Short-Term Bank Borrowing MoM" ? "shortTerm" : "relatedParty";
+//                 key = view === "Long-Term Bank Loan MoM"
+//                     ? "longTerm"
+//                     : view === "Short-Term Bank Borrowing MoM"
+//                         ? "shortTerm"
+//                         : view === "Advance From Customers"
+//                             ? "advancesFromCustomers"
+//                             : "relatedParty";
 //             }
 //             if (type === "fixedAssets") key = "fixedAssets";
 //             // Investments Analysis → Parent Division MoM must chart/table the backend
@@ -2771,6 +2875,16 @@
 //                         .filter((row) => periodKeys.includes(row.periodKey))
 //                         .map((row) => row.parentDivision)
 //                 ));
+//                 const valuesByDivision = new Map();
+//                 nwcRows.forEach((row) => {
+//                     if (!valuesByDivision.has(row.parentDivision)) valuesByDivision.set(row.parentDivision, new Map());
+//                     const periodValues = valuesByDivision.get(row.parentDivision);
+//                     const value = nullableNum(row.nwc);
+//                     if (value !== null) periodValues.set(row.periodKey, (periodValues.get(row.periodKey) ?? 0) + value);
+//                 });
+//                 const monthlyTotals = periodKeys.map((periodKey) =>
+//                     sumAvailable(divisions.map((division) => valuesByDivision.get(division)?.get(periodKey) ?? null))
+//                 );
 
 //                 columns = ["Parent Division", ...periodKeys.map((periodKey) => {
 //                     const row = nwcRows.find((item) => item.periodKey === periodKey);
@@ -2780,16 +2894,13 @@
 //                 rows = divisions.map((division) => [
 //                     division,
 //                     ...periodKeys.map((periodKey) => {
-//                         const row = nwcRows.find((item) => item.parentDivision === division && item.periodKey === periodKey);
-//                         return row?.nwc === null || row?.nwc === undefined
-//                             ? "—"
-//                             : formatUnitValue(row.nwc, positionUnit);
+//                         const value = valuesByDivision.get(division)?.get(periodKey);
+//                         return value === null || value === undefined ? "—" : formatUnitValue(value, positionUnit);
 //                     }),
 //                 ]);
-//                 if (rows.length) rows.push(["Total", ...periodKeys.map((periodKey) => {
-//                     const total = nwcRows.filter((row) => row.periodKey === periodKey).reduce((sum, row) => sum + (Number(row.nwc) || 0), 0);
-//                     return formatUnitValue(total, positionUnit);
-//                 })]);
+//                 if (rows.length) rows.push(["Total", ...monthlyTotals.map((value) =>
+//                     value === null ? "—" : formatUnitValue(value, positionUnit)
+//                 )]);
 //             } else {
 //                 const monthlyTable = buildGenericMonthlyTable(source || [], key);
 //                 const selectedYear = yearFromDate(filters?.asOnDate);
@@ -2798,19 +2909,25 @@
 //                     return values.length ? values.reduce((sum, value) => sum + Number(value), 0) / values.length : null;
 //                 };
 //                 const averages = monthlyTable.rows.map(averageForRow);
-//                 const averageGrandTotal = averages.reduce((sum, value) => sum + (Number(value) || 0), 0);
+//                 const monthlyTotals = MONTH_KEYS.map((month) =>
+//                     sumAvailable(monthlyTable.rows.map((row) => row.months[month.key]))
+//                 );
+//                 const totalAverage = averageAvailable(monthlyTotals);
 //                 columns = ["Parent Division", ...MONTH_KEYS.map((month) => `${month.key.toUpperCase()}-${selectedYear}`), "Average", "% of Average"];
 //                 rows = monthlyTable.rows.map((row, index) => [
 //                     row.parentDivision,
 //                     ...MONTH_KEYS.map((month) => row.months[month.key] === null || row.months[month.key] === undefined ? "—" : formatUnitValue(row.months[month.key], positionUnit)),
 //                     averages[index] === null ? "—" : formatUnitValue(averages[index], positionUnit),
-//                     `${(averageGrandTotal === 0 ? 0 : ((averages[index] || 0) / averageGrandTotal) * 100).toFixed(1)}%`,
+//                     averages[index] === null || totalAverage === null || totalAverage === 0
+//                         ? "—"
+//                         : `${formatFixed(averages[index] / totalAverage * 100, 1)}%`,
 //                 ]);
-//                 const monthlyAverages = MONTH_KEYS.map((month) => {
-//                     const values = monthlyTable.rows.map((row) => row.months[month.key]).filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
-//                     return values.length ? values.reduce((sum, value) => sum + Number(value), 0) / values.length : null;
-//                 });
-//                 rows.push(["Total", ...monthlyAverages.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)), averageGrandTotal ? formatUnitValue(averageGrandTotal, positionUnit) : "—", "100.0%"]);
+//                 rows.push([
+//                     "Total",
+//                     ...monthlyTotals.map((value) => value === null ? "—" : formatUnitValue(value, positionUnit)),
+//                     totalAverage === null ? "—" : formatUnitValue(totalAverage, positionUnit),
+//                     "100.0%",
+//                 ]);
 //             }
 //         }
 //     }
@@ -2860,13 +2977,62 @@
 //                             />
 //                         </div>
 //                         {tabs.length > 0 && <div className="fp-modal-tabs" style={{ padding: "8px 20px 0", background: "#fff", flexShrink: 0, overflowX: "auto" }}>
-//                             <div style={{ ...styles.tabs, gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, minWidth: tabs.length > 2 ? 720 : 360, maxWidth: tabs.length > 2 ? 920 : 620, margin: 0 }}>
-//                                 {tabs.map((tab) => <button type="button" key={tab} onClick={() => setView(tab)}
-//                                     style={{ ...styles.tab, background: view === tab ? COLORS.primaryBlue : "#f1f5f9", color: view === tab ? "#fff" : COLORS.muted, height: 34, whiteSpace: "nowrap" }}>{tab === "Current" ? "Detailed View" : tab}</button>)}
+//                             <div className="fp-detailed-tabs" role="tablist" aria-label="Detailed view sections"
+//                                 style={{ display: "flex", alignItems: "stretch", gap: 8, minWidth: "max-content", width: "max-content", maxWidth: "none", margin: 0, padding: "2px 0 9px" }}>
+//                                 {tabs.map((tab) => {
+//                                     const active = view === tab;
+//                                     const TabIcon = getFinancialPositionTabIcon(type, tab);
+//                                     return (
+//                                         <button
+//                                             type="button"
+//                                             role="tab"
+//                                             aria-selected={active}
+//                                             key={tab}
+//                                             onClick={() => setView(tab)}
+//                                             className={`fp-detailed-tab${active ? " is-active" : ""}`}
+//                                             style={{
+//                                                 minWidth: tabs.length > 3 ? 150 : 166,
+//                                                 minHeight: 44,
+//                                                 padding: "7px 13px",
+//                                                 display: "inline-flex",
+//                                                 alignItems: "center",
+//                                                 justifyContent: "flex-start",
+//                                                 gap: 9,
+//                                                 border: active ? "1px solid #2563eb" : "1px solid #e2e8f0",
+//                                                 borderRadius: 10,
+//                                                 background: active ? "linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)" : "#fff",
+//                                                 color: active ? "#fff" : "#475569",
+//                                                 boxShadow: active ? "0 5px 14px rgba(37,99,235,.20)" : "0 1px 3px rgba(15,23,42,.045)",
+//                                                 font: `750 .69rem ${font}`,
+//                                                 whiteSpace: "nowrap",
+//                                                 cursor: "pointer",
+//                                                 transition: "background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease",
+//                                             }}
+//                                         >
+//                                             <span className="fp-detailed-tab-icon" style={{
+//                                                 width: 28, height: 28, flex: "0 0 28px",
+//                                                 display: "inline-flex", alignItems: "center", justifyContent: "center",
+//                                                 borderRadius: 8,
+//                                                 color: active ? "#fff" : "#2563eb",
+//                                                 background: active ? "rgba(255,255,255,.17)" : "#eff6ff",
+//                                                 border: active ? "1px solid rgba(255,255,255,.18)" : "1px solid #dbeafe",
+//                                             }}>
+//                                                 <TabIcon size={15} strokeWidth={2.2} />
+//                                             </span>
+//                                             <span>{tab === "Current" ? "Detailed View" : tab}</span>
+//                                         </button>
+//                                     );
+//                                 })}
 //                             </div>
 //                         </div>}
-//                         <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 20px 0", gap: 4, background: "#fff" }}>
-//                             {['AED', 'AED MILLION'].map((unit) => <button type="button" key={unit} onClick={() => setPositionUnit(unit)} style={{ border: `1px solid ${positionUnit === unit ? COLORS.primaryBlue : COLORS.border}`, background: positionUnit === unit ? COLORS.primaryBlue : "#fff", color: positionUnit === unit ? "#fff" : COLORS.muted, borderRadius: 6, padding: "5px 9px", font: `700 .60rem ${font}`, cursor: "pointer" }}>{unit}</button>)}
+//                         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "10px 20px 2px", background: "#fff" }}>
+//                             <div role="group" aria-label="Amount display unit" style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 4, border: "1px solid #dbe5f2", borderRadius: 11, background: "linear-gradient(135deg,#f8fbff 0%,#eef4ff 100%)", boxShadow: "0 2px 7px rgba(30,64,175,.06)" }}>
+
+//                                 {['AED', 'AED MILLION'].map((unit) => {
+//                                     const active = positionUnit === unit;
+//                                     return <button type="button" key={unit} aria-pressed={active} onClick={() => setPositionUnit(unit)} style={{ minHeight: 29, border: active ? "1px solid #1d4ed8" : "1px solid transparent", background: active ? "linear-gradient(135deg,#1d4ed8 0%,#3b82f6 100%)" : "transparent", color: active ? "#fff" : "#52627a", borderRadius: 8, padding: "6px 12px", font: `800 .62rem ${font}`, letterSpacing: ".025em", cursor: "pointer", boxShadow: active ? "0 3px 8px rgba(37,99,235,.24), inset 0 1px 0 rgba(255,255,255,.18)" : "none", transition: "all .18s ease", whiteSpace: "nowrap" }}>{unit}</button>;
+//                                 })}
+//                             </div>
 //                         </div>
 //                         <div className="fp-modal-content" style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", padding: "10px 18px 0", marginBottom: 0, paddingBottom: 0, scrollBehavior: "auto" }}>
 //                             {type === "investments" && view === "Parent Division MoM" && <div className="fp-investment-formula-note" style={{ margin: "0 0 10px", padding: "9px 12px", border: "1px solid #dbeafe", borderRadius: 8, background: "#eff6ff", color: "#1e3a8a", fontSize: ".72rem", lineHeight: 1.45 }}><strong>Investment formula / source:</strong> Total Investments for each Parent Division and month = backend <code>total_investments</code> value. The UI displays the service-provided value and does not recalculate it from other columns.</div>}
@@ -2881,12 +3047,8 @@
 //                             </div> : modalError ? (
 //                                 <div style={{ margin: "8px 0", padding: "12px 14px", border: "1px solid #fecaca", borderRadius: 8, background: "#fff7f7", color: "#b91c1c", fontSize: ".70rem", fontWeight: 600 }}>Unable to load this view. Please try Apply again.</div>
 //                             ) : (
-//                                 type === "borrowing" && view === "Advance From Customers" ? (
-//                                     <div style={{ padding: "28px 16px", textAlign: "center", color: COLORS.muted, fontSize: ".74rem", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 8 }}>
-//                                         Advance From Customers data is not available from the backend yet. No data is displayed in this tab.
-//                                     </div>
-//                                 ) : rows.length ? (() => {
-//                                     const hasTotalAtEnd = /^(grand\s+)?(total|average)$|^total current (assets|liabilities)$/i.test(String(rows[rows.length - 1]?.[0] ?? "").trim());
+//                                 rows.length ? (() => {
+//                                     const hasTotalAtEnd = /^(grand\s+)?(total|average)(\b.*)?$/i.test(String(rows[rows.length - 1]?.[0] ?? "").trim());
 //                                     const bodyRows = hasTotalAtEnd ? rows.slice(0, -1) : rows;
 //                                     const totalRow = hasTotalAtEnd ? rows[rows.length - 1] : null;
 //                                     return <table className="fp-viewall-table" style={{ ...styles.table, width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: !isCurrentView ? 1120 : 0, tableLayout: !isCurrentView ? "auto" : "fixed", marginTop: 12 }}>
@@ -2922,9 +3084,9 @@
 //                                                 wordBreak: cellIndex === 0 ? "break-word" : "normal",
 //                                                 color: cellIndex > 0 ? valueTextColor(cell, /^(total|average)$/i.test(String(row[0] ?? "")) ? "#1e3a8a" : "#334155") : "#334155",
 //                                                 lineHeight: !isCurrentView ? 1.15 : styles.td.lineHeight,
-//                                             }}>{cell}</td>)}</tr>;
+//                                             }} className={cellIndex > 0 && isNegativeDisplayValue(cell) ? "fp-negative-value" : undefined}>{cell}</td>)}</tr>;
 //                                         })}</tbody>
-//                                         {totalRow && <tfoot><tr>{totalRow.map((cell, cellIndex) => <td key={`total-${cellIndex}`} style={{ ...styles.totalTd, position: "sticky", bottom: 0, zIndex: 3, background: "#eaf0f8", borderTop: "2px solid #94a3b8", textAlign: cellIndex > 0 ? "right" : "left", whiteSpace: cellIndex === 0 ? "normal" : "nowrap", fontWeight: 800, color: cellIndex > 0 ? valueTextColor(cell, "#1e3a8a") : "#1e3a8a" }}>{cell}</td>)}</tr></tfoot>}
+//                                         {totalRow && <tfoot><tr>{totalRow.map((cell, cellIndex) => <td key={`total-${cellIndex}`} className={cellIndex > 0 && isNegativeDisplayValue(cell) ? "fp-negative-value" : undefined} style={{ ...styles.totalTd, position: "sticky", bottom: 0, zIndex: 3, background: "#eaf0f8", borderTop: "2px solid #94a3b8", textAlign: cellIndex > 0 ? "right" : "left", whiteSpace: cellIndex === 0 ? "normal" : "nowrap", fontWeight: 800, color: cellIndex > 0 ? valueTextColor(cell, "#1e3a8a") : "#1e3a8a" }}>{cell}</td>)}</tr></tfoot>}
 //                                     </table>;
 //                                 })() : <div style={{ padding: 30, textAlign: "center", color: COLORS.muted, fontSize: ".72rem" }}>No data available for this view.</div>
 //                             )}
@@ -3580,6 +3742,9 @@
 //                     return `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
 //                 });
 
+//                 // Backend source for this tab:
+//                 // getFinancialPositionCurrentAssetsLiabilitiesViewAll(apiFilters + calendar_date).
+//                 // Fetch one month-end snapshot for each month in the selected year.
 //                 const responses = await Promise.allSettled(
 //                     monthDates.map((date) => {
 //                         const monthFilters = { ...apiFilters, calendar_date: date };
@@ -3594,8 +3759,12 @@
 //                 );
 
 //                 const monthlyRows = [];
-//                 responses.forEach((result, index) => {
-//                     if (result.status !== "fulfilled") return;
+//                 let failedMonthCount = 0;
+//                 responses.forEach((result) => {
+//                     if (result.status !== "fulfilled") {
+//                         failedMonthCount += 1;
+//                         return;
+//                     }
 //                     const monthDate = result.value.date;
 //                     const rowsForMonth = result.value.rows || [];
 //                     rowsForMonth.forEach((row) => {
@@ -3609,6 +3778,15 @@
 //                 });
 
 //                 setModalData((prev) => ({ ...prev, currentViewAll: monthlyRows }));
+//                 setModalError(
+//                     failedMonthCount === 12
+//                         ? "Current Assets Month-on-Month data could not be loaded. The backend View All API failed for all 12 month-end requests."
+//                         : failedMonthCount > 0
+//                             ? `Current Assets Month-on-Month data is partially loaded. ${failedMonthCount} of 12 month-end API requests failed.`
+//                             : monthlyRows.length === 0
+//                                 ? "The Current Assets/Liabilities View All API returned no monthly rows for the selected filters."
+//                                 : ""
+//                 );
 //             } else if (modal === "nwc" || modal === "nwcParent") {
 //                 const response = await requestOnce(`nwcParent:${key}`, () =>
 //                     getFinancialPositionNetWorkingCapitalViewAll(apiFilters)
@@ -3921,6 +4099,7 @@
 //             longTerm: r.longTerm === null ? null : millions(r.longTerm),
 //             relatedParty: r.relatedParty === null ? null : millions(r.relatedParty),
 //             shortTerm: r.shortTerm === null ? null : millions(r.shortTerm),
+//             total: r.total === null || r.total === undefined ? null : r.total,
 //         }));
 //     // Main Fixed Assets & Other Non-Current Assets chart: show only the top 5 Parent Divisions by Fixed Assets.
 //     // Keep the existing API data and chart configuration unchanged.
@@ -4270,6 +4449,7 @@
 //             "Long-Term Bank Loan MoM",
 //             "Related Party Loan MoM",
 //             "Short-Term Bank Borrowing MoM",
+//             "Advance From Customers",
 //             "Parent Division MoM",
 //             "Month-on-Month",
 //         ].includes(activeView);
@@ -5444,7 +5624,7 @@
 //                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 //                 }
 //                 .financial-position-page .fp-composition-table thead th,
-//                 .financial-position-page .fp-viewall-table thead th {
+//                 .fp-sales-modal .fp-viewall-table thead th {
 //                     background: #f1f5f9 !important;
 //                     color: #173b8f !important;
 //                     border-bottom: 1px solid #dbe3ef !important;
@@ -5454,7 +5634,7 @@
 //                     padding: 9px 10px !important;
 //                 }
 //                 .financial-position-page .fp-composition-table tbody td,
-//                 .financial-position-page .fp-viewall-table tbody td {
+//                 .fp-sales-modal .fp-viewall-table tbody td {
 //                     color: #334155 !important;
 //                     font-size: .73rem !important;
 //                     line-height: 1.35 !important;
@@ -6027,6 +6207,260 @@
 //                     box-shadow: none !important;
 //                     padding: 0 !important;
 //                 }
+//                 /* Final Sales Revenue visual parity: presentation-only overrides. */
+//                 .financial-position-page {
+//                     background: #f8fafc !important;
+//                     color: #0f172a !important;
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+//                 .financial-position-page .fp-page-header {
+//                     margin: 0 0 14px !important;
+//                     align-items: flex-start !important;
+//                     gap: 8px !important;
+//                 }
+//                 .financial-position-page .fp-page-header h1,
+//                 .financial-position-page .fp-page-title {
+//                     color: #081b46 !important;
+//                     font-size: 1.45rem !important;
+//                     font-weight: 800 !important;
+//                     line-height: 1.2 !important;
+//                     letter-spacing: -.02em !important;
+//                 }
+//                 .financial-position-page .fp-page-header p,
+//                 .financial-position-page .fp-page-subtitle {
+//                     color: #64748b !important;
+//                     font-size: .74rem !important;
+//                     line-height: 1.45 !important;
+//                 }
+//                 .financial-position-page .fp-filter-shell {
+//                     background: #fff !important;
+//                     border: 1px solid #e2e8f0 !important;
+//                     border-radius: 10px !important;
+//                     box-shadow: 0 4px 24px rgba(15,23,42,.025), 0 1px 3px rgba(15,23,42,.035) !important;
+//                     padding: 10px 14px !important;
+//                     margin: 0 0 16px !important;
+//                 }
+//                 .financial-position-page .fp-filter-shell label,
+//                 .financial-position-page .fp-filter-shell span {
+//                     color: #1e3a8a !important;
+//                     font-size: .66rem !important;
+//                     font-weight: 700 !important;
+//                 }
+//                 .financial-position-page .fp-filter-shell select,
+//                 .financial-position-page .fp-filter-shell input,
+//                 .financial-position-page .fp-filter-shell button {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     font-size: .74rem !important;
+//                     border-radius: 7px !important;
+//                 }
+//                 .financial-position-page .fp-sales-kpis {
+//                     gap: 10px !important;
+//                     margin-bottom: 16px !important;
+//                 }
+//                 .financial-position-page .fp-sales-kpis > div {
+//                     height: 74px !important;
+//                     min-height: 74px !important;
+//                     max-height: 74px !important;
+//                     border: 1px solid #e2e8f0 !important;
+//                     border-radius: 12px !important;
+//                     box-shadow: 0 1px 3px rgba(15,23,42,.04) !important;
+//                     transition: transform .2s ease, box-shadow .2s ease !important;
+//                 }
+//                 .financial-position-page .fp-sales-kpis > div:hover {
+//                     transform: translateY(-2px) !important;
+//                     box-shadow: 0 8px 24px rgba(15,23,42,.08) !important;
+//                 }
+//                 .financial-position-page .fp-sales-card {
+//                     background: #fff !important;
+//                     border: 1px solid #e2e8f0 !important;
+//                     border-radius: 12px !important;
+//                     box-shadow: 0 2px 8px rgba(15,23,42,.035) !important;
+//                     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+//                 }
+//                 .financial-position-page .fp-sales-card:hover {
+//                     border-color: #d7dee8 !important;
+//                     box-shadow: 0 8px 22px rgba(15,23,42,.08) !important;
+//                 }
+//                 .financial-position-page .fp-sales-card .fp-card-title,
+//                 .financial-position-page .fp-sales-card h3,
+//                 .financial-position-page .fp-sales-card h4 {
+//                     color: #081b46 !important;
+//                     font-size: .88rem !important;
+//                     font-weight: 800 !important;
+//                     line-height: 1.25 !important;
+//                 }
+//                 .financial-position-page .fp-sales-card .fp-card-subtitle {
+//                     color: #64748b !important;
+//                     font-size: .72rem !important;
+//                     line-height: 1.4 !important;
+//                 }
+//                 .fp-sales-modal .fp-modal-header {
+//                     background: linear-gradient(90deg,#f8fafc,#fff) !important;
+//                     border-bottom: 1px solid #e2e8f0 !important;
+//                 }
+//                 .fp-sales-modal .fp-modal-tabs {
+//                     gap: 7px !important;
+//                     padding: 8px 18px 0 !important;
+//                     background: #fff !important;
+//                 }
+//                 .fp-sales-modal .fp-modal-tabs button {
+//                     min-height: 32px !important;
+//                     border-radius: 8px !important;
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     font-size: .69rem !important;
+//                     font-weight: 700 !important;
+//                     transition: all .15s ease !important;
+//                 }
+//                 .fp-sales-modal .fp-modal-content {
+//                     padding: 12px 18px 0 !important;
+//                     scrollbar-width: thin !important;
+//                     scrollbar-color: #94a3b8 #e2e8f0 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table {
+//                     border: 1px solid #e2e8f0 !important;
+//                     border-radius: 10px !important;
+//                     border-collapse: separate !important;
+//                     border-spacing: 0 !important;
+//                     overflow: visible !important;
+//                 }
+//                 .financial-position-page .fp-viewall-table thead th {
+//                     background: #f1f5f9 !important;
+//                     color: #1e3a8a !important;
+//                     border-bottom: 2px solid #e2e8f0 !important;
+//                     font-size: .70rem !important;
+//                     font-weight: 800 !important;
+//                     padding: 9px 10px !important;
+//                     line-height: 1.2 !important;
+//                 }
+//                 .financial-position-page .fp-viewall-table tbody td {
+//                     color: #334155 !important;
+//                     font-size: .70rem !important;
+//                     padding: 8px 10px !important;
+//                     border-bottom: 1px solid #f1f5f9 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table tbody tr:hover td {
+//                     background: #f8fafc !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table tfoot td {
+//                     background: #eaf0f8 !important;
+//                     color: #173b8f !important;
+//                     font-weight: 800 !important;
+//                     border-top: 2px solid #94a3b8 !important;
+//                 }
+//                 @media (max-width: 900px) {
+//                     .financial-position-page .fp-sales-kpis {
+//                         gap: 8px !important;
+//                     }
+//                     .financial-position-page .fp-sales-card {
+//                         padding: 11px 13px !important;
+//                     }
+//                 }
+
+//                 /* Final Detailed View table alignment: one flush scroll viewport for both axes. */
+//                 .fp-sales-modal .fp-modal-content {
+//                     padding: 0 !important;
+//                     margin: 0 !important;
+//                     overflow: auto !important;
+//                     min-width: 0 !important;
+//                     min-height: 0 !important;
+//                     overscroll-behavior: contain !important;
+//                     scrollbar-width: thin !important;
+//                     scrollbar-color: #64748b #e2e8f0 !important;
+//                     position: relative !important;
+//                 }
+//                 .fp-sales-modal .fp-modal-content::-webkit-scrollbar { width: 14px !important; height: 14px !important; }
+//                 .fp-sales-modal .fp-modal-content::-webkit-scrollbar-track { background: #e2e8f0 !important; border-radius: 6px !important; }
+//                 .fp-sales-modal .fp-modal-content::-webkit-scrollbar-thumb { background: #64748b !important; border: 3px solid #e2e8f0 !important; border-radius: 6px !important; }
+//                 .fp-sales-modal .fp-viewall-table {
+//                     width: max-content !important;
+//                     min-width: 100% !important;
+//                     max-width: none !important;
+//                     margin: 0 !important;
+//                     table-layout: auto !important;
+//                     border-collapse: separate !important;
+//                     border-spacing: 0 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table thead th {
+//                     position: sticky !important;
+//                     top: 0 !important;
+//                     z-index: 8 !important;
+//                     background: #f1f5f9 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table thead th:first-child {
+//                     position: sticky !important;
+//                     left: 0 !important;
+//                     z-index: 12 !important;
+//                     background: #eaf0f8 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table tbody td:first-child {
+//                     position: sticky !important;
+//                     left: 0 !important;
+//                     z-index: 4 !important;
+//                     background: #fff !important;
+//                     box-shadow: 1px 0 0 #dbe3ef !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table tbody tr:nth-child(even) td:first-child { background: #fbfdff !important; }
+//                 .fp-sales-modal .fp-viewall-table tfoot td {
+//                     position: sticky !important;
+//                     bottom: 0 !important;
+//                     z-index: 9 !important;
+//                     background: #eaf0f8 !important;
+//                     border-top: 2px solid #94a3b8 !important;
+//                     box-shadow: 0 -1px 0 #cbd5e1 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table tfoot td:first-child {
+//                     left: 0 !important;
+//                     z-index: 13 !important;
+//                     background: #eaf0f8 !important;
+//                 }
+//                 .fp-sales-modal .fp-viewall-table td.fp-negative-value {
+//                     color: #dc2626 !important;
+//                     font-weight: 700 !important;
+//                 }
+
+//                 /* Financial Position Detailed View tabs — visual-only enhancement. */
+//                 .fp-sales-modal .fp-modal-tabs {
+//                     padding: 10px 18px 0 !important;
+//                     border-bottom: 1px solid #edf1f7 !important;
+//                     background: linear-gradient(180deg,#ffffff 0%,#fbfdff 100%) !important;
+//                 }
+//                 .fp-sales-modal .fp-detailed-tabs {
+//                     scrollbar-width: thin;
+//                     scrollbar-color: #cbd5e1 transparent;
+//                 }
+//                 .fp-sales-modal .fp-detailed-tabs::-webkit-scrollbar { height: 5px; }
+//                 .fp-sales-modal .fp-detailed-tabs::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+//                 .fp-sales-modal .fp-detailed-tab:not(.is-active):hover {
+//                     background: #f8fbff !important;
+//                     border-color: #93c5fd !important;
+//                     color: #1d4ed8 !important;
+//                     box-shadow: 0 4px 11px rgba(37,99,235,.09) !important;
+//                     transform: translateY(-1px);
+//                 }
+//                 .fp-sales-modal .fp-detailed-tab:focus-visible {
+//                     outline: 3px solid rgba(59,130,246,.24) !important;
+//                     outline-offset: 2px !important;
+//                 }
+//                 .fp-sales-modal .fp-detailed-tab.is-active .fp-detailed-tab-icon {
+//                     color: #fff !important;
+//                     background: rgba(255,255,255,.17) !important;
+//                     border-color: rgba(255,255,255,.22) !important;
+//                 }
+//                 @media (max-width: 700px) {
+//                     .fp-sales-modal .fp-modal-tabs { padding: 8px 12px 0 !important; }
+//                     .fp-sales-modal .fp-detailed-tabs { gap: 6px !important; }
+//                     .fp-sales-modal .fp-detailed-tab {
+//                         min-width: 145px !important;
+//                         min-height: 41px !important;
+//                         padding: 6px 9px !important;
+//                         font-size: .64rem !important;
+//                     }
+//                     .fp-sales-modal .fp-detailed-tab-icon {
+//                         width: 26px !important;
+//                         height: 26px !important;
+//                         flex-basis: 26px !important;
+//                     }
+//                 }
 //             `}</style>
 //             <div className="fp-finance-content" style={{ width: "100%", minWidth: 0 }}>
 //                 <motion.header className="fp-page-header" style={{ ...styles.pageHeader, marginBottom: 10, flexDirection: isMobile ? "column" : "row" }} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
@@ -6368,7 +6802,7 @@
 //                     </motion.section>
 
 //                     <motion.section className="fp-sales-card fp-investment-logic-equal-card" style={{ ...styles.card, minWidth: 0, display: "flex", flexDirection: "column", alignSelf: "stretch", height: "100%", minHeight: isMobile ? 0 : 470, boxSizing: "border-box" }} whileHover={{ boxShadow: shadowHover }}>
-//                         <CardHeader title="Investment & Borrowing Logic" subtitle="Financial Position calculation notes" />
+//                         <CardHeader title="Investment & Borrowing Logic" subtitle="Financial Position calculation notes" showActions={false} />
 //                         <div className="fp-investment-borrowing-logic-list" style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, justifyContent: "space-between" }}>
 //                             {logicItems.map((item, index) => (
 //                                 <div key={item.title} style={{ display: "grid", gridTemplateColumns: "30px minmax(0,1fr)", gap: 8, alignItems: "start", padding: "7px 8px", border: "1px solid #e7edf5", borderRadius: 9, background: item.tint, minWidth: 0 }}>
@@ -6538,7 +6972,7 @@
 
 //                     <motion.section className="fp-sales-card fp-live-chart" style={{ ...styles.card, minWidth: 0 }} whileHover={{ boxShadow: shadowHover }}>
 //                         <CardHeader title="Fixed Assets & Other Non-Current Assets" subtitle="By Parent Division" onViewAll={() => openTable("fixedAssets")} onExportExcel={canExportFinancialPosition ? () => exportSection("fixedAssets", "excel") : undefined} onExportPdf={canExportFinancialPosition ? () => exportSection("fixedAssets", "pdf") : undefined} />
-//                         <div className="fp-sales-chart" style={{ height: 188 }}>{loading ? <Skeleton height={188} /> : !fixedAssetsTrend.length ? <NoDataState /> : <ResponsiveContainer width="100%" height={188}><ComposedChart data={fixedAssetsTrend} margin={{ top: 8, right: 4, left: -16, bottom: 42 }}><CartesianGrid vertical={false} stroke="#eef2f7" /><XAxis dataKey="period" tick={<FixedAssetsBarXAxisTick />} axisLine={false} tickLine={false} interval={0} height={58} /><YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "rgba(37,99,235,.06)" }} content={<ChartTooltip title="Fixed Assets & Other Non-Current Assets" badge="ASSET POSITION" accent="#2563EB" currency={appliedFilters.reportingCurrency} sourceUnit="M" />} /><Legend wrapperStyle={{ fontSize: 9, color: "#64748b" }} /><Bar isAnimationActive={true} animationDuration={700} dataKey="fixedAssets" name={`Fixed Assets & Other NCA (${appliedFilters.reportingCurrency} M)`} fill="#2563eb" radius={[3, 3, 0, 0]} activeBar={{ stroke: "#173b8f", strokeWidth: 1.2, fillOpacity: 0.88 }} barSize={15} onMouseEnter={(_, index) => setFixedAssetsBarHover(index)} onMouseLeave={() => setFixedAssetsBarHover(null)}>{fixedAssetsTrend.map((_, index) => <Cell key={`fixed-assets-${index}`} fill="#2563eb" opacity={fixedAssetsBarHover !== null && fixedAssetsBarHover !== index ? .32 : 1} />)}</Bar><Line isAnimationActive={true} animationBegin={180} animationDuration={800} activeDot={{ r: 5, strokeWidth: 2, stroke: "#5b21b6", fill: "#ffffff" }} type="monotone" dataKey="provision" name={`Provision for Gratuity (${appliedFilters.reportingCurrency} M)`} stroke="#7c3aed" strokeWidth={2.2} dot={{ r: 2.4, strokeWidth: 1.5 }} /></ComposedChart></ResponsiveContainer>}</div>
+//                         <div className="fp-sales-chart" style={{ height: 188 }}>{loading ? <Skeleton height={188} /> : !fixedAssetsTrend.length ? <NoDataState /> : <ResponsiveContainer width="100%" height={188}><ComposedChart data={fixedAssetsTrend} margin={{ top: 8, right: 4, left: -16, bottom: 42 }}><CartesianGrid vertical={false} stroke="#eef2f7" /><XAxis dataKey="period" tick={<FixedAssetsBarXAxisTick />} axisLine={false} tickLine={false} interval={0} height={58} /><YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "rgba(37,99,235,.06)" }} content={<ChartTooltip title="Fixed Assets & Other Non-Current Assets" badge="ASSET POSITION" accent="#2563EB" currency={appliedFilters.reportingCurrency} sourceUnit="M" />} /><Legend wrapperStyle={{ fontSize: 9, color: "#64748b" }} /><Bar isAnimationActive={true} animationDuration={700} dataKey="fixedAssets" name={`Fixed Assets & Other NCA (${appliedFilters.reportingCurrency} M)`} fill="#2563eb" radius={[3, 3, 0, 0]} activeBar={{ stroke: "#173b8f", strokeWidth: 1.2, fillOpacity: 0.88 }} barSize={15} onMouseEnter={(_, index) => setFixedAssetsBarHover(index)} onMouseLeave={() => setFixedAssetsBarHover(null)}>{fixedAssetsTrend.map((_, index) => <Cell key={`fixed-assets-${index}`} fill="#2563eb" opacity={fixedAssetsBarHover !== null && fixedAssetsBarHover !== index ? .32 : 1} />)}</Bar></ComposedChart></ResponsiveContainer>}</div>
 //                     </motion.section>
 //                 </div>
 //             </div>
@@ -6568,9 +7002,14 @@
 
 
 
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, Minimize2 } from "lucide-react";
+import {
+    Maximize2, Minimize2, Landmark, TrendingUp, Layers, CalendarDays,
+    Building2, Wallet, Banknote, PieChart, FileText, ArrowLeftRight,
+    BriefcaseBusiness, Scale, CircleDollarSign,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ResponsiveContainer,
@@ -7054,6 +7493,34 @@ function MultiSelect({ options = [], value = [], onChange, placeholder = "All", 
     );
 }
 
+// Presentation-only icon mapping for the Financial Position View All tabs.
+function getFinancialPositionTabIcon(type, tab) {
+    const label = String(tab || "").toLowerCase();
+    if (label.includes("parent division")) return Building2;
+    if (label.includes("month") || label.includes("mom")) return CalendarDays;
+    if (label.includes("equity")) return Scale;
+    if (label.includes("long-term")) return Landmark;
+    if (label.includes("related party")) return BriefcaseBusiness;
+    if (label.includes("short-term")) return Banknote;
+    if (label.includes("advance")) return Wallet;
+    if (label.includes("component")) return Layers;
+    if (label.includes("trend")) return TrendingUp;
+    if (label.includes("current")) {
+        if (type === "assets") return PieChart;
+        if (type === "liabilities") return Scale;
+        if (type === "borrowing") return Landmark;
+        return FileText;
+    }
+    if (type === "equity") return Scale;
+    if (type === "investments") return CircleDollarSign;
+    if (type === "borrowing") return Landmark;
+    if (type === "nwc" || type === "nwcParent" || type === "nwcTrend" || type === "nwcMonthly") return TrendingUp;
+    if (type === "assets") return PieChart;
+    if (type === "liabilities") return Wallet;
+    if (type === "fixedAssets") return Building2;
+    return ArrowLeftRight;
+}
+
 function useResponsiveColumns() {
     const [width, setWidth] = useState(typeof window === "undefined" ? 1440 : window.innerWidth);
     useEffect(() => {
@@ -7174,7 +7641,7 @@ function KpiCard({ item, loading, currency, index = 0 }) {
     );
 }
 
-function CardHeader({ title, subtitle, onViewAll, onExportExcel, onExportPdf, headerMetric }) {
+function CardHeader({ title, subtitle, onViewAll, onExportExcel, onExportPdf, headerMetric, showActions = true }) {
     return <div style={styles.cardHeader}>
         <div style={{ minWidth: 0, flex: 1 }}>
             <div style={styles.cardTitle}>{title}</div>
@@ -7187,7 +7654,7 @@ function CardHeader({ title, subtitle, onViewAll, onExportExcel, onExportPdf, he
                     <div style={{ marginTop: 3, fontSize: ".72rem", fontWeight: 800, color: "#173b8f", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{headerMetric.value}</div>
                 </div>
             ) : null}
-            <ActionMenu onViewAll={onViewAll} onExportExcel={onExportExcel} onExportPdf={onExportPdf} />
+            {showActions ? <ActionMenu onViewAll={onViewAll} onExportExcel={onExportExcel} onExportPdf={onExportPdf} /> : null}
         </div>
     </div>;
 }
@@ -7245,7 +7712,7 @@ function BorrowingTooltip({ active, payload, label, currency = "AED" }) {
             ))}
             <div style={{ marginTop: 7, paddingTop: 7, borderTop: "1px solid #eef2f7", display: "flex", justifyContent: "space-between", gap: 14, color: "#334155", fontSize: ".63rem", fontWeight: 700 }}>
                 <span>Total Borrowings</span>
-                <strong style={{ color: valueTextColor(Number(row.longTerm || 0) + Number(row.shortTerm || 0) + Number(row.relatedParty || 0), "#1e1b4b"), fontWeight: 800 }}>{Number.isFinite(Number(row.longTerm)) || Number.isFinite(Number(row.shortTerm)) || Number.isFinite(Number(row.relatedParty)) ? formatTooltipCurrency(Number(row.longTerm || 0) + Number(row.shortTerm || 0) + Number(row.relatedParty || 0), currency, "M") : "—"}</strong>
+                <strong style={{ color: valueTextColor(row.total ?? (Number(row.longTerm || 0) + Number(row.shortTerm || 0) + Number(row.relatedParty || 0)), "#1e1b4b"), fontWeight: 800 }}>{row.total !== null && row.total !== undefined ? formatTooltipCurrency(row.total, currency, "M") : ([row.longTerm, row.shortTerm, row.relatedParty].every((value) => value !== null && value !== undefined) ? formatTooltipCurrency(Number(row.longTerm) + Number(row.shortTerm) + Number(row.relatedParty), currency, "M") : "—")}</strong>
             </div>
         </div>
     );
@@ -7394,6 +7861,188 @@ function num(value) {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
 }
+// Hide only Balance Sheet rows that are both unmapped (null Parent Division)
+// and financially empty. Keep non-zero or unparseable rows visible for review.
+function isEmptyUnmappedBalanceSheetRow(row) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+    if (row.parent_division_id !== null) return false;
+
+    // These are the actual financial balance fields returned by the
+    // Current Assets / Current Liabilities View All API.
+    // Require every field to exist and parse to exactly zero. If the API
+    // changes its payload, or any value is missing/unparseable, keep the row.
+    const financialBalanceKeys = [
+        "inventories",
+        "trade_receivables",
+        "other_current_assets",
+        "prepayments_and_advances",
+        "cash_and_bank",
+        "due_from_related_party",
+        "total_current_assets",
+        "short_term_bank_borrowings",
+        "trade_payables",
+        "short_term_lease_liability",
+        "other_current_liabilities",
+        "due_to_related_party",
+        "total_current_liabilities",
+        "net_working_capital",
+    ];
+
+    return financialBalanceKeys.every((key) => {
+        if (!Object.prototype.hasOwnProperty.call(row, key)) return false;
+        const value = nullableNum(row[key]);
+        return value !== null && value === 0;
+    });
+}
+
+function filterEmptyUnmappedBalanceSheetRows(rows) {
+    return (Array.isArray(rows) ? rows : [])
+        .filter((row) => !isEmptyUnmappedBalanceSheetRow(row));
+}
+
+// Shared frontend-only rule for every Parent Division Detailed View.
+// A null Parent Division row is removed only when every recognised financial
+// measure for that section is present, parseable, and exactly zero.
+// Missing/unparseable values and non-zero balances always remain visible.
+function filterZeroNullParentDivisionRows(rows, financialFieldGroups) {
+    return (Array.isArray(rows) ? rows : []).filter((row) => {
+        if (!row || typeof row !== "object" || Array.isArray(row)) return true;
+        if (row.parent_division_id !== null) return true;
+
+        const allRecognisedValuesAreZero = financialFieldGroups.every((aliases) => {
+            const presentKeys = aliases.filter((key) =>
+                Object.prototype.hasOwnProperty.call(row, key)
+            );
+            if (presentKeys.length === 0) return false;
+
+            return presentKeys.every((key) => {
+                const value = nullableNum(row[key]);
+                return value !== null && value === 0;
+            });
+        });
+
+        return !allRecognisedValuesAreZero;
+    });
+}
+
+function isNullParentDivisionId(value) {
+    return value === null || (
+        typeof value === "string" && value.trim().toLowerCase() === "null"
+    );
+}
+
+function filterNullParentDivisionRowsByAvailableKeys(rows, financialKeys) {
+    return (Array.isArray(rows) ? rows : []).filter((row) => {
+        if (!row || typeof row !== "object" || Array.isArray(row)) return true;
+        if (!isNullParentDivisionId(row.parent_division_id)) return true;
+
+        const presentKeys = financialKeys.filter((key) =>
+            Object.prototype.hasOwnProperty.call(row, key)
+        );
+        if (presentKeys.length === 0) return true;
+
+        const allPresentValuesAreZero = presentKeys.every((key) => {
+            const value = nullableNum(row[key]);
+            return value !== null && value === 0;
+        });
+        return !allPresentValuesAreZero;
+    });
+}
+
+// Investments Analysis and Fixed Assets APIs expose a variable subset of these
+// recognised financial measures. Check every recognised financial field actually
+// supplied by the API row, rather than requiring every possible measure to exist.
+// If no recognised measure is supplied, or any supplied value is unparseable or
+// non-zero, keep the row visible for investigation.
+// The Current / Detailed View table displays these three backend balances.
+// All three must be present and exactly zero before a null-parent row is hidden.
+const INVESTMENT_VIEW_ALL_REQUIRED_FINANCIAL_FIELDS = [
+    ["fixed_assets_and_other_non_current_assets", "fixed_assets_other_non_current_assets", "fixed_assets_and_other_nca", "fixedAssetsAndOtherNonCurrentAssets", "fixedAssetsOtherNonCurrentAssets", "fixed_assets"],
+    ["net_working_capital", "netWorkingCapital", "net_working_capital_aed", "nwc", "nwc_aed"],
+    ["total_investments", "totalInvestments", "total_investment", "investments_total", "total_investments_aed"],
+];
+
+const INVESTMENT_FIXED_ASSETS_FINANCIAL_KEYS = [
+    "fixed_assets_and_other_non_current_assets",
+    "fixed_assets_other_non_current_assets",
+    "fixed_assets_and_other_nca",
+    "fixedAssetsAndOtherNonCurrentAssets",
+    "fixedAssetsOtherNonCurrentAssets",
+    "fixed_assets",
+    "fixed_assets_aed",
+    "fixed_assets_amount",
+    "provision_for_gratuity",
+    "provisionForGratuity",
+    "provision_for_gratuity_aed",
+    "current_assets",
+    "total_current_assets",
+    "currentAssets",
+    "totalCurrentAssets",
+    "current_assets_aed",
+    "total_current_assets_aed",
+    "current_liabilities",
+    "total_current_liabilities",
+    "currentLiabilities",
+    "totalCurrentLiabilities",
+    "current_liabilities_aed",
+    "total_current_liabilities_aed",
+    "net_working_capital",
+    "netWorkingCapital",
+    "net_working_capital_aed",
+    "nwc",
+    "nwc_aed",
+    "total_investments",
+    "totalInvestments",
+    "total_investment",
+    "investments_total",
+    "total_investments_aed",
+    "current_ratio",
+    "currentRatio",
+    "nwc_turnover_ratio",
+    "nwcTurnoverRatio",
+    "percentage_of_total",
+    "pct_of_total",
+];
+
+function filterZeroNullParentDivisionInvestmentRows(rows) {
+    return filterNullParentDivisionRowsByAvailableKeys(
+        rows,
+        INVESTMENT_FIXED_ASSETS_FINANCIAL_KEYS
+    );
+}
+
+const EQUITY_DETAIL_FINANCIAL_FIELDS = [
+    ["share_capital", "shareCapital"],
+    ["additional_capital", "additionalCapital"],
+    ["reserves_and_surplus", "reservesAndSurplus", "reserves_surplus"],
+    ["partner_current_account", "partnerCurrentAccount"],
+    ["current_year_profit", "currentYearProfit", "profit_for_the_year"],
+    ["equity_total", "total_equity", "equity", "equity_position", "totalEquity"],
+];
+
+const NWC_DETAIL_FINANCIAL_FIELDS = [
+    ["current_assets", "total_current_assets", "currentAssets", "totalCurrentAssets"],
+    ["current_liabilities", "total_current_liabilities", "currentLiabilities", "totalCurrentLiabilities"],
+    ["net_working_capital", "netWorkingCapital", "nwc"],
+];
+
+const INVESTMENT_DETAIL_FINANCIAL_FIELDS = [
+    ["fixed_assets_and_other_non_current_assets", "fixedAssetsAndOtherNonCurrentAssets", "fixed_assets"],
+    ["provision_for_gratuity", "provisionForGratuity"],
+    ["current_assets", "total_current_assets", "currentAssets", "totalCurrentAssets"],
+    ["current_liabilities", "total_current_liabilities", "currentLiabilities", "totalCurrentLiabilities"],
+    ["net_working_capital", "netWorkingCapital", "nwc"],
+    ["total_investments", "totalInvestments", "total_investment", "investments_total"],
+];
+
+const BORROWING_DETAIL_FINANCIAL_FIELDS = [
+    ["long_term_bank_borrowings", "longTermBankBorrowings"],
+    ["short_term_bank_borrowings", "shortTermBankBorrowings"],
+    ["bank_borrowings_total", "bankBorrowingsTotal"],
+    ["loan_from_related_party", "loanFromRelatedParty"],
+    ["total_borrowings", "totalBorrowings"],
+];
+
 function nullableNum(value) {
     if (value === null || value === undefined || value === "") return null;
     if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -7409,10 +8058,16 @@ function nullableNum(value) {
     return isAccountingNegative ? -Math.abs(parsed) : parsed;
 }
 function millions(value) { return num(value) / 1000000; }
+function formatFixed(value, decimals = 1) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "—";
+    const rounded = Number(numeric.toFixed(decimals));
+    return (Object.is(rounded, -0) ? 0 : rounded).toFixed(decimals);
+}
 function formatM(value) {
     return value === null || value === undefined || value === "" || !Number.isFinite(Number(value))
         ? "—"
-        : millions(value).toFixed(1);
+        : formatFixed(millions(value), 1);
 }
 function firstValue(obj, keys, fallback = null) {
     for (const key of keys) {
@@ -7795,7 +8450,10 @@ function normalizeEquityViewAll(response) {
         }
     }
 
+    rows = filterZeroNullParentDivisionRows(rows, EQUITY_DETAIL_FINANCIAL_FIELDS);
+
     return rows.map((row) => ({
+        parentDivisionId: row.parent_division_id,
         legalGroup: firstValue(row, ["legal_group_name", "legal_group", "legal_group_id"], "—"),
         legalEntity: firstValue(row, ["legal_entity_name", "legal_entity", "legal_entity_id"], "—"),
         parentDivision: firstValue(row, ["parent_division_name", "parent_division", "parent_division_code", "parentDivision", "name"], "—"),
@@ -7862,6 +8520,18 @@ function normalizeEquityMonthly(response) {
         monthAliases[month].some((key) => row?.[key] !== undefined || row?.[key.toUpperCase()] !== undefined)
     );
 
+    const hasWideMonthlyValues = rows.some(hasMonthColumn);
+    if (hasWideMonthlyValues) {
+        const monthlyFinancialKeys = Object.values(monthAliases)
+            .flat()
+            .flatMap((key) => [key, key.toUpperCase()]);
+        rows = filterNullParentDivisionRowsByAvailableKeys(rows, monthlyFinancialKeys);
+    } else {
+        rows = filterZeroNullParentDivisionRows(rows, [
+            ["equity_total", "total_equity", "equity", "equity_position", "amount", "value"],
+        ]);
+    }
+
     const output = [];
 
     // Wide response: Parent Division + Jan-Dec columns.
@@ -7877,6 +8547,7 @@ function normalizeEquityMonthly(response) {
                     output.push({
                         period: month.key,
                         parentDivision: parent,
+                        parentDivisionId: row.parent_division_id,
                         code,
                         equity: nullableNum(row[key]),
                         kind: "equity",
@@ -7893,6 +8564,7 @@ function normalizeEquityMonthly(response) {
         output.push({
             period: period === null ? "—" : String(period),
             parentDivision: divisionLabel(row),
+            parentDivisionId: row.parent_division_id,
             code: firstValue(row, ["parent_division_code", "parentDivisionCode"], null),
             equity: nullableNum(firstValue(row, [
                 "equity_total", "total_equity", "equity", "equity_position", "amount", "value",
@@ -7952,24 +8624,26 @@ function normalizeKpis(response) {
     ];
 }
 function normalizeNwcParentRows(response) {
-    return toRows(response)
-        .map((row) => ({
-            parentDivision: divisionLabel(row),
-            code: row.parent_division_code ?? null,
-            currentAssets: nullableNum(row.current_assets ?? row.total_current_assets ?? row.currentAssets ?? row.totalCurrentAssets),
-            currentLiabilities: nullableNum(row.current_liabilities ?? row.total_current_liabilities ?? row.currentLiabilities ?? row.totalCurrentLiabilities),
-            nwc: nullableNum(row.net_working_capital ?? row.netWorkingCapital ?? row.nwc),
-        }))
-        .filter((row) => row.parentDivision && row.parentDivision !== "—");
+    const rows = filterZeroNullParentDivisionRows(toRows(response), NWC_DETAIL_FINANCIAL_FIELDS);
+    return rows.map((row) => ({
+        parentDivision: divisionLabel(row),
+        parentDivisionId: row.parent_division_id,
+        code: row.parent_division_code ?? null,
+        currentAssets: nullableNum(row.current_assets ?? row.total_current_assets ?? row.currentAssets ?? row.totalCurrentAssets),
+        currentLiabilities: nullableNum(row.current_liabilities ?? row.total_current_liabilities ?? row.currentLiabilities ?? row.totalCurrentLiabilities),
+        nwc: nullableNum(row.net_working_capital ?? row.netWorkingCapital ?? row.nwc),
+    }));
 }
 
 function normalizeNwcMonthlyRows(response) {
-    return toRows(response)
+    const sourceRows = filterZeroNullParentDivisionRows(toRows(response), INVESTMENT_DETAIL_FINANCIAL_FIELDS);
+    return sourceRows
         .map((row) => {
             const periodCode = row.period_code ?? row.period_key ?? null;
             const periodMonth = row.period_month ?? null;
             return {
                 parentDivision: divisionLabel(row),
+                parentDivisionId: row.parent_division_id,
                 code: row.parent_division_code ?? null,
                 periodCode,
                 periodKey: periodCode || periodMonth || periodLabel(row),
@@ -7982,20 +8656,18 @@ function normalizeNwcMonthlyRows(response) {
                 nwc: nullableNum(row.net_working_capital),
                 totalInvestments: nullableNum(row.total_investments),
             };
-        })
-        .filter((row) =>
-            row.parentDivision &&
-            row.parentDivision !== "—" &&
-            row.nwc !== null &&
-            row.nwc !== undefined
-        );
+        });
 }
 
 function normalizeInvestmentRows(response) {
-    return toRows(response).map((row) => ({
+    return filterZeroNullParentDivisionRows(toRows(response), INVESTMENT_VIEW_ALL_REQUIRED_FINANCIAL_FIELDS).map((row) => ({
         legalGroup: row.legal_group_name ?? row.legal_group ?? row.legal_group_id ?? "—",
         legalEntity: row.legal_entity_name ?? row.legal_entity ?? row.legal_entity_id ?? "—",
-        parentDivision: divisionLabel(row),
+        parentDivision: isNullParentDivisionId(row.parent_division_id) &&
+            (row.parent_division_name == null || String(row.parent_division_name).trim().toLowerCase() === "null")
+                ? "—"
+                : divisionLabel(row),
+        parentDivisionId: row.parent_division_id,
         code: row.parent_division_code,
         period: row.period_month ?? row.period_code ?? periodLabel(row),
         periodKey: row.period_key ?? row.period_code ?? row.period_month ?? periodLabel(row),
@@ -8015,26 +8687,46 @@ function normalizeInvestmentRows(response) {
 }
 
 function normalizeBorrowingRows(response) {
-    return toRows(response).map((row) => ({
-        parentDivision: divisionLabel(row),
-        code: row.parent_division_code,
-        longTerm: nullableNum(row.long_term_bank_borrowings),
-        shortTerm: nullableNum(row.short_term_bank_borrowings),
-        bankTotal: nullableNum(row.bank_borrowings_total),
-        relatedParty: nullableNum(row.loan_from_related_party),
-        total: nullableNum(row.total_borrowings),
-        legalEntity: row.legal_entity_name ?? row.legal_entity ?? "—",
-        subDivision: row.subdivision_name ?? row.sub_division_name ?? row.subdivision ?? "—",
-    }));
+    return filterZeroNullParentDivisionRows(toRows(response), BORROWING_DETAIL_FINANCIAL_FIELDS).map((row) => {
+        const longTerm = nullableNum(row.long_term_bank_borrowings);
+        const shortTerm = nullableNum(row.short_term_bank_borrowings);
+        const relatedParty = nullableNum(row.loan_from_related_party);
+        const backendTotal = nullableNum(row.total_borrowings);
+        // The deployed API now supplies total_borrowings. Prefer that field;
+        // retain the documented component formula as a safe fallback only
+        // when all three component values are available.
+        const calculatedTotal = [longTerm, shortTerm, relatedParty].every((value) => value !== null)
+            ? longTerm + shortTerm + relatedParty
+            : null;
+
+        return {
+            parentDivision: divisionLabel(row),
+            parentDivisionId: row.parent_division_id,
+            code: row.parent_division_code,
+            longTerm,
+            shortTerm,
+            bankTotal: nullableNum(row.bank_borrowings_total),
+            relatedParty,
+            total: backendTotal ?? calculatedTotal,
+            legalEntity: row.legal_entity_name ?? row.legal_entity ?? "—",
+            subDivision: row.subdivision_name ?? row.sub_division_name ?? row.subdivision ?? "—",
+        };
+    });
 }
 
 function normalizeMonthly(response, kind) {
-    return toRows(response).map((row) => ({
+    const sourceRows = kind === "borrowing"
+        ? filterZeroNullParentDivisionRows(toRows(response), BORROWING_DETAIL_FINANCIAL_FIELDS)
+        : kind === "equity"
+            ? filterZeroNullParentDivisionRows(toRows(response), EQUITY_DETAIL_FINANCIAL_FIELDS)
+            : filterZeroNullParentDivisionInvestmentRows(toRows(response));
+    return sourceRows.map((row) => ({
         period: periodLabel(row),
         periodCode: row.period_code ?? null,
         periodMonth: row.period_month ?? null,
         periodKey: String(row.period_code ?? row.period_month ?? row.period ?? row.month ?? ""),
         parentDivision: divisionLabel(row),
+        parentDivisionId: row.parent_division_id,
         code: row.parent_division_code,
         totalInvestments: nullableNum(row.total_investments ?? row.total_investment ?? row.investments_total),
         fixedAssets: nullableNum(row.fixed_assets_and_other_non_current_assets),
@@ -8046,6 +8738,7 @@ function normalizeMonthly(response, kind) {
         longTerm: nullableNum(row.long_term_bank_borrowings),
         shortTerm: nullableNum(row.short_term_bank_borrowings),
         relatedParty: nullableNum(row.loan_from_related_party),
+        advancesFromCustomers: nullableNum(row.advances_from_customers),
         kind,
     }));
 }
@@ -8294,7 +8987,12 @@ function averageAvailable(values) {
 
 function formatUnitValue(value, unit) {
     if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "—";
-    return unit === "AED" ? Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 }) : millions(value).toFixed(1);
+    const numeric = Number(value);
+    if (unit === "AED") {
+        const rounded = Math.round(numeric);
+        return (Object.is(rounded, -0) ? 0 : rounded).toLocaleString("en-US", { maximumFractionDigits: 0 });
+    }
+    return formatFixed(millions(numeric), 1);
 }
 
 function valueForPositionRow(row, type) {
@@ -8925,7 +9623,8 @@ function Modal({
             view === "Parent Division MoM" ||
             view === "Long-Term Bank Loan MoM" ||
             view === "Related Party Loan MoM" ||
-            view === "Short-Term Bank Borrowing MoM";
+            view === "Short-Term Bank Borrowing MoM" ||
+            view === "Advance From Customers";
         if (open && isMonthlyView) onTabChange?.(view);
     }, [open, view]);
 
@@ -8941,7 +9640,7 @@ function Modal({
     const isPositionType = type === "assets" || type === "liabilities";
     const [positionUnit, setPositionUnit] = useState("AED MILLION");
     const [positionBarHover, setPositionBarHover] = useState(null);
-    const positionRows = isPositionType ? (detail?.currentViewAll || []).map((r) => ({
+    const positionRows = isPositionType ? filterEmptyUnmappedBalanceSheetRows(detail?.currentViewAll || []).map((r) => ({
         legalGroup: r.legal_group_name ?? r.legal_group ?? r.legal_group_id ?? "—",
         legalEntity: r.legal_entity_name ?? r.legal_entity ?? r.legal_entity_id ?? "—",
         parentDivision: r.parent_division_name ?? r.parent_division ?? r.parent_division_code ?? "—",
@@ -8968,10 +9667,7 @@ function Modal({
             const source = detail?.nwcParent || [];
 
             const parentRows = source
-                .filter((row) =>
-                    row.parentDivision &&
-                    row.parentDivision !== "—"
-                )
+                .filter((row) => row.parentDivision || row.parentDivisionId === null)
                 .sort((a, b) => Math.abs(Number(b.nwc) || 0) - Math.abs(Number(a.nwc) || 0));
 
             columns = [
@@ -9047,7 +9743,7 @@ function Modal({
                 rows = compositionRows.map((r) => [
                     r.item,
                     r.amount === null || r.amount === undefined ? "—" : formatUnitValue(Number(r.amount) * 1000000, positionUnit),
-                    r.pct === null || r.pct === undefined ? "—" : `${Number(r.pct).toFixed(1)}%`,
+                    r.pct === null || r.pct === undefined ? "—" : `${formatFixed(r.pct, 1)}%`,
                 ]);
                 const calculatedTotalMillions = sumAvailable(compositionRows.map((row) => row.amount));
                 const calculatedTotal = calculatedTotalMillions === null ? null : calculatedTotalMillions * 1000000;
@@ -9154,7 +9850,7 @@ function Modal({
         } else if (type === "nwcMonthly" && view === "Parent Division MoM") {
             // Parent Division MoM: use the dedicated investments monthly-by-parent-division API.
             const monthlyRows = (detail?.nwcMonthly || [])
-                .filter((row) => row?.period && row.parentDivision && row.parentDivision !== "—")
+                .filter((row) => row?.period && (row.parentDivision || row.parentDivisionId === null))
                 .slice()
                 .sort((a, b) =>
                     monthSortValue(a.periodCode || a.periodMonth || a.period) -
@@ -9188,7 +9884,7 @@ function Modal({
                 average === null ? "—" : formatUnitValue(average, positionUnit),
                 average === null || totalAverage === null || totalAverage === 0
                     ? "—"
-                    : `${(average / totalAverage * 100).toFixed(1)}%`,
+                    : `${formatFixed(average / totalAverage * 100, 1)}%`,
             ]);
             if (rows.length) rows.push([
                 "Total",
@@ -9203,10 +9899,8 @@ function Modal({
             // Dedicated monthly response: period_code/period_month + parent division NWC.
             const source = (detail?.nwcMonthly || [])
                 .filter((row) =>
-                    row.parentDivision &&
-                    row.parentDivision !== "—" &&
-                    row.nwc !== null &&
-                    row.nwc !== undefined
+                    (row.parentDivision || row.parentDivisionId === null) &&
+                    (row.nwc !== null && row.nwc !== undefined || row.parentDivisionId === null)
                 );
 
             const periodMeta = new Map();
@@ -9304,7 +9998,7 @@ function Modal({
                 average === null ? "—" : formatUnitValue(average, positionUnit),
                 average === null || totalAverage === null || totalAverage === 0
                     ? "—"
-                    : `${(average / totalAverage * 100).toFixed(1)}%`,
+                    : `${formatFixed(average / totalAverage * 100, 1)}%`,
             ]);
 
             if (rows.length) {
@@ -9319,7 +10013,7 @@ function Modal({
             const valueKey = type === "assets" ? "currentAssets" : "currentLiabilities";
             // Month-on-Month for Current Assets / Current Liabilities comes from
             // getFinancialPositionCurrentAssetsLiabilitiesViewAll, not the investments endpoint.
-            const monthlyRows = normalizePositionMonthlyRows(detail?.currentViewAll || [], valueKey);
+            const monthlyRows = normalizePositionMonthlyRows(filterEmptyUnmappedBalanceSheetRows(detail?.currentViewAll || []), valueKey);
             const monthlyTable = buildPositionMonthlyTable(monthlyRows, valueKey);
             const selectedYear = yearFromDate(filters?.asOnDate);
             const rowAverages = monthlyTable.rows.map((r) => {
@@ -9337,7 +10031,7 @@ function Modal({
                 rowAverages[index] === null ? "—" : formatUnitValue(rowAverages[index], positionUnit),
                 rowAverages[index] === null || totalAverage === null || totalAverage === 0
                     ? "—"
-                    : `${(rowAverages[index] / totalAverage * 100).toFixed(1)}%`,
+                    : `${formatFixed(rowAverages[index] / totalAverage * 100, 1)}%`,
             ]);
             rows.push([
                 "Total",
@@ -9349,7 +10043,13 @@ function Modal({
             let key = "nwc";
             if (type === "equity") key = "equity";
             if (type === "borrowing") {
-                key = view === "Long-Term Bank Loan MoM" ? "longTerm" : view === "Short-Term Bank Borrowing MoM" ? "shortTerm" : "relatedParty";
+                key = view === "Long-Term Bank Loan MoM"
+                    ? "longTerm"
+                    : view === "Short-Term Bank Borrowing MoM"
+                        ? "shortTerm"
+                        : view === "Advance From Customers"
+                            ? "advancesFromCustomers"
+                            : "relatedParty";
             }
             if (type === "fixedAssets") key = "fixedAssets";
             // Investments Analysis → Parent Division MoM must chart/table the backend
@@ -9361,7 +10061,10 @@ function Modal({
                 // NWC View All shows all months returned by the backend.
                 // The main page remains limited to the latest five months separately.
                 const nwcRows = (source || [])
-                    .filter((row) => row?.parentDivision && row.parentDivision !== "—" && row.nwc !== null && row.nwc !== undefined)
+                    .filter((row) =>
+                        (row?.parentDivision && row.parentDivision !== "—" && row.nwc !== null && row.nwc !== undefined) ||
+                        row?.parentDivisionId === null
+                    )
                     .map((row) => {
                         const periodKey = row.periodKey || row.period_code || row.period || row.periodMonth || "";
                         const rawPeriod = row.periodMonth || row.periodCode || row.period;
@@ -9425,7 +10128,7 @@ function Modal({
                     averages[index] === null ? "—" : formatUnitValue(averages[index], positionUnit),
                     averages[index] === null || totalAverage === null || totalAverage === 0
                         ? "—"
-                        : `${(averages[index] / totalAverage * 100).toFixed(1)}%`,
+                        : `${formatFixed(averages[index] / totalAverage * 100, 1)}%`,
                 ]);
                 rows.push([
                     "Total",
@@ -9482,13 +10185,62 @@ function Modal({
                             />
                         </div>
                         {tabs.length > 0 && <div className="fp-modal-tabs" style={{ padding: "8px 20px 0", background: "#fff", flexShrink: 0, overflowX: "auto" }}>
-                            <div style={{ ...styles.tabs, gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`, minWidth: tabs.length > 2 ? 720 : 360, maxWidth: tabs.length > 2 ? 920 : 620, margin: 0 }}>
-                                {tabs.map((tab) => <button type="button" key={tab} onClick={() => setView(tab)}
-                                    style={{ ...styles.tab, background: view === tab ? COLORS.primaryBlue : "#f1f5f9", color: view === tab ? "#fff" : COLORS.muted, height: 34, whiteSpace: "nowrap" }}>{tab === "Current" ? "Detailed View" : tab}</button>)}
+                            <div className="fp-detailed-tabs" role="tablist" aria-label="Detailed view sections"
+                                style={{ display: "flex", alignItems: "stretch", gap: 8, minWidth: "max-content", width: "max-content", maxWidth: "none", margin: 0, padding: "2px 0 9px" }}>
+                                {tabs.map((tab) => {
+                                    const active = view === tab;
+                                    const TabIcon = getFinancialPositionTabIcon(type, tab);
+                                    return (
+                                        <button
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={active}
+                                            key={tab}
+                                            onClick={() => setView(tab)}
+                                            className={`fp-detailed-tab${active ? " is-active" : ""}`}
+                                            style={{
+                                                minWidth: tabs.length > 3 ? 150 : 166,
+                                                minHeight: 44,
+                                                padding: "7px 13px",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "flex-start",
+                                                gap: 9,
+                                                border: active ? "1px solid #2563eb" : "1px solid #e2e8f0",
+                                                borderRadius: 10,
+                                                background: active ? "linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)" : "#fff",
+                                                color: active ? "#fff" : "#475569",
+                                                boxShadow: active ? "0 5px 14px rgba(37,99,235,.20)" : "0 1px 3px rgba(15,23,42,.045)",
+                                                font: `750 .69rem ${font}`,
+                                                whiteSpace: "nowrap",
+                                                cursor: "pointer",
+                                                transition: "background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease",
+                                            }}
+                                        >
+                                            <span className="fp-detailed-tab-icon" style={{
+                                                width: 28, height: 28, flex: "0 0 28px",
+                                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                                borderRadius: 8,
+                                                color: active ? "#fff" : "#2563eb",
+                                                background: active ? "rgba(255,255,255,.17)" : "#eff6ff",
+                                                border: active ? "1px solid rgba(255,255,255,.18)" : "1px solid #dbeafe",
+                                            }}>
+                                                <TabIcon size={15} strokeWidth={2.2} />
+                                            </span>
+                                            <span>{tab === "Current" ? "Detailed View" : tab}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>}
-                        <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 20px 0", gap: 4, background: "#fff" }}>
-                            {['AED', 'AED MILLION'].map((unit) => <button type="button" key={unit} onClick={() => setPositionUnit(unit)} style={{ border: `1px solid ${positionUnit === unit ? COLORS.primaryBlue : COLORS.border}`, background: positionUnit === unit ? COLORS.primaryBlue : "#fff", color: positionUnit === unit ? "#fff" : COLORS.muted, borderRadius: 6, padding: "5px 9px", font: `700 .60rem ${font}`, cursor: "pointer" }}>{unit}</button>)}
+                        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "10px 20px 2px", background: "#fff" }}>
+                            <div role="group" aria-label="Amount display unit" style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 4, border: "1px solid #dbe5f2", borderRadius: 11, background: "linear-gradient(135deg,#f8fbff 0%,#eef4ff 100%)", boxShadow: "0 2px 7px rgba(30,64,175,.06)" }}>
+
+                                {['AED', 'AED MILLION'].map((unit) => {
+                                    const active = positionUnit === unit;
+                                    return <button type="button" key={unit} aria-pressed={active} onClick={() => setPositionUnit(unit)} style={{ minHeight: 29, border: active ? "1px solid #1d4ed8" : "1px solid transparent", background: active ? "linear-gradient(135deg,#1d4ed8 0%,#3b82f6 100%)" : "transparent", color: active ? "#fff" : "#52627a", borderRadius: 8, padding: "6px 12px", font: `800 .62rem ${font}`, letterSpacing: ".025em", cursor: "pointer", boxShadow: active ? "0 3px 8px rgba(37,99,235,.24), inset 0 1px 0 rgba(255,255,255,.18)" : "none", transition: "all .18s ease", whiteSpace: "nowrap" }}>{unit}</button>;
+                                })}
+                            </div>
                         </div>
                         <div className="fp-modal-content" style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", padding: "10px 18px 0", marginBottom: 0, paddingBottom: 0, scrollBehavior: "auto" }}>
                             {type === "investments" && view === "Parent Division MoM" && <div className="fp-investment-formula-note" style={{ margin: "0 0 10px", padding: "9px 12px", border: "1px solid #dbeafe", borderRadius: 8, background: "#eff6ff", color: "#1e3a8a", fontSize: ".72rem", lineHeight: 1.45 }}><strong>Investment formula / source:</strong> Total Investments for each Parent Division and month = backend <code>total_investments</code> value. The UI displays the service-provided value and does not recalculate it from other columns.</div>}
@@ -9503,11 +10255,7 @@ function Modal({
                             </div> : modalError ? (
                                 <div style={{ margin: "8px 0", padding: "12px 14px", border: "1px solid #fecaca", borderRadius: 8, background: "#fff7f7", color: "#b91c1c", fontSize: ".70rem", fontWeight: 600 }}>Unable to load this view. Please try Apply again.</div>
                             ) : (
-                                type === "borrowing" && view === "Advance From Customers" ? (
-                                    <div style={{ padding: "28px 16px", textAlign: "center", color: COLORS.muted, fontSize: ".74rem", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 8 }}>
-                                        Advance From Customers data is not available from the backend yet. No data is displayed in this tab.
-                                    </div>
-                                ) : rows.length ? (() => {
+                                rows.length ? (() => {
                                     const hasTotalAtEnd = /^(grand\s+)?(total|average)(\b.*)?$/i.test(String(rows[rows.length - 1]?.[0] ?? "").trim());
                                     const bodyRows = hasTotalAtEnd ? rows.slice(0, -1) : rows;
                                     const totalRow = hasTotalAtEnd ? rows[rows.length - 1] : null;
@@ -10117,7 +10865,7 @@ export default function FinancialPosition() {
                 setModalData((prev) => ({
                     ...prev,
                     currentComposition: normalizeCurrentPositionComposition(compositionResponse),
-                    currentViewAll: toRows(viewAllResponse),
+                    currentViewAll: filterEmptyUnmappedBalanceSheetRows(toRows(viewAllResponse)),
                 }));
             } else if (type === "nwc" || type === "nwcParent") {
                 // Parent Division NWC is the current-position response.
@@ -10202,6 +10950,9 @@ export default function FinancialPosition() {
                     return `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
                 });
 
+                // Backend source for this tab:
+                // getFinancialPositionCurrentAssetsLiabilitiesViewAll(apiFilters + calendar_date).
+                // Fetch one month-end snapshot for each month in the selected year.
                 const responses = await Promise.allSettled(
                     monthDates.map((date) => {
                         const monthFilters = { ...apiFilters, calendar_date: date };
@@ -10216,10 +10967,14 @@ export default function FinancialPosition() {
                 );
 
                 const monthlyRows = [];
-                responses.forEach((result, index) => {
-                    if (result.status !== "fulfilled") return;
+                let failedMonthCount = 0;
+                responses.forEach((result) => {
+                    if (result.status !== "fulfilled") {
+                        failedMonthCount += 1;
+                        return;
+                    }
                     const monthDate = result.value.date;
-                    const rowsForMonth = result.value.rows || [];
+                    const rowsForMonth = filterEmptyUnmappedBalanceSheetRows(result.value.rows || []);
                     rowsForMonth.forEach((row) => {
                         monthlyRows.push({
                             ...row,
@@ -10231,6 +10986,15 @@ export default function FinancialPosition() {
                 });
 
                 setModalData((prev) => ({ ...prev, currentViewAll: monthlyRows }));
+                setModalError(
+                    failedMonthCount === 12
+                        ? "Current Assets Month-on-Month data could not be loaded. The backend View All API failed for all 12 month-end requests."
+                        : failedMonthCount > 0
+                            ? `Current Assets Month-on-Month data is partially loaded. ${failedMonthCount} of 12 month-end API requests failed.`
+                            : monthlyRows.length === 0
+                                ? "The Current Assets/Liabilities View All API returned no monthly rows for the selected filters."
+                                : ""
+                );
             } else if (modal === "nwc" || modal === "nwcParent") {
                 const response = await requestOnce(`nwcParent:${key}`, () =>
                     getFinancialPositionNetWorkingCapitalViewAll(apiFilters)
@@ -10543,6 +11307,7 @@ export default function FinancialPosition() {
             longTerm: r.longTerm === null ? null : millions(r.longTerm),
             relatedParty: r.relatedParty === null ? null : millions(r.relatedParty),
             shortTerm: r.shortTerm === null ? null : millions(r.shortTerm),
+            total: r.total === null || r.total === undefined ? null : r.total,
         }));
     // Main Fixed Assets & Other Non-Current Assets chart: show only the top 5 Parent Divisions by Fixed Assets.
     // Keep the existing API data and chart configuration unchanged.
@@ -10752,7 +11517,7 @@ export default function FinancialPosition() {
 
     const sectionRows = (type) => {
         if (type === "assets" || type === "liabilities") {
-            const source = modalData.currentViewAll || [];
+            const source = filterEmptyUnmappedBalanceSheetRows(modalData.currentViewAll || []);
             const isAsset = type === "assets";
             const cols = ["Parent Division", `${isAsset ? "Total Current Assets" : "Total Current Liabilities"} (${modalAppliedFilters.reportingCurrency} M)`];
             const rows = source.map((r) => [
@@ -10791,7 +11556,7 @@ export default function FinancialPosition() {
                         `NWC (${modalAppliedFilters.reportingCurrency} M)`,
                     ],
                     rows: nwcParentSource
-                        .filter((r) => r.parentDivision && r.parentDivision !== "—")
+                        .filter((r) => r.parentDivision || r.parentDivisionId === null)
                         .map((r) => [
                             r.parentDivision,
                             r.currentAssets === null || r.currentAssets === undefined ? "—" : formatM(r.currentAssets),
@@ -10840,8 +11605,22 @@ export default function FinancialPosition() {
                     ]),
                 };
             }
-            if (type === "fixedAssets") return { title: "Fixed Assets & Other Non-Current Assets — Detailed View", columns: ["Parent Division", `Fixed Assets & Other NCA (${modalAppliedFilters.reportingCurrency} M)`, `NWC (${modalAppliedFilters.reportingCurrency} M)`, `Total Investments (${modalAppliedFilters.reportingCurrency} M)`], rows: source.map((r) => [r.parentDivision, formatM(r.fixedAssets), formatM(r.nwc), formatM(r.totalInvestments)]) };
-            return { title: "Investments Analysis — Detailed View", columns: ["Parent Division", `Fixed Assets & Other NCA (${modalAppliedFilters.reportingCurrency} M)`, `NWC (${modalAppliedFilters.reportingCurrency} M)`, `Total Investments (${modalAppliedFilters.reportingCurrency} M)`], rows: source.map((r) => [r.parentDivision, formatM(r.fixedAssets), formatM(r.nwc), formatM(r.totalInvestments)]) };
+            const visibleInvestmentRows = source.filter((row) => {
+                if (!isNullParentDivisionId(row.parentDivisionId)) return true;
+
+                // Only hide when every recognised balance measure carried into
+                // the detail model is present, parseable, and exactly zero.
+                const balances = [
+                    row.fixedAssets,
+                    row.nwc,
+                    row.totalInvestments,
+                ];
+                return !balances.length || balances.some((value) =>
+                    value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) !== 0
+                );
+            });
+            if (type === "fixedAssets") return { title: "Fixed Assets & Other Non-Current Assets — Detailed View", columns: ["Parent Division", `Fixed Assets & Other NCA (${modalAppliedFilters.reportingCurrency} M)`, `NWC (${modalAppliedFilters.reportingCurrency} M)`, `Total Investments (${modalAppliedFilters.reportingCurrency} M)`], rows: visibleInvestmentRows.map((r) => [r.parentDivision, formatM(r.fixedAssets), formatM(r.nwc), formatM(r.totalInvestments)]) };
+            return { title: "Investments Analysis — Detailed View", columns: ["Parent Division", `Fixed Assets & Other NCA (${modalAppliedFilters.reportingCurrency} M)`, `NWC (${modalAppliedFilters.reportingCurrency} M)`, `Total Investments (${modalAppliedFilters.reportingCurrency} M)`], rows: visibleInvestmentRows.map((r) => [r.parentDivision, formatM(r.fixedAssets), formatM(r.nwc), formatM(r.totalInvestments)]) };
         }
         if (type === "borrowing") {
             const source = modalData.borrowings || [];
@@ -10892,6 +11671,7 @@ export default function FinancialPosition() {
             "Long-Term Bank Loan MoM",
             "Related Party Loan MoM",
             "Short-Term Bank Borrowing MoM",
+            "Advance From Customers",
             "Parent Division MoM",
             "Month-on-Month",
         ].includes(activeView);
@@ -12859,6 +13639,50 @@ export default function FinancialPosition() {
                     color: #dc2626 !important;
                     font-weight: 700 !important;
                 }
+
+                /* Financial Position Detailed View tabs — visual-only enhancement. */
+                .fp-sales-modal .fp-modal-tabs {
+                    padding: 10px 18px 0 !important;
+                    border-bottom: 1px solid #edf1f7 !important;
+                    background: linear-gradient(180deg,#ffffff 0%,#fbfdff 100%) !important;
+                }
+                .fp-sales-modal .fp-detailed-tabs {
+                    scrollbar-width: thin;
+                    scrollbar-color: #cbd5e1 transparent;
+                }
+                .fp-sales-modal .fp-detailed-tabs::-webkit-scrollbar { height: 5px; }
+                .fp-sales-modal .fp-detailed-tabs::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+                .fp-sales-modal .fp-detailed-tab:not(.is-active):hover {
+                    background: #f8fbff !important;
+                    border-color: #93c5fd !important;
+                    color: #1d4ed8 !important;
+                    box-shadow: 0 4px 11px rgba(37,99,235,.09) !important;
+                    transform: translateY(-1px);
+                }
+                .fp-sales-modal .fp-detailed-tab:focus-visible {
+                    outline: 3px solid rgba(59,130,246,.24) !important;
+                    outline-offset: 2px !important;
+                }
+                .fp-sales-modal .fp-detailed-tab.is-active .fp-detailed-tab-icon {
+                    color: #fff !important;
+                    background: rgba(255,255,255,.17) !important;
+                    border-color: rgba(255,255,255,.22) !important;
+                }
+                @media (max-width: 700px) {
+                    .fp-sales-modal .fp-modal-tabs { padding: 8px 12px 0 !important; }
+                    .fp-sales-modal .fp-detailed-tabs { gap: 6px !important; }
+                    .fp-sales-modal .fp-detailed-tab {
+                        min-width: 145px !important;
+                        min-height: 41px !important;
+                        padding: 6px 9px !important;
+                        font-size: .64rem !important;
+                    }
+                    .fp-sales-modal .fp-detailed-tab-icon {
+                        width: 26px !important;
+                        height: 26px !important;
+                        flex-basis: 26px !important;
+                    }
+                }
             `}</style>
             <div className="fp-finance-content" style={{ width: "100%", minWidth: 0 }}>
                 <motion.header className="fp-page-header" style={{ ...styles.pageHeader, marginBottom: 10, flexDirection: isMobile ? "column" : "row" }} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
@@ -13200,7 +14024,7 @@ export default function FinancialPosition() {
                     </motion.section>
 
                     <motion.section className="fp-sales-card fp-investment-logic-equal-card" style={{ ...styles.card, minWidth: 0, display: "flex", flexDirection: "column", alignSelf: "stretch", height: "100%", minHeight: isMobile ? 0 : 470, boxSizing: "border-box" }} whileHover={{ boxShadow: shadowHover }}>
-                        <CardHeader title="Investment & Borrowing Logic" subtitle="Financial Position calculation notes" />
+                        <CardHeader title="Investment & Borrowing Logic" subtitle="Financial Position calculation notes" showActions={false} />
                         <div className="fp-investment-borrowing-logic-list" style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, justifyContent: "space-between" }}>
                             {logicItems.map((item, index) => (
                                 <div key={item.title} style={{ display: "grid", gridTemplateColumns: "30px minmax(0,1fr)", gap: 8, alignItems: "start", padding: "7px 8px", border: "1px solid #e7edf5", borderRadius: 9, background: item.tint, minWidth: 0 }}>
@@ -13370,7 +14194,7 @@ export default function FinancialPosition() {
 
                     <motion.section className="fp-sales-card fp-live-chart" style={{ ...styles.card, minWidth: 0 }} whileHover={{ boxShadow: shadowHover }}>
                         <CardHeader title="Fixed Assets & Other Non-Current Assets" subtitle="By Parent Division" onViewAll={() => openTable("fixedAssets")} onExportExcel={canExportFinancialPosition ? () => exportSection("fixedAssets", "excel") : undefined} onExportPdf={canExportFinancialPosition ? () => exportSection("fixedAssets", "pdf") : undefined} />
-                        <div className="fp-sales-chart" style={{ height: 188 }}>{loading ? <Skeleton height={188} /> : !fixedAssetsTrend.length ? <NoDataState /> : <ResponsiveContainer width="100%" height={188}><ComposedChart data={fixedAssetsTrend} margin={{ top: 8, right: 4, left: -16, bottom: 42 }}><CartesianGrid vertical={false} stroke="#eef2f7" /><XAxis dataKey="period" tick={<FixedAssetsBarXAxisTick />} axisLine={false} tickLine={false} interval={0} height={58} /><YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "rgba(37,99,235,.06)" }} content={<ChartTooltip title="Fixed Assets & Other Non-Current Assets" badge="ASSET POSITION" accent="#2563EB" currency={appliedFilters.reportingCurrency} sourceUnit="M" />} /><Legend wrapperStyle={{ fontSize: 9, color: "#64748b" }} /><Bar isAnimationActive={true} animationDuration={700} dataKey="fixedAssets" name={`Fixed Assets & Other NCA (${appliedFilters.reportingCurrency} M)`} fill="#2563eb" radius={[3, 3, 0, 0]} activeBar={{ stroke: "#173b8f", strokeWidth: 1.2, fillOpacity: 0.88 }} barSize={15} onMouseEnter={(_, index) => setFixedAssetsBarHover(index)} onMouseLeave={() => setFixedAssetsBarHover(null)}>{fixedAssetsTrend.map((_, index) => <Cell key={`fixed-assets-${index}`} fill="#2563eb" opacity={fixedAssetsBarHover !== null && fixedAssetsBarHover !== index ? .32 : 1} />)}</Bar><Line isAnimationActive={true} animationBegin={180} animationDuration={800} activeDot={{ r: 5, strokeWidth: 2, stroke: "#5b21b6", fill: "#ffffff" }} type="monotone" dataKey="provision" name={`Provision for Gratuity (${appliedFilters.reportingCurrency} M)`} stroke="#7c3aed" strokeWidth={2.2} dot={{ r: 2.4, strokeWidth: 1.5 }} /></ComposedChart></ResponsiveContainer>}</div>
+                        <div className="fp-sales-chart" style={{ height: 188 }}>{loading ? <Skeleton height={188} /> : !fixedAssetsTrend.length ? <NoDataState /> : <ResponsiveContainer width="100%" height={188}><ComposedChart data={fixedAssetsTrend} margin={{ top: 8, right: 4, left: -16, bottom: 42 }}><CartesianGrid vertical={false} stroke="#eef2f7" /><XAxis dataKey="period" tick={<FixedAssetsBarXAxisTick />} axisLine={false} tickLine={false} interval={0} height={58} /><YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "rgba(37,99,235,.06)" }} content={<ChartTooltip title="Fixed Assets & Other Non-Current Assets" badge="ASSET POSITION" accent="#2563EB" currency={appliedFilters.reportingCurrency} sourceUnit="M" />} /><Legend wrapperStyle={{ fontSize: 9, color: "#64748b" }} /><Bar isAnimationActive={true} animationDuration={700} dataKey="fixedAssets" name={`Fixed Assets & Other NCA (${appliedFilters.reportingCurrency} M)`} fill="#2563eb" radius={[3, 3, 0, 0]} activeBar={{ stroke: "#173b8f", strokeWidth: 1.2, fillOpacity: 0.88 }} barSize={15} onMouseEnter={(_, index) => setFixedAssetsBarHover(index)} onMouseLeave={() => setFixedAssetsBarHover(null)}>{fixedAssetsTrend.map((_, index) => <Cell key={`fixed-assets-${index}`} fill="#2563eb" opacity={fixedAssetsBarHover !== null && fixedAssetsBarHover !== index ? .32 : 1} />)}</Bar></ComposedChart></ResponsiveContainer>}</div>
                     </motion.section>
                 </div>
             </div>
