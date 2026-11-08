@@ -1,5 +1,7 @@
 
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo, useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import ChangePasswordModal from "../components/ChangePasswordModal";
 import {
     UserRound,
     ShieldCheck,
@@ -330,6 +332,21 @@ export default function Profile() {
         refreshProfile,
     } = useAuth();
 
+    const navigate = useNavigate();
+    const [showChangePassword, setShowChangePassword] = useState(false);
+
+    const handlePasswordSuccessLogout = useCallback(() => {
+        setShowChangePassword(false);
+        if (typeof logout === "function") {
+            logout();
+        } else {
+            localStorage.removeItem("finsight_user");
+            localStorage.removeItem("finsight_token");
+            localStorage.removeItem("token");
+        }
+        navigate("/login", { replace: true });
+    }, [logout, navigate]);
+
     // Call /api/access/me when viewing the Profile page to guarantee authoritative data
     useEffect(() => {
         if (typeof refreshProfile === "function") {
@@ -513,9 +530,7 @@ export default function Profile() {
     // =====================================================
 
     const handleChangePassword = () => {
-        console.log(
-            "Change Password clicked"
-        );
+        setShowChangePassword(true);
     };
 
 
@@ -1842,6 +1857,13 @@ export default function Profile() {
                 </footer>
 
             </div>
+
+            {showChangePassword && (
+                <ChangePasswordModal
+                    onClose={() => setShowChangePassword(false)}
+                    onSuccessLogout={handlePasswordSuccessLogout}
+                />
+            )}
         </>
     );
 }
