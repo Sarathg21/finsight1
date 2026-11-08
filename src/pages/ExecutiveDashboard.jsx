@@ -156,7 +156,7 @@ const CustomTooltip = ({ active, payload, label }) => {
                     return (
                         <div key={index} style={{ color: entry.color || 'var(--clr-primary)', display: 'flex', gap: 8, fontWeight: 600 }}>
                             <span>{seriesName}:</span>
-                            <span>{formatted}</span>
+                            <span style={{ color: !isNaN(num) && num < 0 ? '#dc2626' : undefined }}>{formatted}</span>
                         </div>
                     );
                 })}
@@ -198,7 +198,7 @@ const TwcCustomTooltip = ({ active, payload, label }) => {
                             <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--clr-primary)', display: 'inline-block' }} />
                             Trade Receivables:
                         </span>
-                        <span style={{ fontWeight: 700, color: 'var(--clr-text)' }}>
+                        <span style={{ fontWeight: 700, color: (trVal != null && Number(trVal) < 0) ? '#dc2626' : 'var(--clr-text)' }}>
                             {trVal != null ? `${curr} ${Number(trVal).toFixed(2)}M` : '–'}
                         </span>
                     </div>
@@ -207,7 +207,7 @@ const TwcCustomTooltip = ({ active, payload, label }) => {
                             <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--clr-cyan)', display: 'inline-block' }} />
                             Inventory:
                         </span>
-                        <span style={{ fontWeight: 700, color: 'var(--clr-text)' }}>
+                        <span style={{ fontWeight: 700, color: (invVal != null && Number(invVal) < 0) ? '#dc2626' : 'var(--clr-text)' }}>
                             {invVal != null ? `${curr} ${Number(invVal).toFixed(2)}M` : '–'}
                         </span>
                     </div>
@@ -216,7 +216,7 @@ const TwcCustomTooltip = ({ active, payload, label }) => {
                             <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--clr-success)', display: 'inline-block' }} />
                             Trade Payables:
                         </span>
-                        <span style={{ fontWeight: 700, color: 'var(--clr-text)' }}>
+                        <span style={{ fontWeight: 700, color: (tpVal != null && Number(tpVal) < 0) ? '#dc2626' : 'var(--clr-text)' }}>
                             {tpVal != null ? `${curr} ${Number(tpVal).toFixed(2)}M` : '–'}
                         </span>
                     </div>
@@ -225,7 +225,7 @@ const TwcCustomTooltip = ({ active, payload, label }) => {
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--clr-text)', display: 'inline-block' }} />
                             Trade Working Capital:
                         </span>
-                        <span style={{ fontWeight: 800, color: '#2563eb' }}>
+                        <span style={{ fontWeight: 800, color: (twcVal != null && Number(twcVal) < 0) ? "#dc2626" : "#2563eb" }}>
                             {twcVal != null ? `${curr} ${Number(twcVal).toFixed(2)}M` : '–'}
                         </span>
                     </div>
@@ -1672,7 +1672,7 @@ export default function ExecutiveDashboard() {
                                                                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
                                                                 Actual Net Profit:
                                                             </span>
-                                                            <span style={{ color: '#0f172a' }}>{currency} {Number(act ?? 0).toFixed(2)}M</span>
+                                                            <span style={{ color: Number(act ?? 0) < 0 ? '#dc2626' : '#0f172a' }}>{currency} {Number(act ?? 0).toFixed(2)}M</span>
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: '#881337', fontWeight: 700, marginTop: 2 }}>
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
