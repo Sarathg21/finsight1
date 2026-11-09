@@ -3722,7 +3722,7 @@ export default function SalesRevenueReport() {
                     value={currentSelectedYear}
                     onChange={e => {
                       const yr = e.target.value;
-                      const mo = filters.fromDate ? (filters.fromDate.split('-')[1] || '10') : '10';
+                      const mo = filters.fromDate ? (filters.fromDate.split('-')[1] || '11') : '11';
                       const lastDay = new Date(parseInt(yr, 10), parseInt(mo, 10), 0).getDate();
                       setFilters(prev => ({
                         ...prev,
@@ -3741,12 +3741,12 @@ export default function SalesRevenueReport() {
                   <select
                     id="filter-period"
                     style={{ ...selStyle, width: 86, minWidth: 86, height: 32, padding: '0 16px 0 6px', fontSize: '0.78rem' }}
-                    value={filters.fromDate ? (filters.fromDate.endsWith('-01-01') && filters.toDate.endsWith('-12-31') ? 'FY' : (filters.fromDate.endsWith('-01-01') && !filters.toDate.endsWith('-01-31') ? 'YTD' : filters.fromDate.split('-')[1])) : '10'}
+                    value={filters.fromDate ? (filters.fromDate.endsWith('-01-01') && filters.toDate.endsWith('-12-31') ? 'FY' : (filters.fromDate.endsWith('-01-01') && !filters.toDate.endsWith('-01-31') ? 'YTD' : filters.fromDate.split('-')[1])) : '11'}
                     onChange={e => {
                       const p = e.target.value;
                       const yr = filters.fromDate ? filters.fromDate.split('-')[0] : '2026';
                       if (p === 'YTD') {
-                        setFilters(prev => ({ ...prev, fromDate: `${yr}-01-01`, toDate: `${yr}-10-31` }));
+                        setFilters(prev => ({ ...prev, fromDate: `${yr}-01-01`, toDate: `${yr}-11-30` }));
                       } else if (p === 'FY') {
                         setFilters(prev => ({ ...prev, fromDate: `${yr}-01-01`, toDate: `${yr}-12-31` }));
                       } else {
@@ -3756,6 +3756,7 @@ export default function SalesRevenueReport() {
                       }
                     }}
                   >
+                    <option value="11">Nov-{yr2}</option>
                     <option value="10">Oct-{yr2}</option>
                     <option value="09">Sep-{yr2}</option>
                     <option value="08">Aug-{yr2}</option>
