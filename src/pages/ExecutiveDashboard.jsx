@@ -94,32 +94,7 @@ function useInView(options = {}) {
     return { ref, inView };
 }
 
-const DEFAULT_KPI_DATA = {
-    total_revenue: 125430250,
-    cost_of_material: 42150000,
-    gross_profit: 83280250,
-    ebitda: 35120000,
-    net_profit: 24850000,
-    trade_working_capital: 40295205.92,
-    overdue_receivables: 18450000,
-    slow_moving_obsolete_stock: 4285000,
-    cash_collection: 98450000,
-    collection_efficiency: 88.5,
-    total_short_term_borrowing: 15200000,
-    roi: 14.2,
-    total_revenue_change: 12.5,
-    cost_of_material_change: -3.2,
-    gross_profit_change: 15.8,
-    ebitda_change: 8.4,
-    net_profit_change: 18.2,
-    trade_working_capital_change: -4.1,
-    overdue_receivables_change: -7.8,
-    slow_moving_obsolete_stock_change: -14.3,
-    cash_collection_change: 7.0,
-    collection_efficiency_change: 4.1,
-    total_short_term_borrowing_change: -7.9,
-    roi_change: 18.3,
-};
+// Note: No hardcoded/mock KPI fallbacks allowed. Strictly display live backend data or placeholder.
 
 /* ----------------- COMPONENTS ----------------- */
 
@@ -736,7 +711,7 @@ export default function ExecutiveDashboard() {
     const latestCompletedKpiReqIdRef = useRef(0);
     const latestCompletedPrevReqIdRef = useRef(0);
     const latestCompletedPlReqIdRef = useRef(0);
-    const [kpiData, setKpiData] = useState(DEFAULT_KPI_DATA);
+    const [kpiData, setKpiData] = useState(null);
     const [prevKpiData, setPrevKpiData] = useState(null);
     const [kpiTargets, setKpiTargets] = useState({});
     const [kpiLoading, setKpiLoading] = useState(false);
@@ -784,13 +759,14 @@ export default function ExecutiveDashboard() {
                 if (curData && (curData.kpis || curData.data || curData.summary || Object.keys(curData).length > 0)) {
                     setKpiData(curData);
                 } else {
-                    setKpiData(DEFAULT_KPI_DATA);
+                    setKpiData(null);
                 }
             })
             .catch(err => {
                 if (reqId < latestCompletedKpiReqIdRef.current) return;
                 console.error('[Exec KPIs]', err.response?.status, err.response?.data || err.message);
                 setKpiError(err);
+                setKpiData(null);
             })
             .finally(() => {
                 if (reqId >= latestCompletedKpiReqIdRef.current) setKpiLoading(false);
@@ -1227,20 +1203,19 @@ export default function ExecutiveDashboard() {
         (appliedFilters.subdivision_id && !Array.isArray(appliedFilters.subdivision_id))
     );
 
-    // Build display values matching reference image
+    // Build display values - strictly from live backend API data with no mock fallbacks
     const displayKpis = KPI_CONFIG.map(cfg => {
         // Use live backend API value when available (respecting role-level scoping)
         const rawApiVal = getValueFromKpiPayload(kpiData, cfg.key);
-        const valToUse = (rawApiVal !== undefined && rawApiVal !== null && !isNaN(Number(rawApiVal)))
-            ? Number(rawApiVal)
-            : DEFAULT_KPI_DATA[cfg.key];
+        const hasValidValue = rawApiVal !== undefined && rawApiVal !== null && rawApiVal !== '' && !isNaN(Number(rawApiVal));
+        const numVal = hasValidValue ? Number(rawApiVal) : null;
 
-        const numVal = (valToUse !== null && valToUse !== undefined && !isNaN(Number(valToUse))) ? Number(valToUse) : null;
-
-        let displayVal = '–';
+        let displayVal = '—';
         if (numVal !== null) {
             if (cfg.isPct) {
                 displayVal = `${numVal.toFixed(1)}%`;
+            } else if (numVal === 0) {
+                displayVal = '0';
             } else if (Math.abs(numVal) >= 1_000_000) {
                 displayVal = `${currency} ${(numVal / 1_000_000).toFixed(1)}M`;
             } else if (Math.abs(numVal) >= 1_000) {
@@ -1262,12 +1237,12 @@ export default function ExecutiveDashboard() {
 
             // 1. Try backend API change if available
             const rawApiChange = getChangeFromKpiPayload(kpiData, cfg.key);
-            if (rawApiChange !== undefined && rawApiChange !== null && !isNaN(Number(rawApiChange))) {
+            if (rawApiChange !== undefined && rawApiChange !== null && rawApiChange !== '' && !isNaN(Number(rawApiChange))) {
                 changeNum = Number(rawApiChange);
             } else if (numVal !== null && prevKpiData) {
                 // 2. Compute true live MoM change from current vs previous month API values
                 const prevRaw = getValueFromKpiPayload(prevKpiData, cfg.key);
-                if (prevRaw !== undefined && prevRaw !== null && !isNaN(Number(prevRaw))) {
+                if (prevRaw !== undefined && prevRaw !== null && prevRaw !== '' && !isNaN(Number(prevRaw))) {
                     const prevVal = Number(prevRaw);
                     if (prevVal !== 0) {
                         changeNum = ((numVal - prevVal) / Math.abs(prevVal)) * 100;
@@ -1275,11 +1250,7 @@ export default function ExecutiveDashboard() {
                 }
             }
 
-            // Fallback only if no previous data available
-            if (changeNum === null || isNaN(changeNum)) {
-                changeNum = DEFAULT_KPI_DATA[`${cfg.key}_change`];
-            }
-
+            // Strictly live calculation - no mock fallback percentage
             if (changeNum !== undefined && changeNum !== null && !isNaN(changeNum)) {
                 const isPositive = changeNum >= 0;
                 compArrow = isPositive ? '▲' : '▼';
@@ -1288,6 +1259,11 @@ export default function ExecutiveDashboard() {
                 const isFavorable = isLowerBetter ? changeNum <= 0 : changeNum >= 0;
                 compColor = isFavorable ? '#16a34a' : '#dc2626';
                 compTitle = `MoM Change: ${compText} vs. last month`;
+            } else {
+                compArrow = '';
+                compText = '—';
+                compColor = '#94a3b8';
+                compTitle = 'MoM comparison not available';
             }
         } else {
             // compareType === 'target'
@@ -1295,7 +1271,7 @@ export default function ExecutiveDashboard() {
             const liveTgt = kpiTargets[cfg.key]?.target ?? getValueFromKpiPayload(kpiData, `${cfg.key}_target`);
             const targetVal = (liveTgt !== undefined && liveTgt !== null && !isNaN(Number(liveTgt)))
                 ? Number(liveTgt)
-                : cfg.target;
+                : null;
 
             if (numVal !== null && targetVal !== undefined && targetVal !== null && targetVal > 0) {
                 const diff = numVal - targetVal;
@@ -1310,11 +1286,15 @@ export default function ExecutiveDashboard() {
 
                 const tgtFmt = fmtTargetVal(targetVal, cfg.isPct);
                 compTitle = tgtFmt ? `Target: ${tgtFmt} | Variance: ${compText} vs. Target` : `Target: ${targetVal}`;
+            } else {
+                compArrow = '';
+                compText = '—';
+                compColor = '#94a3b8';
+                compTitle = 'Target comparison not available';
             }
         }
 
         const isNeg = numVal !== null && numVal < 0;
-        const sparkData = [10, 15, 12, 18, 16, 22, 20];
         return { 
             ...cfg, 
             value: displayVal, 
@@ -1324,7 +1304,7 @@ export default function ExecutiveDashboard() {
             comparisonColor: compColor,
             comparisonLabel: compLabel,
             comparisonTitle: compTitle,
-            sparklineData: sparkData 
+            sparklineData: []
         };
     });
 
