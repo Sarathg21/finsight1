@@ -3022,6 +3022,7 @@ export default function OpexFilters({
                     const yr = selectedFilters.year || "2026";
                     const yr2 = String(yr).slice(-2);
                     const MONTHS = [
+                        { value: "11", label: `Nov-${yr2}` },
                         { value: "10", label: `Oct-${yr2}` },
                         { value: "09", label: `Sep-${yr2}` },
                         { value: "08", label: `Aug-${yr2}` },

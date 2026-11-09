@@ -653,7 +653,7 @@ export default function ExecutiveDashboard() {
 
             if (pUpper === 'YTD' || pUpper.includes('YTD') || periodArrStr.includes('YTD')) {
                 periodTypeVal = 'YTD';
-                dateVal = `${yr}-10-31`;
+                dateVal = `${yr}-11-30`;
             } else if (pUpper === 'FULL YEAR' || pUpper === 'FY' || pUpper.includes('FULL YEAR') || periodArrStr.includes('FULL YEAR')) {
                 periodTypeVal = 'YTD';
                 dateVal = `${yr}-12-31`;

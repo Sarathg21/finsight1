@@ -3123,7 +3123,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const [criteriaKey, setCriteriaKey] = useState('parent_division');
   const [reportSel, setReportSel]     = useState('All');
   const [year, setYear]               = useState('2026');
-  const [period, setPeriod]           = useState('Oct-26');
+  const [period, setPeriod]           = useState('Nov-26');
   const [unit, setUnit]               = useState('aed'); // 'aed' | 'millions'
   const [filterOptions, setFilterOptions] = useState({});
   const [search, setSearch]           = useState('');
@@ -3222,7 +3222,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
         if (cancelled || !res) return;
         setFilterOptions(res);
         const initYear = res.years?.[0] ? String(res.years[0]) : '2026';
-        const initPeriod = (res.periods && res.periods.length > 0) ? res.periods[res.periods.length - 1] : 'Oct-26';
+        const initPeriod = (res.periods && res.periods.length > 0) ? res.periods[res.periods.length - 1] : 'Nov-26';
         setYear(initYear);
         setPeriod(initPeriod);
         setStaged(s => ({ ...s, year: initYear, period: initPeriod }));
@@ -3367,7 +3367,7 @@ function ProfitabilityGlanceSection({ filters = {}, currency = 'AED' }) {
   const handleReset = () => {
     if (loading) return;
     const defYear = filterOptions.years?.[0] ? String(filterOptions.years[0]) : '2026';
-    const defPeriod = (filterOptions.periods && filterOptions.periods.length > 0) ? filterOptions.periods[filterOptions.periods.length - 1] : 'Oct-26';
+    const defPeriod = (filterOptions.periods && filterOptions.periods.length > 0) ? filterOptions.periods[filterOptions.periods.length - 1] : 'Nov-26';
     const def = { criteriaKey: 'parent_division', reportSel: 'All', year: defYear, period: defPeriod };
     setStaged(def);
     fetchData(def.criteriaKey, def.reportSel, def.year, def.period);
