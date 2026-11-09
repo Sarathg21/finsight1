@@ -112,6 +112,7 @@ import { Box, Coins, BarChart3, Clock, AlertTriangle, Percent, RotateCw, Calenda
 import useFullscreen from "../hooks/useFullscreen";
 import FullscreenToggleButton from "../components/Common/FullscreenToggleButton";
 import { getInventoryFilters, getInventoryDashboard, getInventorySummary, getInventorySubDivisionWise, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
+import { getLegalGroups, getLegalEntities, getParentDivision, getSubDivision } from "../api/masterLegalApi";
 import { toast } from "react-hot-toast";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
@@ -1375,6 +1376,309 @@ const [loading, setLoading] = useState(true);
     reporting_currency: "AED",
     dataAsOf: new Date().toISOString().split('T')[0]
   }));
+
+  // Master hierarchy options loaded for strict cross-level cascading
+  const [masterHierarchy, setMasterHierarchy] = useState({
+    legalGroups: [],
+    legalEntities: [],
+    parentDivisions: [],
+    subdivisions: [],
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.allSettled([
+      getLegalGroups(),
+      getLegalEntities(),
+      getParentDivision(),
+      getSubDivision(),
+    ]).then(([lgRes, leRes, pdRes, sdRes]) => {
+      if (!isMounted) return;
+      const lg = lgRes?.status === "fulfilled" ? (lgRes.value?.data ?? lgRes.value) : [];
+      const le = leRes?.status === "fulfilled" ? (leRes.value?.data ?? leRes.value) : [];
+      const pd = pdRes?.status === "fulfilled" ? (pdRes.value?.data ?? pdRes.value) : [];
+      const sd = sdRes?.status === "fulfilled" ? (sdRes.value?.data ?? sdRes.value) : [];
+      setMasterHierarchy({
+        legalGroups: Array.isArray(lg) ? lg : [],
+        legalEntities: Array.isArray(le) ? le : [],
+        parentDivisions: Array.isArray(pd) ? pd : [],
+        subdivisions: Array.isArray(sd) ? sd : [],
+      });
+    }).catch(err => console.warn('[Inventory] Master hierarchy load error:', err));
+    return () => { isMounted = false; };
+  }, []);
+
+  // Strict dynamic cascading helper for both Main Filter Bar and View All Modal
+  const getCascadedOptions = useCallback((currentFilters) => {
+    const allGroups = (mockData.filters.legalGroups?.length > 0)
+      ? mockData.filters.legalGroups
+      : resolveLegalGroups(masterHierarchy.legalGroups);
+
+    const getActiveList = (val) => {
+      if (!val || val === "All") return [];
+      const arr = Array.isArray(val) ? val : [val];
+      return arr.filter(v => v && v !== "All").map(v => typeof v === 'object' ? String(v.value ?? v.id ?? v.name ?? '') : String(v));
+    };
+
+    const selectedGroups = getActiveList(currentFilters?.legalGroup);
+    const selectedEntities = getActiveList(currentFilters?.legalEntity);
+    const selectedParentDivs = getActiveList(currentFilters?.parentDivision);
+    const selectedSubdivs = getActiveList(currentFilters?.subdivision);
+
+    // 1. Legal Entities
+    const baseEntities = (mockData.filters.legalEntities?.length > 0)
+      ? mockData.filters.legalEntities
+      : (masterHierarchy.legalEntities?.length > 0
+          ? masterHierarchy.legalEntities.map(e => ({ value: e.legal_entity_id ?? e.id, label: e.legal_entity_name ?? e.name }))
+          : []);
+
+    let cascadedEntities = baseEntities;
+    if (selectedGroups.length > 0) {
+      cascadedEntities = baseEntities.filter(e => {
+        const eId = String(e.value ?? e.id ?? '');
+        const eName = String(e.label ?? e.name ?? '').trim().toLowerCase();
+
+        // Check masterHierarchy
+        const masterE = masterHierarchy.legalEntities?.find(m =>
+          String(m.legal_entity_id ?? m.id) === eId ||
+          String(m.legal_entity_name ?? m.name ?? '').trim().toLowerCase() === eName
+        );
+        if (masterE) {
+          const directLg = masterE.legal_group_id ?? masterE.group_id;
+          if (directLg != null && selectedGroups.some(g => String(g) === String(directLg) || (String(directLg) === '4' && String(g).toLowerCase().includes('fj')) || (String(directLg) === '3' && String(g).toLowerCase().includes('rkme')))) {
+            return true;
+          }
+          if (Array.isArray(masterE.legal_groups)) {
+            const hasMatch = masterE.legal_groups.some(g => {
+              const gid = g?.legal_group_id ?? g?.id ?? g?.value;
+              const gname = g?.legal_group_name ?? g?.name ?? g?.label;
+              return selectedGroups.some(sel => String(sel) === String(gid) || (gname && String(gname).toLowerCase().includes(String(sel).toLowerCase())));
+            });
+            if (hasMatch) return true;
+          }
+        }
+
+        // Check direct properties
+        const directLg = e.legal_group_id ?? e.group_id;
+        if (directLg != null && selectedGroups.some(g => String(g) === String(directLg) || (String(directLg) === '4' && String(g).toLowerCase().includes('fj')) || (String(directLg) === '3' && String(g).toLowerCase().includes('rkme')))) {
+          return true;
+        }
+
+        // Check details rows
+        const allItems = [...(mockData.details || []), ...(modalApiItems || [])];
+        if (allItems.length > 0) {
+          return allItems.some(d => {
+            const dLg = String(d.legal_group_id || d.legal_group || '');
+            const dLe = String(d.legal_entity || d.legal_entity_name || '').toLowerCase();
+            const dLeId = String(d.legal_entity_id || '');
+            const lgMatches = selectedGroups.some(g => dLg === String(g) || (dLg === '4' && String(g).toLowerCase().includes('fj')) || (dLg === '3' && String(g).toLowerCase().includes('rkme')));
+            return lgMatches && (dLe === eName || dLeId === eId);
+          });
+        }
+        return true;
+      });
+    }
+
+    // 2. Parent Divisions
+    const baseParentDivs = (mockData.filters.parentDivisions?.length > 0)
+      ? mockData.filters.parentDivisions
+      : (masterHierarchy.parentDivisions?.length > 0
+          ? masterHierarchy.parentDivisions.map(p => ({ value: p.parent_division_id ?? p.id, label: p.parent_division_name ?? p.name }))
+          : []);
+
+    let cascadedParentDivs = baseParentDivs;
+    if (selectedEntities.length > 0) {
+      cascadedParentDivs = baseParentDivs.filter(pd => {
+        const pdId = String(pd.value ?? pd.id ?? pd.parent_division_id ?? '');
+        const pdName = String(pd.label || pd.name || pd.parent_division_name || '').trim().toLowerCase();
+
+        // Check masterHierarchy parentDivisions
+        const masterPd = masterHierarchy.parentDivisions?.find(m =>
+          String(m.parent_division_id ?? m.id) === pdId ||
+          String(m.parent_division_name ?? m.name ?? '').trim().toLowerCase() === pdName
+        );
+
+        if (masterPd && Array.isArray(masterPd.legal_entities) && masterPd.legal_entities.length > 0) {
+          const matchMaster = masterPd.legal_entities.some(le => {
+            const leId = String(le.legal_entity_id ?? le.id ?? '');
+            const leName = String(le.legal_entity_name || le.name || '').trim().toLowerCase();
+            return selectedEntities.some(sel => {
+              const s = String(sel).trim().toLowerCase();
+              return s === leId || s === leName || (leName && (leName.includes(s) || s.includes(leName)));
+            });
+          });
+          if (matchMaster) return true;
+        }
+
+        const directLeId = pd.legal_entity_id ?? pd.entity_id;
+        if (directLeId != null && selectedEntities.some(sel => String(sel) === String(directLeId))) {
+          return true;
+        }
+
+        // Check details rows
+        const allItems = [...(mockData.details || []), ...(modalApiItems || [])];
+        if (allItems.length > 0) {
+          const matchDetail = allItems.some(d => {
+            const dLeName = String(d.legal_entity || d.legal_entity_name || '').trim().toLowerCase();
+            const dLeId = String(d.legal_entity_id ?? '').trim().toLowerCase();
+            const dPdName = String(d.parent_division || d.parent_division_name || '').trim().toLowerCase();
+            const dPdId = String(d.parent_division_id ?? '').trim().toLowerCase();
+
+            const entityMatches = selectedEntities.some(sel => {
+              const s = String(sel).trim().toLowerCase();
+              return s === dLeName || s === dLeId || (dLeName && (dLeName.includes(s) || s.includes(dLeName)));
+            });
+
+            const pdMatches = (pdName && dPdName === pdName) || (pdId && dPdId === pdId);
+            return entityMatches && pdMatches;
+          });
+          if (matchDetail) return true;
+        }
+
+        return false;
+      });
+    }
+
+    // 3. Sub-Divisions
+    const baseSubdivs = (mockData.filters.subdivisions?.length > 0)
+      ? mockData.filters.subdivisions
+      : (masterHierarchy.subdivisions?.length > 0
+          ? masterHierarchy.subdivisions.map(s => ({ value: s.subdivision_id ?? s.id, label: s.subdivision_name ?? s.name }))
+          : []);
+
+    let cascadedSubdivs = baseSubdivs;
+    if (selectedParentDivs.length > 0) {
+      cascadedSubdivs = baseSubdivs.filter(sd => {
+        const sdId = String(sd.value ?? sd.id ?? sd.subdivision_id ?? '');
+        const sdName = String(sd.label || sd.name || sd.subdivision_name || '').trim().toLowerCase();
+
+        // Check masterHierarchy subdivisions
+        const masterSd = masterHierarchy.subdivisions?.find(m =>
+          String(m.subdivision_id ?? m.id) === sdId ||
+          String(m.subdivision_name ?? m.name ?? '').trim().toLowerCase() === sdName
+        );
+
+        if (masterSd) {
+          const pdId = String(masterSd.parent_division_id ?? '');
+          const pdName = String(masterSd.parent_division_name || '').trim().toLowerCase();
+          const matchMaster = selectedParentDivs.some(sel => {
+            const s = String(sel).trim().toLowerCase();
+            return s === pdId || s === pdName || (pdName && (pdName.includes(s) || s.includes(pdName)));
+          });
+          if (matchMaster) return true;
+        }
+
+        const directPdId = sd.parent_division_id ?? sd.parentDivisionId;
+        if (directPdId != null && selectedParentDivs.some(sel => String(sel) === String(directPdId))) {
+          return true;
+        }
+
+        // Check details rows
+        const allItems = [...(mockData.details || []), ...(modalApiItems || [])];
+        if (allItems.length > 0) {
+          const matchDetail = allItems.some(d => {
+            const dPdName = String(d.parent_division || d.parent_division_name || '').trim().toLowerCase();
+            const dPdId = String(d.parent_division_id ?? '').trim().toLowerCase();
+            const dSdName = String(d.subdivision || d.subdivision_name || '').trim().toLowerCase();
+            const dSdId = String(d.subdivision_id ?? '').trim().toLowerCase();
+
+            const pdMatches = selectedParentDivs.some(sel => {
+              const s = String(sel).trim().toLowerCase();
+              return s === dPdName || s === dPdId || (dPdName && (dPdName.includes(s) || s.includes(dPdName)));
+            });
+
+            const sdMatches = (sdName && dSdName === sdName) || (sdId && dSdId === sdId);
+            return pdMatches && sdMatches;
+          });
+          if (matchDetail) return true;
+        }
+
+        return false;
+      });
+    } else if (selectedEntities.length > 0) {
+      cascadedSubdivs = baseSubdivs.filter(sd => {
+        const sdName = String(sd.label || sd.name || sd.subdivision_name || '').trim().toLowerCase();
+        const sdId = String(sd.value ?? sd.id ?? sd.subdivision_id ?? '');
+        const allItems = [...(mockData.details || []), ...(modalApiItems || [])];
+        return allItems.some(d => {
+          const dLeName = String(d.legal_entity || d.legal_entity_name || '').trim().toLowerCase();
+          const dLeId = String(d.legal_entity_id ?? '').trim().toLowerCase();
+          const dSdName = String(d.subdivision || d.subdivision_name || '').trim().toLowerCase();
+          const dSdId = String(d.subdivision_id ?? '').trim().toLowerCase();
+
+          const entityMatches = selectedEntities.some(sel => {
+            const s = String(sel).trim().toLowerCase();
+            return s === dLeName || s === dLeId;
+          });
+          return entityMatches && ((sdName && dSdName === sdName) || (sdId && dSdId === sdId));
+        });
+      });
+    }
+
+    // 4. Subinventories
+    const baseSubinvs = (mockData.filters.subinventories?.length > 0)
+      ? mockData.filters.subinventories
+      : [];
+
+    let cascadedSubinvs = baseSubinvs;
+    if (selectedSubdivs.length > 0 || selectedParentDivs.length > 0 || selectedEntities.length > 0) {
+      const allItems = [...(mockData.details || []), ...(modalApiItems || [])];
+      if (allItems.length > 0) {
+        const matchingCodes = new Set();
+        allItems.forEach(d => {
+          const dLeName = String(d.legal_entity || d.legal_entity_name || '').trim().toLowerCase();
+          const dLeId = String(d.legal_entity_id ?? '').trim().toLowerCase();
+          const dPdName = String(d.parent_division || d.parent_division_name || '').trim().toLowerCase();
+          const dPdId = String(d.parent_division_id ?? '').trim().toLowerCase();
+          const dSdName = String(d.subdivision || d.subdivision_name || '').trim().toLowerCase();
+          const dSdId = String(d.subdivision_id ?? '').trim().toLowerCase();
+          const siCode = String(d.subinventory || d.subinventory_name || d.subinventory_code || '').trim();
+
+          let match = true;
+          if (selectedEntities.length > 0) {
+            match = match && selectedEntities.some(s => {
+              const str = String(s).trim().toLowerCase();
+              return str === dLeName || str === dLeId;
+            });
+          }
+          if (selectedParentDivs.length > 0) {
+            match = match && selectedParentDivs.some(s => {
+              const str = String(s).trim().toLowerCase();
+              return str === dPdName || str === dPdId;
+            });
+          }
+          if (selectedSubdivs.length > 0) {
+            match = match && selectedSubdivs.some(s => {
+              const str = String(s).trim().toLowerCase();
+              return str === dSdName || str === dSdId;
+            });
+          }
+          if (match && siCode && siCode !== '-' && siCode.toLowerCase() !== 'all') {
+            matchingCodes.add(siCode.toLowerCase());
+          }
+        });
+
+        if (matchingCodes.size > 0) {
+          cascadedSubinvs = baseSubinvs.filter(si => {
+            const code = String(si.label || si.name || si.value || '').trim().toLowerCase();
+            return matchingCodes.has(code);
+          });
+        }
+      }
+    }
+
+    return {
+      legalGroups: allGroups,
+      legalEntities: cascadedEntities,
+      parentDivisions: cascadedParentDivs,
+      subdivisions: cascadedSubdivs,
+      subinventories: cascadedSubinvs,
+    };
+  }, [mockData.filters, masterHierarchy, mockData.details, modalApiItems]);
+
+  const mainCascadedOptions = useMemo(() => getCascadedOptions(filters), [getCascadedOptions, filters]);
+  const modalCascadedOptions = useMemo(() => getCascadedOptions(slowMovingDraftFilters), [getCascadedOptions, slowMovingDraftFilters]);
+
 
   
 
@@ -4823,7 +5127,7 @@ const [loading, setLoading] = useState(true);
         <FilterField
           label="Legal Group"
           value={filters.legalGroup}
-          options={mockData.filters.legalGroups}
+          options={mainCascadedOptions.legalGroups}
           onChange={(value) => updateFilter("legalGroup", value)}
           minWidth={115}
         />
@@ -4831,7 +5135,7 @@ const [loading, setLoading] = useState(true);
         <FilterField
           label="Legal Entity"
           value={filters.legalEntity}
-          options={mockData.filters.legalEntities}
+          options={mainCascadedOptions.legalEntities}
           onChange={(value) => updateFilter("legalEntity", value)}
           minWidth={115}
         />
@@ -4839,7 +5143,7 @@ const [loading, setLoading] = useState(true);
         <FilterField
           label="Parent Division"
           value={filters.parentDivision}
-          options={mockData.filters.parentDivisions}
+          options={mainCascadedOptions.parentDivisions}
           onChange={(value) => updateFilter("parentDivision", value)}
           minWidth={115}
         />
@@ -4847,7 +5151,7 @@ const [loading, setLoading] = useState(true);
         <FilterField
           label="Sub-Division"
           value={filters.subdivision}
-          options={mockData.filters.subdivisions}
+          options={mainCascadedOptions.subdivisions}
           onChange={(value) => updateFilter("subdivision", value)}
           minWidth={115}
         />
@@ -4855,7 +5159,7 @@ const [loading, setLoading] = useState(true);
         <FilterField
           label="Subinventory"
           value={filters.subinventory}
-          options={mockData.filters.subinventories}
+          options={mainCascadedOptions.subinventories}
           onChange={(value) => updateFilter("subinventory", value)}
           minWidth={105}
         />
@@ -5982,7 +6286,7 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Group</div>
                         <ModalMultiSelect
-                          options={mockData.filters.legalGroups.length > 0 ? mockData.filters.legalGroups : resolveLegalGroups([])}
+                          options={modalCascadedOptions.legalGroups}
                           value={slowMovingDraftFilters.legalGroup}
                           onChange={(vals) => {
                             const updateState = (prev) => {
@@ -6004,26 +6308,14 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Entity</div>
                         <ModalMultiSelect
-                          options={mockData.filters.legalEntities?.length > 0 ? mockData.filters.legalEntities : resolveLegalEntities([], mockData, slowMovingDraftFilters)}
+                          options={modalCascadedOptions.legalEntities}
                           value={slowMovingDraftFilters.legalEntity}
                           onChange={(vals) => {
                               const updateState = (prev) => {
                                 const next = { ...prev, legalEntity: vals };
-                                if ('legalEntity' === 'legalGroup') {
-                                  next.legalEntity = ["All"];
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('legalEntity' === 'legalEntity') {
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('legalEntity' === 'parentDivision') {
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('legalEntity' === 'subdivision') {
-                                  next.subinventory = ["All"];
-                                }
+                                next.parentDivision = ["All"];
+                                next.subdivision = ["All"];
+                                next.subinventory = ["All"];
                                 return next;
                               };
                               setSlowMovingDraftFilters(updateState);
@@ -6037,26 +6329,13 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Parent Division</div>
                         <ModalMultiSelect
-                          options={mockData.filters.parentDivisions?.length > 0 ? mockData.filters.parentDivisions : resolveParentDivisions([], mockData, slowMovingDraftFilters)}
+                          options={modalCascadedOptions.parentDivisions}
                           value={slowMovingDraftFilters.parentDivision}
                           onChange={(vals) => {
                               const updateState = (prev) => {
                                 const next = { ...prev, parentDivision: vals };
-                                if ('parentDivision' === 'legalGroup') {
-                                  next.legalEntity = ["All"];
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('parentDivision' === 'legalEntity') {
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('parentDivision' === 'parentDivision') {
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('parentDivision' === 'subdivision') {
-                                  next.subinventory = ["All"];
-                                }
+                                next.subdivision = ["All"];
+                                next.subinventory = ["All"];
                                 return next;
                               };
                               setSlowMovingDraftFilters(updateState);
@@ -6070,26 +6349,12 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Sub-Division</div>
                         <ModalMultiSelect
-                          options={mockData.filters.subdivisions?.length > 0 ? mockData.filters.subdivisions : resolveSubdivisions([], mockData, slowMovingDraftFilters)}
+                          options={modalCascadedOptions.subdivisions}
                           value={slowMovingDraftFilters.subdivision}
                           onChange={(vals) => {
                               const updateState = (prev) => {
                                 const next = { ...prev, subdivision: vals };
-                                if ('subdivision' === 'legalGroup') {
-                                  next.legalEntity = ["All"];
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('subdivision' === 'legalEntity') {
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('subdivision' === 'parentDivision') {
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('subdivision' === 'subdivision') {
-                                  next.subinventory = ["All"];
-                                }
+                                next.subinventory = ["All"];
                                 return next;
                               };
                               setSlowMovingDraftFilters(updateState);
@@ -6103,26 +6368,11 @@ const detailsSource = modalFilteredDetails || [];
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>SUB-INV Code</div>
                         <ModalMultiSelect
-                          options={mockData.filters.subinventories?.length > 0 ? mockData.filters.subinventories : resolveSubinventories([], mockData, slowMovingDraftFilters)}
+                          options={modalCascadedOptions.subinventories}
                           value={slowMovingDraftFilters.subinventory}
                           onChange={(vals) => {
                               const updateState = (prev) => {
                                 const next = { ...prev, subinventory: vals };
-                                if ('subinventory' === 'legalGroup') {
-                                  next.legalEntity = ["All"];
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('subinventory' === 'legalEntity') {
-                                  next.parentDivision = ["All"];
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('subinventory' === 'parentDivision') {
-                                  next.subdivision = ["All"];
-                                  next.subinventory = ["All"];
-                                } else if ('subinventory' === 'subdivision') {
-                                  next.subinventory = ["All"];
-                                }
                                 return next;
                               };
                               setSlowMovingDraftFilters(updateState);
