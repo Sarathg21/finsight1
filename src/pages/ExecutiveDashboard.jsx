@@ -714,7 +714,7 @@ export default function ExecutiveDashboard() {
     const [kpiData, setKpiData] = useState(null);
     const [prevKpiData, setPrevKpiData] = useState(null);
     const [kpiTargets, setKpiTargets] = useState({});
-    const [kpiLoading, setKpiLoading] = useState(false);
+    const [kpiLoading, setKpiLoading] = useState(true);
     const [kpiError, setKpiError] = useState(null);
 
     // ── TWC Trend state ──
@@ -1515,37 +1515,64 @@ export default function ExecutiveDashboard() {
                             >
                                 {kpi.title}
                             </div>
-                            <div style={{
-                                fontSize: '1.12rem',
-                                fontWeight: 800,
-                                color: kpi.isNegative ? '#dc2626' : '#0f172a',
-                                lineHeight: 1.05,
-                                letterSpacing: '-0.025em',
-                                marginTop: 4,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                            }}>
-                                {kpi.value}
-                            </div>
-                            {kpi.comparisonText ? (
-                                <div 
-                                    title={kpi.comparisonTitle}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 3,
-                                        marginTop: 4,
-                                        color: kpi.comparisonColor,
-                                        fontSize: '0.62rem',
-                                        fontWeight: 700,
-                                        cursor: 'default'
-                                    }}
-                                >
-                                    <span>{kpi.comparisonArrow} {kpi.comparisonText}</span>
-                                    <small style={{ color: '#94a3b8', fontSize: '0.55rem', fontWeight: 600 }}>{kpi.comparisonLabel}</small>
+                            {kpiLoading ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, width: '100%' }}>
+                                    <div 
+                                        style={{ 
+                                            height: 18, 
+                                            width: '72%', 
+                                            borderRadius: 4, 
+                                            background: 'linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%)', 
+                                            backgroundSize: '200% 100%', 
+                                            animation: 'shimmer 1.4s infinite' 
+                                        }} 
+                                    />
+                                    <div 
+                                        style={{ 
+                                            height: 11, 
+                                            width: '48%', 
+                                            borderRadius: 4, 
+                                            background: 'linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%)', 
+                                            backgroundSize: '200% 100%', 
+                                            animation: 'shimmer 1.4s infinite' 
+                                        }} 
+                                    />
                                 </div>
-                            ) : null}
+                            ) : (
+                                <>
+                                    <div style={{
+                                        fontSize: '1.12rem',
+                                        fontWeight: 800,
+                                        color: kpi.isNegative ? '#dc2626' : '#0f172a',
+                                        lineHeight: 1.05,
+                                        letterSpacing: '-0.025em',
+                                        marginTop: 4,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}>
+                                        {kpi.value}
+                                    </div>
+                                    {kpi.comparisonText ? (
+                                        <div 
+                                            title={kpi.comparisonTitle}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 3,
+                                                marginTop: 4,
+                                                color: kpi.comparisonColor,
+                                                fontSize: '0.62rem',
+                                                fontWeight: 700,
+                                                cursor: 'default'
+                                            }}
+                                        >
+                                            <span>{kpi.comparisonArrow ? `${kpi.comparisonArrow} ` : ''}{kpi.comparisonText}</span>
+                                            <small style={{ color: '#94a3b8', fontSize: '0.55rem', fontWeight: 600 }}>{kpi.comparisonLabel}</small>
+                                        </div>
+                                    ) : null}
+                                </>
+                            )}
                         </div>
                     </div>
                 ))}
