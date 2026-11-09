@@ -1,6 +1,6 @@
 const BACKEND_ORIGIN =
   process.env.VITE_BACKEND ||
-  "http://13.204.174.81:8000";
+  "https://finsight.fjtco.com";
 
 export default async function handler(req, res) {
   const { path, ...restQuery } = req.query;
