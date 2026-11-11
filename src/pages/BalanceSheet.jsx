@@ -3713,9 +3713,8 @@ export default function BalanceSheet() {
       if (isFirstFilterLoad.current) {
         isFirstFilterLoad.current = false;
         const normList = periods.map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
-        const octIdx = normList.indexOf('2026-10');
-        const first  = octIdx !== -1 ? normList[octIdx] : ((periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '');
-        const second = octIdx !== -1 && normList[octIdx + 1] ? normList[octIdx + 1] : ((periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '');
+        const first  = normList[0] || ((periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '');
+        const second = normList[1] || ((periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '');
         const targetLegalGroup = currentFilters.legalGroup && currentFilters.legalGroup.length > 0 ? currentFilters.legalGroup : ['All'];
 
         // Use period code directly -- no calendar date conversion needed (supports Period 13)
@@ -3862,9 +3861,8 @@ export default function BalanceSheet() {
   const handleApply = useCallback(() => { setAppliedFilters({ ...filters }); }, [filters]);
   const handleReset = useCallback(() => {
     const normList = (filterOptions.periods || []).map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
-    const octIdx = normList.indexOf('2026-10');
-    const first  = octIdx !== -1 ? normList[octIdx] : ((filterOptions.periods[0] && typeof filterOptions.periods[0] === 'object' ? filterOptions.periods[0].period : filterOptions.periods[0]) || '');
-    const second = octIdx !== -1 && normList[octIdx + 1] ? normList[octIdx + 1] : ((filterOptions.periods[1] && typeof filterOptions.periods[1] === 'object' ? filterOptions.periods[1].period : filterOptions.periods[1]) || '');
+    const first  = normList[0] || ((filterOptions.periods[0] && typeof filterOptions.periods[0] === 'object' ? filterOptions.periods[0].period : filterOptions.periods[0]) || '');
+    const second = normList[1] || ((filterOptions.periods[1] && typeof filterOptions.periods[1] === 'object' ? filterOptions.periods[1].period : filterOptions.periods[1]) || '');
     const reset = {
       ...DEFAULT_FILTERS,
       period: first,
