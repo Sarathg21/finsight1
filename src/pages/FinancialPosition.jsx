@@ -7118,6 +7118,7 @@ import {
 } from "../api/workingCapital";
 import { fetchAccessMe, fetchRolePermissions } from "../services/salesRevenueApi";
 import { useAuth } from "../context/AuthContext";
+import DataEntryBanner from "../components/Common/DataEntryBanner";
 
 const styles = {
     page: { padding: '12px 0 28px', background: '#f8fafc', minHeight: '100%', color: '#0f172a', fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', boxSizing: 'border-box' },
@@ -13709,6 +13710,9 @@ export default function FinancialPosition() {
                 </motion.div>
 
                 {error && <div style={{ ...styles.card, marginBottom: 10, borderColor: "#fecaca", color: "#b91c1c", background: "#fff7f7", fontSize: ".72rem", fontWeight: 600 }}>{error}</div>}
+
+                {/* DATA ENTRY IS IN PROGRESS BANNER */}
+                <DataEntryBanner period={filters.asOnDate || appliedFilters.asOnDate} />
 
                 <div className="fp-sales-kpis" style={{ ...styles.kpiGrid, gridTemplateColumns: isSmall ? "1fr" : isMobile ? "repeat(2, minmax(0,1fr))" : isMedium ? "repeat(3,minmax(0,1fr))" : "repeat(6,minmax(0,1fr))" }}>
                     {kpiLoading

@@ -31,6 +31,7 @@ import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
 import useFullscreen from '../hooks/useFullscreen';
 import FullscreenToggleButton from '../components/Common/FullscreenToggleButton';
+import DataEntryBanner from '../components/Common/DataEntryBanner';
 // Calendar and ChevronDown removed -- PeriodDropdown uses native <select>
 // MultiSelectDropdown replaced by inline MultiSelect (matches Sales Revenue style)
 
@@ -4357,6 +4358,10 @@ export default function BalanceSheet() {
             />
           )}
         </div>
+
+        {/* DATA ENTRY IS IN PROGRESS BANNER */}
+        <DataEntryBanner period={filters.period || appliedFilters.period} />
+
         {/* 5-column responsive KPI grid — matches SR auto-fit pattern */}
         <div className="bs-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))', gap: 'var(--card-gap, 10px)' }}>
           {kpiCards.map(kpi => (
