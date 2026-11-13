@@ -10,6 +10,8 @@ import ExecDashboardViewAll, { exportRevenueByRegionReport, exportProfitabilityB
 import PLComparisonCard from '../components/Charts/PLComparisonCard';
 import KeyFinancialParameters from '../components/KeyFinancialParameters';
 import Filters from '../components/Filters/Filters';
+import KpiInfoTooltip from '../components/Common/KpiInfoTooltip';
+import { getKpiTooltip } from '../data/kpiTooltipData';
 import { getOpexFilterOptions } from '../api/opexApi';
 import { fetchPLStatement, fetchPLComparison, fetchPLTrend } from '../services/plApi';
 import { 
@@ -1499,7 +1501,6 @@ export default function ExecutiveDashboard() {
                         {/* Title, Value & Trend */}
                         <div style={{ minWidth: 0, flex: 1, zIndex: 1 }}>
                             <div 
-                                title={kpi.title}
                                 style={{
                                     fontSize: '0.67rem',
                                     fontWeight: 700,
@@ -1511,9 +1512,15 @@ export default function ExecutiveDashboard() {
                                     minHeight: 28,
                                     display: 'flex',
                                     alignItems: 'center',
+                                    gap: 2,
                                 }}
                             >
-                                {kpi.title}
+                                <span>{kpi.title}</span>
+                                <KpiInfoTooltip
+                                    tooltipData={getKpiTooltip(kpi.key)}
+                                    size={12}
+                                    color="#93c5fd"
+                                />
                             </div>
                             {kpiLoading ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, width: '100%' }}>

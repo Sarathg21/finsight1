@@ -7,6 +7,8 @@ import { getExecKpis, getExecTwcTrend } from '../api/executiveDashboardApi';
 import { getFinancialPositionKpis } from '../api/financialPositionApi';
 import { getOpexFilterOptions } from '../api/opexApi';
 import MultiSelectDropdown from './Filters/MultiSelectDropdown';
+import KpiInfoTooltip from './Common/KpiInfoTooltip';
+import { getKpiTooltip } from '../data/kpiTooltipData';
 
 const MONTHS_LIST = [
     { num: '01', code: 'Jan', label: 'Jan' },
@@ -23,6 +25,19 @@ const MONTHS_LIST = [
     { num: '12', code: 'Dec', label: 'Dec' },
 ];
 
+// Maps KFP table row param names to kpiTooltipData.js keys for tooltip display
+const KFP_TOOLTIP_KEY_MAP = {
+    'Total Revenue':                     'total_revenue',
+    'Cost of Material':                  'cost_of_material',
+    'Gross Profit':                      'gross_profit',
+    'Net Profit':                        'net_profit',
+    'Trade Working Capital':             'trade_working_capital',
+    'CCC':                               'cash_conversion_cycle_days',
+    'DSO':                               'dso_days',
+    'DIO':                               'dio_days',
+    'DPO':                               'dpo_days',
+    'Short Term Loans (18-19-20-21)':    'total_short_term_borrowing',
+};
 function parseNum(val) {
     if (val === null || val === undefined || val === '') return null;
     const n = Number(val);
@@ -1395,7 +1410,16 @@ export default function KeyFinancialParameters({
 
                                     {/* Parameter Name */}
                                     <td style={{ ...tdStyle, fontWeight: (row.id === 1 || row.id === 5 || row.id === 5.1 || row.id === 7 || row.id === 7.1 || row.id === 8 || row.id === 18 || row.id === 19 || row.isPct) ? 800 : 600, color: '#1e293b' }}>
-                                        {row.param}
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                            {row.param}
+                                            {KFP_TOOLTIP_KEY_MAP[row.param] && (
+                                                <KpiInfoTooltip
+                                                    tooltipData={getKpiTooltip(KFP_TOOLTIP_KEY_MAP[row.param])}
+                                                    size={11}
+                                                    color="#94a3b8"
+                                                />
+                                            )}
+                                        </span>
                                     </td>
 
                                     {/* Unit */}
