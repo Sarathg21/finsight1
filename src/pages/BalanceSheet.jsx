@@ -2212,6 +2212,9 @@ function StatementViewAll({
         </button>
       </div>
 
+      {/* DATA ENTRY IS IN PROGRESS BANNER */}
+      <DataEntryBanner period={modalFilters.period || appliedFilters?.period || periodLabel} />
+
       {/* ── Toolbar: Search, Expand/Collapse & Exports ── */}
       <div style={{
         display: 'flex',
@@ -2433,6 +2436,9 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
 
   return (
     <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* DATA ENTRY IS IN PROGRESS BANNER */}
+      <DataEntryBanner period={periodLabel || appliedFilters?.period} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingBottom: 8, borderBottom: '1px solid #f1f5f9' }}>
         <div style={{ fontSize: '0.74rem', color: C.slate }}>
           Total Sub-Divisions: <strong style={{ color: C.navy }}>{rows.length}</strong> | Period: <strong style={{ color: C.navy }}>{periodLabel || '—'}</strong> | Currency: <strong style={{ color: C.navy }}>{currency}</strong>
@@ -2690,6 +2696,9 @@ function TrendViewAll({
           </button>
         </div>
       </div>
+
+      {/* DATA ENTRY IS IN PROGRESS BANNER */}
+      <DataEntryBanner period={modalFilters.period || appliedFilters?.period || trendData?.endPeriod} />
 
       {loading ? (
         <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -3021,6 +3030,9 @@ function CompositionViewAll({
         </div>
       </div>
 
+      {/* DATA ENTRY IS IN PROGRESS BANNER */}
+      <DataEntryBanner period={modalFilters.period || appliedFilters?.period || periodLabel} />
+
       {/* Two Composition Breakdown Cards — totals pinned to bottom so they align on the same line */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 16, alignItems: 'end' }}>
         {/* 1. Asset Composition Card */}
@@ -3269,6 +3281,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
           </div>
         </div>
         <div style={{ padding: '0 14px', overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
+          {/* DATA ENTRY IS IN PROGRESS BANNER */}
+          <DataEntryBanner period={data?.period_name || data?.period} style={{ margin: '10px 0 6px 0' }} />
+
           {!rows.length ? (
             <div style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
           ) : (
@@ -3451,12 +3466,15 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
 }
 
 /* Reconciliation View All */
-function ReconciliationViewAll({ rows, currency }) {
+function ReconciliationViewAll({ rows, currency, period }) {
   if (!rows?.length)
     return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* DATA ENTRY IS IN PROGRESS BANNER */}
+      <DataEntryBanner period={period} />
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
         <tr>
           <th style={MTH_L}>Period</th>
@@ -3496,6 +3514,7 @@ function ReconciliationViewAll({ rows, currency }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -4141,7 +4160,7 @@ export default function BalanceSheet() {
         title="Balance Sheet Reconciliation"
         subtitle={`BALANCED when |Net Variance| < 1,000`}
       >
-        <ReconciliationViewAll rows={reconciliationRows} currency={currency} />
+        <ReconciliationViewAll rows={reconciliationRows} currency={currency} period={filters.period || appliedFilters.period} />
       </ViewAllModal>
 
       {/* ══ PAGE HEADER ══ */}
