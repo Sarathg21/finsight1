@@ -580,6 +580,36 @@ function ProfitabilityRegionChart({ data = [], currency = 'AED' }) {
     );
 }
 
+const resolveLatestDateFromFilterOptions = (options) => {
+    try {
+        const periods = options?.periods;
+        if (!Array.isArray(periods) || periods.length === 0) return '2026-11-30';
+        const lastItem = periods[periods.length - 1];
+        const pStr = (typeof lastItem === 'object' && lastItem !== null)
+            ? (lastItem.period_name || lastItem.value || lastItem.name || lastItem.label || '')
+            : String(lastItem || '');
+        if (!pStr) return '2026-11-30';
+        if (pStr.match(/^\d{4}-\d{2}-\d{2}$/)) return pStr;
+        const cleaned = pStr.trim();
+        const parts = cleaned.split(/[\s\-_/]+/);
+        let mIdx = MONTHS_SHORT.findIndex(m => parts[0] && parts[0].toLowerCase().startsWith(m.toLowerCase()));
+        let rawYr = parts[1];
+        if (mIdx === -1 && parts[1]) {
+            mIdx = MONTHS_SHORT.findIndex(m => parts[1].toLowerCase().startsWith(m.toLowerCase()));
+            rawYr = parts[0];
+        }
+        if (mIdx !== -1) {
+            let finalYr = rawYr ? (rawYr.length === 2 ? ('20' + rawYr) : rawYr) : '2026';
+            const moStr = String(mIdx + 1).padStart(2, '0');
+            const lastDay = new Date(parseInt(finalYr, 10), mIdx + 1, 0).getDate();
+            return finalYr + '-' + moStr + '-' + String(lastDay).padStart(2, '0');
+        }
+    } catch {
+        // fallback
+    }
+    return '2026-11-30';
+};
+
 export default function ExecutiveDashboard() {
     const navigate = useNavigate();
     const { ref: twcChartRef, inView: twcInView } = useInView({ threshold: 0.2, triggerOnce: true });
@@ -590,8 +620,8 @@ export default function ExecutiveDashboard() {
 
     // ── Filter state ──
     const [filters, setFilters] = useState({
-        as_of_date: '2026-10-31',
-        as_on_date: '2026-10-31',
+        as_of_date: '2026-11-30',
+        as_on_date: '2026-11-30',
         period_type: 'PTD',
         reporting_currency: 'AED',
         legal_group_id: null,
@@ -608,14 +638,21 @@ export default function ExecutiveDashboard() {
         let isMounted = true;
         getOpexFilterOptions()
             .then((res) => {
-                if (isMounted && res) setFilterOptions(res);
+                if (isMounted && res) {
+                    setFilterOptions(res);
+                    const latestDate = resolveLatestDateFromFilterOptions(res);
+                    if (latestDate) {
+                        setFilters(prev => ({ ...prev, as_of_date: latestDate, as_on_date: latestDate }));
+                        setAppliedFilters(prev => ({ ...prev, as_of_date: latestDate, as_on_date: latestDate, _timestamp: Date.now() }));
+                    }
+                }
             })
             .catch((err) => console.error('[ExecutiveDashboard] getOpexFilterOptions error:', err));
         return () => { isMounted = false; };
     }, []);
 
     const handleApplyFilters = (applied) => {
-        let dateVal = appliedFilters.as_of_date || '2026-10-31';
+        let dateVal = appliedFilters.as_of_date || resolveLatestDateFromFilterOptions(filterOptions) || '2026-11-30';
         let periodTypeVal = 'PTD';
 
         if (applied && applied.period) {
@@ -691,9 +728,10 @@ export default function ExecutiveDashboard() {
     };
 
     const handleResetFilters = () => {
+        const defaultDate = resolveLatestDateFromFilterOptions(filterOptions) || '2026-11-30';
         const defaultState = {
-            as_of_date: '2026-10-31',
-            as_on_date: '2026-10-31',
+            as_of_date: defaultDate,
+            as_on_date: defaultDate,
             period_type: 'PTD',
             reporting_currency: 'AED',
             legal_group_id: null,
@@ -739,7 +777,7 @@ export default function ExecutiveDashboard() {
         setKpiLoading(true);
         setKpiError(null);
 
-        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || '2026-10-31';
+        const asOf = appliedFilters.as_of_date || appliedFilters.as_on_date || resolveLatestDateFromFilterOptions(filterOptions) || '2026-11-30';
         const parts = asOf.split('-');
         const yr = parseInt(parts[0] || '2026', 10);
         const mo = parseInt(parts[1] || '9', 10);
@@ -1085,6 +1123,29 @@ export default function ExecutiveDashboard() {
         return undefined;
     };
 
+    const getStatusFromKpiPayload = (payload, cfgKey) => {
+        if (!payload) return undefined;
+        const aliases = {
+            cash_collection: ['cash_collection', 'cash_collections', 'collections', 'collections_total', 'total_collection'],
+            collection_efficiency: ['collection_efficiency', 'collection_efficiency_pct', 'collection_efficiency_percent', 'collection_pct', 'efficiency'],
+        };
+        const keysToCheck = aliases[cfgKey] || [cfgKey];
+        const list = Array.isArray(payload?.kpis)
+            ? payload.kpis
+            : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+            ? payload
+            : null;
+        if (list) {
+            for (const key of keysToCheck) {
+                const item = list.find(x => x && (x.key === key || x.name === key || x.id === key));
+                if (item && item.status) return item.status;
+            }
+        }
+        return payload?.diagnostics ? payload.diagnostics[cfgKey + '_status'] : undefined;
+    };
+
     // Helper to safely extract percentage change
     const getChangeFromKpiPayload = (payload, cfgKey) => {
         if (!payload) return undefined;
@@ -1262,10 +1323,25 @@ export default function ExecutiveDashboard() {
                 compColor = isFavorable ? '#16a34a' : '#dc2626';
                 compTitle = `MoM Change: ${compText} vs. last month`;
             } else {
-                compArrow = '';
-                compText = '—';
-                compColor = '#94a3b8';
-                compTitle = 'MoM comparison not available';
+                const kpiStatus = getStatusFromKpiPayload(kpiData, cfg.key);
+                if (numVal === null && (kpiStatus === 'CLOSING_AR_NOT_AVAILABLE' || cfg.key === 'cash_collection')) {
+                    compArrow = '';
+                    compText = 'Pending AR Close';
+                    compColor = '#d97706';
+                    compLabel = '';
+                    compTitle = 'November Trade Receivables month-end close is pending in the ERP/database (Opening AR + Revenue − Closing AR)';
+                } else if (numVal === null && (kpiStatus === 'UNAVAILABLE' || cfg.key === 'collection_efficiency')) {
+                    compArrow = '';
+                    compText = 'Pending AR Close';
+                    compColor = '#d97706';
+                    compLabel = '';
+                    compTitle = 'Collection Efficiency depends on Cash Collection, which requires November month-end AR closing';
+                } else {
+                    compArrow = '';
+                    compText = '—';
+                    compColor = '#94a3b8';
+                    compTitle = 'MoM comparison not available';
+                }
             }
         } else {
             // compareType === 'target'
