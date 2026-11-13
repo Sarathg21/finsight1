@@ -107,70 +107,85 @@ export default function DataEntryBanner({ period, year, style = {} }) {
   return (
     <>
       <style>{`
-        @keyframes bsDataEntryShimmer {
-          0% { background-position: 200% 50%; }
-          100% { background-position: -200% 50%; }
-        }
         @keyframes bsDataEntryPulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.84; }
+          0%, 100% {
+            box-shadow: 0 4px 14px rgba(185, 28, 28, 0.42), 0 2px 6px rgba(185, 28, 28, 0.2);
+            opacity: 1;
+          }
+          50% {
+            box-shadow: 0 4px 20px rgba(220, 38, 38, 0.62), 0 2px 8px rgba(220, 38, 38, 0.3);
+            opacity: 0.94;
+          }
         }
         @keyframes bsDataEntryDot {
           0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.45); opacity: 0.55; }
+          50% { transform: scale(1.3); opacity: 0.6; }
         }
       `}</style>
       <div
-        className="data-entry-in-progress-banner"
-        role="status"
-        aria-live="polite"
         style={{
-          margin: '0 0 12px 0',
-          borderRadius: 8,
-          background: 'linear-gradient(90deg, #dc2626 0%, #b91c1c 35%, #991b1b 50%, #b91c1c 65%, #dc2626 100%)',
-          backgroundSize: '200% 100%',
-          animation: 'bsDataEntryShimmer 3.2s linear infinite, bsDataEntryPulse 2s ease-in-out infinite',
-          padding: '9px 18px',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
-          gap: 10,
-          boxShadow: '0 0 16px rgba(220, 38, 38, 0.4), 0 2px 8px rgba(220, 38, 38, 0.25)',
-          ...style,
+          alignItems: 'center',
+          width: '100%',
+          margin: '2px 0 16px 0',
         }}
       >
-        <span
+        <div
+          className="data-entry-in-progress-banner"
+          role="status"
+          aria-live="polite"
           style={{
-            display: 'inline-block',
-            width: 7,
-            height: 7,
-            borderRadius: '50%',
-            background: '#ffffff',
-            animation: 'bsDataEntryDot 1.4s ease-in-out infinite',
-          }}
-        />
-        <span
-          style={{
-            color: '#ffffff',
-            fontWeight: 800,
-            fontSize: '0.8rem',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            padding: '7px 28px',
+            borderRadius: 9999,
+            background: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)',
+            boxShadow: '0 4px 14px rgba(185, 28, 28, 0.42), 0 2px 6px rgba(185, 28, 28, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             userSelect: 'none',
+            animation: 'bsDataEntryPulse 2.4s ease-in-out infinite',
+            ...style,
           }}
         >
-          DATA ENTRY IS IN PROGRESS
-        </span>
-        <span
-          style={{
-            display: 'inline-block',
-            width: 7,
-            height: 7,
-            borderRadius: '50%',
-            background: '#ffffff',
-            animation: 'bsDataEntryDot 1.4s ease-in-out infinite 0.7s',
-          }}
-        />
+          <span
+            style={{
+              display: 'inline-block',
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: '#ffffff',
+              animation: 'bsDataEntryDot 1.4s ease-in-out infinite',
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '0.74rem',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.2,
+            }}
+          >
+            DATA ENTRY IS IN PROGRESS
+          </span>
+          <span
+            style={{
+              display: 'inline-block',
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: '#ffffff',
+              animation: 'bsDataEntryDot 1.4s ease-in-out infinite 0.7s',
+              flexShrink: 0,
+            }}
+          />
+        </div>
       </div>
     </>
   );
