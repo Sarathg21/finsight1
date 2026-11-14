@@ -4,11 +4,12 @@ import { createPortal } from 'react-dom';
 /**
  * KpiInfoTooltip
  * ──────────────
- * Reusable information icon (ⓘ) with a rich tooltip for KPI cards.
+ * Compact formula tooltip for KPI cards and tables.
+ *
+ * Displays ONLY the approved mathematical formula in a sleek, non-intrusive popover.
  *
  * Props:
- *  - tooltipData {object} — From kpiTooltipData.js (title, definition, formula,
- *                           calculationBasis, source, notes[])
+ *  - tooltipData {object} — From kpiTooltipData.js (contains formula, title)
  *  - size        {number} — Icon size in px (default 13)
  *  - color       {string} — Icon colour (default '#64748b')
  *
@@ -16,13 +17,13 @@ import { createPortal } from 'react-dom';
  *  - Opens on hover AND click
  *  - Closes on click-outside or Escape key
  *  - Portal-based rendering to escape card overflow:hidden clipping
- *  - Smart positioning: flips to top/left/right when near viewport edges
+ *  - Smart positioning with dynamic arrow pointing directly to the info icon
+ *  - Ultra-compact height (~75px) avoiding chart or content obstruction
  *  - Fully accessible (button role, aria-expanded, aria-label)
- *  - Works on desktop and mobile (touch)
  */
 export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748b' }) {
   const [visible, setVisible] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0, placement: 'bottom' });
+  const [pos, setPos] = useState({ top: 0, left: 0, placement: 'bottom', arrowLeft: 20 });
   const btnRef = useRef(null);
   const tooltipRef = useRef(null);
   const hoverTimerRef = useRef(null);
@@ -32,7 +33,7 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
     if (!btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
     const TIP_WIDTH = 320;
-    const TIP_HEIGHT_ESTIMATE = 300;
+    const TIP_HEIGHT_ESTIMATE = 85;
     const OFFSET = 8;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -51,7 +52,10 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
     if (left + TIP_WIDTH > vw - 12) left = vw - TIP_WIDTH - 12;
     if (left < 12) left = 12;
 
-    setPos({ top, left, placement });
+    const btnCenter = rect.left + rect.width / 2;
+    const arrowLeft = Math.max(12, Math.min(btnCenter - left - 5, TIP_WIDTH - 22));
+
+    setPos({ top, left, placement, arrowLeft });
   }, []);
 
   const open = useCallback(() => {
@@ -63,15 +67,14 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
     setVisible(false);
   }, []);
 
-  // Hover: show after 150ms delay, hide immediately on leave
+  // Hover: show after 120ms delay, hide immediately on leave
   const handleMouseEnter = () => {
     clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(open, 150);
+    hoverTimerRef.current = setTimeout(open, 120);
   };
 
   const handleMouseLeave = (e) => {
     clearTimeout(hoverTimerRef.current);
-    // Keep open if mouse moves into the tooltip itself
     if (tooltipRef.current && tooltipRef.current.contains(e.relatedTarget)) return;
     close();
   };
@@ -129,7 +132,7 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
   // Cleanup hover timer on unmount
   useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
 
-  if (!tooltipData) return null;
+  if (!tooltipData || !tooltipData.formula) return null;
 
   const tooltipEl = visible ? (
     <div
@@ -139,145 +142,93 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
         position: 'fixed',
         top: pos.top,
         left: pos.left,
-        width: 320,
+        width: 'max-content',
+        maxWidth: 340,
+        minWidth: 220,
         zIndex: 99999,
         background: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 10,
-        boxShadow: '0 8px 24px rgba(15,23,42,0.14), 0 2px 6px rgba(15,23,42,0.08)',
-        padding: '14px 16px',
+        border: '1px solid #cbd5e1',
+        borderRadius: 8,
+        boxShadow: '0 8px 20px rgba(15,23,42,0.12), 0 2px 5px rgba(15,23,42,0.06)',
+        padding: '9px 12px',
         fontSize: '0.73rem',
-        lineHeight: 1.55,
+        lineHeight: 1.45,
         color: '#1e293b',
         fontFamily: 'inherit',
         pointerEvents: 'auto',
         animation: 'kpiTipFadeIn 0.14s ease',
       }}
       role="tooltip"
-      aria-label={`${tooltipData.title} definition and formula`}
+      aria-label={`${tooltipData.title || 'KPI'} formula: ${tooltipData.formula}`}
     >
       <style>{`
         @keyframes kpiTipFadeIn {
-          from { opacity: 0; transform: translateY(4px); }
+          from { opacity: 0; transform: translateY(3px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
-      {/* Title */}
+      {/* Header: Formula label */}
       <div style={{
-        fontWeight: 800,
-        fontSize: '0.78rem',
-        color: '#0f172a',
-        marginBottom: 8,
-        paddingBottom: 7,
-        borderBottom: '1px solid #f1f5f9',
         display: 'flex',
         alignItems: 'center',
-        gap: 6,
+        gap: 5,
+        marginBottom: 5,
+        fontSize: '0.65rem',
+        fontWeight: 700,
+        color: '#64748b',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
       }}>
         <span style={{
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 18,
-          height: 18,
+          width: 14,
+          height: 14,
           borderRadius: '50%',
           background: '#dbeafe',
           color: '#1d4ed8',
-          fontSize: '0.68rem',
+          fontSize: '0.58rem',
           fontWeight: 900,
           flexShrink: 0,
         }}>ⓘ</span>
-        {tooltipData.title}
+        <span>Formula</span>
       </div>
 
-      {/* Definition */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
-          Definition
-        </div>
-        <div style={{ color: '#334155' }}>{tooltipData.definition}</div>
+      {/* Formula content */}
+      <div style={{
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: 6,
+        padding: '7px 11px',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontSize: '0.72rem',
+        color: '#1d4ed8',
+        fontWeight: 600,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        lineHeight: 1.45,
+      }}>
+        {tooltipData.formula}
       </div>
 
-      {/* Formula */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
-          Formula
-        </div>
-        <div style={{
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: 6,
-          padding: '6px 10px',
-          fontFamily: 'monospace, monospace',
-          fontSize: '0.7rem',
-          color: '#1d4ed8',
-          fontWeight: 600,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}>
-          {tooltipData.formula}
-        </div>
-      </div>
-
-      {/* Calculation Basis */}
-      <div style={{ marginBottom: 8, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        <span style={{ fontWeight: 700, color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0, paddingTop: 1 }}>
-          Basis:
-        </span>
-        <span style={{
-          background: '#eff6ff',
-          color: '#1d4ed8',
-          borderRadius: 4,
-          padding: '1px 7px',
-          fontSize: '0.68rem',
-          fontWeight: 700,
-          border: '1px solid #bfdbfe',
-        }}>
-          {tooltipData.calculationBasis}
-        </span>
-      </div>
-
-      {/* Source */}
-      <div style={{ marginBottom: 8, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        <span style={{ fontWeight: 700, color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0, paddingTop: 1 }}>
-          Source:
-        </span>
-        <span style={{ color: '#334155', fontSize: '0.7rem' }}>{tooltipData.source}</span>
-      </div>
-
-      {/* Notes */}
-      {tooltipData.notes && tooltipData.notes.length > 0 && (
-        <div>
-          <div style={{ fontWeight: 700, color: '#475569', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-            Notes
-          </div>
-          <ul style={{ margin: 0, padding: '0 0 0 14px', listStyleType: 'disc' }}>
-            {tooltipData.notes.map((note, i) => (
-              <li key={i} style={{ marginBottom: i < tooltipData.notes.length - 1 ? 4 : 0, color: '#475569' }}>
-                {note}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Arrow indicator */}
+      {/* Arrow indicator pointing to info icon */}
       <div style={{
         position: 'absolute',
-        [pos.placement === 'bottom' ? 'top' : 'bottom']: -6,
-        left: Math.min(Math.max(pos.left > 12 ? 160 : 20, 16), 288),
-        width: 10,
-        height: 10,
+        [pos.placement === 'bottom' ? 'top' : 'bottom']: -5,
+        left: pos.arrowLeft,
+        width: 9,
+        height: 9,
         background: '#ffffff',
-        border: '1px solid #e2e8f0',
+        border: '1px solid #cbd5e1',
         transform: 'rotate(45deg)',
-        borderRight: pos.placement === 'bottom' ? '1px solid #e2e8f0' : 'none',
-        borderBottom: pos.placement === 'bottom' ? '1px solid #e2e8f0' : 'none',
-        borderLeft: pos.placement === 'top' ? '1px solid #e2e8f0' : 'none',
-        borderTop: pos.placement === 'top' ? '1px solid #e2e8f0' : 'none',
+        borderRight: pos.placement === 'bottom' ? '1px solid #cbd5e1' : 'none',
+        borderBottom: pos.placement === 'bottom' ? '1px solid #cbd5e1' : 'none',
+        borderLeft: pos.placement === 'top' ? '1px solid #cbd5e1' : 'none',
+        borderTop: pos.placement === 'top' ? '1px solid #cbd5e1' : 'none',
         boxShadow: 'none',
-        zIndex: -1,
+        zIndex: 1,
       }} />
     </div>
   ) : null;
@@ -287,7 +238,7 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
       <button
         ref={btnRef}
         type="button"
-        aria-label={`Information about ${tooltipData.title}`}
+        aria-label={`Formula for ${tooltipData.title || 'KPI'}`}
         aria-expanded={visible}
         aria-haspopup="true"
         onMouseEnter={handleMouseEnter}
@@ -311,7 +262,7 @@ export default function KpiInfoTooltip({ tooltipData, size = 13, color = '#64748
           verticalAlign: 'middle',
           marginLeft: 3,
         }}
-        title={`About ${tooltipData.title}`}
+        title={`Formula: ${tooltipData.formula}`}
       >
         <svg
           width={size}
