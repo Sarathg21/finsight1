@@ -134,6 +134,7 @@ export default function KeyFinancialParameters({
     currency = 'AED',
     parentTwcTrend = [],
     parentKpis = {},
+    parentPrevKpis = null,
     parentPlStatement = null,
     filterOptionsReady = true,
 }) {
@@ -468,9 +469,14 @@ export default function KeyFinancialParameters({
             setKpisCurrent(parentKpis);
         }
 
-        getExecKpis({ as_of_date: dateMeta.prevAsOfDate, period_type: periodType, ...hierarchy })
-            .then(res => { if (active && res) setKpisPrev(res); })
-            .catch(() => {});
+        const hasParentPrev = parentPrevKpis && (parentPrevKpis.kpis || parentPrevKpis.data || Object.keys(parentPrevKpis).length > 0) && !hasCustomHierarchy && periodType === 'PTD';
+        if (hasParentPrev) {
+            setKpisPrev(parentPrevKpis);
+        } else {
+            getExecKpis({ as_of_date: dateMeta.prevAsOfDate, period_type: periodType, ...hierarchy })
+                .then(res => { if (active && res) setKpisPrev(res); })
+                .catch(() => {});
+        }
 
         return () => { active = false; };
     }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency, filterOptionsReady, parentPlStatement, parentTwcTrend]);

@@ -644,7 +644,7 @@ export default function ExecutiveDashboard() {
                 if (isMounted && res) {
                     setFilterOptions(res);
                     const latestDate = resolveLatestDateFromFilterOptions(res);
-                    if (latestDate) {
+                    if (latestDate && latestDate !== appliedFilters.as_of_date) {
                         setFilters(prev => ({ ...prev, as_of_date: latestDate, as_on_date: latestDate }));
                         setAppliedFilters(prev => ({ ...prev, as_of_date: latestDate, as_on_date: latestDate, _timestamp: Date.now() }));
                     }
@@ -798,7 +798,7 @@ export default function ExecutiveDashboard() {
         const moIdx = mo - 1;
         const periodName = `${MONTHS_SHORT[moIdx] || 'Sep'}-${String(yr).slice(2)}`;
 
-        // 1. Fetch Current KPIs immediately and update state without blocking on P&L
+        // 1. Fetch Current KPIs immediately and update state — priority #1 for visible cards
         getExecKpis(appliedFilters)
             .then(curData => {
                 if (reqId < latestCompletedKpiReqIdRef.current) return;
@@ -816,22 +816,23 @@ export default function ExecutiveDashboard() {
                 setKpiData(null);
             })
             .finally(() => {
+                // Instantly unblock cards and stop shimmer as soon as current KPIs arrive
                 if (reqId >= latestCompletedKpiReqIdRef.current) setKpiLoading(false);
-            });
 
-        // 2. Fetch Previous KPIs for live MoM comparison
-        getExecKpis({ ...appliedFilters, as_of_date: prevAsOf, as_on_date: prevAsOf })
-            .then(prevData => {
-                if (reqId < latestCompletedPrevReqIdRef.current) return;
-                latestCompletedPrevReqIdRef.current = reqId;
-                if (prevData && (prevData.kpis || prevData.data || prevData.summary || Object.keys(prevData).length > 0)) {
-                    setPrevKpiData(prevData);
-                } else {
-                    setPrevKpiData(null);
-                }
-            })
-            .catch(() => {
-                if (reqId >= latestCompletedPrevReqIdRef.current) setPrevKpiData(null);
+                // 2. Fetch Previous KPIs for live MoM comparison in background without holding cards in shimmer
+                getExecKpis({ ...appliedFilters, as_of_date: prevAsOf, as_on_date: prevAsOf })
+                    .then(prevData => {
+                        if (reqId < latestCompletedPrevReqIdRef.current) return;
+                        latestCompletedPrevReqIdRef.current = reqId;
+                        if (prevData && (prevData.kpis || prevData.data || prevData.summary || Object.keys(prevData).length > 0)) {
+                            setPrevKpiData(prevData);
+                        } else {
+                            setPrevKpiData(null);
+                        }
+                    })
+                    .catch(() => {
+                        if (reqId >= latestCompletedPrevReqIdRef.current) setPrevKpiData(null);
+                    });
             });
 
         // 3. Fetch P&L Targets asynchronously
@@ -2171,6 +2172,7 @@ export default function ExecutiveDashboard() {
                 currency={currency}
                 parentTwcTrend={twcTrend}
                 parentKpis={kpiData}
+                parentPrevKpis={prevKpiData}
                 parentPlStatement={plStatementData}
                 filterOptionsReady={filterOptionsReady}
             />
