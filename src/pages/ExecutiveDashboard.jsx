@@ -614,6 +614,7 @@ export default function ExecutiveDashboard() {
     const navigate = useNavigate();
     const { ref: twcChartRef, inView: twcInView } = useInView({ threshold: 0.2, triggerOnce: true });
     const { ref: revRegionChartRef, inView: revRegionInView } = useInView({ threshold: 0.2, triggerOnce: true });
+    const { ref: profitTrendCardRef, inView: profitTrendInView } = useInView({ threshold: 0.1, triggerOnce: true });
     const [hoveredTwcIndex, setHoveredTwcIndex] = useState(null);
     const [hoveredRevIndex, setHoveredRevIndex] = useState(null);
     const [viewAll, setViewAll] = useState({ open: false, section: 'twc_viewall' });
@@ -632,6 +633,8 @@ export default function ExecutiveDashboard() {
     const [appliedFilters, setAppliedFilters] = useState({ ...filters });
     const [filterOptions, setFilterOptions] = useState({});
     const currency = appliedFilters.reporting_currency || 'AED';
+    const [filterOptionsReady, setFilterOptionsReady] = useState(false);
+    const [plStatementData, setPlStatementData] = useState(null);
 
     // ── Load standard FinSight filter options ──
     useEffect(() => {
@@ -647,7 +650,10 @@ export default function ExecutiveDashboard() {
                     }
                 }
             })
-            .catch((err) => console.error('[ExecutiveDashboard] getOpexFilterOptions error:', err));
+            .catch((err) => console.error('[ExecutiveDashboard] getOpexFilterOptions error:', err))
+            .finally(() => {
+                if (isMounted) setFilterOptionsReady(true);
+            });
         return () => { isMounted = false; };
     }, []);
 
@@ -773,6 +779,7 @@ export default function ExecutiveDashboard() {
 
     // ── Fetch KPIs & Target Comparison on filter apply ──
     useEffect(() => {
+        if (!filterOptionsReady) return;
         const reqId = ++kpiReqIdRef.current;
         setKpiLoading(true);
         setKpiError(null);
@@ -842,6 +849,7 @@ export default function ExecutiveDashboard() {
                 if (reqId < latestCompletedPlReqIdRef.current) return;
                 latestCompletedPlReqIdRef.current = reqId;
                 if (plRes) {
+                    setPlStatementData(plRes);
                     let rawList = [];
                     if (Array.isArray(plRes)) {
                         rawList = plRes;
@@ -881,10 +889,11 @@ export default function ExecutiveDashboard() {
                 }
             })
             .catch(() => {});
-    }, [appliedFilters]);
+    }, [appliedFilters, filterOptionsReady]);
 
     // ── Fetch TWC Trend on filter apply ──
     useEffect(() => {
+        if (!filterOptionsReady) return;
         if (!getExecTwcTrend) return;
         let cancelled = false;
         setTwcLoading(true);
@@ -938,10 +947,11 @@ export default function ExecutiveDashboard() {
             .finally(() => { if (!cancelled) setTwcLoading(false); });
 
         return () => { cancelled = true; };
-    }, [appliedFilters]);
+    }, [appliedFilters, filterOptionsReady]);
 
     // ── Fetch Profitability Trend (Net Profit last 6-7 months) ──
     useEffect(() => {
+        if (!filterOptionsReady || !profitTrendInView) return;
         let cancelled = false;
         setProfitTrendLoading(true);
         const params = {
@@ -993,10 +1003,11 @@ export default function ExecutiveDashboard() {
             .catch(err => { if (!cancelled) console.error('[Profit Trend]', err); })
             .finally(() => { if (!cancelled) setProfitTrendLoading(false); });
         return () => { cancelled = true; };
-    }, [appliedFilters]);
+    }, [appliedFilters, filterOptionsReady, profitTrendInView]);
 
     // ── Fetch Revenue by Region ──
     useEffect(() => {
+        if (!filterOptionsReady || !revRegionInView) return;
         if (!getExecRevenueByRegion) return;
         let cancelled = false;
         getExecRevenueByRegion(appliedFilters)
@@ -1018,10 +1029,11 @@ export default function ExecutiveDashboard() {
                 if (!cancelled) console.error('[Revenue by Region API]', err.response?.status, err.response?.data || err.message);
             });
         return () => { cancelled = true; };
-    }, [appliedFilters]);
+    }, [appliedFilters, filterOptionsReady, revRegionInView]);
 
     // ── Fetch Profitability by Region ──
     useEffect(() => {
+        if (!filterOptionsReady || !revRegionInView) return;
         if (!getExecProfitabilityByRegion) return;
         let cancelled = false;
         getExecProfitabilityByRegion(appliedFilters)
@@ -1663,7 +1675,7 @@ export default function ExecutiveDashboard() {
 
             {/* ── Profitability at a Glance — Teaser Card ── */}
             <div style={{ marginBottom: 20 }}>
-                <div className="card" style={{ padding: '18px 20px' }}>
+                <div ref={profitTrendCardRef} className="card" style={{ padding: '18px 20px' }}>
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                         <div>
@@ -2159,6 +2171,8 @@ export default function ExecutiveDashboard() {
                 currency={currency}
                 parentTwcTrend={twcTrend}
                 parentKpis={kpiData}
+                parentPlStatement={plStatementData}
+                filterOptionsReady={filterOptionsReady}
             />
 
             {/* View All Modal */}

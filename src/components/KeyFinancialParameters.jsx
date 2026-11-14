@@ -134,6 +134,8 @@ export default function KeyFinancialParameters({
     currency = 'AED',
     parentTwcTrend = [],
     parentKpis = {},
+    parentPlStatement = null,
+    filterOptionsReady = true,
 }) {
     // 1. PTD vs YTD toggle (default YTD as in reference design)
     const [periodType, setPeriodType] = useState('YTD');
@@ -358,17 +360,23 @@ export default function KeyFinancialParameters({
 
     // Fetch data for all parameters when filters or period type change
     useEffect(() => {
+        if (filterOptionsReady === false) return;
         let active = true;
         setLoading(true);
 
         const hierarchy = getHierarchyFilterParams();
+        const hasCustomHierarchy = Boolean(hierarchy.legalGroupId || hierarchy.legalEntityId || hierarchy.parentDivisionId || hierarchy.subdivisionId);
+        const canReuseParentPl = parentPlStatement && !hasCustomHierarchy;
+        const canReuseParentTwc = Array.isArray(parentTwcTrend) && parentTwcTrend.length > 0 && !hasCustomHierarchy;
 
-        const p1 = fetchPLStatement({
-            year: dateMeta.year,
-            period_name: dateMeta.periodName,
-            periodName: dateMeta.periodName,
-            ...hierarchy,
-        }).catch(() => null);
+        const p1 = canReuseParentPl
+            ? Promise.resolve(parentPlStatement)
+            : fetchPLStatement({
+                year: dateMeta.year,
+                period_name: dateMeta.periodName,
+                periodName: dateMeta.periodName,
+                ...hierarchy,
+            }).catch(() => null);
 
         const p2 = fetchPLStatement({
             year: dateMeta.prevPeriodName.split('-')[1] ? `20${dateMeta.prevPeriodName.split('-')[1]}` : dateMeta.year,
@@ -386,10 +394,12 @@ export default function KeyFinancialParameters({
             }).catch(() => null)
             : Promise.resolve(null);
 
-        const p7 = getExecTwcTrend({
-            months: 14,
-            ...hierarchy,
-        }).catch(() => null);
+        const p7 = canReuseParentTwc
+            ? Promise.resolve({ data: { rows: parentTwcTrend } })
+            : getExecTwcTrend({
+                months: 14,
+                ...hierarchy,
+            }).catch(() => null);
 
         // Financial position / Balance sheet data is currently available starting from year 2026
         const isFpDateAvailable = (dStr) => {
@@ -448,17 +458,22 @@ export default function KeyFinancialParameters({
                 }
             });
 
-        // Background fetch for kpis fallback
-        getExecKpis({ as_of_date: dateMeta.asOfDate, period_type: periodType, ...hierarchy })
-            .then(res => { if (active && res) setKpisCurrent(res); })
-            .catch(() => {});
+        // Background fetch for kpis fallback only if parent didn't provide them
+        const hasParentKpis = parentKpis && (parentKpis.kpis || parentKpis.data || Object.keys(parentKpis).length > 0) && !hasCustomHierarchy;
+        if (!hasParentKpis) {
+            getExecKpis({ as_of_date: dateMeta.asOfDate, period_type: periodType, ...hierarchy })
+                .then(res => { if (active && res) setKpisCurrent(res); })
+                .catch(() => {});
+        } else {
+            setKpisCurrent(parentKpis);
+        }
 
         getExecKpis({ as_of_date: dateMeta.prevAsOfDate, period_type: periodType, ...hierarchy })
             .then(res => { if (active && res) setKpisPrev(res); })
             .catch(() => {});
 
         return () => { active = false; };
-    }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency]);
+    }, [dateMeta, periodType, selectedLegalGroup, selectedLegalEntity, selectedParentDivision, selectedSubdivision, currency, filterOptionsReady, parentPlStatement, parentTwcTrend]);
 
     // Helper to find TWC trend row by period code (e.g. "2026-09" or "2026-08")
     const getTwcRowByMonth = (yearVal, monthCode) => {
